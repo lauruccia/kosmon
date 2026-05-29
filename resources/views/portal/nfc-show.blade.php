@@ -186,7 +186,7 @@
                 if (err.name === 'NotAllowedError') {
                     nfcBar.textContent = 'NFC non autorizzato dal browser. Tocca "Attiva NFC" e conferma il permesso, oppure usa il QR code.';
                 } else if (err.name === 'NotSupportedError') {
-                    nfcBar.textContent = 'NFC non supportato su questo dispositivo. Usa il QR code.';
+                    nfcBar.textContent = 'NFC via browser non compatibile con questo telefono o dispositivo avvicinato. Funziona con tag NFC NDEF compatibili; usa il QR code.';
                 } else {
                     nfcBar.textContent = 'NFC: ' + (err.message || 'errore sconosciuto') + '. Usa il QR code.';
                 }
