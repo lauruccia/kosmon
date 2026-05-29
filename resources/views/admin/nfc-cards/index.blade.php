@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('layouts.portal')
 
 @section('content')
 <div class="stack">
