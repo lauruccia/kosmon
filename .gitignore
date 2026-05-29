@@ -15,7 +15,6 @@
 check_laura.php
 /database/*.sqlite
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key

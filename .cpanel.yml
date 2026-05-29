@@ -1,0 +1,10 @@
+---
+deployment:
+  tasks:
+    - export COMPOSER_HOME="${HOME}/.composer"
+    - /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction 2>&1
+    - /usr/local/bin/php artisan migrate --force 2>&1
+    - /usr/local/bin/php artisan config:cache 2>&1
+    - /usr/local/bin/php artisan route:cache 2>&1
+    - /usr/local/bin/php artisan view:cache 2>&1
+    - /usr/local/bin/php artisan storage:link 2>&1
