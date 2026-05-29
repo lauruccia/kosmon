@@ -1,0 +1,96 @@
+@extends('layouts.portal')
+
+@section('content')
+    {{-- KPI strip: 3 stat + 1 azione --}}
+    <section class="hero-strip" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px;">
+        <article class="stat-card">
+            <div class="eyebrow">Override utenti</div>
+            <div class="section-title">{{ $usersWithOverridesCount }}</div>
+            <div class="table-muted">Con limiti personalizzati</div>
+        </article>
+        <article class="stat-card">
+            <div class="eyebrow">Massimale / fido default</div>
+            <div class="section-title">{{ number_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} KY</div>
+            <div class="table-muted">Credito spendibile di default</div>
+        </article>
+        <article class="stat-card">
+            <div class="eyebrow">Limite mensile default</div>
+            <div class="section-title">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? number_format($defaultTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' KY' : '—' }}</div>
+            <div class="table-muted">Soglia mensile uscite</div>
+        </article>
+        <article class="stat-card" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;">
+            <div class="eyebrow">Gestione utenti</div>
+            <a class="cta secondary" href="{{ route('admin.users.index') }}" style="margin-top:4px;">Apri utenti</a>
+        </article>
+    </section>
+
+    <section class="summary-grid">
+        {{-- Valori correnti --}}
+        <article class="card light-card">
+            <div class="section-head">
+                <div><span class="eyebrow">Regole ereditate</span><h3 class="section-title">Valori effettivi di default</h3></div>
+                <span class="pill">fallback globale</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px;">
+                <div class="timeline-item" style="padding:10px;">
+                    <strong style="font-size:12px;">Massimale consentito</strong>
+                    <div class="table-muted" style="font-size:11px;">Fido max in negativo.</div>
+                    <div class="section-title" style="font-size:18px;">-{{ number_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} KY</div>
+                </div>
+                <div class="timeline-item" style="padding:10px;">
+                    <strong style="font-size:12px;">Limite giornaliero</strong>
+                    <div class="table-muted" style="font-size:11px;">Max uscite per giorno.</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['daily_transaction_limit'] !== null ? number_format($defaultTransferLimits['daily_transaction_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                </div>
+                <div class="timeline-item" style="padding:10px;">
+                    <strong style="font-size:12px;">Limite mensile</strong>
+                    <div class="table-muted" style="font-size:11px;">Max uscite nel mese.</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? number_format($defaultTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                </div>
+                <div class="timeline-item" style="padding:10px;">
+                    <strong style="font-size:12px;">Limite per movimento</strong>
+                    <div class="table-muted" style="font-size:11px;">Max per singola operazione.</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['per_movement_limit'] !== null ? number_format($defaultTransferLimits['per_movement_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                </div>
+            </div>
+            <div class="notice" style="margin-top:14px;font-size:12px;">
+                La disponibilità commerciale è calcolata automaticamente: <strong>saldo positivo + fido attivo</strong>. Non è impostabile qui.
+            </div>
+        </article>
+
+        {{-- Form aggiornamento --}}
+        <article class="card light-card" id="limits-default-form">
+            <div class="section-head">
+                <div><span class="eyebrow">Configurazione admin</span><h3 class="section-title">Aggiorna valori di default</h3></div>
+                <span class="pill warn">0 = nessun fido</span>
+            </div>
+            <div class="notice" style="margin-bottom:14px;">
+                I nuovi default valgono per i prossimi utenti. Gli utenti già registrati mantengono i valori effettivi attuali.
+            </div>
+            <form method="post" action="{{ route('admin.limits.update') }}" class="field-grid">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="field">
+                        <label>Massimale / fido</label>
+                        <input type="number" min="0" name="default_negative_balance_limit" value="{{ old('default_negative_balance_limit', $defaultTransferLimits['negative_balance_limit']) }}">
+                    </div>
+                    <div class="field">
+                        <label>Limite per movimento</label>
+                        <input type="number" min="0" name="default_per_movement_limit" value="{{ old('default_per_movement_limit', $defaultTransferLimits['per_movement_limit']) }}">
+                    </div>
+                    <div class="field">
+                        <label>Limite giornaliero</label>
+                        <input type="number" min="0" name="default_daily_transaction_limit" value="{{ old('default_daily_transaction_limit', $defaultTransferLimits['daily_transaction_limit']) }}">
+                    </div>
+                    <div class="field">
+                        <label>Limite mensile</label>
+                        <input type="number" min="0" name="default_monthly_transaction_limit" value="{{ old('default_monthly_transaction_limit', $defaultTransferLimits['monthly_transaction_limit']) }}">
+                    </div>
+                </div>
+                <div class="form-actions" style="justify-content:flex-start;margin-top:6px;">
+                    <button type="submit" class="cta">Salva default</button>
+                </div>
+            </form>
+        </article>
+    </section>
+@endsection

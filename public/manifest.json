@@ -1,0 +1,55 @@
+{
+    "name": "KMoney — Circuito",
+    "short_name": "KMoney",
+    "description": "Portale operativo del circuito KMoney — conti, pagamenti e movimenti.",
+    "start_url": "/dashboard",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#0b2244",
+    "theme_color": "#0b2244",
+    "lang": "it",
+    "categories": ["finance", "business"],
+    "icons": [
+        {
+            "src": "/assets/brand/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/assets/brand/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/assets/brand/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/assets/brand/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Paga",
+            "short_name": "Paga",
+            "description": "Avvia un pagamento nel circuito",
+            "url": "/paga",
+            "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Movimenti",
+            "short_name": "Movimenti",
+            "description": "Visualizza i tuoi movimenti",
+            "url": "/movimenti",
+            "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
+        }
+    ]
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KMoney — Offline</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0b2244;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .container {
+            text-align: center;
+            max-width: 380px;
+        }
+        .logo {
+            width: 72px;
+            height: 72px;
+            background: rgba(255,255,255,.12);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 32px;
+            font-weight: 900;
+            color: #60a5fa;
+        }
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 14px;
+            color: rgba(255,255,255,.65);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            background: #0f52c4;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+        .btn:hover { background: #1a62d4; }
+        .status {
+            margin-top: 20px;
+            font-size: 12px;
+            color: rgba(255,255,255,.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">K</div>
+        <h1>Nessuna connessione</h1>
+        <p>
+            KMoney non riesce a connettersi al circuito.<br>
+            Controlla la connessione e riprova.
+        </p>
+        <button class="btn" onclick="window.location.reload()">Riprova</button>
+        <p class="status" id="status"></p>
+    </div>
+    <script>
+        window.addEventListener('online', () => window.location.reload());
+        document.getElementById('status').textContent =
+            navigator.onLine ? '' : 'Dispositivo offline';
+    </script>
+</body>
+</html>
