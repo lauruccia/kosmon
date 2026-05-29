@@ -253,6 +253,8 @@ Route::middleware(['auth', 'verified', 'twofactor'])->prefix('contratto')->name(
     Route::post('/otp',       [ContractController::class, 'sendOtp'])->name('send-otp')->middleware('throttle:3,10');
     Route::post('/firma',     [ContractController::class, 'sign'])->name('sign.post')->middleware('throttle:10,1');
     Route::post('/rimanda',   [ContractController::class, 'postpone'])->name('postpone');
+    Route::get('/mio-contratto', [ContractController::class, 'viewSigned'])->name('view');
+    Route::get('/scarica',       [ContractController::class, 'downloadSigned'])->name('download');
 });
 
 Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->group(function () {
@@ -545,6 +547,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
 Route::get('/admin/contratto',   [AdminController::class, 'contractSettings'])->name('admin.contract-settings');
 Route::patch('/admin/contratto', [AdminController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update');
 Route::post('/admin/contratto/testo', [AdminController::class, 'contractTextUpdate'])->name('admin.contract-text.update');
+Route::get('/admin/contratto/firme',             [AdminController::class, 'contractSignatures'])->name('admin.contract-signatures');
+Route::get('/admin/contratto/firme/export',      [AdminController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export');
+Route::get('/admin/contratto/firme/{signature}', [AdminController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show');
+Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'contractSignatureExportSingle'])->name('admin.contract-signatures.export-single');
     Route::patch('/admin/branding', [AdminController::class, 'brandingUpdate'])->name('admin.branding.update');
 
     // Web Push subscriptions

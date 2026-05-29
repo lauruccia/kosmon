@@ -10,6 +10,12 @@
     <div class="alert alert-success">&#x2705; {{ session('success') }}</div>
 @endif
 
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+    <a href="{{ route('admin.contract-signatures') }}" class="btn btn-secondary">
+        &#x1F4CB; Log firme ({{ $signedCount }})
+    </a>
+</div>
+
 <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:28px;">
     <div class="kpi-card">
         <div class="kpi-label">Contratti firmati</div>

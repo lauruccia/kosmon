@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContractSignature;
 use App\Models\SystemSetting;
 use App\Notifications\ContractOtpNotification;
 use Illuminate\Http\RedirectResponse;
@@ -97,9 +98,24 @@ class ContractController extends Controller
             return back()->withErrors(['otp' => 'Codice OTP non corretto.'])->withInput();
         }
 
-        // Firma registrata
+        // Firma registrata — salva snapshot contratto
+        $settings         = SystemSetting::contractSettings();
+        $contractHtml     = $settings->renderContractText($user->company, $user);
+        $contractVersion  = $settings->contract_version ?? 1;
+        $now              = now();
+
+        ContractSignature::create([
+            'user_id'                => $user->id,
+            'company_id'             => $user->company_id,
+            'contract_version'       => $contractVersion,
+            'contract_html_snapshot' => $contractHtml,
+            'signed_at'              => $now,
+            'ip_address'             => $request->ip(),
+            'user_agent'             => $request->userAgent(),
+        ]);
+
         $user->update([
-            'contract_signed_at'      => now(),
+            'contract_signed_at'      => $now,
             'contract_otp'            => null,
             'contract_otp_expires_at' => null,
         ]);
@@ -127,10 +143,89 @@ class ContractController extends Controller
     }
 
     /**
-     * Determina se l'utente può rimandare la firma.
-     * - Può rimandare: utenti esistenti (creati prima del deploy) + admin non ha forzato.
-     * - Non può rimandare: nuovi utenti, o se contract_force_sign=true.
+     * Mostra il contratto firmato (snapshot) nell'area riservata utente.
      */
+    public function viewSigned(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->contract_signed_at) {
+            return redirect()->route('portal.contract.sign')
+                ->withErrors(['general' => 'Non hai ancora firmato il contratto.']);
+        }
+
+        $signature = \App\Models\ContractSignature::where('user_id', $user->id)
+            ->latest('signed_at')
+            ->first();
+
+        if (! $signature) {
+            // Utenti che hanno firmato prima dell'introduzione degli snapshot: mostra testo attuale
+            $settings     = SystemSetting::contractSettings();
+            $contractHtml = $settings->renderContractText($user->company, $user);
+
+            return view('portal.contract-view-legacy', [
+                'user'         => $user,
+                'company'      => $user->company,
+                'contractHtml' => $contractHtml,
+                'signedAt'     => $user->contract_signed_at,
+                'contractVer'  => $settings->contract_version ?? 1,
+            ]);
+        }
+
+        return view('portal.contract-view', compact('signature'));
+    }
+
+    /**
+     * Scarica il contratto firmato come PDF.
+     */
+    public function downloadSigned(Request $request): \Illuminate\Http\Response|RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->contract_signed_at) {
+            return redirect()->route('portal.contract.sign');
+        }
+
+        $signature = \App\Models\ContractSignature::where('user_id', $user->id)
+            ->latest('signed_at')->first();
+
+        $contractHtml = $signature?->contract_html_snapshot
+            ?? SystemSetting::contractSettings()->renderContractText($user->company, $user);
+        $version  = $signature?->contract_version ?? (SystemSetting::contractSettings()->contract_version ?? 1);
+        $signedAt = $signature?->signed_at ?? $user->contract_signed_at;
+        $ipAddr   = $signature?->ip_address ?? 'n.d.';
+        $companyName = $user->company?->name ?? $user->name;
+
+        $html = '<html><head><meta charset="UTF-8">
+<style>
+body{font-family:Georgia,serif;font-size:13px;line-height:1.7;color:#111;margin:40px 50px;}
+h1{font-size:1.2rem;color:#0f766e;margin-bottom:4px;}
+.meta{font-size:11px;color:#666;margin-bottom:32px;border-bottom:1px solid #ddd;padding-bottom:16px;}
+h2{font-size:.95rem;font-weight:700;margin:20px 0 8px;color:#0f766e;}
+p{margin:0 0 12px;}
+hr{border:none;border-top:1px solid #ddd;margin:20px 0;}
+ul,ol{padding-left:20px;}
+li{margin-bottom:6px;}
+.footer{margin-top:40px;border-top:2px solid #0f766e;padding-top:16px;font-size:11px;color:#555;}
+</style></head><body>
+<h1>Contratto di Adesione al Circuito KMoney &mdash; v' . $version . '</h1>
+<div class="meta">
+<strong>Azienda:</strong> ' . e($companyName) . ' &nbsp;|&nbsp;
+<strong>Firmato il:</strong> ' . $signedAt->format('d/m/Y \l\l\e H:i:s') . '
+</div>
+' . $contractHtml . '
+<div class="footer">
+Documento generato da KMoney &mdash; Firma digitale con OTP via email<br>
+' . ($signature ? 'Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at), 0, 12)) : '') . '
+</div>
+</body></html>';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->setPaper('a4');
+        $filename = 'contratto-' . \Illuminate\Support\Str::slug($companyName) . '-' . $signedAt->format('Ymd') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    
     private function userCanPostpone(\App\Models\User $user): bool
     {
         $forceSign       = (bool) SystemSetting::contractSettings()->contract_force_sign;

@@ -1934,6 +1934,119 @@ class AdminController extends Controller
         return back()->with('success', 'Impostazioni contratto aggiornate.');
     }
 
+    // ── Log firme contratto ───────────────────────────────────────────────────
+
+    public function contractSignatures(\Illuminate\Http\Request $request): \Illuminate\View\View
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $query = \App\Models\ContractSignature::with(['user', 'company'])
+            ->latest('signed_at');
+
+        if ($q = $request->input('q')) {
+            $query->where(function ($sub) use ($q) {
+                $sub->whereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%")
+                        ->orWhere('vat_number', 'like', "%{$q}%"))
+                    ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%"));
+            });
+        }
+
+        if ($version = $request->input('version')) {
+            $query->where('contract_version', $version);
+        }
+
+        if ($from = $request->input('from')) {
+            $query->whereDate('signed_at', '>=', $from);
+        }
+
+        if ($to = $request->input('to')) {
+            $query->whereDate('signed_at', '<=', $to);
+        }
+
+        $signatures = $query->paginate(30);
+        $versions   = \App\Models\ContractSignature::distinct()->orderBy('contract_version')->pluck('contract_version');
+
+        return view('admin.contract-signatures', compact('signatures', 'versions'));
+    }
+
+    public function contractSignatureShow(\App\Models\ContractSignature $signature): \Illuminate\View\View
+    {
+        abort_unless(request()->user()->canAccessBackoffice(), 403);
+        $signature->load(['user', 'company']);
+        return view('admin.contract-signature-show', compact('signature'));
+    }
+
+    public function contractSignaturesExport(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        abort_unless(request()->user()->canAccessBackoffice(), 403);
+
+        $signatures = \App\Models\ContractSignature::with(['user', 'company'])
+            ->latest('signed_at')->get();
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="firme-contratto-' . now()->format('Y-m-d') . '.csv"',
+        ];
+
+        return response()->stream(function () use ($signatures) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8
+            fputcsv($handle, ['ID', 'Azienda', 'P.IVA', 'Utente', 'Email', 'Data Firma', 'Versione', 'IP', 'User Agent']);
+            foreach ($signatures as $sig) {
+                fputcsv($handle, [
+                    $sig->id,
+                    $sig->company?->name ?? '',
+                    $sig->company?->vat_number ?? '',
+                    $sig->user?->name ?? '',
+                    $sig->user?->email ?? '',
+                    $sig->signed_at->format('d/m/Y H:i:s'),
+                    $sig->contract_version,
+                    $sig->ip_address ?? '',
+                    $sig->user_agent ?? '',
+                ]);
+            }
+            fclose($handle);
+        }, 200, $headers);
+    }
+
+    public function contractSignatureExportSingle(\App\Models\ContractSignature $signature): \Illuminate\Http\Response
+    {
+        abort_unless(request()->user()->canAccessBackoffice(), 403);
+        $signature->load(['user', 'company']);
+
+        $companyName = $signature->company?->name ?? $signature->user?->name ?? 'Utente';
+        $html = '<html><head><meta charset="UTF-8">
+<style>
+body{font-family:Georgia,serif;font-size:13px;line-height:1.7;color:#111;margin:40px 50px;}
+h1{font-size:1.2rem;color:#0f766e;margin-bottom:4px;}
+.meta{font-size:11px;color:#666;margin-bottom:32px;border-bottom:1px solid #ddd;padding-bottom:16px;}
+h2{font-size:.95rem;font-weight:700;margin:20px 0 8px;color:#0f766e;}
+p{margin:0 0 12px;}
+hr{border:none;border-top:1px solid #ddd;margin:20px 0;}
+ul,ol{padding-left:20px;}
+li{margin-bottom:6px;}
+.footer{margin-top:40px;border-top:2px solid #0f766e;padding-top:16px;font-size:11px;color:#555;}
+</style></head><body>
+<h1>Contratto di Adesione al Circuito KMoney &mdash; v' . $signature->contract_version . '</h1>
+<div class="meta">
+<strong>Azienda:</strong> ' . e($companyName) . ' &nbsp;|&nbsp;
+<strong>Firmato il:</strong> ' . $signature->signed_at->format('d/m/Y \l\l\e H:i:s') . ' &nbsp;|&nbsp;
+<strong>IP:</strong> ' . e($signature->ip_address ?? 'n.d.') . ' &nbsp;|&nbsp;
+<strong>Utente:</strong> ' . e($signature->user?->name ?? '') . ' (' . e($signature->user?->email ?? '') . ')
+</div>
+' . $signature->contract_html_snapshot . '
+<div class="footer">
+Documento generato da KMoney &mdash; Firma digitale con OTP via email<br>
+Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at), 0, 12)) . '
+</div>
+</body></html>';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->setPaper('a4');
+        $filename = 'contratto-' . \Illuminate\Support\Str::slug($companyName) . '-' . $signature->signed_at->format('Ymd') . '.pdf';
+        return $pdf->download($filename);
+    }
+
 
     public function branding(Request $request): \Illuminate\View\View
     {
@@ -2004,3 +2117,4 @@ class AdminController extends Controller
     }
 
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
