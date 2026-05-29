@@ -202,4 +202,55 @@ class NfcCard extends Model
 
         return hash_equals($expectedShort, $sig);
     }
+
+    // ─── Numero seriale ──────────────────────────────────────────────────────
+
+    /**
+     * Genera un numero seriale univoco nel formato KMY-YYYY-XXXXXX-C
+     *
+     * Struttura:
+     *   KMY        = prefisso fisso KosMopaY
+     *   YYYY       = anno di emissione (4 cifre)
+     *   XXXXXX     = 6 caratteri alfanumerici maiuscoli casuali
+     *   C          = check character (modulo 36 della somma dei valori ASCII)
+     *
+     * Esempio: KMY-2026-A3F9K2-M
+     *
+     * Regex di validazione: /^KMY-\d{4}-[A-Z0-9]{6}-[A-Z0-9]$/
+     */
+    public static function generateSerial(): string
+    {
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $year  = now()->year;
+
+        do {
+            $random = '';
+            for ($i = 0; $i < 6; $i++) {
+                $random .= $chars[random_int(0, 35)];
+            }
+
+            // Check character: somma valori ASCII dei 6 chars, modulo 36
+            $sum   = array_sum(array_map('ord', str_split($random)));
+            $check = $chars[$sum % 36];
+
+            $serial = "KMY-{$year}-{$random}-{$check}";
+
+        } while (static::where('serial_number', $serial)->exists());
+
+        return $serial;
+    }
+
+    /** Valida il formato di un numero seriale. */
+    public static function isValidSerial(string $serial): bool
+    {
+        if (! preg_match('/^KMY-\d{4}-([A-Z0-9]{6})-([A-Z0-9])$/', $serial, $m)) {
+            return false;
+        }
+
+        $chars    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $sum      = array_sum(array_map('ord', str_split($m[1])));
+        $expected = $chars[$sum % 36];
+
+        return $m[2] === $expected;
+    }
 }

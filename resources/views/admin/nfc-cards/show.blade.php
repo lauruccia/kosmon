@@ -1,16 +1,23 @@
 @extends('layouts.portal')
 
 @section('content')
-<div style="max-width:680px;">
-    <div class="stack">
+<div class="stack">
 
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div>
             <a href="{{ route('admin.nfc-cards.index') }}" style="font-size:13px;color:var(--ink-muted);">&#8592; Torna alle card</a>
-            <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin:8px 0 4px;">
-                Card {{ $card->serial_number ?? substr($card->uuid, 0, 8) }}
+            <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin:8px 0 2px;">
+                &#128246; {{ $card->serial_number ?? substr($card->uuid, 0, 8) }}
             </h1>
-            <div style="font-size:13px;color:var(--ink-muted);">Cliente: <strong>{{ $card->company->name }}</strong></div>
+            <div style="font-size:13px;color:var(--ink-muted);">
+                Cliente: <strong>{{ $card->company->name }}</strong>
+            </div>
         </div>
+        <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:12px;">
+            <div style="color:var(--ink-muted);margin-bottom:2px;">Formato seriale</div>
+            <code style="font-size:13px;font-weight:700;color:var(--primary);">KMY-YYYY-XXXXXX-C</code>
+        </div>
+    </div>
 
         @if(session('success'))
             <div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;font-size:13px;color:#166534;">
@@ -132,7 +139,6 @@
         </section>
         @endunless
 
-    </div>
 </div>
 
 <script>

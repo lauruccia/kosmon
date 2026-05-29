@@ -30,9 +30,8 @@ class AdminNfcCardController extends Controller
     /** Form di emissione nuova card. */
     public function create(): View
     {
-        $companies = Company::where('status', 'active')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        // Tutti i partecipanti al circuito (aziende e utenti individuali)
+        $companies = Company::orderBy('name')->get(['id', 'name']);
 
         return view('admin.nfc-cards.create', [
             'pageTitle' => 'Emetti nuova Card NFC',
@@ -44,15 +43,14 @@ class AdminNfcCardController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'company_id'    => ['required', 'exists:companies,id'],
-            'serial_number' => ['nullable', 'string', 'max:50', 'unique:nfc_cards,serial_number'],
-            'notes'         => ['nullable', 'string', 'max:500'],
+            'company_id' => ['required', 'exists:companies,id'],
+            'notes'      => ['nullable', 'string', 'max:500'],
         ]);
 
         $card = NfcCard::create([
             'company_id'    => $data['company_id'],
             'issued_by'     => $request->user()->id,
-            'serial_number' => $data['serial_number'] ?? null,
+            'serial_number' => NfcCard::generateSerial(),
             'notes'         => $data['notes'] ?? null,
             'status'        => 'pending',
         ]);

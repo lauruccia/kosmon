@@ -1,7 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
-<div style="max-width:520px;">
+<div class="portal-grid">
     <div class="stack">
 
         <div>
