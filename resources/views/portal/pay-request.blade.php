@@ -147,6 +147,23 @@
 
 </div>
 
+
+@if($pr->isPending() && $fromAccount->saldoDisponibile() >= $pr->amount)
+<script type="module">
+import { initPayButton } from '{{ Vite::asset("resources/js/ky-payment-request.js") }}';
+// Progressive enhancement: se il browser ha un Payment Handler registrato,
+// il bottone "Paga" mostra il native payment sheet con conferma biometrica.
+initPayButton({
+    amount:      {{ $pr->amount }},
+    label:       @json($pr->toAccount->company?->name ?? 'KMoney'),
+    description: @json($pr->description ?? ''),
+    prToken:     @json($pr->token),
+    secondsLeft: {{ max(0, $pr->expires_at->diffInSeconds(now())) }},
+    redirectUrl: @json(route('portal.movements')),
+});
+</script>
+@endif
+
 @push('scripts')
 <script>
 (function () {

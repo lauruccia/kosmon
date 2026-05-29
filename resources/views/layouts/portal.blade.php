@@ -1094,6 +1094,8 @@
                             <a class="sidebar-link {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}" href="{{ route('portal.requests') }}"><span class="nav-icon">RQ</span><span>Richieste</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-qr' ? 'active' : '' }}" href="{{ route('portal.incasso-qr.form') }}"><span class="nav-icon">QR</span><span>Incassa QR</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}"><span class="nav-icon">NFC</span><span>Incassa NFC</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-sonic' ? 'active' : '' }}" href="{{ route('portal.incasso-sonic.form') }}"><span class="nav-icon">&#128266;</span><span>Incassa Sonic</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'paga-sonic' ? 'active' : '' }}" href="{{ route('portal.paga-sonic.form') }}"><span class="nav-icon">&#127908;</span><span>Paga Sonic</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'nfc-cards' ? 'active' : '' }}" href="{{ route('portal.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Le mie Card NFC</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'scheduled-payments' ? 'active' : '' }}" href="{{ route('portal.scheduled-payments.index') }}"><span class="nav-icon">SC</span><span>Pag. programmati</span></a>
                             @if(!$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
@@ -1470,51 +1472,4 @@
 
     {{-- Legal Footer --}}
     <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;margin-top:auto;">
-        <div style="max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;">
-            <span style="font-size:11px;color:rgba(255,255,255,.3);white-space:nowrap;">
-                &copy; {{ date('Y') }} KMoney &middot; Circuito Kosmos
-            </span>
-            <nav style="display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;">
-                @foreach([
-                    ['label' => 'Termini',   'route' => 'legal.terms'],
-                    ['label' => 'Privacy',   'route' => 'legal.privacy'],
-                    ['label' => 'Cookie',    'route' => 'legal.cookies'],
-                    ['label' => 'Contratto', 'route' => 'legal.contract'],
-                    ['label' => 'Limiti',    'route' => 'legal.limits'],
-                    ['label' => 'AML/KYC',   'route' => 'legal.aml-kyc'],
-                    ['label' => 'Reclami',   'route' => 'legal.complaints'],
-                    ['label' => 'Assistenza','route' => 'help.index'],
-                ] as $lnk)
-                    <a href="{{ route($lnk['route']) }}"
-                       target="_blank"
-                       style="font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;transition:color .15s;"
-                       onmouseover="this.style.color='rgba(255,255,255,.7)'"
-                       onmouseout="this.style.color='rgba(255,255,255,.35)'">
-                        {{ $lnk['label'] }}
-                    </a>
-                @endforeach
-            </nav>
-        </div>
-    </footer>
-
-    {{-- Cookie consent banner --}}
-    <div id="cookie-banner" style="
-        display:none;
-        position:fixed;bottom:0;left:0;right:0;z-index:10000;
-        background:#0b2244;color:#fff;
-        padding:14px 20px;
-        align-items:center;justify-content:space-between;gap:16px;
-        flex-wrap:wrap;font-size:13px;
-        box-shadow:0 -2px 16px rgba(0,0,0,.3);
-    ">
-        <span>
-            Utilizziamo cookie tecnici necessari al funzionamento.
-            <a href="{{ route('legal.cookies') }}" style="color:#93c5fd;text-decoration:underline;">Cookie Policy</a>
-            &mdash;
-            <a href="{{ route('legal.privacy') }}" style="color:#93c5fd;text-decoration:underline;">Privacy Policy</a>
-        </span>
-        <button
-            onclick="document.getElementById('cookie-banner').style.display='none';localStorage.setItem('km-cookie-consent','1');"
-            style="background:#0f52c4;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;"
-        >
-            Ho capit
+        <div style="max-wi

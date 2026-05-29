@@ -1,0 +1,1 @@
+const a=window.location.origin+"/paga/handler";async function n(){if(navigator.serviceWorker)try{const e=await navigator.serviceWorker.ready;"paymentManager"in e&&await e.paymentManager.instruments.set("ky-default",{name:"KMoney (KY)",icons:[{src:"/assets/brand/icon-192.png",sizes:"192x192",type:"image/png"}],method:a})}catch{}}export{n as r};

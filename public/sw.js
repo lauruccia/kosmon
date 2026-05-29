@@ -139,3 +139,71 @@ self.addEventListener('fetch', (event) => {
         );
     }
 });
+
+
+// ── Payment Handler API (W3C) ────────────────────────────────────────────────
+// Permette al browser di mostrare uno sheet nativo "Paga con KMoney" quando
+// un sito chiama: new PaymentRequest([{ supportedMethods: '...' }], details)
+
+// Mappa paymentRequestId → { resolve, reject }
+const pendingPayments = new Map();
+
+self.addEventListener('canmakepayment', (event) => {
+    // Il browser chiede: "Puoi gestire questo metodo?"
+    event.respondWith(Promise.resolve(true));
+});
+
+self.addEventListener('paymentrequest', (event) => {
+    event.respondWith(
+        (async () => {
+            const total   = event.total;
+            const params  = new URLSearchParams({
+                amount:    total.value,
+                currency:  total.amount?.currency ?? 'KY',
+                label:     total.label,
+                pr_id:     event.paymentRequestId ?? '',
+            });
+
+            // Apre la finestra di conferma KY nel browser payment sheet
+            const client = await event.openWindow(
+                self.registration.scope + 'paga/handler?' + params.toString()
+            );
+
+            if (!client) {
+                throw new Error('Impossibile aprire la finestra di pagamento.');
+            }
+
+            // Attende la risposta della finestra via postMessage
+            return new Promise((resolve, reject) => {
+                const prId = event.paymentRequestId;
+                pendingPayments.set(prId, { resolve, reject });
+
+                // Timeout 5 minuti
+                setTimeout(() => {
+                    if (pendingPayments.has(prId)) {
+                        pendingPayments.delete(prId);
+                        reject(new DOMException('Pagamento scaduto.', 'AbortError'));
+                    }
+                }, 300_000);
+            });
+        })()
+    );
+});
+
+self.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || !data.type || !data.pr_id) return;
+
+    const pending = pendingPayments.get(data.pr_id);
+    if (!pending) return;
+    pendingPayments.delete(data.pr_id);
+
+    if (data.type === 'ky-payment-confirm') {
+        pending.resolve({
+            methodName: data.methodName,
+            details:    { success: true, transferUuid: data.transferUuid ?? null },
+        });
+    } else if (data.type === 'ky-payment-cancel') {
+        pending.reject(new DOMException('Annullato dall\'utente.', 'AbortError'));
+    }
+});

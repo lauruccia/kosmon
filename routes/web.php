@@ -11,6 +11,8 @@ use App\Http\Controllers\BrokerController;
 use App\Http\Controllers\CardController;
 use App\Http\Controllers\IncassoQrController;
 use App\Http\Controllers\NfcPaymentController;
+use App\Http\Controllers\SonicPaymentController;
+use App\Http\Controllers\PaymentHandlerController;
 use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\DocsController;
@@ -388,6 +390,22 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/incassa/nfc/{token}', [NfcPaymentController::class, 'show'])->name('portal.incasso-nfc.show');
     Route::get('/incassa/nfc/{token}/stato', [NfcPaymentController::class, 'status'])->name('portal.incasso-nfc.status');
     Route::post('/incassa/nfc/{token}/annulla', [NfcPaymentController::class, 'cancel'])->name('portal.incasso-nfc.cancel');
+
+    // Incasso Sonic (Web Audio API — smartphone-to-smartphone via suono)
+    Route::get('/incassa/sonic', [SonicPaymentController::class, 'form'])->name('portal.incasso-sonic.form');
+    Route::post('/incassa/sonic', [SonicPaymentController::class, 'store'])->name('portal.incasso-sonic.store')->middleware('throttle:incasso');
+    Route::get('/incassa/sonic/{token}', [SonicPaymentController::class, 'show'])->name('portal.incasso-sonic.show');
+    Route::get('/incassa/sonic/{token}/stato', [SonicPaymentController::class, 'status'])->name('portal.incasso-sonic.status');
+    Route::post('/incassa/sonic/{token}/annulla', [SonicPaymentController::class, 'cancel'])->name('portal.incasso-sonic.cancel');
+
+    // Paga Sonic (lato cliente/decodificatore)
+    Route::get('/paga/sonic', [SonicPaymentController::class, 'receiveForm'])->name('portal.paga-sonic.form');
+    Route::post('/paga/sonic/verifica', [SonicPaymentController::class, 'verify'])->name('portal.paga-sonic.verify')->middleware('throttle:payments');
+
+    // W3C Payment Request API — handler window e pagamento
+    // La finestra /paga/handler viene aperta dal browser in un payment sheet
+    Route::get('/paga/handler', [PaymentHandlerController::class, 'window'])->name('portal.payment-handler.window');
+    Route::post('/paga/handler/pay', [PaymentHandlerController::class, 'pay'])->name('portal.payment-handler.pay')->middleware('throttle:payments');
 
 
     // Pagamenti programmati
