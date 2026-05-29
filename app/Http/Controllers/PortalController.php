@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\PaymentReceived;
+use App\Mail\PaymentSent;
 use App\Mail\CreditNoteIssued;
 use App\Mail\RefundIssued;
 use App\Mail\PaymentRequestConfirmed;
@@ -636,6 +637,17 @@ class PortalController extends Controller
                 toAccount: $toAccount,
             ));
         }
+
+        // Notifica al mittente (conferma pagamento inviato)
+        Mail::to($currentUser->email)->queue(
+            new PaymentSent(
+                sender: $currentUser,
+                transfer: $transfer,
+                fromAccount: $currentAccount,
+                toAccount: $toAccount,
+                balanceAfter: (int) $currentAccount->available_balance,
+            )
+        );
 
         return redirect()->route('portal.dashboard')->with('portal_success', 'Pagamento registrato correttamente in KY.');
     }

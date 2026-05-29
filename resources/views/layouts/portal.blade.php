@@ -987,6 +987,20 @@
         }
     </style>
     @stack('head')
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css" rel="stylesheet">
+    <style>
+        .ts-wrapper { flex: 1; min-width: 0; }
+        .ts-wrapper.single .ts-control { border-radius: 10px; border: 1.5px solid var(--border, #e2e8f0); background: var(--surface, #fff); color: var(--text, #1e293b); font-size: 14px; padding: 9px 36px 9px 12px; cursor: pointer; }
+        .ts-wrapper.single.input-active .ts-control { border-color: #0f52c4; box-shadow: 0 0 0 3px rgba(15,82,196,.12); }
+        .ts-dropdown { border-radius: 10px; border: 1.5px solid #e2e8f0; box-shadow: 0 8px 24px rgba(0,0,0,.12); font-size: 14px; margin-top: 4px; }
+        .ts-dropdown .option { padding: 9px 14px; }
+        .ts-dropdown .option.active { background: #0f52c4; color: #fff; }
+        .ts-dropdown-content { max-height: 240px; }
+        .ts-control input { color: var(--text, #1e293b) !important; }
+        [data-theme="dark"] .ts-wrapper.single .ts-control,
+        [data-theme="dark"] .ts-dropdown { background: #162032; color: #e2e8f0; border-color: #2d3f5a; }
+        [data-theme="dark"] .ts-dropdown .option { color: #e2e8f0; }
+    </style>
 </head>
 <body>
     @php
@@ -1429,6 +1443,27 @@
                 });
             });
         </script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('select').forEach(function (el) {
+                // Skip if already initialized or explicitly excluded
+                if (el.tomselect || el.dataset.noSearch !== undefined) return;
+                new TomSelect(el, {
+                    allowEmptyOption: true,
+                    placeholder: el.options[0]?.text || '',
+                    searchField: ['text'],
+                    maxOptions: null,
+                    plugins: el.multiple ? ['remove_button'] : [],
+                    render: {
+                        no_results: function() {
+                            return '<div class="no-results" style="padding:10px 14px;color:#64748b;">Nessun risultato</div>';
+                        }
+                    }
+                });
+            });
+        });
+    </script>
     @stack('scripts')
 
     {{-- Legal Footer --}}

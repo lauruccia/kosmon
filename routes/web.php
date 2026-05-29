@@ -50,8 +50,15 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
+use App\Http\Controllers\Admin\AdminNfcCardController;
+use App\Http\Controllers\NfcCardController;
+use App\Http\Controllers\NfcCardPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// -- Landing NFC card (apertura URL dal chip) ----------------------------
+Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
+
 
 // ── Centro assistenza (pubblico) ─────────────────────────────────────────────
 Route::get('/assistenza', [HelpController::class, 'index'])->name('help.index');
@@ -462,6 +469,16 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/ky-cards/bonifici/{purchase}/confirm', [KyCardController::class, 'adminConfirmBankTransfer'])->name('admin.ky-cards.confirm-transfer');
     Route::post('/admin/ky-cards/bonifici/{purchase}/reject', [KyCardController::class, 'adminRejectBankTransfer'])->name('admin.ky-cards.reject-transfer');
     Route::post('/admin/ky-cards/acquisti/{purchase}/retry', [KyCardController::class, 'adminRetryCredit'])->name('admin.ky-cards.retry-credit');
+
+    // -- Card NFC fisiche (Admin) -----------------------------------------
+    Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index');
+    Route::get('/admin/nfc-cards/create', [AdminNfcCardController::class, 'create'])->name('admin.nfc-cards.create');
+    Route::post('/admin/nfc-cards', [AdminNfcCardController::class, 'store'])->name('admin.nfc-cards.store');
+    Route::get('/admin/nfc-cards/{nfcCard}', [AdminNfcCardController::class, 'show'])->name('admin.nfc-cards.show');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-issued', [AdminNfcCardController::class, 'markIssued'])->name('admin.nfc-cards.mark-issued');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-delivered', [AdminNfcCardController::class, 'markDelivered'])->name('admin.nfc-cards.mark-delivered');
+    Route::post('/admin/nfc-cards/{nfcCard}/revoke', [AdminNfcCardController::class, 'revoke'])->name('admin.nfc-cards.revoke');
+
     Route::get('/admin/ky-cards/ordini', [KyCardController::class, 'adminOrders'])->name('admin.ky-cards.orders');
 
         Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
@@ -608,6 +625,23 @@ Route::post('/admin/contratto/testo', [AdminController::class, 'contractTextUpda
     Route::get('/profilo/email/verifica', [EmailChangeController::class, 'verifyForm'])->name('portal.email-change.verify-form');
     Route::post('/profilo/email/verifica', [EmailChangeController::class, 'verify'])->name('portal.email-change.verify')->middleware('throttle:10,1');
     Route::delete('/profilo/email', [EmailChangeController::class, 'cancel'])->name('portal.email-change.cancel');
+
+
+    // -- Card NFC del cliente -----------------------------------------------
+    Route::get('/nfc-cards', [NfcCardController::class, 'index'])->name('portal.nfc-cards.index');
+    Route::get('/nfc-cards/{uuid}', [NfcCardController::class, 'show'])->name('portal.nfc-cards.show');
+    Route::get('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activateForm'])->name('portal.nfc-cards.activate');
+    Route::post('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activate'])->name('portal.nfc-cards.activate.post');
+    Route::post('/nfc-cards/{uuid}/limiti', [NfcCardController::class, 'updateLimits'])->name('portal.nfc-cards.limits');
+    Route::post('/nfc-cards/{uuid}/blocca', [NfcCardController::class, 'block'])->name('portal.nfc-cards.block');
+    Route::post('/nfc-cards/{uuid}/sblocca', [NfcCardController::class, 'unblock'])->name('portal.nfc-cards.unblock');
+
+    // -- Flusso pagamento Card NFC ------------------------------------------
+    Route::post('/nfc/card/identify', [NfcCardPaymentController::class, 'identify'])->name('nfc.card.identify');
+    Route::post('/nfc/card/request', [NfcCardPaymentController::class, 'createRequest'])->name('nfc.card.request')->middleware('throttle:payments');
+    Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
+    Route::get('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorizeForm'])->name('nfc.card.authorize');
+    Route::post('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorize'])->name('nfc.card.authorize.post')->middleware('throttle:payments');
 
     // ── Sospensione pagamenti automatici ─────────────────────────────────────
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
