@@ -1069,6 +1069,7 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-nfc-cards' ? 'active' : '' }}" href="{{ route('admin.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Card NFC</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhook-deliveries' ? 'active' : '' }}" href="{{ route('admin.webhook-deliveries') }}">WD Log Webhook</a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-sectors' ? 'active' : '' }}" href="{{ route('admin.sectors.index') }}"><span class="nav-icon">ST</span><span>Settori</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-credit-requests' ? 'active' : '' }}" href="{{ route('admin.credit-requests.index') }}">
@@ -1093,6 +1094,7 @@
                             <a class="sidebar-link {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}" href="{{ route('portal.requests') }}"><span class="nav-icon">RQ</span><span>Richieste</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-qr' ? 'active' : '' }}" href="{{ route('portal.incasso-qr.form') }}"><span class="nav-icon">QR</span><span>Incassa QR</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}"><span class="nav-icon">NFC</span><span>Incassa NFC</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'nfc-cards' ? 'active' : '' }}" href="{{ route('portal.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Le mie Card NFC</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'scheduled-payments' ? 'active' : '' }}" href="{{ route('portal.scheduled-payments.index') }}"><span class="nav-icon">SC</span><span>Pag. programmati</span></a>
                             @if(!$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhooks' ? 'active' : '' }}" href="{{ route('portal.webhooks.index') }}"><span class="nav-icon">WH</span><span>Webhook</span></a>
