@@ -2,11 +2,14 @@
 deployment:
   tasks:
     - export COMPOSER_HOME="${HOME}/.composer"
-    - /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction 2>&1
-    - /usr/local/bin/php artisan migrate --force 2>&1
-    - /usr/local/bin/php artisan config:cache 2>&1
-    - /usr/local/bin/php artisan route:cache 2>&1
-    - /usr/local/bin/php artisan view:cache 2>&1
-    - /usr/local/bin/php artisan storage:link 2>&1
-    - rsync -a --delete /home2/kosmopay/kosmon/public/build/ /home2/kosmopay/public_html/build/ 2>&1
-    - ln -sfn /home2/kosmopay/kosmon/storage/app/public /home2/kosmopay/public_html/storage 2>&1
+    - mkdir -p /home2/kosmopay/kosmon/storage/logs /home2/kosmopay/kosmon/bootstrap/cache
+    - echo "=== cPanel deploy started $(date) ===" > /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/php artisan migrate --force >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/php artisan config:cache >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/php artisan route:cache >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/php artisan view:cache >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - cd /home2/kosmopay/kosmon && /usr/local/bin/php artisan storage:link >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - rsync -a --delete /home2/kosmopay/kosmon/public/build/ /home2/kosmopay/public_html/build/ >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - ln -sfn /home2/kosmopay/kosmon/storage/app/public /home2/kosmopay/public_html/storage >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log 2>&1
+    - echo "=== cPanel deploy finished $(date) ===" >> /home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log
