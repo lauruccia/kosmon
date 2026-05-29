@@ -29,6 +29,10 @@
                                 Inizializzazione NFC...
                             </div>
 
+                            <button type="button" id="nfc-start-button" class="cta" style="margin-top:10px;width:100%;font-size:13px;padding:9px 14px;display:none;">
+                                Attiva NFC
+                            </button>
+
                             {{-- Countdown --}}
                             <div style="margin-top:14px;font-size:12px;color:var(--ink-muted);">
                                 Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);">5:00</span>
@@ -140,15 +144,26 @@
 
         // ── Web NFC ──────────────────────────────────────────────────────────
         const nfcBar = document.getElementById('nfc-status-bar');
+        const nfcStartButton = document.getElementById('nfc-start-button');
+        let nfcStarting = false;
 
         async function initNfc() {
             if (!('NDEFReader' in window)) {
                 nfcBar.textContent = 'NFC non disponibile su questo browser. Usa il QR code.';
                 nfcBar.style.color = 'var(--ink-muted)';
+                if (nfcStartButton) nfcStartButton.style.display = 'none';
                 return;
             }
 
             try {
+                nfcStarting = true;
+                if (nfcStartButton) {
+                    nfcStartButton.disabled = true;
+                    nfcStartButton.textContent = 'Avvicina il dispositivo...';
+                }
+                nfcBar.textContent = 'Avvicina lo smartphone o il tag NFC...';
+                nfcBar.style.color = 'var(--ink-muted)';
+
                 const ndef = new NDEFReader();
 
                 // Scrittura: quando il cliente avvicina il telefono, scriviamo l'URL
@@ -160,19 +175,29 @@
                 nfcBar.style.background = 'var(--success-soft, #dcfce7)';
                 nfcBar.style.color      = 'var(--success, #16a34a)';
                 nfcBar.style.border     = '1px solid #bbf7d0';
+                if (nfcStartButton) {
+                    nfcStartButton.style.display = 'none';
+                }
 
                 // Dopo la scrittura, mantieni la sessione attiva per ulteriori tap
                 keepNfcAlive(ndef);
 
             } catch (err) {
                 if (err.name === 'NotAllowedError') {
-                    nfcBar.textContent = 'Permesso NFC negato. Abilita NFC nelle impostazioni del browser.';
+                    nfcBar.textContent = 'NFC non autorizzato dal browser. Tocca "Attiva NFC" e conferma il permesso, oppure usa il QR code.';
                 } else if (err.name === 'NotSupportedError') {
                     nfcBar.textContent = 'NFC non supportato su questo dispositivo. Usa il QR code.';
                 } else {
                     nfcBar.textContent = 'NFC: ' + (err.message || 'errore sconosciuto') + '. Usa il QR code.';
                 }
                 nfcBar.style.color = 'var(--danger)';
+                if (nfcStartButton) {
+                    nfcStartButton.disabled = false;
+                    nfcStartButton.textContent = 'Riprova NFC';
+                    nfcStartButton.style.display = 'block';
+                }
+            } finally {
+                nfcStarting = false;
             }
         }
 
@@ -250,7 +275,16 @@
 
         // Avvia NFC solo su HTTPS (richiesto dalla Web NFC API)
         if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
-            initNfc();
+            if (!('NDEFReader' in window)) {
+                nfcBar.textContent = 'NFC non disponibile su questo browser. Usa il QR code.';
+                nfcBar.style.color = 'var(--ink-muted)';
+            } else if (nfcStartButton) {
+                nfcBar.textContent = 'Tocca "Attiva NFC" per autorizzare il browser.';
+                nfcStartButton.style.display = 'block';
+                nfcStartButton.addEventListener('click', function () {
+                    if (!nfcStarting) initNfc();
+                });
+            }
         } else {
             nfcBar.textContent = 'NFC richiede HTTPS. Usa il QR code.';
             nfcBar.style.color = 'var(--ink-muted)';
