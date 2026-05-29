@@ -8,3 +8,5 @@ deployment:
     - /usr/local/bin/php artisan route:cache 2>&1
     - /usr/local/bin/php artisan view:cache 2>&1
     - /usr/local/bin/php artisan storage:link 2>&1
+    - rsync -a --delete /home2/kosmopay/kosmon/public/build/ /home2/kosmopay/public_html/build/ 2>&1
+    - ln -sfn /home2/kosmopay/kosmon/storage/app/public /home2/kosmopay/public_html/storage 2>&1
