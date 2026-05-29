@@ -855,10 +855,14 @@ class AdminController extends Controller
             $months->push($now->subMonths($i)->startOfMonth());
         }
 
+        $periodExpression = DB::getDriverName() === 'mysql'
+            ? "DATE_FORMAT(booked_at, '%Y-%m')"
+            : "strftime('%Y-%m', booked_at)";
+
         // Recupera i dati dal DB con un'unica query
         $rows = Transfer::query()
             ->select(
-                DB::raw("strftime('%Y-%m', booked_at) as ym"),
+                DB::raw("{$periodExpression} as ym"),
                 DB::raw('SUM(amount) as total_volume'),
                 DB::raw('COUNT(*) as total_count'),
             )
@@ -867,21 +871,6 @@ class AdminController extends Controller
             ->groupBy('ym')
             ->get()
             ->keyBy('ym');
-
-        // SQLite: strftime — MySQL userebbe DATE_FORMAT. Fallback per MySQL:
-        if (DB::getDriverName() === 'mysql') {
-            $rows = Transfer::query()
-                ->select(
-                    DB::raw("DATE_FORMAT(booked_at, '%Y-%m') as ym"),
-                    DB::raw('SUM(amount) as total_volume'),
-                    DB::raw('COUNT(*) as total_count'),
-                )
-                ->where('status', 'booked')
-                ->where('booked_at', '>=', $months->first())
-                ->groupBy('ym')
-                ->get()
-                ->keyBy('ym');
-        }
 
         $labels  = [];
         $volumes = [];
@@ -1365,19 +1354,16 @@ class AdminController extends Controller
             $mysqlFmt = '%Y-%m';
         }
 
-        $dbFmt = DB::getDriverName() === 'mysql' ? $mysqlFmt : $fmt;
+        $periodExpression = DB::getDriverName() === 'mysql'
+            ? "DATE_FORMAT(booked_at, '{$mysqlFmt}')"
+            : "strftime('{$fmt}', booked_at)";
 
         $rows = Transfer::query()
             ->select(
-                DB::raw("strftime('{$fmt}', booked_at) as period_key"),
+                DB::raw("{$periodExpression} as period_key"),
                 DB::raw('SUM(amount) as total_volume'),
                 DB::raw('COUNT(*) as total_count'),
             )
-            ->when(DB::getDriverName() === 'mysql', fn($q) => $q->select(
-                DB::raw("DATE_FORMAT(booked_at, '{$mysqlFmt}') as period_key"),
-                DB::raw('SUM(amount) as total_volume'),
-                DB::raw('COUNT(*) as total_count'),
-            ))
             ->where('status', 'booked')
             ->where('booked_at', '>=', $from)
             ->where('booked_at', '<=', $to)

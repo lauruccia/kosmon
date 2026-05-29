@@ -635,6 +635,7 @@ class TransferBookingService
         ]);
 
         // Applica commissione di transazione (se configurata)
+        $kind = $transfer->kind;
         $fee = \App\Models\TransactionFee::calculate($kind, $amount);
         if ($fee > 0) {
             $systemAccount = \App\Models\Account::systemAccount();
