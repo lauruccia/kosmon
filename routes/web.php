@@ -13,6 +13,8 @@ use App\Http\Controllers\IncassoQrController;
 use App\Http\Controllers\NfcPaymentController;
 use App\Http\Controllers\SonicPaymentController;
 use App\Http\Controllers\PaymentHandlerController;
+use App\Http\Controllers\CodePaymentController;
+use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\DocsController;
@@ -408,6 +410,18 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // La finestra /paga/handler viene aperta dal browser in un payment sheet
     Route::get('/paga/handler', [PaymentHandlerController::class, 'window'])->name('portal.payment-handler.window');
     Route::post('/paga/handler/pay', [PaymentHandlerController::class, 'pay'])->name('portal.payment-handler.pay')->middleware('throttle:payments');
+
+    // Pagamento con codice numerico 6 cifre
+    Route::get('/incassa/codice', [CodePaymentController::class, 'form'])->name('portal.incasso-codice.form');
+    Route::post('/incassa/codice', [CodePaymentController::class, 'store'])->name('portal.incasso-codice.store')->middleware('throttle:incasso');
+    Route::get('/incassa/codice/{token}', [CodePaymentController::class, 'show'])->name('portal.incasso-codice.show');
+    Route::get('/incassa/codice/{token}/stato', [CodePaymentController::class, 'status'])->name('portal.incasso-codice.status');
+    Route::post('/incassa/codice/{token}/annulla', [CodePaymentController::class, 'cancel'])->name('portal.incasso-codice.cancel');
+    Route::get('/paga/codice', [CodePaymentController::class, 'receiveForm'])->name('portal.paga-codice.form');
+    Route::post('/paga/codice/verifica', [CodePaymentController::class, 'verify'])->name('portal.paga-codice.verify')->middleware('throttle:payments');
+
+    // KY Wallet — carta virtuale + hub pagamenti
+    Route::get('/wallet', [WalletController::class, 'index'])->name('portal.wallet');
 
 
     // Pagamenti programmati
