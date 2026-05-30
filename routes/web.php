@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSectorController;
@@ -200,6 +201,22 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+// ── WebAuthn (Passkey / impronta) ─────────────────────────────────────────────
+// Endpoint guest: challenge e verifica per il login
+Route::middleware(['throttle:10,1'])->group(function () {
+    Route::post('/webauthn/login/options', [WebAuthnController::class, 'loginOptions'])->name('webauthn.login.options');
+    Route::post('/webauthn/login/verify',  [WebAuthnController::class, 'loginVerify'])->name('webauthn.login.verify');
+});
+
+// Endpoint autenticati: registrazione e gestione dispositivi
+Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->prefix('webauthn')->name('webauthn.')->group(function () {
+    Route::post('/register/options',   [WebAuthnController::class, 'registerOptions'])->name('register.options');
+    Route::post('/register/verify',    [WebAuthnController::class, 'registerVerify'])->name('register.verify');
+    Route::get('/credentials',         [WebAuthnController::class, 'listCredentials'])->name('credentials');
+    Route::delete('/credentials/{id}', [WebAuthnController::class, 'deleteCredential'])->name('credentials.delete');
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Email verification
 Route::middleware('auth')->group(function () {

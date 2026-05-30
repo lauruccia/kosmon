@@ -155,6 +155,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(AuditLog::class, 'actor_user_id');
     }
 
+    public function webAuthnCredentials(): HasMany
+    {
+        return $this->hasMany(WebAuthnCredential::class);
+    }
+
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);

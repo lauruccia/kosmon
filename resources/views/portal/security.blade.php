@@ -173,6 +173,54 @@
     </section>
     @endif
 
+    {{-- ── Accesso biometrico (WebAuthn / Passkey) ───────────────────────────── --}}
+    <section class="card card-pad" style="margin-bottom:20px;" id="webauthn-section">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:#f0f9ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                    <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                    <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                    <path d="M12 12v.01"/>
+                </svg>
+            </div>
+            <div style="flex:1;">
+                <div style="font-size:16px;font-weight:700;color:var(--ink);">Accesso con impronta (Passkey)</div>
+                <div id="webauthn-badge" style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Caricamento…</div>
+            </div>
+        </div>
+
+        <p style="font-size:14px;color:var(--ink-soft);margin-bottom:20px;">
+            Registra il tuo dispositivo per accedere con l'impronta digitale, Face ID o PIN del dispositivo,
+            senza inserire la password ogni volta.
+        </p>
+
+        {{-- Lista dispositivi registrati --}}
+        <div id="webauthn-credentials-list" style="margin-bottom:16px;"></div>
+
+        {{-- Messaggio feedback --}}
+        <div id="webauthn-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;"></div>
+
+        {{-- Nome dispositivo + bottone aggiungi --}}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input
+                id="webauthn-name"
+                type="text"
+                placeholder="Nome dispositivo (es. iPhone di Laura)"
+                maxlength="60"
+                style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;background:var(--surface-soft);color:var(--ink);outline:none;"
+            >
+            <button
+                id="webauthn-register-btn"
+                type="button"
+                style="padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;"
+            >
+                + Aggiungi dispositivo
+            </button>
+        </div>
+    </section>
+    {{-- ─────────────────────────────────────────────────────────────────────── --}}
+
     {{-- Contratto firmato --}}
     @if(auth()->user()->contract_signed_at)
     <section class="card card-pad" style="margin-bottom:20px;">
@@ -209,6 +257,7 @@
 
 @push('scripts')
 <script>
+    // OTP auto-submit
     const otpInput = document.getElementById('otp-input');
     if (otpInput) {
         otpInput.addEventListener('input', function () {
@@ -216,5 +265,177 @@
             if (this.value.length === 6) this.closest('form').submit();
         });
     }
+
+    // ── WebAuthn helpers ────────────────────────────────────────────────────────
+    function b64urlToBuffer(b64url) {
+        const b64    = b64url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=');
+        return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
+    }
+
+    function bufferToB64url(buf) {
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        bytes.forEach(b => bin += String.fromCharCode(b));
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    function wMsg(text, type) {
+        const el = document.getElementById('webauthn-msg');
+        el.textContent = text;
+        el.style.cssText = type === 'ok'
+            ? 'display:block;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;'
+            : 'display:block;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;';
+    }
+
+    const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+    // ── Carica lista dispositivi ────────────────────────────────────────────────
+    async function loadCredentials() {
+        try {
+            const res  = await fetch('{{ route("webauthn.credentials") }}', {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            });
+            const list = await res.json();
+            const container = document.getElementById('webauthn-credentials-list');
+            const badge     = document.getElementById('webauthn-badge');
+
+            badge.textContent = list.length > 0
+                ? list.length + ' ' + (list.length === 1 ? 'dispositivo registrato' : 'dispositivi registrati')
+                : 'Nessun dispositivo registrato';
+            badge.style.color = list.length > 0 ? 'var(--success, #166534)' : 'var(--ink-muted)';
+
+            if (list.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = list.map(c => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--surface-soft);">
+                    <div>
+                        <div style="font-size:14px;font-weight:700;color:var(--ink);">${escapeHtml(c.name)}</div>
+                        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">
+                            Aggiunto ${c.created_at} &nbsp;·&nbsp; Ultimo uso: ${c.last_used_at}
+                        </div>
+                    </div>
+                    <button
+                        onclick="deleteCredential(${c.id})"
+                        style="padding:6px 12px;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;"
+                    >Rimuovi</button>
+                </div>
+            `).join('');
+        } catch (e) {
+            console.error('WebAuthn list error', e);
+        }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Rimuovi dispositivo ─────────────────────────────────────────────────────
+    async function deleteCredential(id) {
+        if (!confirm('Rimuovere questo dispositivo? Dovrai usare la password per accedere.')) return;
+        try {
+            const res = await fetch(`/webauthn/credentials/${id}`, {
+                method:  'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            });
+            if (res.ok) {
+                wMsg('Dispositivo rimosso.', 'ok');
+                loadCredentials();
+            } else {
+                const d = await res.json();
+                wMsg(d.error || 'Errore durante la rimozione.', 'err');
+            }
+        } catch (e) {
+            wMsg('Errore di rete.', 'err');
+        }
+    }
+
+    // ── Registra nuovo dispositivo ─────────────────────────────────────────────
+    document.getElementById('webauthn-register-btn').addEventListener('click', async () => {
+        const btn  = document.getElementById('webauthn-register-btn');
+        const name = document.getElementById('webauthn-name').value.trim()
+                  || 'Dispositivo ' + new Date().toLocaleDateString('it-IT');
+
+        btn.disabled    = true;
+        btn.textContent = 'In attesa…';
+
+        try {
+            // 1. Ottieni le opzioni di creazione
+            const optRes = await fetch('{{ route("webauthn.register.options") }}', {
+                method:  'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept':       'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: '{}',
+            });
+
+            const optData = await optRes.json();
+            if (!optRes.ok) { wMsg(optData.error || 'Errore nel recupero delle opzioni.', 'err'); return; }
+
+            // 2. Decodifica i campi binari
+            optData.challenge = b64urlToBuffer(optData.challenge);
+            optData.user.id   = b64urlToBuffer(optData.user.id);
+            if (optData.excludeCredentials) {
+                optData.excludeCredentials = optData.excludeCredentials.map(c => ({
+                    ...c, id: b64urlToBuffer(c.id),
+                }));
+            }
+
+            // 3. Prompt biometrico del browser
+            const credential = await navigator.credentials.create({ publicKey: optData });
+
+            // 4. Codifica risposta
+            const payload = {
+                name,
+                id:    credential.id,
+                rawId: bufferToB64url(credential.rawId),
+                type:  credential.type,
+                response: {
+                    clientDataJSON:  bufferToB64url(credential.response.clientDataJSON),
+                    attestationObject: bufferToB64url(credential.response.attestationObject),
+                },
+            };
+
+            // 5. Verifica sul server
+            const verRes = await fetch('{{ route("webauthn.register.verify") }}', {
+                method:  'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept':       'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const verData = await verRes.json();
+            if (verRes.ok) {
+                wMsg('Dispositivo registrato con successo!', 'ok');
+                document.getElementById('webauthn-name').value = '';
+                loadCredentials();
+            } else {
+                wMsg(verData.error || 'Registrazione fallita.', 'err');
+            }
+
+        } catch (err) {
+            if (err.name === 'NotAllowedError') {
+                wMsg('Operazione annullata o non autorizzata.', 'err');
+            } else if (err.name === 'NotSupportedError') {
+                wMsg('Questo dispositivo non supporta le passkey.', 'err');
+            } else {
+                wMsg('Errore: ' + err.message, 'err');
+            }
+        } finally {
+            btn.disabled    = false;
+            btn.textContent = '+ Aggiungi dispositivo';
+        }
+    });
+
+    // Carica la lista all'avvio
+    loadCredentials();
 </script>
 @endpush
