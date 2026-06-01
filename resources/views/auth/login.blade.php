@@ -16,12 +16,26 @@
         .demo{margin-top:22px;padding:18px;border-radius:18px;background:#f4f8f5;color:#4f6058;line-height:1.7}
         /* WebAuthn */
         .divider{display:flex;align-items:center;gap:12px;margin:24px 0 0;color:var(--muted);font-size:13px}.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
-        .btn-biometric{width:100%;min-height:54px;border:2px solid var(--line);border-radius:16px;background:#f7fafb;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;color:var(--ink);transition:border-color .2s,background .2s}
+        .btn-biometric{width:100%;min-height:60px;border:2px solid var(--line);border-radius:16px;background:#f7fafb;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;color:var(--ink);transition:border-color .2s,background .2s}
         .btn-biometric:hover{border-color:#4d7386;background:#eef3f5}.btn-biometric:disabled{opacity:.5;cursor:not-allowed}
         .biometric-msg{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;display:none}
         .biometric-msg.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
         .biometric-msg.err{background:var(--rose);color:#7a4250;border:1px solid #fecdd3}
-        @media (max-width:900px){.card{grid-template-columns:1fr}.brand,.panel{padding:28px 22px}.brand h1,.panel h2{font-size:36px}.cta,.ghost{width:100%}}
+        /* Mobile: panel prima, brand nascosta / compatta */
+        @media (max-width:900px){
+            body{background:var(--navy)}
+            .wrap{padding:0;align-items:stretch}
+            .card{grid-template-columns:1fr;grid-template-rows:auto 1fr;border-radius:0;box-shadow:none;min-height:100vh}
+            .brand{order:2;padding:24px 20px;gap:12px;display:flex;flex-direction:row;align-items:center;flex-wrap:wrap}
+            .brand img{width:36px}
+            .brand>div{flex:1}
+            .brand h1{font-size:18px;margin:0}
+            .brand p,.feature{display:none}
+            .panel{order:1;padding:32px 20px 24px;background:#fff;border-radius:0}
+            .panel h2{font-size:28px}.sub{font-size:15px}
+            .cta,.ghost{width:100%}
+            .btn-biometric{min-height:64px;font-size:18px}
+        }
     </style>
 </head>
 <body>
@@ -40,7 +54,25 @@
             <section class="panel">
                 <div class="eyebrow">Accesso</div>
                 <h2>Login</h2>
-                <div class="sub">Entra con il tuo profilo KMoney o apri un nuovo conto come privato o azienda.</div>
+
+                {{-- ── Accesso con impronta — in cima su mobile ──────────────────── --}}
+                <button id="btn-biometric" class="btn-biometric" type="button" style="margin-top:20px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/>
+                        <path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                        <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/>
+                        <path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                        <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/>
+                        <path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                        <path d="M12 12v.01"/>
+                    </svg>
+                    Accedi con impronta / Passkey
+                </button>
+                <div id="biometric-msg" class="biometric-msg"></div>
+
+                <div class="divider">oppure con password</div>
+
+                <div class="sub" style="margin-top:4px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
                 @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
                 <form method="post" action="{{ route('login.attempt') }}">
                     @csrf
@@ -54,27 +86,9 @@
                         <a class="ghost" href="{{ route('register') }}">Apri un conto KMoney</a>
                     </div>
                 </form>
-
-                {{-- ── Accesso con impronta (WebAuthn / Passkey) ──────────────────── --}}
-                <div class="divider">oppure</div>
-
-                <button id="btn-biometric" class="btn-biometric" type="button">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/>
-                        <path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
-                        <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/>
-                        <path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
-                        <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/>
-                        <path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
-                        <path d="M12 12v.01"/>
-                    </svg>
-                    Accedi con impronta
-                </button>
-                <p style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
-                    Tocca il bottone — il dispositivo mostrerà le passkey disponibili.<br>
-                    Prima volta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
+                <p style="margin:12px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
+                    Prima volta con impronta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
                 </p>
-                <div id="biometric-msg" class="biometric-msg"></div>
 
                 <div class="demo">
                     Superadmin demo: <strong>superadmin@kmoney.test</strong> / <strong>secret123</strong><br>
