@@ -6,10 +6,11 @@
      KY WALLET — carta virtuale stile Google Wallet
      ============================================================ --}}
 
-<div class="portal-grid" style="max-width:480px;">
+<div class="wallet-grid">
+
+  {{-- ══ COLONNA 1 — Carta + Browser ══════════════════════════ --}}
   <div class="stack">
 
-    {{-- ── CARTA VIRTUALE ─────────────────────────────────────── --}}
     <div class="ky-card-outer">
       <div class="ky-card" id="ky-card">
         <div class="ky-card-top">
@@ -37,126 +38,232 @@
       </div>
     </div>
 
-    {{-- ── AGGIUNGI AL BROWSER ─────────────────────────────────── --}}
+    {{-- Saldo effettivo + fido --}}
+    @php
+      $bal    = $account->balance ?? 0;
+      $avail  = $account->available_balance ?? 0;
+      $fido   = $account->company?->credit_limit ?? 0;
+    @endphp
+    <div class="wallet-stat-row">
+      <div class="wallet-stat-box">
+        <div class="wallet-stat-label">Saldo effettivo</div>
+        <div class="wallet-stat-value {{ $bal >= 0 ? 'positive' : 'negative' }}">
+          {{ $bal >= 0 ? '+' : '' }}{{ number_format($bal, 2, ',', '.') }} KY
+        </div>
+      </div>
+      <div class="wallet-stat-box">
+        <div class="wallet-stat-label">Fido disponibile</div>
+        <div class="wallet-stat-value">
+          {{ $fido > 0 ? number_format($fido, 2, ',', '.') . ' KY' : '—' }}
+        </div>
+      </div>
+    </div>
+
+    {{-- Aggiungi al browser --}}
     <section class="card card-pad" style="padding:16px 20px;">
       <div style="display:flex;align-items:center;gap:14px;">
-        <div style="font-size:32px;">&#128274;</div>
+        <div style="font-size:28px;">&#128274;</div>
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Aggiungi al browser</div>
-          <div style="font-size:12px;color:var(--ink-muted);">
-            Su Chrome Android, la carta KY appare nel payment sheet nativo come Google Pay.
+          <div style="font-weight:700;font-size:13px;margin-bottom:2px;">Aggiungi al browser</div>
+          <div style="font-size:11.5px;color:var(--ink-muted);">
+            Su Chrome Android, appare nel payment sheet come Google Pay.
           </div>
         </div>
-        <button type="button" id="add-wallet-btn" class="cta" style="font-size:13px;padding:8px 16px;white-space:nowrap;">
+        <button type="button" id="add-wallet-btn" class="cta" style="font-size:12px;padding:7px 14px;white-space:nowrap;">
           Aggiungi
         </button>
       </div>
       <div id="wallet-status" style="font-size:12px;margin-top:8px;color:var(--ink-muted);display:none;"></div>
     </section>
 
-    {{-- ── METODI DI PAGAMENTO ─────────────────────────────────── --}}
-    <section class="card card-pad">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:16px;">
-        Come vuoi pagare?
-      </div>
+  </div>
 
-      <div style="display:grid;gap:10px;">
+  {{-- ══ COLONNA 2 — Pagare ════════════════════════════════════ --}}
+  <section class="card card-pad wallet-col-card">
+    <div class="wallet-col-title">Come vuoi pagare?</div>
+    <div style="display:grid;gap:10px;">
 
-        {{-- Codice --}}
-        <a href="{{ route('portal.paga-codice.form') }}" class="wallet-method-btn">
-          <div class="wallet-method-icon" style="background:#6d28d9;">
-            <span style="font-size:22px;font-weight:900;font-family:monospace;letter-spacing:2px;">123</span>
-          </div>
-          <div>
-            <div class="wallet-method-title">Codice a 6 cifre</div>
-            <div class="wallet-method-sub">Inserisci il codice mostrato dal cassa</div>
-          </div>
-          <div class="wallet-method-arrow">&#8250;</div>
-        </a>
+      <a href="{{ route('portal.paga-codice.form') }}" class="wallet-method-btn">
+        <div class="wallet-method-icon" style="background:#6d28d9;">
+          <span style="font-size:22px;font-weight:900;font-family:monospace;letter-spacing:2px;">123</span>
+        </div>
+        <div>
+          <div class="wallet-method-title">Codice a 6 cifre</div>
+          <div class="wallet-method-sub">Inserisci il codice mostrato dal cassa</div>
+        </div>
+        <div class="wallet-method-arrow">&#8250;</div>
+      </a>
 
-        {{-- QR --}}
-        <a href="{{ route('portal.pay.form') }}" class="wallet-method-btn">
-          <div class="wallet-method-icon" style="background:#0ea5e9;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
-              <rect x="13" y="3" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
-              <rect x="3" y="13" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
-              <rect x="13" y="13" width="4" height="4" rx=".5" fill="white"/>
-              <rect x="19" y="13" width="2" height="2" rx=".5" fill="white"/>
-              <rect x="13" y="19" width="2" height="2" rx=".5" fill="white"/>
-              <rect x="17" y="17" width="2" height="4" rx=".5" fill="white"/>
-            </svg>
-          </div>
-          <div>
-            <div class="wallet-method-title">Scansiona QR</div>
-            <div class="wallet-method-sub">Inquadra il QR del cassa</div>
-          </div>
-          <div class="wallet-method-arrow">&#8250;</div>
-        </a>
+      <a href="{{ route('portal.pay.form') }}" class="wallet-method-btn">
+        <div class="wallet-method-icon" style="background:#0ea5e9;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
+            <rect x="13" y="3" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
+            <rect x="3" y="13" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>
+            <rect x="13" y="13" width="4" height="4" rx=".5" fill="white"/>
+            <rect x="19" y="13" width="2" height="2" rx=".5" fill="white"/>
+            <rect x="13" y="19" width="2" height="2" rx=".5" fill="white"/>
+            <rect x="17" y="17" width="2" height="4" rx=".5" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <div class="wallet-method-title">Scansiona QR</div>
+          <div class="wallet-method-sub">Inquadra il QR del cassa</div>
+        </div>
+        <div class="wallet-method-arrow">&#8250;</div>
+      </a>
 
-        {{-- NFC --}}
-        <a href="{{ route('portal.incasso-nfc.form') }}" class="wallet-method-btn">
-          <div class="wallet-method-icon" style="background:#10b981;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M20 12a8 8 0 01-8 8M17 12a5 5 0 01-5 5M14 12a2 2 0 01-2 2" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="12" cy="12" r="2" fill="white"/>
-            </svg>
-          </div>
-          <div>
-            <div class="wallet-method-title">NFC tap-to-pay</div>
-            <div class="wallet-method-sub">Avvicina i telefoni</div>
-          </div>
-          <div class="wallet-method-arrow">&#8250;</div>
-        </a>
+      <a href="{{ route('portal.incasso-nfc.form') }}" class="wallet-method-btn">
+        <div class="wallet-method-icon" style="background:#10b981;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M20 12a8 8 0 01-8 8M17 12a5 5 0 01-5 5M14 12a2 2 0 01-2 2" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="2" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <div class="wallet-method-title">NFC tap-to-pay</div>
+          <div class="wallet-method-sub">Avvicina i telefoni</div>
+        </div>
+        <div class="wallet-method-arrow">&#8250;</div>
+      </a>
 
-        {{-- Link di pagamento --}}
-        <a href="{{ route('portal.payment-links.index') }}" class="wallet-method-btn">
-          <div class="wallet-method-icon" style="background:#f59e0b;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="white" stroke-width="2" stroke-linecap="round"/>
-              <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="white" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <div class="wallet-method-title">Link di pagamento</div>
-            <div class="wallet-method-sub">Condividi un link per ricevere</div>
-          </div>
-          <div class="wallet-method-arrow">&#8250;</div>
-        </a>
+      <a href="{{ route('portal.payment-links.index') }}" class="wallet-method-btn">
+        <div class="wallet-method-icon" style="background:#f59e0b;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="wallet-method-title">Link di pagamento</div>
+          <div class="wallet-method-sub">Condividi un link per ricevere</div>
+        </div>
+        <div class="wallet-method-arrow">&#8250;</div>
+      </a>
 
-      </div>
-    </section>
+      <a href="{{ route('portal.paga-sonic.form') }}" class="wallet-method-btn">
+        <div class="wallet-method-icon" style="background:#8b5cf6;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18V5l12-2v13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="6" cy="18" r="3" stroke="white" stroke-width="2"/>
+            <circle cx="18" cy="16" r="3" stroke="white" stroke-width="2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="wallet-method-title">Paga Sonic</div>
+          <div class="wallet-method-sub">Pagamento via ultrasuoni</div>
+        </div>
+        <div class="wallet-method-arrow">&#8250;</div>
+      </a>
 
-    {{-- ── RICEVI PAGAMENTO ────────────────────────────────────── --}}
-    <section class="card card-pad">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:16px;">
-        Come vuoi ricevere?
-      </div>
+    </div>
+  </section>
 
+  {{-- ══ COLONNA 3 — Ricevere + Link rapidi ═══════════════════ --}}
+  <div class="stack">
+
+    <section class="card card-pad wallet-col-card">
+      <div class="wallet-col-title">Come vuoi ricevere?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <a href="{{ route('portal.incasso-codice.form') }}" class="wallet-receive-btn">
           <div style="font-size:28px;margin-bottom:6px;">&#128290;</div>
           <div style="font-weight:700;font-size:13px;">Codice</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">6 cifre</div>
         </a>
         <a href="{{ route('portal.incasso-qr.form') }}" class="wallet-receive-btn">
           <div style="font-size:28px;margin-bottom:6px;">&#9638;</div>
           <div style="font-weight:700;font-size:13px;">QR dinamico</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Scansionabile</div>
         </a>
         <a href="{{ route('portal.incasso-nfc.form') }}" class="wallet-receive-btn">
           <div style="font-size:28px;margin-bottom:6px;">&#128246;</div>
           <div style="font-weight:700;font-size:13px;">NFC</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Tap fisico</div>
         </a>
-        <a href="{{ route('portal.payment-links.index') }}" class="wallet-receive-btn">
-          <div style="font-size:28px;margin-bottom:6px;">&#128279;</div>
-          <div style="font-weight:700;font-size:13px;">Link</div>
+        <a href="{{ route('portal.incasso-sonic.form') }}" class="wallet-receive-btn">
+          <div style="font-size:28px;margin-bottom:6px;">&#127908;</div>
+          <div style="font-weight:700;font-size:13px;">Sonic</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Ultrasuoni</div>
+        </a>
+      </div>
+    </section>
+
+    {{-- Link rapidi --}}
+    <section class="card card-pad wallet-col-card">
+      <div class="wallet-col-title">Accesso rapido</div>
+      <div style="display:grid;gap:8px;">
+        <a href="{{ route('portal.movements') }}" class="wallet-quick-link">
+          <span style="font-size:16px;">📊</span>
+          <span>Storico movimenti</span>
+          <span class="wallet-method-arrow">&#8250;</span>
+        </a>
+        <a href="{{ route('portal.payment-links.index') }}" class="wallet-quick-link">
+          <span style="font-size:16px;">🔗</span>
+          <span>I miei link pagamento</span>
+          <span class="wallet-method-arrow">&#8250;</span>
+        </a>
+        <a href="{{ route('portal.nfc-cards.index') }}" class="wallet-quick-link">
+          <span style="font-size:16px;">💳</span>
+          <span>Le mie Card NFC</span>
+          <span class="wallet-method-arrow">&#8250;</span>
+        </a>
+        <a href="{{ route('portal.scheduled-payments.index') }}" class="wallet-quick-link">
+          <span style="font-size:16px;">⏰</span>
+          <span>Pagamenti programmati</span>
+          <span class="wallet-method-arrow">&#8250;</span>
         </a>
       </div>
     </section>
 
   </div>
+
 </div>
 
 <style>
+/* ── Layout 3 colonne ───────────────────────────────────────── */
+.wallet-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .wallet-grid { grid-template-columns: 320px 1fr; }
+  .wallet-grid > div:last-child { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+@media (max-width: 768px) {
+  .wallet-grid { grid-template-columns: 1fr; }
+  .wallet-grid > div:last-child { grid-column: auto; display: block; }
+}
+
+/* ── Titolo sezione colonna ─────────────────────────────────── */
+.wallet-col-title {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-muted); margin-bottom: 16px;
+}
+.wallet-col-card { height: 100%; box-sizing: border-box; }
+
+/* ── Stat row sotto la carta ────────────────────────────────── */
+.wallet-stat-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.wallet-stat-box {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
+}
+.wallet-stat-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-muted); margin-bottom: 4px;
+}
+.wallet-stat-value {
+  font-size: 15px; font-weight: 800;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.wallet-stat-value.positive { color: var(--success); }
+.wallet-stat-value.negative { color: var(--danger); }
+
 /* ── Carta virtuale ─────────────────────────────────────────── */
 .ky-card-outer { padding: 4px; }
 .ky-card {
@@ -172,15 +279,13 @@
   content: '';
   position: absolute; top: -40px; right: -40px;
   width: 200px; height: 200px;
-  background: rgba(255,255,255,.06);
-  border-radius: 50%;
+  background: rgba(255,255,255,.06); border-radius: 50%;
 }
 .ky-card::after {
   content: '';
   position: absolute; bottom: -60px; left: -20px;
   width: 160px; height: 160px;
-  background: rgba(255,255,255,.04);
-  border-radius: 50%;
+  background: rgba(255,255,255,.04); border-radius: 50%;
 }
 .ky-card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
 .ky-card-logo { font-size:22px; font-weight:900; letter-spacing:2px; opacity:.95; }
@@ -196,29 +301,40 @@
 /* ── Metodi pagamento ───────────────────────────────────────── */
 .wallet-method-btn {
   display:flex; align-items:center; gap:14px;
-  padding:14px; background:var(--surface-soft);
-  border:1px solid var(--line); border-radius:14px;
+  padding:13px 14px; background:var(--surface-soft);
+  border:1px solid var(--line); border-radius:12px;
   text-decoration:none; color:var(--ink);
-  transition:background .15s, transform .1s;
+  transition:background .15s, border-color .15s, transform .1s;
 }
-.wallet-method-btn:hover { background:var(--surface); transform:translateX(2px); }
+.wallet-method-btn:hover { background:var(--surface-hover); border-color:var(--line-strong); transform:translateX(2px); }
 .wallet-method-icon {
-  width:48px; height:48px; border-radius:14px; flex-shrink:0;
+  width:46px; height:46px; border-radius:13px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center; color:#fff;
 }
-.wallet-method-title { font-weight:700; font-size:14px; margin-bottom:2px; }
-.wallet-method-sub   { font-size:12px; color:var(--ink-muted); }
-.wallet-method-arrow { margin-left:auto; font-size:20px; color:var(--ink-muted); padding-left:8px; }
+.wallet-method-title { font-weight:700; font-size:13.5px; margin-bottom:2px; }
+.wallet-method-sub   { font-size:11.5px; color:var(--ink-muted); }
+.wallet-method-arrow { margin-left:auto; font-size:20px; color:var(--ink-muted); padding-left:8px; flex-shrink:0; }
 
 /* ── Ricevi ─────────────────────────────────────────────────── */
 .wallet-receive-btn {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  padding:20px 12px; background:var(--surface-soft);
-  border:1px solid var(--line); border-radius:14px;
+  padding:18px 10px; background:var(--surface-soft);
+  border:1px solid var(--line); border-radius:12px;
   text-decoration:none; color:var(--ink);
-  transition:background .15s;
+  transition:background .15s, border-color .15s;
+  text-align:center;
 }
-.wallet-receive-btn:hover { background:var(--surface); }
+.wallet-receive-btn:hover { background:var(--surface-hover); border-color:var(--line-strong); }
+
+/* ── Link rapidi ────────────────────────────────────────────── */
+.wallet-quick-link {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 14px; background:var(--surface-soft);
+  border:1px solid var(--line); border-radius:10px;
+  text-decoration:none; color:var(--ink); font-size:13.5px; font-weight:600;
+  transition:background .15s, border-color .15s;
+}
+.wallet-quick-link:hover { background:var(--surface-hover); border-color:var(--line-strong); }
 </style>
 
 <script>
@@ -227,56 +343,74 @@
   const btn       = document.getElementById('add-wallet-btn');
   const statusEl  = document.getElementById('wallet-status');
 
-  async function checkWalletStatus() {
-    if (!navigator.serviceWorker) {
-      btn.textContent = 'Non supportato';
-      btn.disabled = true; btn.style.opacity = '.5';
-      return;
+  function setUnsupported(msg) {
+    btn.textContent = 'Non supportato';
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+    if (msg) {
+      statusEl.textContent = msg;
+      statusEl.style.display = 'block';
     }
+  }
+
+  function hasInstruments(reg) {
+    // paymentManager.instruments deve esistere ed avere il metodo set
+    return reg &&
+           typeof reg.paymentManager === 'object' &&
+           reg.paymentManager !== null &&
+           reg.paymentManager.instruments &&
+           typeof reg.paymentManager.instruments.set === 'function';
+  }
+
+  async function checkWalletStatus() {
+    if (!navigator.serviceWorker) { setUnsupported(); return; }
     try {
       const reg = await navigator.serviceWorker.ready;
-      if ('paymentManager' in reg) {
-        // Controlla se già registrato
-        const instruments = await reg.paymentManager.instruments.keys();
-        if (instruments.includes('ky-default')) {
-          btn.textContent = '✓ Aggiunto';
-          btn.style.background = '#059669'; btn.disabled = true;
-          statusEl.textContent = 'KY Wallet è registrato nel tuo browser.';
-          statusEl.style.display = 'block'; statusEl.style.color = '#059669';
-        }
-      } else {
-        btn.textContent = 'Non supportato';
-        btn.disabled = true; btn.style.opacity = '.5';
-        statusEl.textContent = 'Il tuo browser non supporta i payment handler. Usa Chrome su Android.';
-        statusEl.style.display = 'block';
+      if (!hasInstruments(reg)) {
+        setUnsupported('Usa Chrome su Android per aggiungere KY al payment sheet.');
+        return;
       }
-    } catch(e) {}
+      const keys = await reg.paymentManager.instruments.keys();
+      if (keys.includes('ky-default')) {
+        btn.textContent = '✓ Aggiunto';
+        btn.style.background = '#059669';
+        btn.disabled = true;
+        statusEl.textContent = 'KY Wallet è già registrato nel tuo browser.';
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#059669';
+      }
+    } catch(e) {
+      // silenzioso — browser non supporta
+      setUnsupported();
+    }
   }
 
   btn.addEventListener('click', async () => {
     if (!navigator.serviceWorker) return;
-    btn.disabled = true; btn.textContent = 'Registrazione...';
+    btn.disabled = true;
+    btn.textContent = 'Registrazione...';
     try {
       const reg = await navigator.serviceWorker.ready;
-      if ('paymentManager' in reg) {
-        await reg.paymentManager.instruments.set('ky-default', {
-          name:   'KMoney KY',
-          icons:  [{ src: '/assets/brand/icon-192.png', sizes: '192x192', type: 'image/png' }],
-          method: KY_METHOD,
-        });
-        btn.textContent = '✓ Aggiunto';
-        btn.style.background = '#059669';
-        statusEl.textContent = 'KY Wallet aggiunto! Appare ora nel payment sheet del browser.';
-        statusEl.style.display = 'block'; statusEl.style.color = '#059669';
-      } else {
-        btn.textContent = 'Non supportato'; btn.style.opacity = '.5';
-        statusEl.textContent = 'Il tuo browser non supporta i payment handler.';
-        statusEl.style.display = 'block';
+      if (!hasInstruments(reg)) {
+        setUnsupported('Il tuo browser non supporta i payment handler.');
+        return;
       }
+      await reg.paymentManager.instruments.set('ky-default', {
+        name:   'KMoney KY',
+        icons:  [{ src: '/assets/brand/icon-192.png', sizes: '192x192', type: 'image/png' }],
+        method: KY_METHOD,
+      });
+      btn.textContent = '✓ Aggiunto';
+      btn.style.background = '#059669';
+      statusEl.textContent = 'KY Wallet aggiunto! Appare ora nel payment sheet del browser.';
+      statusEl.style.display = 'block';
+      statusEl.style.color = '#059669';
     } catch(e) {
-      btn.disabled = false; btn.textContent = 'Aggiungi';
-      statusEl.textContent = 'Errore: ' + (e.message || e.name);
-      statusEl.style.display = 'block'; statusEl.style.color = 'var(--danger)';
+      btn.disabled = false;
+      btn.textContent = 'Aggiungi';
+      statusEl.textContent = 'Non supportato su questo browser.';
+      statusEl.style.display = 'block';
+      statusEl.style.color = 'var(--ink-muted)';
     }
   });
 
