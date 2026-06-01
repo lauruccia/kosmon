@@ -81,42 +81,47 @@ class WebAuthnController extends Controller
         $user       = $request->user();
         $serializer = $this->makeSerializer();
 
-        // Escludi credential già registrate per questo utente
-        $excludeCredentials = $user->webAuthnCredentials()
-            ->get()
-            ->map(fn($c) => PublicKeyCredentialDescriptor::create(
-                'public-key',
-                $this->b64UrlDecode($c->credential_id),
-            ))
-            ->all();
+        try {
+            // Escludi credential già registrate per questo utente
+            $excludeCredentials = $user->webAuthnCredentials()
+                ->get()
+                ->map(fn($c) => PublicKeyCredentialDescriptor::create(
+                    'public-key',
+                    $this->b64UrlDecode($c->credential_id),
+                ))
+                ->all();
 
-        $options = PublicKeyCredentialCreationOptions::create(
-            rp: PublicKeyCredentialRpEntity::create(
-                name: config('app.name'),
-                id:   $this->rpId(),
-            ),
-            user: PublicKeyCredentialUserEntity::create(
-                name:        $user->email,
-                id:          (string) $user->id,
-                displayName: $user->name,
-            ),
-            challenge:      random_bytes(32),
-            pubKeyCredParams: [
-                PublicKeyCredentialParameters::create('public-key', -7),    // ES256
-                PublicKeyCredentialParameters::create('public-key', -257),  // RS256
-            ],
-            timeout:             60000,
-            excludeCredentials:  $excludeCredentials,
-            authenticatorSelection: AuthenticatorSelectionCriteria::create(
-                userVerification: 'required',
-            ),
-            attestation: 'none',
-        );
+            $options = PublicKeyCredentialCreationOptions::create(
+                rp: PublicKeyCredentialRpEntity::create(
+                    name: config('app.name'),
+                    id:   $this->rpId(),
+                ),
+                user: PublicKeyCredentialUserEntity::create(
+                    name:        $user->email,
+                    id:          (string) $user->id,
+                    displayName: $user->name,
+                ),
+                challenge:      random_bytes(32),
+                pubKeyCredParams: [
+                    PublicKeyCredentialParameters::create('public-key', -7),    // ES256
+                    PublicKeyCredentialParameters::create('public-key', -257),  // RS256
+                ],
+                timeout:             60000,
+                excludeCredentials:  $excludeCredentials,
+                authenticatorSelection: AuthenticatorSelectionCriteria::create(
+                    userVerification: 'required',
+                ),
+                attestation: 'none',
+            );
 
-        $json = $serializer->serialize($options, 'json');
-        session(['webauthn_register_options' => $json]);
+            $json = $serializer->serialize($options, 'json');
+            session(['webauthn_register_options' => $json]);
 
-        return response()->json(json_decode($json, true));
+            return response()->json(json_decode($json, true));
+
+        } catch (Throwable $e) {
+            return response()->json(['error' => 'Errore opzioni registrazione: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
