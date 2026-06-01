@@ -33,17 +33,14 @@ class WebAuthnController extends Controller
         return parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
     }
 
-    /** Origini consentite (http e https del dominio configurato) */
-    private function allowedOrigins(): array
+    /**
+     * RP ID "secured" (ammessi senza HTTPS) — serve per sviluppo in HTTP (localhost).
+     * In produzione HTTPS questi sono vuoti: la libreria richiede HTTPS di default.
+     */
+    private function securedRpIds(): array
     {
-        $url  = rtrim(config('app.url'), '/');
-        $host = parse_url($url, PHP_URL_HOST);
-
-        return array_values(array_unique(array_filter([
-            $url,
-            'https://' . $host,
-            'http://'  . $host,
-        ])));
+        $scheme = parse_url(config('app.url'), PHP_URL_SCHEME);
+        return $scheme === 'http' ? [$this->rpId()] : [];
     }
 
     /** Serializer Symfony per encode/decode WebAuthn */
@@ -160,7 +157,7 @@ class WebAuthnController extends Controller
                 $credential->response,
                 $options,
                 $this->rpId(),
-                $this->allowedOrigins(),
+                $this->securedRpIds(),
             );
 
             $credentialId = $this->b64UrlEncode($source->publicKeyCredentialId);
@@ -200,37 +197,45 @@ class WebAuthnController extends Controller
             ->where('is_active', true)
             ->first();
 
-        if (! $user || $user->webAuthnCredentials()->doesntExist()) {
-            return response()->json([
-                'error' => 'Nessuna impronta registrata per questo account.',
-            ], 404);
+        try {
+            if (! $user || $user->webAuthnCredentials()->doesntExist()) {
+                return response()->json([
+                    'error' => 'Nessuna impronta registrata per questo account.',
+                ], 404);
+            }
+        } catch (Throwable $e) {
+            return response()->json(['error' => 'Errore del server: ' . $e->getMessage()], 500);
         }
 
         $serializer = $this->makeSerializer();
 
-        $allowCredentials = $user->webAuthnCredentials()
-            ->get()
-            ->map(fn($c) => PublicKeyCredentialDescriptor::create(
-                'public-key',
-                $this->b64UrlDecode($c->credential_id),
-            ))
-            ->all();
+        try {
+            $allowCredentials = $user->webAuthnCredentials()
+                ->get()
+                ->map(fn($c) => PublicKeyCredentialDescriptor::create(
+                    'public-key',
+                    $this->b64UrlDecode($c->credential_id),
+                ))
+                ->all();
 
-        $options = PublicKeyCredentialRequestOptions::create(
-            challenge:        random_bytes(32),
-            timeout:          60000,
-            rpId:             $this->rpId(),
-            allowCredentials: $allowCredentials,
-            userVerification: 'required',
-        );
+            $options = PublicKeyCredentialRequestOptions::create(
+                challenge:        random_bytes(32),
+                timeout:          60000,
+                rpId:             $this->rpId(),
+                allowCredentials: $allowCredentials,
+                userVerification: 'required',
+            );
 
-        $json = $serializer->serialize($options, 'json');
-        session([
-            'webauthn_login_options' => $json,
-            'webauthn_login_user_id' => $user->id,
-        ]);
+            $json = $serializer->serialize($options, 'json');
+            session([
+                'webauthn_login_options' => $json,
+                'webauthn_login_user_id' => $user->id,
+            ]);
 
-        return response()->json(json_decode($json, true));
+            return response()->json(json_decode($json, true));
+        } catch (Throwable $e) {
+            return response()->json(['error' => 'Errore nella generazione delle opzioni: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -262,7 +267,8 @@ class WebAuthnController extends Controller
             );
 
             // Trova la credential nel DB tramite id (base64url)
-            $storedCred = WebAuthnCredential::where('credential_id', $credential->id)
+            // Nota: $credential->id è deprecated in v4.9; usiamo rawId codificato
+            $storedCred = WebAuthnCredential::where('credential_id', $this->b64UrlEncode($credential->rawId))
                 ->where('user_id', $userId)
                 ->first();
 
@@ -283,7 +289,7 @@ class WebAuthnController extends Controller
                 $options,
                 $this->rpId(),
                 (string) $userId,
-                $this->allowedOrigins(),
+                $this->securedRpIds(),
             );
 
             // Aggiorna il contatore e la data ultimo uso
