@@ -1,14 +1,17 @@
 {
+    "id": "/",
     "name": "KMoney — Circuito",
     "short_name": "KMoney",
     "description": "Portale operativo del circuito KMoney — conti, pagamenti e movimenti.",
-    "start_url": "/dashboard",
+    "start_url": "/dashboard?source=pwa",
     "scope": "/",
     "display": "standalone",
+    "display_override": ["standalone", "minimal-ui", "browser"],
     "orientation": "portrait-primary",
     "background_color": "#0b2244",
     "theme_color": "#0b2244",
     "lang": "it",
+    "dir": "ltr",
     "categories": ["finance", "business"],
     "icons": [
         {
@@ -41,14 +44,21 @@
             "name": "Paga",
             "short_name": "Paga",
             "description": "Avvia un pagamento nel circuito",
-            "url": "/paga",
+            "url": "/paga?source=pwa-shortcut",
             "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
         },
         {
             "name": "Movimenti",
             "short_name": "Movimenti",
             "description": "Visualizza i tuoi movimenti",
-            "url": "/movimenti",
+            "url": "/movimenti?source=pwa-shortcut",
+            "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Wallet",
+            "short_name": "Wallet",
+            "description": "KY Wallet",
+            "url": "/wallet?source=pwa-shortcut",
             "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
         }
     ]

@@ -70,6 +70,10 @@
                     </svg>
                     Accedi con impronta
                 </button>
+                <p style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
+                    Prima volta? Accedi con email e password, poi vai su
+                    <strong>Portale&nbsp;→&nbsp;Sicurezza</strong> per registrare il tuo dispositivo.
+                </p>
                 <div id="biometric-msg" class="biometric-msg"></div>
 
                 <div class="demo">

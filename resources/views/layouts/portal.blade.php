@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $pageTitle ?? 'KMoney' }}</title>
 
     {{-- PWA --}}
@@ -985,6 +985,126 @@
             .topbar-tools { width: auto !important; flex-wrap: nowrap !important; }
             .company-switch { display: none !important; }
         }
+
+        /* ── BOTTOM NAVIGATION BAR ──────────────────────────────────── */
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--surface);
+            border-top: 1.5px solid var(--line);
+            box-shadow: 0 -2px 20px rgba(10,30,60,.10);
+            z-index: 900;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .mobile-bottom-nav-inner {
+            display: flex;
+            height: 58px;
+            align-items: stretch;
+        }
+        .mobile-tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 6px 2px;
+            color: var(--ink-muted);
+            font-size: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            transition: color .15s, background .15s;
+            border-radius: 0;
+        }
+        .mobile-tab.active { color: var(--primary); }
+        .mobile-tab:active { background: var(--surface-hover); }
+        .mobile-tab-icon { font-size: 19px; line-height: 1; }
+        .mobile-tab-label { font-size: 9px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+        /* Active indicator line */
+        .mobile-tab { position: relative; }
+        .mobile-tab.active::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 20%; right: 20%;
+            height: 2.5px;
+            background: var(--primary);
+            border-radius: 0 0 3px 3px;
+        }
+
+        /* ── MOBILE APP EXPERIENCE ──────────────────────────────────── */
+        @media (max-width: 768px) {
+            /* Global touch polish */
+            a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+            * { -webkit-font-smoothing: antialiased; }
+
+            /* Show bottom nav for portal users */
+            .has-bottom-nav .mobile-bottom-nav { display: block; }
+
+            /* Hide topbar hamburger — sostituito dal tab Menu nella bottom nav */
+            .has-bottom-nav .hamburger-btn { display: none !important; }
+
+            /* Padding bottom per non coprire contenuto con bottom nav */
+            .has-bottom-nav .content-shell {
+                padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            /* Sidebar: momentum scroll + no overscroll */
+            .sidebar { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+            /* Previeni auto-zoom iOS su input (richiede font-size ≥ 16px) */
+            input:not([type=checkbox]):not([type=radio]),
+            select, textarea {
+                font-size: 16px !important;
+            }
+
+            /* Touch target minimo 44px su CTA */
+            .cta, .btn { min-height: 44px !important; padding-top: 10px !important; padding-bottom: 10px !important; }
+
+            /* Topbar più compatta */
+            .topbar { padding: 8px 12px !important; margin-bottom: 8px !important; border-radius: 12px !important; }
+
+            /* Card border-radius app-like */
+            .card, .card-pad, .light-card, .stat-card, .section-panel, .form-card { border-radius: 12px !important; }
+
+            /* KPI / hero strips: 2 colonne su mobile */
+            .hero-strip { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .kpi-strip  { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+            /* Meno padding interno su mobile */
+            .content-shell { padding: 10px !important; }
+            .card-pad, .light-card { padding: 12px !important; }
+            .stat-card { padding: 12px 14px !important; }
+
+            /* Tabelle scrollabili */
+            .transactions-table, .admin-table { font-size: 12px !important; }
+
+            /* Page intro compatta */
+            .page-intro { padding: 10px 14px !important; margin-bottom: 8px !important; }
+            .page-intro h2 { font-size: 15px !important; }
+
+            /* Stack azioni su tutta larghezza */
+            .page-actions, .form-actions, .quick-actions { flex-direction: column !important; }
+            .page-actions .cta, .form-actions .cta, .form-actions .btn { width: 100% !important; }
+
+            /* Previeni pull-to-refresh accidentale nel content */
+            .content-shell { overscroll-behavior-y: contain; }
+
+            /* Smooth scroll globale */
+            html { scroll-behavior: smooth; }
+        }
+
+        /* Pill nascosto su schermi molto piccoli (< 400px) */
+        @media (max-width: 400px) {
+            .topbar-tools .pill { display: none !important; }
+            .topbar-tools { gap: 6px !important; }
+        }
     </style>
     @stack('head')
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css" rel="stylesheet">
@@ -1002,7 +1122,7 @@
         [data-theme="dark"] .ts-dropdown .option { color: #e2e8f0; }
     </style>
 </head>
-<body>
+<body class="{{ !$isBackoffice ? 'has-bottom-nav' : '' }}">
     @php
         $authUser = auth()->user();
         $viewer = $currentUser ?? $authUser;
@@ -1301,6 +1421,11 @@
             });
         });
 
+        function _updateThemeColor(isDark) {
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', isDark ? '#0d1a30' : '#0b2244');
+        }
+
         function toggleTheme() {
             var html = document.documentElement;
             var isDark = html.getAttribute('data-theme') === 'dark';
@@ -1309,14 +1434,40 @@
             localStorage.setItem('km-theme', next);
             var btn = document.getElementById('km-theme-btn');
             if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+            _updateThemeColor(next === 'dark');
         }
 
-        /* Sync button icon on page load */
+        /* Sync button icon + theme-color on page load */
         (function () {
             var btn = document.getElementById('km-theme-btn');
-            if (!btn) return;
             var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            btn.textContent = isDark ? '☀️' : '🌙';
+            if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+            _updateThemeColor(isDark);
+        })();
+
+        /* Swipe gesture: bordo sinistro → apre sidebar; swipe left → chiude */
+        (function () {
+            var startX = null, startY = null;
+            var EDGE = 32, MIN_SWIPE = 55, MAX_VERTICAL = 90;
+            document.addEventListener('touchstart', function (e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+            document.addEventListener('touchend', function (e) {
+                if (startX === null) return;
+                var dx = e.changedTouches[0].clientX - startX;
+                var dy = Math.abs(e.changedTouches[0].clientY - startY);
+                if (dy > MAX_VERTICAL) { startX = null; return; }
+                var sidebar = document.querySelector('.sidebar');
+                if (startX < EDGE && dx > MIN_SWIPE) {
+                    // Swipe right da bordo: apri sidebar
+                    if (sidebar && !sidebar.classList.contains('is-open')) toggleSidebar();
+                } else if (dx < -MIN_SWIPE) {
+                    // Swipe left ovunque: chiudi sidebar se aperta
+                    if (sidebar && sidebar.classList.contains('is-open')) closeSidebar();
+                }
+                startX = null;
+            }, { passive: true });
         })();
 
         /* PWA — Service Worker + Push Notifications */
@@ -1449,7 +1600,8 @@
                     banner.remove();
                 });
             });
-        </script>
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -1472,6 +1624,38 @@
         });
     </script>
     @stack('scripts')
+
+    {{-- Mobile Bottom Navigation (solo portal, non backoffice) --}}
+    @if (!$isBackoffice)
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <div class="mobile-bottom-nav-inner">
+            <a href="{{ route('portal.dashboard') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'conto' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">🏠</span>
+                <span class="mobile-tab-label">Conto</span>
+            </a>
+            <a href="{{ route('portal.movements') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">📊</span>
+                <span class="mobile-tab-label">Movimenti</span>
+            </a>
+            <a href="{{ route('portal.wallet') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'wallet' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">💳</span>
+                <span class="mobile-tab-label">Wallet</span>
+            </a>
+            <a href="{{ route('portal.requests') }}"
+               class="mobile-tab {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}">
+                <span class="mobile-tab-icon">📋</span>
+                <span class="mobile-tab-label">Richieste</span>
+            </a>
+            <button type="button" class="mobile-tab" onclick="toggleSidebar()" aria-label="Menu completo">
+                <span class="mobile-tab-icon">☰</span>
+                <span class="mobile-tab-label">Menu</span>
+            </button>
+        </div>
+    </nav>
+    @endif
 
     {{-- Legal Footer --}}
     <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;margin-top:auto;">
