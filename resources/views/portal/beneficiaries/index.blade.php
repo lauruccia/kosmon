@@ -115,7 +115,7 @@
                                 <div>
                                     <div style="font-size:14px;font-weight:700;color:var(--ink);">{{ $companyName }}</div>
                                     @if($bAccount?->company?->slug)
-                                        <a href="{{ route('portal.company.show', $bAccount->company->slug) }}"
+                                        <a href="{{ route('portal.companies.show', $bAccount->company->slug) }}"
                                            style="font-size:11px;color:var(--ink-muted);text-decoration:none;" target="_blank">
                                             Vedi profilo →
                                         </a>
@@ -146,7 +146,7 @@
 
                         <td style="padding:12px 16px;text-align:right;white-space:nowrap;">
                             {{-- Paga subito --}}
-                            <a href="{{ route('portal.pay') }}?to={{ $b->beneficiary_account_id }}"
+                            <a href="{{ route('portal.pay.form') }}?to={{ $b->beneficiary_account_id }}"
                                class="cta" style="font-size:12px;padding:5px 10px;min-height:28px;">
                                 💸 Paga
                             </a>

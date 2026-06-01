@@ -75,7 +75,7 @@
         </a>
 
         {{-- QR --}}
-        <a href="{{ route('portal.pay') }}" class="wallet-method-btn">
+        <a href="{{ route('portal.pay.form') }}" class="wallet-method-btn">
           <div class="wallet-method-icon" style="background:#0ea5e9;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="3" width="8" height="8" rx="1" stroke="white" stroke-width="2"/>

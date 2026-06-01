@@ -382,6 +382,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
 
     Route::get('/paga', [PortalController::class, 'payForm'])->name('portal.pay.form');
     Route::post('/paga', [PortalController::class, 'paySubmit'])->name('portal.pay.submit')->middleware('throttle:payments');
+    Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
 
     Route::get('/incassa', [PortalController::class, 'receiveForm'])->name('portal.receive.form');
     Route::post('/incassa', [PortalController::class, 'receiveSubmit'])->name('portal.receive.submit')->middleware('throttle:payments');
@@ -634,6 +635,12 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::get('/admin/support', [AdminController::class, 'supportMessages'])->name('admin.support.index');
     Route::post('/admin/support/{message}/resolve', [AdminController::class, 'resolveSupport'])->name('admin.support.resolve');
 
+    // ── Visibilità menu utenti (admin) ────────────────────────────────────────
+    Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index');
+    Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store');
+    Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy');
+    Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset');
+
 
     Route::post('/api/transfers', function (Request $request, TransferBookingService $bookingService) {
         $validated = $request->validate([
@@ -694,9 +701,10 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     // -- Flusso pagamento Card NFC ------------------------------------------
     Route::post('/nfc/card/identify', [NfcCardPaymentController::class, 'identify'])->name('nfc.card.identify');
     Route::post('/nfc/card/request', [NfcCardPaymentController::class, 'createRequest'])->name('nfc.card.request')->middleware('throttle:payments');
-    Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
     Route::get('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorizeForm'])->name('nfc.card.authorize');
     Route::post('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorize'])->name('nfc.card.authorize.post')->middleware('throttle:payments');
+    Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
+});
 
     // ── Sospensione pagamenti automatici ─────────────────────────────────────
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');

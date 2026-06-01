@@ -1137,6 +1137,9 @@
                 ? 'Vista delegata con disponibilità, limiti operativi e operazioni riservate.'
                 : 'Portale operativo per conti personali, aziendali e sottoconti delegati.');
         $profileLabel = $isBackoffice ? ($authUser?->is_super_admin ? 'Superadmin' : 'Backoffice') : ($isDelegate ? 'Delegato' : (($currentAccount ?? null)?->owner_type === 'private' ? 'Privato' : 'Azienda'));
+        // Visibilità menu utente (risolto una volta sola per questa request)
+        $menuVis = app(\App\Services\MenuVisibilityService::class);
+        $mv = fn(string $k) => $isBackoffice || $menuVis->isVisible($k, $viewer);
     @endphp
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="app-shell">
@@ -1204,46 +1207,87 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broadcast' ? 'active' : '' }}" href="{{ route('admin.broadcast.index') }}"><span class="nav-icon">&#x1F4E2;</span><span>Comunicazioni</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-support' ? 'active' : '' }}" href="{{ route('admin.support.index') }}"><span class="nav-icon">&#x2753;</span><span>Assistenza</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-contract' ? 'active' : '' }}" href="{{ route('admin.contract-settings') }}"><span class="nav-icon">&#x1F4DC;</span><span>Contratto</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-menu-visibility' ? 'active' : '' }}" href="{{ route('admin.menu-visibility.index') }}"><span class="nav-icon">&#x1F441;</span><span>Menu utenti</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatori</span></a>
                         @else
+                            @if($mv('conto'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'conto' ? 'active' : '' }}" href="{{ route('portal.dashboard') }}"><span class="nav-icon">KY</span><span>{{ $isDelegate ? 'Vista delegato' : 'Conto' }}</span></a>
+                            @endif
+                            @if($mv('movimenti'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}" href="{{ route('portal.movements') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
+                            @endif
+                            @if($mv('richieste'))
                             <a class="sidebar-link {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}" href="{{ route('portal.requests') }}"><span class="nav-icon">RQ</span><span>Richieste</span></a>
+                            @endif
+                            @if($mv('wallet'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'wallet' ? 'active' : '' }}" href="{{ route('portal.wallet') }}"><span class="nav-icon">&#128179;</span><span>KY Wallet</span></a>
+                            @endif
+                            @if($mv('incasso-qr'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-qr' ? 'active' : '' }}" href="{{ route('portal.incasso-qr.form') }}"><span class="nav-icon">QR</span><span>Incassa QR</span></a>
+                            @endif
+                            @if($mv('incasso-nfc'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}"><span class="nav-icon">NFC</span><span>Incassa NFC</span></a>
+                            @endif
+                            @if($mv('incasso-sonic'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-sonic' ? 'active' : '' }}" href="{{ route('portal.incasso-sonic.form') }}"><span class="nav-icon">&#128266;</span><span>Incassa Sonic</span></a>
+                            @endif
+                            @if($mv('paga-sonic'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'paga-sonic' ? 'active' : '' }}" href="{{ route('portal.paga-sonic.form') }}"><span class="nav-icon">&#127908;</span><span>Paga Sonic</span></a>
+                            @endif
+                            @if($mv('incasso-codice'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-codice' ? 'active' : '' }}" href="{{ route('portal.incasso-codice.form') }}"><span class="nav-icon">&#128290;</span><span>Incassa Codice</span></a>
+                            @endif
+                            @if($mv('paga-codice'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'paga-codice' ? 'active' : '' }}" href="{{ route('portal.paga-codice.form') }}"><span class="nav-icon">123</span><span>Paga Codice</span></a>
+                            @endif
+                            @if($mv('nfc-cards'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'nfc-cards' ? 'active' : '' }}" href="{{ route('portal.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Le mie Card NFC</span></a>
+                            @endif
+                            @if($mv('scheduled-payments'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'scheduled-payments' ? 'active' : '' }}" href="{{ route('portal.scheduled-payments.index') }}"><span class="nav-icon">SC</span><span>Pag. programmati</span></a>
-                            @if(!$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
+                            @endif
+                            @if($mv('webhooks') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhooks' ? 'active' : '' }}" href="{{ route('portal.webhooks.index') }}"><span class="nav-icon">WH</span><span>Webhook</span></a>
+                            @endif
+                            @if($mv('api-tokens') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'api-tokens' ? 'active' : '' }}" href="{{ route('portal.api-tokens.index') }}"><span class="nav-icon">API</span><span>Token API</span></a>
+                            @endif
+                            @if($mv('docs-api') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'docs-api' ? 'active' : '' }}" href="{{ route('portal.docs-api') }}"><span class="nav-icon">&#128216;</span><span>Docs API</span></a>
                             @endif
+                            @if($mv('link-pagamento'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'link-pagamento' ? 'active' : '' }}" href="{{ route('portal.payment-links.index') }}"><span class="nav-icon">&#128279;</span><span>Link pagamento</span></a>
+                            @endif
+                            @if($mv('rate'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'rate' ? 'active' : '' }}" href="{{ route('portal.payment-plans.index') }}"><span class="nav-icon">RT</span><span>Rate</span></a>
+                            @endif
+                            @if($mv('fido'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'fido' ? 'active' : '' }}" href="{{ route('portal.fido') }}"><span class="nav-icon">FD</span><span>Fido</span></a>
+                            @endif
+                            @if($mv('ky-cards'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'ky-cards' ? 'active' : '' }}" href="{{ route('portal.ky-cards.index') }}"><span class="nav-icon">KY</span><span>Ricarica KY</span></a>
+                            @endif
+                            @if($mv('netting'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'netting' ? 'active' : '' }}" href="{{ route('portal.netting.index') }}"><span class="nav-icon">⇄</span><span>Compensazione</span></a>
-                            @if (! $isDelegate && ($currentAccount ?? $currentUser?->managedAccount ?? null) !== null && ($currentUser ?? $authUser)?->canCreateSubaccountsFor($currentAccount ?? $currentUser?->managedAccount))
+                            @endif
+                            @if($mv('sottoconti') && ! $isDelegate && ($currentAccount ?? $currentUser?->managedAccount ?? null) !== null && ($currentUser ?? $authUser)?->canCreateSubaccountsFor($currentAccount ?? $currentUser?->managedAccount))
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'conti' ? 'active' : '' }}" href="{{ route('portal.accounts.structure') }}"><span class="nav-icon">SC</span><span>Sottoconti</span></a>
                             @endif
-                            @if (($currentUser ?? $authUser)?->canViewCompaniesDirectory())
+                            @if($mv('aziende') && ($currentUser ?? $authUser)?->canViewCompaniesDirectory())
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'aziende' ? 'active' : '' }}" href="{{ route('portal.companies') }}"><span class="nav-icon">AZ</span><span>Aziende</span></a>
                             @endif
-                            @if (($currentUser ?? $authUser)?->canAccessAnnouncements())
+                            @if($mv('annunci') && ($currentUser ?? $authUser)?->canAccessAnnouncements())
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}"><span class="nav-icon">AN</span><span>Annunci</span></a>
                             @endif
-                            @if (($currentUser ?? $authUser)?->canAccessMarketplace())
+                            @if($mv('shop') && ($currentUser ?? $authUser)?->canAccessMarketplace())
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}"><span class="nav-icon">SH</span><span>Shop</span></a>
                             @endif
-                            @if (($currentUser ?? $authUser)?->hasRole('broker') || $isBackoffice)
+                            @if($mv('operatore') && (($currentUser ?? $authUser)?->hasRole('broker') || $isBackoffice))
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatore</span></a>
                             @endif
+                            @if($mv('help'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'help' ? 'active' : '' }}" href="{{ route('help.index') }}"><span class="nav-icon">&#x2753;</span><span>Assistenza</span></a>
+                            @endif
                         @endif
                     </nav>
                 </section>
@@ -1259,7 +1303,7 @@
                             <span>{{ $authUser?->email }}</span>
                         </div>
                     </div>
-                    @if(!$isBackoffice)
+                    @if(!$isBackoffice && $mv('profile'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'profile' ? 'active' : '' }}" href="{{ route('portal.profile.edit') }}" style="margin-bottom:2px;">
                         <span class="nav-icon">PF</span><span>Profilo azienda</span>
                         @php
@@ -1276,27 +1320,39 @@
                         @endif
                     </a>
                     @endif
+                    @if($mv('security'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'security' ? 'active' : '' }}" href="{{ route('portal.security') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">2F</span><span>Sicurezza</span>
                         @if(auth()->user()?->hasTwoFactorEnabled())
                             <span style="margin-left:auto;font-size:10px;background:#065f46;color:#d1fae5;border-radius:4px;padding:1px 5px;font-weight:700;">ON</span>
                         @endif
                     </a>
+                    @endif
+                    @if($mv('login-logs'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'sessioni' ? 'active' : '' }}" href="{{ route('portal.login-logs') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">&#x1F512;</span><span>Accessi</span>
                     </a>
+                    @endif
+                    @if($mv('balance-alerts'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'balance-alerts' ? 'active' : '' }}" href="{{ route('portal.balance-alerts.index') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">&#x1F514;</span> Avvisi saldo
                     </a>
+                    @endif
+                    @if($mv('beneficiari'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'beneficiari' ? 'active' : '' }}" href="{{ route('portal.beneficiaries.index') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">&#x1F4CB;</span><span>Beneficiari</span>
                     </a>
+                    @endif
+                    @if($mv('notifications'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'notifications' ? 'active' : '' }}" href="{{ route('portal.notification-preferences') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">&#x1F514;</span><span>Notifiche</span>
                     </a>
+                    @endif
+                    @if($mv('email-change'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'email-change' ? 'active' : '' }}" href="{{ route('portal.email-change') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">&#x2709;</span><span>Cambia email</span>
                     </a>
+                    @endif
                     <form method="post" action="{{ route('logout') }}">
                         @csrf
                         <button class="logout-btn" type="submit">Esci dal pannello</button>
