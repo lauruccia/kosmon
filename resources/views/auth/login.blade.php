@@ -89,12 +89,6 @@
                 <p style="margin:12px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
                     Prima volta con impronta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
                 </p>
-
-                <div class="demo">
-                    Superadmin demo: <strong>superadmin@kmoney.test</strong> / <strong>secret123</strong><br>
-                    Azienda demo: <strong>operatore-panificio-canale@kmoney.test</strong> / <strong>secret123</strong><br>
-                    Privato demo: <strong>maria.ferri@kmoney.test</strong> / <strong>secret123</strong>
-                </div>
             </section>
         </div>
     </div>
