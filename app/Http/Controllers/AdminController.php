@@ -62,6 +62,18 @@ class AdminController extends Controller
         ]);
     }
 
+    public function clearCache(Request $request): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        \Illuminate\Support\Facades\Artisan::call('cache:clear');
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        \Illuminate\Support\Facades\Artisan::call('route:clear');
+        \Illuminate\Support\Facades\Artisan::call('view:clear');
+
+        return back()->with('success', 'Cache svuotata con successo.');
+    }
+
     public function users(Request $request): View
     {
         $this->authorizeBackoffice($request->user());

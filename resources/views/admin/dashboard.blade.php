@@ -314,6 +314,13 @@
                     <a class="cta" href="{{ route('admin.transfers.index') }}">Monitor movimenti</a>
                     <a class="cta secondary" href="{{ route('admin.accounts.index') }}">Libro conti</a>
                     <a class="cta secondary" href="{{ route('admin.report') }}">Report circuito</a>
+                    <form method="POST" action="{{ route('admin.cache.clear') }}" style="display:inline">
+                        @csrf
+                        <button type="submit" class="cta secondary"
+                            onclick="return confirm('Svuotare tutta la cache?')">
+                            🗑 Svuota cache
+                        </button>
+                    </form>
                 </div>
             </div>
 

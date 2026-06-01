@@ -635,6 +635,9 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::get('/admin/support', [AdminController::class, 'supportMessages'])->name('admin.support.index');
     Route::post('/admin/support/{message}/resolve', [AdminController::class, 'resolveSupport'])->name('admin.support.resolve');
 
+    // ── Cache (admin) ─────────────────────────────────────────────────────────
+    Route::post('/admin/cache/clear', [AdminController::class, 'clearCache'])->name('admin.cache.clear');
+
     // ── Visibilità menu utenti (admin) ────────────────────────────────────────
     Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index');
     Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store');
@@ -704,10 +707,7 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::get('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorizeForm'])->name('nfc.card.authorize');
     Route::post('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorize'])->name('nfc.card.authorize.post')->middleware('throttle:payments');
     Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
-});
 
     // ── Sospensione pagamenti automatici ─────────────────────────────────────
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
-
-
 });
