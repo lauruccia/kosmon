@@ -235,14 +235,46 @@ class TextPaymentRequestController extends Controller
     {
         abort_if($viewer->canAccessBackoffice(), 403);
 
+        // Legacy single-delegate
         if ($viewer->managed_account_id !== null) {
-            $account = Account::with(['company', 'ownerUser'])->findOrFail($viewer->managed_account_id);
+            $account = Account::query()
+                ->with(['company', 'ownerUser'])
+                ->whereKey($viewer->managed_account_id)
+                ->firstOrFail();
             return [$account, $viewer];
         }
 
+        // Multi-account switcher via session
+        $sessionAccountId = session('active_account_id');
+        if ($sessionAccountId) {
+            $switched = Account::query()
+                ->with(['company', 'ownerUser'])
+                ->where('status', 'active')
+                ->find($sessionAccountId);
+
+            if ($switched && $viewer->canOperateOnAccount($switched)) {
+                return [$switched, $viewer];
+            }
+
+            session()->forget('active_account_id');
+        }
+
+        // Account aziendale root
+        if ($viewer->company_id !== null) {
+            $account = Account::query()
+                ->with(['company', 'ownerUser'])
+                ->where('company_id', $viewer->company_id)
+                ->whereNull('parent_account_id')
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->firstOrFail();
+            return [$account, $viewer];
+        }
+
+        // Fallback: account personale per utente privato
         $account = Account::query()
             ->with(['company', 'ownerUser'])
-            ->where('company_id', $viewer->company_id ?? 0)
+            ->where('owner_user_id', $viewer->id)
             ->whereNull('parent_account_id')
             ->where('status', 'active')
             ->orderBy('id')
