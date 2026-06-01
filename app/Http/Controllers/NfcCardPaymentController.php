@@ -234,14 +234,16 @@ class NfcCardPaymentController extends Controller
 
         // Esegui il transfer
         try {
-            $transfer = $svc->book(
-                from:        $customerAccount,
-                to:          $merchantAccount,
-                amount:      $session->amount,
-                description: $session->description ?? 'Pagamento Card NFC',
-                kind:        'nfc_card',
-                idempotencyKey: 'nfc-card-' . $nonce,
-            );
+            $transfer = $svc->book([
+                'from_account_id' => $customerAccount->id,
+                'to_account_id'   => $merchantAccount->id,
+                'amount'          => $session->amount,
+                'description'     => $session->description ?? 'Pagamento Card NFC',
+                'kind'            => 'nfc_card',
+                'idempotency_key' => 'nfc-card-' . $nonce,
+                'initiated_by'    => $user->id,
+                'ip_address'      => $request->ip(),
+            ]);
 
             // Aggiorna sessione
             $session->update([

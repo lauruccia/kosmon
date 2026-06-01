@@ -250,14 +250,16 @@ class SonicPaymentController extends Controller
 
         // Esecuzione transfer
         try {
-            $transfer = $this->transferService->book(
-                from:        $account,
-                to:          $pr->toAccount,
-                amount:      $pr->amount,
-                description: $pr->description ?? 'Pagamento sonic',
-                kind:        'sonic',
-                idempotencyKey: 'sonic-' . $pr->token,
-            );
+            $transfer = $this->transferService->book([
+                'from_account_id' => $account->id,
+                'to_account_id'   => $pr->toAccount->id,
+                'amount'          => $pr->amount,
+                'description'     => $pr->description ?? 'Pagamento sonic',
+                'kind'            => 'sonic',
+                'idempotency_key' => 'sonic-' . $pr->token,
+                'initiated_by'    => $user->id,
+                'ip_address'      => $request->ip(),
+            ]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
