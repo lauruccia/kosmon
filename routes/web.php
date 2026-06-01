@@ -169,10 +169,18 @@ Route::middleware('guest')->group(function () {
 
     Route::post('/forgot-password', function (Request $request) {
         $request->validate(['email' => ['required', 'email']]);
-        $status = Password::sendResetLink($request->only('email'));
-        return $status === Password::RESET_LINK_SENT
-            ? back()->with('status', __('Ti abbiamo inviato un link per reimpostare la password.'))
-            : back()->withInput()->withErrors(['email' => __('Nessun account trovato con questa email.')]);
+        try {
+            $status = Password::sendResetLink($request->only('email'));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Password reset mail failed: ' . $e->getMessage());
+            return back()->withInput()->withErrors(['email' => __('Impossibile inviare la mail. Riprova tra qualche minuto o contatta il supporto.')]);
+        }
+        return match ($status) {
+            Password::RESET_LINK_SENT => back()->with('status', __('Ti abbiamo inviato un link per reimpostare la password.')),
+            Password::INVALID_USER    => back()->withInput()->withErrors(['email' => __('Nessun account trovato con questa email.')]),
+            Password::RESET_THROTTLED => back()->withInput()->withErrors(['email' => __('Troppe richieste. Attendi qualche minuto prima di riprovare.')]),
+            default                   => back()->withInput()->withErrors(['email' => __('Errore imprevisto. Riprova.')]),
+        };
     })->name('password.email');
 
     Route::get('/reset-password/{token}', function (string $token, Request $request) {
@@ -698,16 +706,3 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::get('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activateForm'])->name('portal.nfc-cards.activate');
     Route::post('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activate'])->name('portal.nfc-cards.activate.post');
     Route::post('/nfc-cards/{uuid}/limiti', [NfcCardController::class, 'updateLimits'])->name('portal.nfc-cards.limits');
-    Route::post('/nfc-cards/{uuid}/blocca', [NfcCardController::class, 'block'])->name('portal.nfc-cards.block');
-    Route::post('/nfc-cards/{uuid}/sblocca', [NfcCardController::class, 'unblock'])->name('portal.nfc-cards.unblock');
-
-    // -- Flusso pagamento Card NFC ------------------------------------------
-    Route::post('/nfc/card/identify', [NfcCardPaymentController::class, 'identify'])->name('nfc.card.identify');
-    Route::post('/nfc/card/request', [NfcCardPaymentController::class, 'createRequest'])->name('nfc.card.request')->middleware('throttle:payments');
-    Route::get('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorizeForm'])->name('nfc.card.authorize');
-    Route::post('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorize'])->name('nfc.card.authorize.post')->middleware('throttle:payments');
-    Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
-
-    // ── Sospensione pagamenti automatici ─────────────────────────────────────
-    Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
-});

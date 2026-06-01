@@ -391,4 +391,10 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $query->whereNull('contract_signed_at');
     }
+
+    /** Invia la notifica di reset password in italiano con il layout brandizzato. */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }
