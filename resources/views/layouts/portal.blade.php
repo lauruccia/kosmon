@@ -1047,9 +1047,6 @@
             /* Show bottom nav for portal users */
             .has-bottom-nav .mobile-bottom-nav { display: block; }
 
-            /* Hide topbar hamburger — sostituito dal tab Menu nella bottom nav */
-            .has-bottom-nav .hamburger-btn { display: none !important; }
-
             /* Padding bottom per non coprire contenuto con bottom nav */
             .has-bottom-nav .content-shell {
                 padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
