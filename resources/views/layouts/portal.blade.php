@@ -1122,7 +1122,7 @@
         [data-theme="dark"] .ts-dropdown .option { color: #e2e8f0; }
     </style>
 </head>
-<body class="{{ !$isBackoffice ? 'has-bottom-nav' : '' }}">
+<body class="{{ !(auth()->user()?->canAccessBackoffice()) ? 'has-bottom-nav' : '' }}">
     @php
         $authUser = auth()->user();
         $viewer = $currentUser ?? $authUser;
