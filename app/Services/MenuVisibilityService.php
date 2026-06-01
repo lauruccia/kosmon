@@ -55,7 +55,7 @@ class MenuVisibilityService
         $allKeys = array_keys(MenuVisibility::menuItems());
 
         // Determina il tipo di account dell'utente
-        $account     = $user->managedAccount ?? $user->accounts()->first();
+        $account     = $user->managedAccount ?? $user->ownedAccounts()->first();
         $accountType = ($account?->owner_type === 'private') ? 'private' : 'company';
         $companyId   = $user->company_id;
         $userId      = $user->id;
