@@ -21,12 +21,16 @@ class NfcCardController extends Controller
     /** Lista card del cliente. */
     public function index(Request $request): View
     {
-        $company = $this->resolveCompany($request->user());
+        $user  = $request->user();
+        $cards = collect();
 
-        $cards = NfcCard::where('company_id', $company->id)
-            ->whereNotIn('status', ['pending', 'issued']) // solo quelle consegnate
-            ->latest()
-            ->get();
+        if ($user->company_id) {
+            $company = $this->resolveCompany($user);
+            $cards = NfcCard::where('company_id', $company->id)
+                ->whereNotIn('status', ['pending', 'issued'])
+                ->latest()
+                ->get();
+        }
 
         return view('portal.nfc-cards.index', [
             'pageTitle' => 'Le mie Card NFC',
