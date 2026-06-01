@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WebAuthnCredential extends Model
 {
+    protected $table = 'webauthn_credentials';
+
     protected $fillable = [
         'user_id',
         'credential_id',
