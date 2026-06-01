@@ -196,45 +196,50 @@ class WebAuthnController extends Controller
      */
     public function loginOptions(Request $request): JsonResponse
     {
-        $request->validate(['email' => 'required|email']);
+        // Email opzionale: se assente usa discoverable credentials (browser mostra passkey autonomamente)
+        $request->validate(['email' => 'sometimes|nullable|email']);
 
-        $user = User::where('email', $request->email)
-            ->where('is_active', true)
-            ->first();
+        $user             = null;
+        $allowCredentials = [];
 
-        try {
-            if (! $user || $user->webAuthnCredentials()->doesntExist()) {
-                return response()->json([
-                    'error' => 'Nessuna impronta registrata per questo account.',
-                ], 404);
+        if ($request->filled('email')) {
+            $user = User::where('email', $request->email)
+                ->where('is_active', true)
+                ->first();
+
+            if ($user) {
+                try {
+                    if ($user->webAuthnCredentials()->doesntExist()) {
+                        return response()->json(['error' => 'Nessuna impronta registrata per questo account.'], 404);
+                    }
+                    $allowCredentials = $user->webAuthnCredentials()
+                        ->get()
+                        ->map(fn($c) => PublicKeyCredentialDescriptor::create(
+                            'public-key',
+                            $this->b64UrlDecode($c->credential_id),
+                        ))
+                        ->all();
+                } catch (Throwable $e) {
+                    return response()->json(['error' => 'Errore del server: ' . $e->getMessage()], 500);
+                }
             }
-        } catch (Throwable $e) {
-            return response()->json(['error' => 'Errore del server: ' . $e->getMessage()], 500);
         }
 
         $serializer = $this->makeSerializer();
 
         try {
-            $allowCredentials = $user->webAuthnCredentials()
-                ->get()
-                ->map(fn($c) => PublicKeyCredentialDescriptor::create(
-                    'public-key',
-                    $this->b64UrlDecode($c->credential_id),
-                ))
-                ->all();
-
             $options = PublicKeyCredentialRequestOptions::create(
                 challenge:        random_bytes(32),
                 timeout:          60000,
                 rpId:             $this->rpId(),
-                allowCredentials: $allowCredentials,
+                allowCredentials: $allowCredentials,  // vuoto = discoverable
                 userVerification: 'required',
             );
 
             $json = $serializer->serialize($options, 'json');
             session([
-                'webauthn_login_options' => $json,
-                'webauthn_login_user_id' => $user->id,
+                'webauthn_login_options'  => $json,
+                'webauthn_login_user_id'  => $user?->id,  // null se discoverable
             ]);
 
             return response()->json(json_decode($json, true));
@@ -254,7 +259,7 @@ class WebAuthnController extends Controller
         $userId      = session('webauthn_login_user_id');
         session()->forget(['webauthn_login_options', 'webauthn_login_user_id']);
 
-        if (! $optionsJson || ! $userId) {
+        if (! $optionsJson) {
             return response()->json(['error' => 'Sessione scaduta. Riprova.'], 422);
         }
 
@@ -271,8 +276,17 @@ class WebAuthnController extends Controller
                 'json',
             );
 
+            // Discoverable flow: se userId non è in sessione, legge userHandle dalla risposta
+            if (! $userId) {
+                $userHandle = $credential->response->userHandle ?? null;
+                if (! $userHandle) {
+                    return response()->json(['error' => "Impossibile identificare l'utente."], 401);
+                }
+                // userHandle = binario di (string) $user->id, es. "\x31" = "1"
+                $userId = (int) $userHandle;
+            }
+
             // Trova la credential nel DB tramite id (base64url)
-            // Nota: $credential->id è deprecated in v4.9; usiamo rawId codificato
             $storedCred = WebAuthnCredential::where('credential_id', $this->b64UrlEncode($credential->rawId))
                 ->where('user_id', $userId)
                 ->first();

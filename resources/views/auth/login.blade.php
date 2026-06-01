@@ -71,8 +71,8 @@
                     Accedi con impronta
                 </button>
                 <p style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
-                    Prima volta? Accedi con email e password, poi vai su
-                    <strong>Portale&nbsp;→&nbsp;Sicurezza</strong> per registrare il tuo dispositivo.
+                    Tocca il bottone — il dispositivo mostrerà le passkey disponibili.<br>
+                    Prima volta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
                 </p>
                 <div id="biometric-msg" class="biometric-msg"></div>
 
@@ -113,23 +113,31 @@ function clearMsg() {
     el.style.display = 'none';
 }
 
+// ── Pre-compila email da localStorage ─────────────────────────────────────────
+(function () {
+    const saved = localStorage.getItem('kmoney_login_email');
+    if (saved) document.getElementById('email').value = saved;
+})();
+
+// Salva email al submit del form password
+document.querySelector('form').addEventListener('submit', function () {
+    const e = document.getElementById('email').value.trim();
+    if (e) localStorage.setItem('kmoney_login_email', e);
+});
+
 // ── Login con impronta ─────────────────────────────────────────────────────────
 document.getElementById('btn-biometric').addEventListener('click', async () => {
     clearMsg();
 
     const email = document.getElementById('email').value.trim();
-    if (!email) {
-        showMsg('Inserisci prima la tua email nel campo sopra.', 'err');
-        document.getElementById('email').focus();
-        return;
-    }
+    // Email opzionale: se assente il browser mostra le passkey disponibili (discoverable)
 
     const btn = document.getElementById('btn-biometric');
     btn.disabled = true;
     btn.textContent = 'In attesa del dispositivo…';
 
     try {
-        // 1. Ottieni le opzioni di sfida dal server
+        // 1. Ottieni le opzioni di sfida dal server (email opzionale)
         const optRes = await fetch('{{ route("webauthn.login.options") }}', {
             method:  'POST',
             headers: {
@@ -137,7 +145,7 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
                 'Accept':       'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify(email ? { email } : {}),
         });
 
         const optData = await optRes.json();
@@ -190,6 +198,7 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
         }
 
         showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
+        if (email) localStorage.setItem('kmoney_login_email', email);
         window.location.href = verData.redirect;
 
     } catch (err) {
