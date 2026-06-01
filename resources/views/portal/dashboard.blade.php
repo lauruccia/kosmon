@@ -52,17 +52,25 @@
     font-weight: 800;
     letter-spacing: -.02em;
 }
-.bank-hero__actions { display: flex; gap: 10px; }
+.bank-hero__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .bank-hero__actions .cta {
     background: rgba(255,255,255,.15);
     border: 1px solid rgba(255,255,255,.25);
     color: #fff;
     font-size: 13px;
-    min-height: 34px;
+    min-height: 38px;
     padding: 0 16px;
     border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
 }
 .bank-hero__actions .cta:hover { background: rgba(255,255,255,.25); }
+@media (max-width: 480px) {
+    .bank-hero { padding: 16px 16px 14px; }
+    .bank-hero__header { margin-bottom: 14px; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .bank-hero__actions { width: 100%; }
+    .bank-hero__actions .cta { flex: 1; min-width: 0; text-align: center; font-size: 12px; padding: 0 10px; }
+    .bank-kpi-grid { grid-template-columns: 1fr 1fr; }
+}
 
 /* ── Bank KPI grid ──────────────────────────────────── */
 .bank-kpi-grid {
