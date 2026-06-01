@@ -213,3 +213,14 @@ self.addEventListener('message', (event) => {
 
     const pending = pendingPayments.get(data.pr_id);
     if (!pending) return;
+    pendingPayments.delete(data.pr_id);
+
+    if (data.type === 'ky-payment-confirm') {
+        pending.resolve({
+            methodName: data.methodName,
+            details:    { success: true, transferUuid: data.transferUuid ?? null },
+        });
+    } else if (data.type === 'ky-payment-cancel') {
+        pending.reject(new DOMException('Annullato dall\'utente.', 'AbortError'));
+    }
+});
