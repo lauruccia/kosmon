@@ -3,7 +3,7 @@
  * Strategie: Cache-first per asset statici, Network-first per pagine HTML.
  */
 
-const CACHE_VERSION = 'kmoney-v1';
+const CACHE_VERSION = 'kmoney-v2';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const PAGE_CACHE    = `${CACHE_VERSION}-pages`;
 
@@ -19,11 +19,28 @@ const STATIC_PATTERNS = [
     /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|otf)$/i,
 ];
 
-// Pattern di URL da escludere sempre (form submit, admin, API)
+// Pattern di URL da escludere sempre (form submit, admin, API, tutte le pagine portal)
+// Le pagine HTML contengono CSRF token legati alla sessione: non vanno mai servite
+// dalla cache perché causano errore 419 quando il token scade (comune su mobile).
 const BYPASS_PATTERNS = [
     /\/admin\//,
     /\/(login|logout|register)/,
-    /\/(paga|incassa)\/?$/, // POST endpoints — non cacheare navigazioni critiche
+    /\/(paga|incassa)/,
+    /\/portal\//,
+    /\/dashboard/,
+    /\/movimenti/,
+    /\/richieste/,
+    /\/wallet/,
+    /\/profilo/,
+    /\/sicurezza/,
+    /\/sessioni/,
+    /\/notifiche/,
+    /\/broker/,
+    /\/aziende/,
+    /\/annunci/,
+    /\/shop/,
+    /\/onboarding/,
+    /\/push\//,
 ];
 
 // ── Install ─────────────────────────────────────────────────────────
@@ -196,14 +213,3 @@ self.addEventListener('message', (event) => {
 
     const pending = pendingPayments.get(data.pr_id);
     if (!pending) return;
-    pendingPayments.delete(data.pr_id);
-
-    if (data.type === 'ky-payment-confirm') {
-        pending.resolve({
-            methodName: data.methodName,
-            details:    { success: true, transferUuid: data.transferUuid ?? null },
-        });
-    } else if (data.type === 'ky-payment-cancel') {
-        pending.reject(new DOMException('Annullato dall\'utente.', 'AbortError'));
-    }
-});

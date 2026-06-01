@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="utf-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $pageTitle ?? 'KMoney' }}</title>
 
@@ -1483,4 +1484,245 @@
             var html = document.documentElement;
             var isDark = html.getAttribute('data-theme') === 'dark';
             var next = isDark ? 'light' : 'dark';
-            html.setAttribute('data-t
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('km-theme', next);
+            var btn = document.getElementById('km-theme-btn');
+            if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+            _updateThemeColor(next === 'dark');
+        }
+
+        /* Sync button icon + theme-color on page load */
+        (function () {
+            var btn = document.getElementById('km-theme-btn');
+            var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+            _updateThemeColor(isDark);
+        })();
+
+        /* Swipe gesture: bordo sinistro → apre sidebar; swipe left → chiude */
+        (function () {
+            var startX = null, startY = null;
+            var EDGE = 32, MIN_SWIPE = 55, MAX_VERTICAL = 90;
+            document.addEventListener('touchstart', function (e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+            document.addEventListener('touchend', function (e) {
+                if (startX === null) return;
+                var dx = e.changedTouches[0].clientX - startX;
+                var dy = Math.abs(e.changedTouches[0].clientY - startY);
+                if (dy > MAX_VERTICAL) { startX = null; return; }
+                var sidebar = document.querySelector('.sidebar');
+                if (startX < EDGE && dx > MIN_SWIPE) {
+                    // Swipe right da bordo: apri sidebar
+                    if (sidebar && !sidebar.classList.contains('is-open')) toggleSidebar();
+                } else if (dx < -MIN_SWIPE) {
+                    // Swipe left ovunque: chiudi sidebar se aperta
+                    if (sidebar && sidebar.classList.contains('is-open')) closeSidebar();
+                }
+                startX = null;
+            }, { passive: true });
+        })();
+
+        /* PWA — Service Worker + Push Notifications */
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function (reg) {
+                        console.log('[KMoney SW] Registrato:', reg.scope);
+                        // Inizializza push dopo che il SW e' pronto
+                        if ('PushManager' in window) {
+                            reg.ready.then(function (readyReg) {
+                                window._kmPushInit(readyReg);
+                            });
+                        }
+                    })
+                    .catch(function (err) { console.warn('[KMoney SW] Registrazione fallita:', err); });
+            });
+        }
+
+        /* Web Push — sottoscrizione automatica se l'utente ha gia' dato il permesso */
+        window._kmPushInit = function (reg) {
+            var pushEnabled = localStorage.getItem('km-push-enabled');
+            if (pushEnabled !== '1') return; // non chiedere fino a consenso esplicito
+
+            reg.pushManager.getSubscription().then(function (existing) {
+                if (existing) return; // gia' iscritto
+                _kmPushSubscribe(reg);
+            });
+        };
+
+        window._kmPushSubscribe = function (reg) {
+            fetch('/push/vapid-key')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var applicationServerKey = _urlBase64ToUint8Array(data.publicKey);
+                    return reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: applicationServerKey
+                    });
+                })
+                .then(function (sub) {
+                    var key  = sub.getKey('p256dh');
+                    var auth = sub.getKey('auth');
+                    return fetch('/push/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? ''
+                        },
+                        body: JSON.stringify({
+                            endpoint: sub.endpoint,
+                            keys: {
+                                p256dh: key  ? btoa(String.fromCharCode.apply(null, new Uint8Array(key)))  : '',
+                                auth:   auth ? btoa(String.fromCharCode.apply(null, new Uint8Array(auth))) : ''
+                            },
+                            contentEncoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0]
+                        })
+                    });
+                })
+                .then(function (r) {
+                    if (r.ok) {
+                        localStorage.setItem('km-push-enabled', '1');
+                        console.log('[KMoney Push] Iscrizione completata.');
+                    }
+                })
+                .catch(function (err) {
+                    console.warn('[KMoney Push] Errore iscrizione:', err);
+                    localStorage.removeItem('km-push-enabled');
+                });
+        };
+
+        /* Richiede il permesso push e si iscrive (chiamato dal pulsante nelle notifiche) */
+        window.kmRequestPush = function () {
+            if (! ('Notification' in window) || ! ('serviceWorker' in navigator)) return;
+            Notification.requestPermission().then(function (permission) {
+                if (permission !== 'granted') return;
+                localStorage.setItem('km-push-enabled', '1');
+                navigator.serviceWorker.ready.then(function (reg) {
+                    _kmPushSubscribe(reg);
+                });
+            });
+        };
+
+        /* Utility: converte base64url in Uint8Array per applicationServerKey */
+        function _urlBase64ToUint8Array(base64String) {
+            var padding = '='.repeat((4 - base64String.length % 4) % 4);
+            var base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            var rawData = window.atob(base64);
+            var output  = new Uint8Array(rawData.length);
+            for (var i = 0; i < rawData.length; ++i) { output[i] = rawData.charCodeAt(i); }
+            return output;
+        }
+
+        /* PWA — Install prompt (banner "Aggiungi alla schermata home") */
+        (function () {
+            var deferredPrompt = null;
+            var banner = null;
+
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                deferredPrompt = e;
+                window._kmInstallPrompt = e; // esposto globalmente per altre pagine
+
+                banner = document.createElement('div');
+                banner.id = 'pwa-install-banner';
+                banner.style.cssText = [
+                    'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);',
+                    'background:#0b2244;color:#fff;padding:12px 20px;border-radius:12px;',
+                    'display:flex;align-items:center;gap:12px;z-index:9999;',
+                    'box-shadow:0 4px 24px rgba(0,0,0,.28);font-size:13px;',
+                    'max-width:calc(100vw - 32px);'
+                ].join('');
+                banner.innerHTML = [
+                    '<span>Installa <strong>KMoney</strong> come app</span>',
+                    '<button id="pwa-install-btn" style="background:#0f52c4;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Installa</button>',
+                    '<button id="pwa-dismiss-btn" style="background:transparent;color:rgba(255,255,255,.5);border:none;cursor:pointer;font-size:16px;padding:4px;">&#x2715;</button>'
+                ].join('');
+                document.body.appendChild(banner);
+
+                document.getElementById('pwa-install-btn').addEventListener('click', function () {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(function () {
+                        deferredPrompt = null;
+
+                        deferredPrompt = null;
+                        banner.remove();
+                    });
+                });
+
+                document.getElementById('pwa-dismiss-btn').addEventListener('click', function () {
+                    banner.remove();
+                });
+            });
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('select').forEach(function (el) {
+                // Skip if already initialized or explicitly excluded
+                if (el.tomselect || el.dataset.noSearch !== undefined) return;
+                new TomSelect(el, {
+                    allowEmptyOption: true,
+                    placeholder: el.options[0]?.text || '',
+                    searchField: ['text'],
+                    maxOptions: null,
+                    plugins: el.multiple ? ['remove_button'] : [],
+                    render: {
+                        no_results: function() {
+                            return '<div class="no-results" style="padding:10px 14px;color:#64748b;">Nessun risultato</div>';
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+    @stack('scripts')
+
+    {{-- Mobile Bottom Navigation (solo portal, non backoffice) --}}
+    @if (!$isBackoffice)
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <div class="mobile-bottom-nav-inner">
+            <a href="{{ route('portal.dashboard') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'conto' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">🏠</span>
+                <span class="mobile-tab-label">Conto</span>
+            </a>
+            <a href="{{ route('portal.movements') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">📊</span>
+                <span class="mobile-tab-label">Movimenti</span>
+            </a>
+            <a href="{{ route('portal.wallet') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'wallet' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">💳</span>
+                <span class="mobile-tab-label">Wallet</span>
+            </a>
+            <a href="{{ route('portal.requests') }}"
+               class="mobile-tab {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}">
+                <span class="mobile-tab-icon">📋</span>
+                <span class="mobile-tab-label">Richieste</span>
+            </a>
+            <button type="button" class="mobile-tab" onclick="toggleSidebar()" aria-label="Menu completo">
+                <span class="mobile-tab-icon">☰</span>
+                <span class="mobile-tab-label">Menu</span>
+            </button>
+        </div>
+    </nav>
+    @endif
+
+    {{-- Legal Footer --}}
+    <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;text-align:center;">
+        <p style="margin:0;font-size:11px;color:rgba(255,255,255,.38);">
+            &copy; {{ date('Y') }} KMoney &mdash;
+            <a href="{{ route('legal.privacy') }}" style="color:rgba(255,255,255,.5);">Privacy</a> &middot;
+            <a href="{{ route('legal.terms') }}" style="color:rgba(255,255,255,.5);">Termini</a> &middot;
+            <a href="{{ route('legal.contract') }}" style="color:rgba(255,255,255,.5);">Contratto</a> &middot;
+            <a href="{{ route('legal.limits') }}" style="color:rgba(255,255,255,.5);">Limiti</a> &middot;
+            <a href="{{ route('legal.aml-kyc') }}" style="color:rgba(255,255,255,.5);">AML/KYC</a> &middot;
+            <a href="{{ route('legal.complaints') }}" style="color:rgba(255,255,255,.5);">Reclami</a>
+        </p>
+    </footer>
+</body>
+</html>
