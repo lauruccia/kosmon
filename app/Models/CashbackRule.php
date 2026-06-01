@@ -66,7 +66,7 @@ class CashbackRule extends Model
     {
         return match ($this->target_type ?? 'all') {
             'company'       => $account->owner_type === 'company',
-            'personal'      => $account->owner_type === 'user',
+            'personal'      => $account->owner_type === 'private',
             'specific_user' => $this->target_user_id !== null
                                && $account->ownerUser?->id === $this->target_user_id,
             default         => true, // 'all'

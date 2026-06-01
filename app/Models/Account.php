@@ -45,7 +45,7 @@ class Account extends Model
     {
         static::creating(function (Account $account): void {
             if (! static::hasKyAccountNumber($account->uuid)) {
-                $account->uuid = static::generateKyAccountNumber();
+                $account->uuid = static::generateKyAccountNumber($account->owner_type ?? 'company');
             }
         });
     }
@@ -55,10 +55,17 @@ class Account extends Model
         return is_string($value) && preg_match('/^KY[A-Z0-9]{14}$/', $value) === 1;
     }
 
-    public static function generateKyAccountNumber(): string
+    public static function generateKyAccountNumber(string $ownerType = 'company'): string
     {
+        // KYB = Business (azienda), KYP = Personal (privato), KY = altri (sistema)
+        $prefix  = match ($ownerType) {
+            'private' => 'KYP',
+            'company' => 'KYB',
+            default   => 'KY',
+        };
+        $fillLen = 16 - strlen($prefix); // 13 per KYB/KYP, 14 per KY
         do {
-            $candidate = 'KY' . Str::upper(Str::random(14));
+            $candidate = $prefix . Str::upper(Str::random($fillLen));
         } while (static::query()->where('uuid', $candidate)->exists());
 
         return $candidate;

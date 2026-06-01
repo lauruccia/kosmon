@@ -322,9 +322,12 @@ class WebAuthnController extends Controller
             Auth::login($user, false);
             $request->session()->regenerate();
 
-            $redirect = $user->canAccessBackoffice()
-                ? route('admin.dashboard')
-                : route('portal.dashboard');
+            if ($user->canAccessBackoffice()) {
+                $redirect = route('admin.dashboard');
+            } else {
+                // Rispetta eventuale URL intesa (es. /pay/{token} da QR non autenticato)
+                $redirect = session()->pull('url.intended', route('portal.dashboard'));
+            }
 
             return response()->json(['redirect' => $redirect]);
 

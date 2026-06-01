@@ -1308,7 +1308,7 @@ class PortalController extends Controller
         $creditRequest = $currentAccount->creditLimitRequests()->create($validated);
 
         // Notifica tutti gli admin
-        \App\Models\User::where('is_admin', true)->each(function ($admin) use ($creditRequest) {
+        \App\Models\User::where('is_super_admin', true)->each(function ($admin) use ($creditRequest) {
             $admin->notify(new \App\Notifications\CreditLimitRequested($creditRequest));
         });
 
