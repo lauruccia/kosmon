@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('layouts.portal')
 
 @section('title', 'Contratto Firmato — ' . ($signature->company?->name ?? $signature->user?->name))
 

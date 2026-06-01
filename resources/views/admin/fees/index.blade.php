@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('layouts.portal')
 @section('content')
 <div style="max-width:900px;margin:0 auto;padding:0 16px 48px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">

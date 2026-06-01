@@ -10,18 +10,27 @@ use Illuminate\View\View;
 
 class EmailChangeController extends Controller
 {
-    private function resolveAccount(\App\Models\User $user): \App\Models\Account
+    private function resolveAccount(\App\Models\User $user): ?\App\Models\Account
     {
         if ($user->managed_account_id !== null) {
-            return \App\Models\Account::with(['company', 'ownerUser'])->findOrFail($user->managed_account_id);
+            return \App\Models\Account::with(['company', 'ownerUser'])->find($user->managed_account_id);
+        }
+        if ($user->company_id !== null) {
+            return \App\Models\Account::query()
+                ->with(['company', 'ownerUser'])
+                ->where('company_id', $user->company_id)
+                ->whereNull('parent_account_id')
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->first();
         }
         return \App\Models\Account::query()
             ->with(['company', 'ownerUser'])
-            ->where('company_id', $user->company_id ?? 0)
+            ->where('owner_user_id', $user->id)
             ->whereNull('parent_account_id')
             ->where('status', 'active')
             ->orderBy('id')
-            ->firstOrFail();
+            ->first();
     }
     public function show(Request $request): View
     {

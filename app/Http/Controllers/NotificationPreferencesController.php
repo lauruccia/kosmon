@@ -9,19 +9,27 @@ use Illuminate\View\View;
 
 class NotificationPreferencesController extends Controller
 {
-    private function resolveAccount(\App\Models\User $user): Account
+    private function resolveAccount(\App\Models\User $user): ?Account
     {
         if ($user->managed_account_id !== null) {
-            return Account::with(['company', 'ownerUser'])->findOrFail($user->managed_account_id);
+            return Account::with(['company', 'ownerUser'])->find($user->managed_account_id);
         }
-
+        if ($user->company_id !== null) {
+            return Account::query()
+                ->with(['company', 'ownerUser'])
+                ->where('company_id', $user->company_id)
+                ->whereNull('parent_account_id')
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->first();
+        }
         return Account::query()
             ->with(['company', 'ownerUser'])
-            ->where('company_id', $user->company_id ?? 0)
+            ->where('owner_user_id', $user->id)
             ->whereNull('parent_account_id')
             ->where('status', 'active')
             ->orderBy('id')
-            ->firstOrFail();
+            ->first();
     }
 
     /**
