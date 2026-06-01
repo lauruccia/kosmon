@@ -1622,6 +1622,7 @@
             window.addEventListener('beforeinstallprompt', function (e) {
                 e.preventDefault();
                 deferredPrompt = e;
+                window._kmInstallPrompt = e; // esposto globalmente per altre pagine
 
                 banner = document.createElement('div');
                 banner.id = 'pwa-install-banner';

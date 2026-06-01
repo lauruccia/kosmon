@@ -64,9 +64,9 @@
       <div style="display:flex;align-items:center;gap:14px;">
         <div style="font-size:28px;">&#128274;</div>
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:13px;margin-bottom:2px;">Aggiungi al browser</div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:2px;">Installa KMoney</div>
           <div style="font-size:11.5px;color:var(--ink-muted);">
-            Su Chrome Android, appare nel payment sheet come Google Pay.
+            Aggiungi l'app alla schermata Home per accesso rapido e notifiche.
           </div>
         </div>
         <button type="button" id="add-wallet-btn" class="cta" style="font-size:12px;padding:7px 14px;white-space:nowrap;">
@@ -339,82 +339,87 @@
 
 <script>
 (function(){
-  const KY_METHOD = window.location.origin + '/paga/handler';
-  const btn       = document.getElementById('add-wallet-btn');
-  const statusEl  = document.getElementById('wallet-status');
+  const btn      = document.getElementById('add-wallet-btn');
+  const statusEl = document.getElementById('wallet-status');
+  const isIOS    = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone === true;
 
-  function setUnsupported(msg) {
-    btn.textContent = 'Non supportato';
+  function showStatus(msg, color) {
+    statusEl.textContent = msg;
+    statusEl.style.display = 'block';
+    statusEl.style.color = color || 'var(--ink-muted)';
+  }
+
+  // Già installata come PWA
+  if (isStandalone) {
+    btn.textContent = '✓ App installata';
+    btn.style.background = '#059669';
     btn.disabled = true;
-    btn.style.opacity = '.5';
-    if (msg) {
-      statusEl.textContent = msg;
-      statusEl.style.display = 'block';
-    }
+    showStatus('KMoney è già installata sul tuo dispositivo.', '#059669');
+    return;
   }
 
-  function hasInstruments(reg) {
-    // paymentManager.instruments deve esistere ed avere il metodo set
-    return reg &&
-           typeof reg.paymentManager === 'object' &&
-           reg.paymentManager !== null &&
-           reg.paymentManager.instruments &&
-           typeof reg.paymentManager.instruments.set === 'function';
+  // iOS: non supporta beforeinstallprompt — mostra istruzioni manuali
+  if (isIOS) {
+    btn.textContent = 'Come installare';
+    btn.addEventListener('click', function() {
+      showStatus('Su Safari: tocca ↑ Condividi → "Aggiungi a schermata Home"', 'var(--ink-soft)');
+    });
+    return;
   }
 
-  async function checkWalletStatus() {
-    if (!navigator.serviceWorker) { setUnsupported(); return; }
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      if (!hasInstruments(reg)) {
-        setUnsupported('Usa Chrome su Android per aggiungere KY al payment sheet.');
-        return;
-      }
-      const keys = await reg.paymentManager.instruments.keys();
-      if (keys.includes('ky-default')) {
-        btn.textContent = '✓ Aggiunto';
-        btn.style.background = '#059669';
-        btn.disabled = true;
-        statusEl.textContent = 'KY Wallet è già registrato nel tuo browser.';
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#059669';
-      }
-    } catch(e) {
-      // silenzioso — browser non supporta
-      setUnsupported();
-    }
-  }
-
-  btn.addEventListener('click', async () => {
-    if (!navigator.serviceWorker) return;
-    btn.disabled = true;
-    btn.textContent = 'Registrazione...';
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      if (!hasInstruments(reg)) {
-        setUnsupported('Il tuo browser non supporta i payment handler.');
-        return;
-      }
-      await reg.paymentManager.instruments.set('ky-default', {
-        name:   'KMoney KY',
-        icons:  [{ src: '/assets/brand/icon-192.png', sizes: '192x192', type: 'image/png' }],
-        method: KY_METHOD,
-      });
-      btn.textContent = '✓ Aggiunto';
-      btn.style.background = '#059669';
-      statusEl.textContent = 'KY Wallet aggiunto! Appare ora nel payment sheet del browser.';
-      statusEl.style.display = 'block';
-      statusEl.style.color = '#059669';
-    } catch(e) {
+  // Android/Chrome: usa beforeinstallprompt se disponibile
+  // Il prompt può essere già catturato dal layout (window._kmInstallPrompt)
+  // oppure arriva dopo questo script — ascoltiamo entrambi i casi
+  function tryInstall() {
+    const prompt = window._kmInstallPrompt;
+    if (!prompt) {
+      showStatus('Apri il menu Chrome → "Aggiungi a schermata Home" per installare l\'app.', 'var(--ink-soft)');
       btn.disabled = false;
-      btn.textContent = 'Aggiungi';
-      statusEl.textContent = 'Non supportato su questo browser.';
-      statusEl.style.display = 'block';
-      statusEl.style.color = 'var(--ink-muted)';
+      btn.textContent = 'Come installare';
+      return;
     }
-  });
+    btn.disabled = true;
+    btn.textContent = 'Installazione...';
+    prompt.prompt();
+    prompt.userChoice.then(function(choice) {
+      if (choice.outcome === 'accepted') {
+        btn.textContent = '✓ Installata';
+        btn.style.background = '#059669';
+        showStatus('KMoney è stata aggiunta alla schermata Home!', '#059669');
+        window._kmInstallPrompt = null;
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Installa app';
+        showStatus('Installazione annullata.', 'var(--ink-muted)');
+      }
+    });
+  }
 
-  checkWalletStatus();
+  // Se il prompt è già disponibile mostra subito "Installa app"
+  // altrimenti aspetta l'evento (può arrivare dopo il caricamento)
+  function initBtn() {
+    if (window._kmInstallPrompt) {
+      btn.textContent = 'Installa app';
+    } else {
+      // Aspetta fino a 3s che arrivi il prompt
+      var waited = 0;
+      var check = setInterval(function() {
+        waited += 200;
+        if (window._kmInstallPrompt) {
+          btn.textContent = 'Installa app';
+          clearInterval(check);
+        } else if (waited >= 3000) {
+          btn.textContent = 'Come installare';
+          clearInterval(check);
+        }
+      }, 200);
+    }
+  }
+
+  btn.addEventListener('click', tryInstall);
+  initBtn();
 })();
 </script>
 
