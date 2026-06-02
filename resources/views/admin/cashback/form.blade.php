@@ -13,9 +13,9 @@
     @endif
 
     <form method="POST"
-          action="{{ isset($rule) ? route('admin.cashback.update', $rule) : route('admin.cashback.store') }}">
+          action="{{ $rule->exists ? route('admin.cashback.update', $rule) : route('admin.cashback.store') }}">
         @csrf
-        @if(isset($rule)) @method('PUT') @endif
+        @if($rule->exists) @method('PUT') @endif
 
         <div class="card" style="padding:16px 20px;">
 
