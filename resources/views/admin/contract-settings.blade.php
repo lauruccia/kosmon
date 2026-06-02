@@ -141,10 +141,11 @@
                     '[[uuid_azienda]]'    => 'Codice univoco',
                     '[[data_firma]]'      => 'Data firma',
                 ] as $ph => $lbl)
+                @php $phDisplay = str_replace(['[[',']]'], ['{{','}}'], $ph); @endphp
                 <span onclick="insertPH('{{ $ph }}')"
                       title="{{ $lbl }}"
                       style="background:#e0f2fe;color:#0369a1;padding:4px 10px;border-radius:20px;font-size:12px;font-family:monospace;cursor:pointer;border:1px solid #bae6fd;">
-                    {{ str_replace(['[[',']]'], ['{{','}}'], $ph) }}
+                    {{ $phDisplay }}
                 </span>
                 @endforeach
             </div>
