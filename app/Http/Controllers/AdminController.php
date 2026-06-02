@@ -395,8 +395,8 @@ class AdminController extends Controller
         // Crea nuovo limite
         $account->creditLimits()->create([
             'credit_limit'          => $validated['credit_limit'],
-            'daily_outgoing_limit'  => $validated['daily_outgoing_limit'] ?: null,
-            'single_transfer_limit' => $validated['single_transfer_limit'] ?: null,
+            'daily_outgoing_limit'  => ($validated['daily_outgoing_limit'] ?? null) ?: null,
+            'single_transfer_limit' => ($validated['single_transfer_limit'] ?? null) ?: null,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);
@@ -1795,8 +1795,8 @@ class AdminController extends Controller
         // Crea nuovo CreditLimit con il totale sommato
         $account->creditLimits()->create([
             'credit_limit'          => $newTotal,
-            'daily_outgoing_limit'  => $validated['daily_outgoing_limit'] ?: null,
-            'single_transfer_limit' => $validated['single_transfer_limit'] ?: null,
+            'daily_outgoing_limit'  => ($validated['daily_outgoing_limit'] ?? null) ?: null,
+            'single_transfer_limit' => ($validated['single_transfer_limit'] ?? null) ?: null,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);

@@ -63,21 +63,21 @@ class SystemSetting extends Model
      *   {{citta}}, {{telefono}}, {{email}}, {{sito_web}}, {{nome_rappresentante}},
      *   {{uuid_azienda}}, {{data_firma}}
      */
-    public function renderContractText(Company $company, \App\Models\User $user): string
+    public function renderContractText(?Company $company, \App\Models\User $user): string
     {
         $text = $this->contract_text ?? self::defaultContractText();
 
         $map = [
-            '[[ragione_sociale]]'    => e($company->name ?? ''),
-            '[[partita_iva]]'        => e($company->vat_number ?? ''),
-            '[[codice_fiscale]]'     => e($company->fiscal_code ?? ''),
-            '[[settore]]'            => e($company->sector ?? ''),
-            '[[citta]]'              => e($company->city ?? ''),
-            '[[telefono]]'           => e($company->phone ?? ''),
-            '[[email]]'              => e($company->email ?? $user->email ?? ''),
-            '[[sito_web]]'           => e($company->website ?? ''),
+            '[[ragione_sociale]]'    => e($company?->name ?? ''),
+            '[[partita_iva]]'        => e($company?->vat_number ?? ''),
+            '[[codice_fiscale]]'     => e($company?->fiscal_code ?? ''),
+            '[[settore]]'            => e($company?->sector ?? ''),
+            '[[citta]]'              => e($company?->city ?? ''),
+            '[[telefono]]'           => e($company?->phone ?? ''),
+            '[[email]]'              => e($company?->email ?? $user->email ?? ''),
+            '[[sito_web]]'           => e($company?->website ?? ''),
             '[[nome_rappresentante]]'=> e($user->name ?? ''),
-            '[[uuid_azienda]]'       => e($company->uuid ?? ''),
+            '[[uuid_azienda]]'       => e($company?->uuid ?? ''),
             '[[data_firma]]'         => now()->format('d/m/Y'),
         ];
 
