@@ -3,8 +3,10 @@
 namespace App\Notifications;
 
 use App\Models\PaymentPlan;
+use App\Notifications\Concerns\RespectsNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class PaymentPlanProposedNotification extends Notification implements ShouldQueue
@@ -13,9 +15,11 @@ class PaymentPlanProposedNotification extends Notification implements ShouldQueu
 
     public function __construct(public readonly PaymentPlan $plan) {}
 
+    use RespectsNotificationPreferences;
+
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return $this->resolveChannels($notifiable, 'payment_plan_proposed', ['database', 'mail'], ['database', 'mail']);
     }
 
     public function toArray(object $notifiable): array
@@ -37,5 +41,15 @@ class PaymentPlanProposedNotification extends Notification implements ShouldQueu
             'body'  => $body,
             'link'  => route('portal.payment-plans.show', $this->plan),
         ];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('Proposta piano rateale da ' . ($this->plan->proposerAccount()?->display_name ?? 'Un azienda'))
+            ->greeting('Piano rateale proposto')
+            ->line(($this->plan->proposerAccount()?->display_name ?? 'Un azienda') . ' propone di pagare ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY in ' . $this->plan->installments_count . ' rate.')
+            ->action('Visualizza proposta', route('portal.payment-plans.show', $this->plan))
+            ->salutation('Il team KMoney');
     }
 }

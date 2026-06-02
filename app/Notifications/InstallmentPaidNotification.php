@@ -8,6 +8,7 @@ use App\Models\PaymentPlan;
 use App\Models\PaymentPlanInstallment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class InstallmentPaidNotification extends Notification implements ShouldQueue
@@ -23,7 +24,7 @@ class InstallmentPaidNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return $this->resolveChannels($notifiable, 'installment_paid', ['database'], ['database']);
+        return $this->resolveChannels($notifiable, 'installment_paid', ['database', 'mail'], ['database', 'mail']);
     }
 
     public function toArray(object $notifiable): array
@@ -40,5 +41,16 @@ class InstallmentPaidNotification extends Notification implements ShouldQueue
             ),
             'link'  => route('portal.payment-plans.show', $this->plan),
         ];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('Rata ' . $this->installment->installment_number . '/' . $this->plan->installments_count . ' eseguita')
+            ->greeting('Rata contabilizzata')
+            ->line('Rata ' . $this->installment->installment_number . ' di ' . $this->plan->installments_count . ' da ' . number_format($this->installment->amount, 2, ',', '.') . ' KY contabilizzata con successo.')
+            ->lineIf($this->installment->installment_number === $this->plan->installments_count, 'Piano rateale completato!')
+            ->action('Visualizza piano', route('portal.payment-plans.show', $this->plan))
+            ->salutation('Il team KMoney');
     }
 }
