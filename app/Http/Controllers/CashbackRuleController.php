@@ -24,7 +24,12 @@ class CashbackRuleController extends Controller
         $kindOptions        = CashbackRule::kindOptions();
         $targetTypeOptions  = CashbackRule::targetTypeOptions();
         $users              = User::orderBy('name')->get(['id', 'name', 'email']);
-        return view('admin.cashback.form', compact('kindOptions', 'targetTypeOptions', 'users'));
+        return view('admin.cashback.form', [
+            'rule'              => new CashbackRule(),
+            'kindOptions'       => $kindOptions,
+            'targetTypeOptions' => $targetTypeOptions,
+            'users'             => $users,
+        ]);
     }
 
     public function store(Request $request)

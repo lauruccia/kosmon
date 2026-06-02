@@ -223,6 +223,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/register/verify',    [WebAuthnController::class, 'registerVerify'])->name('register.verify');
     Route::get('/credentials',         [WebAuthnController::class, 'listCredentials'])->name('credentials');
     Route::delete('/credentials/{id}', [WebAuthnController::class, 'deleteCredential'])->name('credentials.delete');
+    Route::post('/switch/options',     [WebAuthnController::class, 'switchOptions'])->name('switch.options');
+    Route::post('/switch/verify',      [WebAuthnController::class, 'switchVerify'])->name('switch.verify');
 });
 // ─────────────────────────────────────────────────────────────────────────────
 

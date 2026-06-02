@@ -24,7 +24,7 @@
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Da firmare</div>
-        <div class="kpi-value" style="color:{{ ($totalUsers-$signedCount)>0?&apos;#dc2626&apos;:&apos;#16a34a&apos; }}">{{ number_format($totalUsers-$signedCount) }}</div>
+        <div class="kpi-value" style="color:{{ ($totalUsers-$signedCount)>0?'#dc2626':'#16a34a' }}">{{ number_format($totalUsers-$signedCount) }}</div>
         <div class="kpi-sub">utenti in sospeso</div>
     </div>
     <div class="kpi-card">
@@ -34,7 +34,7 @@
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Firma forzata</div>
-        <div class="kpi-value" style="color:{{ $forceSign?&apos;#dc2626&apos;:&apos;#94a3b8&apos; }}">{{ $forceSign?&apos;ATTIVA&apos;:&apos;No&apos; }}</div>
+        <div class="kpi-value" style="color:{{ $forceSign?'#dc2626':'#94a3b8' }}">{{ $forceSign?'ATTIVA':'No' }}</div>
         <div class="kpi-sub">nessun rinvio</div>
     </div>
 </div>

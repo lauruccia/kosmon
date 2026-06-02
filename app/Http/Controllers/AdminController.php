@@ -1756,12 +1756,12 @@ class AdminController extends Controller
     {
         $this->authorizeBackoffice($request->user());
 
-        $pending  = \App\Models\CreditLimitRequest::with(['account.company'])
+        $pending  = \App\Models\CreditLimitRequest::with(['account.company', 'account.ownerUser'])
             ->where('status', 'pending')
             ->latest()
             ->get();
 
-        $recent = \App\Models\CreditLimitRequest::with(['account.company', 'admin'])
+        $recent = \App\Models\CreditLimitRequest::with(['account.company', 'account.ownerUser', 'admin'])
             ->whereIn('status', ['approved', 'rejected'])
             ->latest('actioned_at')
             ->take(30)

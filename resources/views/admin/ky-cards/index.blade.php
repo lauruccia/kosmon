@@ -3,6 +3,14 @@
 @section('content')
 <div style="width:100%;">
 
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+            <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin:0;">KYCard</h1>
+            <p style="margin:4px 0 0;color:var(--ink-soft);font-size:14px;">Pacchetti di ricarica KMoney acquistabili dalle aziende</p>
+        </div>
+        <a href="{{ route('admin.ky-cards.create') }}" class="btn btn-primary">+ Nuova KYCard</a>
+    </div>
+
     @if(session('success'))
         <div class="alert alert-success" style="margin-bottom:10px;">{{ session('success') }}</div>
     @endif

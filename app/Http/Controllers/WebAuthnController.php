@@ -99,7 +99,7 @@ class WebAuthnController extends Controller
                 user: PublicKeyCredentialUserEntity::create(
                     name:        $user->email,
                     id:          (string) $user->id,
-                    displayName: $user->name,
+                    displayName: $user->name . ($user->company ? ' — ' . $user->company->name : ' — Personale'),
                 ),
                 challenge:      random_bytes(32),
                 pubKeyCredParams: [
@@ -171,11 +171,13 @@ class WebAuthnController extends Controller
                 return response()->json(['error' => 'Dispositivo gia registrato.'], 422);
             }
 
+            $accountLabel = $user->company ? $user->company->name : 'Personale';
+
             WebAuthnCredential::create([
                 'user_id'           => $user->id,
                 'credential_id'     => $credentialId,
                 'credential_source' => $serializer->serialize($source, 'json'),
-                'name'              => $request->input('name', 'Dispositivo ' . now()->format('d/m/Y')),
+                'name'              => $request->input('name', $accountLabel . ' — ' . now()->format('d/m/Y')),
             ]);
 
             return response()->json(['success' => true]);
@@ -368,4 +370,130 @@ class WebAuthnController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    // ── SWITCH PROFILO (multi-account sullo stesso dispositivo) ───────────────
+
+    /**
+     * POST /webauthn/switch/options
+     * Restituisce una challenge discoverable per il cambio profilo in-sessione.
+     * Il browser mostrerà TUTTE le passkey registrate per il dominio.
+     * Richiede utente autenticato.
+     */
+    public function switchOptions(Request $request): JsonResponse
+    {
+        $serializer = $this->makeSerializer();
+        try {
+            $options = PublicKeyCredentialRequestOptions::create(
+                challenge:        random_bytes(32),
+                timeout:          60000,
+                rpId:             $this->rpId(),
+                allowCredentials: [],   // vuoto = discoverable: browser mostra tutti i profili
+                userVerification: 'required',
+            );
+
+            $json = $serializer->serialize($options, 'json');
+            session(['webauthn_switch_options' => $json]);
+
+            return response()->json(json_decode($json, true));
+        } catch (Throwable $e) {
+            return response()->json(['error' => 'Errore: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /webauthn/switch/verify
+     * Verifica l'assertion e switcha la sessione al profilo selezionato.
+     * Se userHandle corrisponde all'utente già autenticato, risponde con same_user=true.
+     */
+    public function switchVerify(Request $request): JsonResponse
+    {
+        $serializer  = $this->makeSerializer();
+        $optionsJson = session('webauthn_switch_options');
+        session()->forget('webauthn_switch_options');
+
+        if (! $optionsJson) {
+            return response()->json(['error' => 'Sessione scaduta. Riprova.'], 422);
+        }
+
+        try {
+            $options = $serializer->deserialize(
+                $optionsJson,
+                PublicKeyCredentialRequestOptions::class,
+                'json',
+            );
+
+            $credential = $serializer->deserialize(
+                json_encode($request->all()),
+                PublicKeyCredential::class,
+                'json',
+            );
+
+            // Leggi lo user_id dal userHandle (binario → intero)
+            $userHandle = $credential->response->userHandle ?? null;
+            if (! $userHandle) {
+                return response()->json(['error' => 'Impossibile identificare il profilo.'], 401);
+            }
+            $targetUserId = (int) $userHandle;
+
+            // Trova la credential nel DB
+            $storedCred = WebAuthnCredential::where('credential_id', $this->b64UrlEncode($credential->rawId))
+                ->where('user_id', $targetUserId)
+                ->first();
+
+            if (! $storedCred) {
+                return response()->json(['error' => 'Dispositivo non riconosciuto per questo profilo.'], 401);
+            }
+
+            $source = $serializer->deserialize(
+                $storedCred->credential_source,
+                PublicKeyCredentialSource::class,
+                'json',
+            );
+
+            $validator     = AuthenticatorAssertionResponseValidator::create();
+            $updatedSource = $validator->check(
+                $source,
+                $credential->response,
+                $options,
+                $this->rpId(),
+                (string) $targetUserId,
+                $this->securedRpIds(),
+            );
+
+            // Aggiorna contatore e data
+            $storedCred->update([
+                'credential_source' => $serializer->serialize($updatedSource, 'json'),
+                'last_used_at'      => now(),
+            ]);
+
+            $targetUser = User::findOrFail($targetUserId);
+
+            // Stessa persona già loggata — nessun switch
+            if ($targetUserId === Auth::id()) {
+                return response()->json([
+                    'same_user' => true,
+                    'message'   => 'Sei già su questo profilo.',
+                ]);
+            }
+
+            // Switch sessione
+            Auth::login($targetUser, false);
+            $request->session()->regenerate();
+
+            $redirect = $targetUser->canAccessBackoffice()
+                ? route('admin.dashboard')
+                : route('portal.dashboard');
+
+            return response()->json([
+                'redirect'     => $redirect,
+                'profile_name' => $targetUser->name,
+            ]);
+
+        } catch (Throwable $e) {
+            return response()->json([
+                'error' => 'Switch fallito: ' . $e->getMessage(),
+            ], 401);
+        }
+    }
+
 }

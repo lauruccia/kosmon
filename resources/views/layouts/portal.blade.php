@@ -387,6 +387,18 @@
             font-size: 13px; transition: background .16s;
         }
         .logout-btn:hover { background: rgba(255,255,255,.09); color: #fff; }
+        .switch-profile-btn { display: none; width: 100%; text-align: left; border: none; background: rgba(255,255,255,.06); color: rgba(255,255,255,.78); cursor: pointer; font-size: 13px; font-weight: 700; padding: 10px 14px; border-radius: 12px; gap: 10px; align-items: center; margin-bottom: 6px; transition: background .15s; }
+        .switch-profile-btn:hover { background: rgba(255,255,255,.11); color: #fff; }
+        .switch-profile-btn svg { flex-shrink: 0; opacity: .7; }
+        /* Overlay switch profilo */
+        .switch-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+        .switch-overlay.open { display: flex; }
+        .switch-modal { background: var(--bg); border-radius: 20px; padding: 28px 24px; width: min(92%, 360px); box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+        .switch-modal h3 { margin: 0 0 8px; font-size: 19px; }
+        .switch-modal p { margin: 0 0 20px; font-size: 14px; color: var(--ink-muted); line-height: 1.5; }
+        .switch-modal-msg { display: none; margin-top: 14px; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+        .switch-modal-msg.ok { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .switch-modal-msg.err { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
 
         /* ── CONTENT SHELL ──────────────────────────────────────────── */
         .content-shell {
@@ -1187,9 +1199,6 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}"><span class="nav-icon">&#128202;</span><span>Analytics</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'branding' ? 'active' : '' }}" href="{{ route('admin.branding') }}"><span class="nav-icon">&#127912;</span><span>Brand</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-nfc-cards' ? 'active' : '' }}" href="{{ route('admin.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Card NFC</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhook-deliveries' ? 'active' : '' }}" href="{{ route('admin.webhook-deliveries') }}">WD Log Webhook</a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-sectors' ? 'active' : '' }}" href="{{ route('admin.sectors.index') }}"><span class="nav-icon">ST</span><span>Settori</span></a>
@@ -1203,6 +1212,9 @@
                             </a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'emit' ? 'active' : '' }}" href="{{ route('admin.ky.emit') }}"><span class="nav-icon">KY</span><span>Emissione KY</span></a>
                             @endif
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'cashback' ? 'active' : '' }}" href="{{ route('admin.cashback.index') }}"><span class="nav-icon">CB</span><span>Cashback</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-fees' ? 'active' : '' }}" href="{{ route('admin.fees.index') }}"><span class="nav-icon">&#x1F4B0;</span><span>Commissioni</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broadcast' ? 'active' : '' }}" href="{{ route('admin.broadcast.index') }}"><span class="nav-icon">&#x1F4E2;</span><span>Comunicazioni</span></a>
@@ -1354,10 +1366,31 @@
                         <span class="nav-icon">&#x2709;</span><span>Cambia email</span>
                     </a>
                     @endif
+                    {{-- Cambia profilo con impronta (visibile solo se WebAuthn disponibile e non in backoffice) --}}
+                    @if(!$isBackoffice)
+                    <button id="btn-switch-profile" class="switch-profile-btn" type="button">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        Cambia profilo
+                    </button>
+                    @endif
                     <form method="post" action="{{ route('logout') }}">
                         @csrf
                         <button class="logout-btn" type="submit">Esci dal pannello</button>
                     </form>
+
+                    {{-- Modal switch profilo --}}
+                    <div class="switch-overlay" id="switch-overlay">
+                        <div class="switch-modal">
+                            <h3>Cambia profilo</h3>
+                            <p>Usa la tua impronta o Face ID per accedere a un profilo diverso registrato su questo dispositivo.</p>
+                            <button id="btn-switch-confirm" style="width:100%;min-height:52px;border:none;border-radius:14px;background:linear-gradient(135deg,#4d7386,#718b5c);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;" type="button">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg>
+                                Autentica con impronta
+                            </button>
+                            <div id="switch-msg" class="switch-modal-msg"></div>
+                            <button onclick="closeSwitchOverlay()" style="width:100%;margin-top:12px;border:none;background:none;color:var(--ink-muted);font-size:14px;cursor:pointer;padding:8px;">Annulla</button>
+                        </div>
+                    </div>
                 </section>
             </div>
         </aside>
@@ -1457,6 +1490,132 @@
             overlay.classList.toggle('is-open');
             if (btn) btn.classList.toggle('open');
         }
+        // ── Switch profilo WebAuthn ─────────────────────────────────────────────────
+        (function () {
+            // Helpers base64url
+            function b64urlToBuffer(b) {
+                b = b.replace(/-/g, '+').replace(/_/g, '/');
+                var pad = b.length % 4; if (pad) b += '===='.slice(pad);
+                var bin = atob(b), buf = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                return buf.buffer;
+            }
+            function bufferToB64url(buf) {
+                var bytes = new Uint8Array(buf), bin = '';
+                bytes.forEach(function(b) { bin += String.fromCharCode(b); });
+                return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            }
+
+            var switchBtn = document.getElementById('btn-switch-profile');
+            var confirmBtn = document.getElementById('btn-switch-confirm');
+            var overlay = document.getElementById('switch-overlay');
+            var msg = document.getElementById('switch-msg');
+
+            // Mostra il bottone solo se il browser supporta WebAuthn
+            if (switchBtn && window.PublicKeyCredential) {
+                switchBtn.style.display = 'flex';
+            }
+
+            window.closeSwitchOverlay = function () {
+                if (overlay) overlay.classList.remove('open');
+                if (msg) { msg.style.display = 'none'; msg.className = 'switch-modal-msg'; }
+            };
+
+            if (switchBtn) {
+                switchBtn.addEventListener('click', function () {
+                    if (overlay) overlay.classList.add('open');
+                    closeSidebar();
+                });
+            }
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', async function () {
+                    confirmBtn.disabled = true;
+                    confirmBtn.textContent = 'In attesa del dispositivo…';
+                    if (msg) { msg.style.display = 'none'; }
+
+                    try {
+                        // 1. Ottieni challenge discoverable
+                        var optRes = await fetch('{{ route("webauthn.switch.options") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            },
+                            body: '{}',
+                        });
+                        var optData = await optRes.json();
+                        if (!optRes.ok) { showSwitchMsg(optData.error || 'Errore opzioni.', 'err'); return; }
+
+                        // 2. Decodifica challenge
+                        optData.challenge = b64urlToBuffer(optData.challenge);
+                        if (optData.allowCredentials) {
+                            optData.allowCredentials = optData.allowCredentials.map(function (c) {
+                                return Object.assign({}, c, { id: b64urlToBuffer(c.id) });
+                            });
+                        }
+
+                        // 3. Prompt biometrico — browser mostra tutti i profili registrati
+                        var assertion = await navigator.credentials.get({ publicKey: optData });
+
+                        // 4. Prepara payload
+                        var payload = {
+                            id: assertion.id,
+                            rawId: bufferToB64url(assertion.rawId),
+                            type: assertion.type,
+                            response: {
+                                clientDataJSON: bufferToB64url(assertion.response.clientDataJSON),
+                                authenticatorData: bufferToB64url(assertion.response.authenticatorData),
+                                signature: bufferToB64url(assertion.response.signature),
+                                userHandle: assertion.response.userHandle ? bufferToB64url(assertion.response.userHandle) : null,
+                            },
+                        };
+
+                        // 5. Verifica e switch
+                        var verRes = await fetch('{{ route("webauthn.switch.verify") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            },
+                            body: JSON.stringify(payload),
+                        });
+                        var verData = await verRes.json();
+
+                        if (!verRes.ok) { showSwitchMsg(verData.error || 'Switch fallito.', 'err'); return; }
+
+                        if (verData.same_user) {
+                            showSwitchMsg('Sei già su questo profilo.', 'ok');
+                            return;
+                        }
+
+                        showSwitchMsg('Profilo cambiato! Reindirizzamento…', 'ok');
+                        setTimeout(function () { window.location.href = verData.redirect; }, 700);
+
+                    } catch (err) {
+                        if (err.name === 'NotAllowedError') {
+                            showSwitchMsg('Autenticazione annullata.', 'err');
+                        } else {
+                            showSwitchMsg('Errore: ' + err.message, 'err');
+                        }
+                    } finally {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg> Autentica con impronta';
+                    }
+                });
+            }
+
+            function showSwitchMsg(text, type) {
+                if (!msg) return;
+                msg.textContent = text;
+                msg.className = 'switch-modal-msg ' + type;
+                msg.style.display = 'block';
+            }
+        })();
+        // ── Fine switch profilo ──────────────────────────────────────────────────
+
         function closeSidebar() {
             var sidebar = document.querySelector('.sidebar');
             var overlay = document.getElementById('sidebar-overlay');

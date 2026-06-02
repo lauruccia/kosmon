@@ -32,10 +32,10 @@
         <div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                 <div style="width:36px;height:36px;border-radius:50%;background:var(--grad-hero);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;">
-                    {{ strtoupper(substr($req->account->company?->name ?? '?', 0, 2)) }}
+                    {{ strtoupper(substr($req->account->ownerLabel ?? '?', 0, 2)) }}
                 </div>
                 <div>
-                    <div style="font-size:15px;font-weight:700;color:var(--ink);">{{ $req->account->company?->name ?? 'N/D' }}</div>
+                    <div style="font-size:15px;font-weight:700;color:var(--ink);">{{ $req->account->ownerLabel ?? 'N/D' }}</div>
                     <div style="font-size:12px;color:var(--ink-muted);">Richiesta il {{ $req->created_at->format('d/m/Y H:i') }}</div>
                 </div>
                 <div style="margin-left:auto;text-align:right;">
@@ -131,7 +131,7 @@
                             required>
                     </div>
                     <button type="submit"
-                        onclick="return confirm('Confermi il rifiuto della richiesta di {{ $req->account->company?->name }}?')"
+                        onclick="return confirm('Confermi il rifiuto della richiesta di {{ $req->account->ownerLabel }}?')"
                         style="width:100%;padding:9px;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;">
                         ❌ Rifiuta richiesta
                     </button>
@@ -165,7 +165,7 @@
         <tbody>
             @foreach($recent as $r)
             <tr>
-                <td style="font-weight:600;">{{ $r->account->company?->name ?? 'N/D' }}</td>
+                <td style="font-weight:600;">{{ $r->account->ownerLabel ?? 'N/D' }}</td>
                 <td style="text-align:right;">{{ number_format($r->requested_amount, 2, ',', '.') }} KY</td>
                 <td style="text-align:right;font-weight:700;">
                     @if($r->isApproved())
