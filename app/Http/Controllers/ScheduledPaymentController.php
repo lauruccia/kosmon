@@ -22,23 +22,81 @@ class ScheduledPaymentController extends Controller
     {
         [$currentAccount] = $this->resolveCurrentContext($request->user());
 
-        $payments = ScheduledPayment::query()
-            ->with(['toAccount.company', 'fromAccount.company', 'transfer'])
-            ->where(fn ($q) => $q
+        $filters = $this->scheduledPaymentFilters($request);
+
+        $query = ScheduledPayment::query()
+            ->with(['toAccount.company', 'fromAccount.company', 'transfer']);
+
+        // Direzione: uscite (from), entrate (to), oppure entrambe
+        if ($filters['direction'] === 'out') {
+            $query->where('from_account_id', $currentAccount->id);
+        } elseif ($filters['direction'] === 'in') {
+            $query->where('to_account_id', $currentAccount->id);
+        } else {
+            $query->where(fn ($q) => $q
                 ->where('from_account_id', $currentAccount->id)
                 ->orWhere('to_account_id', $currentAccount->id)
-            )
-            ->latest('scheduled_at')
-            ->paginate(20);
+            );
+        }
+
+        // Stato
+        if ($filters['status'] !== '') {
+            $query->where('status', $filters['status']);
+        }
+
+        // Data da / data a (su scheduled_at)
+        if ($filters['date_from'] !== '') {
+            $query->where('scheduled_at', '>=', $filters['date_from'] . ' 00:00:00');
+        }
+        if ($filters['date_to'] !== '') {
+            $query->where('scheduled_at', '<=', $filters['date_to'] . ' 23:59:59');
+        }
+
+        // Ricerca per nome controparte
+        if ($filters['search'] !== '') {
+            $term = $filters['search'];
+            $query->where(function ($q) use ($currentAccount, $term, $filters): void {
+                // Cerca nel destinatario (pagamenti in uscita o entrambi)
+                if ($filters['direction'] !== 'in') {
+                    $q->orWhereHas('toAccount.company', fn ($cq) =>
+                        $cq->where('name', 'like', "%{$term}%")
+                    );
+                }
+                // Cerca nel mittente (pagamenti in entrata o entrambi)
+                if ($filters['direction'] !== 'out') {
+                    $q->orWhereHas('fromAccount.company', fn ($cq) =>
+                        $cq->where('name', 'like', "%{$term}%")
+                    );
+                }
+            });
+        }
+
+        $payments = $query->latest('scheduled_at')->paginate(20)->withQueryString();
 
         return view('portal.scheduled-payments.index', [
             'pageTitle'      => 'Pagamenti programmati',
             'currentAccount' => $currentAccount,
             'payments'       => $payments,
+            'filters'        => $filters,
             'pendingCount'   => ScheduledPayment::where('from_account_id', $currentAccount->id)
                 ->where('status', 'pending')->count(),
             'activeNav'      => 'scheduled-payments',
         ]);
+    }
+
+    protected function scheduledPaymentFilters(Request $request): array
+    {
+        $status    = trim((string) $request->query('status', ''));
+        $direction = trim((string) $request->query('direction', ''));
+        $search    = trim((string) $request->query('search', ''));
+
+        return [
+            'status'    => in_array($status, ['pending', 'executed', 'cancelled', 'failed'], true) ? $status : '',
+            'direction' => in_array($direction, ['in', 'out'], true) ? $direction : '',
+            'search'    => mb_substr($search, 0, 100),
+            'date_from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('date_from', '')) ? $request->query('date_from') : '',
+            'date_to'   => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('date_to', ''))   ? $request->query('date_to')   : '',
+        ];
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
