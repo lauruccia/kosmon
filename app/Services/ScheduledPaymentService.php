@@ -234,11 +234,16 @@ class ScheduledPaymentService
      * Riprova immediatamente un pagamento fallito.
      * Resetta lo stato a pending e chiama execute() subito.
      */
+    /**
+     * Esegue o riprova immediatamente un pagamento pending scaduto o fallito.
+     * Funziona sia per status = 'failed' che per status = 'pending' già scaduto.
+     */
     public function retry(ScheduledPayment $payment, Account $byAccount): void
     {
-        abort_unless($payment->isFailed(), 422, 'Solo i pagamenti falliti possono essere ritentati.');
+        abort_unless($payment->isFailed() || $payment->isDue(), 422, 'Il pagamento non può essere eseguito ora.');
         abort_unless((int) $payment->from_account_id === $byAccount->id, 403, 'Non autorizzato.');
 
+        // Resetta campi di esecuzione precedente e porta scheduled_at a ora
         $payment->update([
             'status'         => 'pending',
             'scheduled_at'   => now(),

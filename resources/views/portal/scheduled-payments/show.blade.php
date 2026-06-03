@@ -44,7 +44,16 @@
 @elseif($payment->isCancelled())
     <div class="alert alert-warning" style="margin-bottom:14px;">Pagamento annullato.</div>
 @elseif($payment->isDue())
-    <div class="alert alert-warning" style="margin-bottom:14px;">In elaborazione — il pagamento verrà eseguito a breve.</div>
+    <div class="alert alert-warning" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>Scaduto — in attesa di elaborazione automatica.</span>
+        @if($isSender)
+        <form method="POST" action="{{ route('portal.scheduled-payments.retry', $payment) }}"
+              onsubmit="return confirm('Eseguire il pagamento ora?')">
+            @csrf
+            <button type="submit" class="btn btn-primary" style="white-space:nowrap;">▶ Esegui ora</button>
+        </form>
+        @endif
+    </div>
 @endif
 
 {{-- Riga sommario (full-width) --}}
