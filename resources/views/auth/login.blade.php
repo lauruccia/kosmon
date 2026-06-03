@@ -74,9 +74,19 @@
 
                 <div class="sub" style="margin-top:4px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
                 @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
+
+                {{-- Account salvati su questo dispositivo --}}
+                <div id="saved-accounts" style="display:none;margin-top:20px;">
+                    <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Account su questo dispositivo</div>
+                    <div id="saved-accounts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                    <div style="margin-top:10px;text-align:right;">
+                        <button id="btn-altro-account" type="button" style="font-size:13px;color:#4d7386;background:none;border:none;cursor:pointer;font-weight:600;padding:0;">+ Usa un altro account</button>
+                    </div>
+                </div>
+
                 <form method="post" action="{{ route('login.attempt') }}">
                     @csrf
-                    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="email"></div>
+                    <div class="field" id="field-email"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="username webauthn"></div>
                     <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required></div>
                     <div style="text-align:right;margin-top:8px;">
                         <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
@@ -121,102 +131,205 @@ function clearMsg() {
     el.style.display = 'none';
 }
 
-// ── Pre-compila email da localStorage ─────────────────────────────────────────
-(function () {
-    const saved = localStorage.getItem('kmoney_login_email');
-    if (saved) document.getElementById('email').value = saved;
-})();
+// ── Account salvati su questo dispositivo ─────────────────────────────────────
+const ACCOUNTS_KEY = 'kmoney_saved_accounts';
+
+function getSavedAccounts() {
+    try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]'); } catch { return []; }
+}
+
+function saveAccount(email) {
+    if (!email) return;
+    const list = getSavedAccounts().filter(e => e !== email);
+    list.unshift(email);          // metti in cima
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list.slice(0, 10)));
+}
+
+function removeAccount(email) {
+    const list = getSavedAccounts().filter(e => e !== email);
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
+    renderSavedAccounts();
+}
+
+function selectAccount(email) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = '';
+    document.getElementById('password').focus();
+    // nascondi la lista, mostra il campo email con il valore selezionato
+    document.getElementById('saved-accounts').style.display = 'none';
+    document.getElementById('field-email').style.display = '';
+}
+
+function renderSavedAccounts() {
+    const list = getSavedAccounts();
+    const container = document.getElementById('saved-accounts');
+    const listEl    = document.getElementById('saved-accounts-list');
+
+    if (list.length === 0) {
+        container.style.display = 'none';
+        document.getElementById('field-email').style.display = '';
+        return;
+    }
+
+    listEl.innerHTML = list.map(email => `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;"
+             onclick="selectAccount(${JSON.stringify(email)})">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span style="color:#fff;font-weight:700;font-size:15px;">${email[0].toUpperCase()}</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(email)}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:1px;">Tocca per selezionare</div>
+            </div>
+            <button onclick="event.stopPropagation();removeAccount(${JSON.stringify(email)})"
+                    style="background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);font-size:18px;line-height:1;"
+                    title="Rimuovi">&times;</button>
+        </div>
+    `).join('');
+
+    container.style.display = 'block';
+    // Nascondi il campo email quando ci sono account salvati (l'utente sceglie dalla lista)
+    document.getElementById('field-email').style.display = 'none';
+    // Pre-seleziona il primo account nel campo email (per il form submit)
+    if (!document.getElementById('email').value) {
+        document.getElementById('email').value = list[0];
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// "Usa un altro account" mostra il campo email vuoto
+document.getElementById('btn-altro-account').addEventListener('click', function () {
+    document.getElementById('saved-accounts').style.display = 'none';
+    document.getElementById('field-email').style.display = '';
+    document.getElementById('email').value = '';
+    document.getElementById('email').focus();
+});
+
+// Inizializza all'avvio
+renderSavedAccounts();
 
 // Salva email al submit del form password
 document.querySelector('form').addEventListener('submit', function () {
     const e = document.getElementById('email').value.trim();
-    if (e) localStorage.setItem('kmoney_login_email', e);
+    if (e) saveAccount(e);
 });
 
-// ── Login con impronta ─────────────────────────────────────────────────────────
+// ── Shared: ottieni opzioni + verifica assertion ───────────────────────────────
+async function getLoginOptions(email) {
+    const res = await fetch('{{ route("webauthn.login.options") }}', {
+        method:  'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify(email ? { email } : {}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore opzioni');
+    data.challenge = b64urlToBuffer(data.challenge);
+    if (data.allowCredentials) {
+        data.allowCredentials = data.allowCredentials.map(c => ({ ...c, id: b64urlToBuffer(c.id) }));
+    }
+    return data;
+}
+
+async function verifyAssertion(assertion) {
+    const payload = {
+        id:    assertion.id,
+        rawId: bufferToB64url(assertion.rawId),
+        type:  assertion.type,
+        response: {
+            clientDataJSON:    bufferToB64url(assertion.response.clientDataJSON),
+            authenticatorData: bufferToB64url(assertion.response.authenticatorData),
+            signature:         bufferToB64url(assertion.response.signature),
+            userHandle: assertion.response.userHandle ? bufferToB64url(assertion.response.userHandle) : null,
+        },
+    };
+    const res = await fetch('{{ route("webauthn.login.verify") }}', {
+        method:  'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Autenticazione fallita');
+    return data;
+}
+
+// ── Conditional UI (Passkey Autofill) — avviata in background al caricamento ──
+// Mostra le passkey disponibili come suggerimento nell'autocomplete del campo email.
+// Permette di scegliere tra più account senza dover digitare l'email.
+let conditionalAbortController = null;
+
+async function startConditionalPasskey() {
+    if (!window.PublicKeyCredential || !PublicKeyCredential.isConditionalMediationAvailable) return;
+    const supported = await PublicKeyCredential.isConditionalMediationAvailable();
+    if (!supported) return;
+
+    try {
+        conditionalAbortController = new AbortController();
+        const optData = await getLoginOptions(null);  // discoverable, nessuna email
+
+        const assertion = await navigator.credentials.get({
+            publicKey: optData,
+            mediation: 'conditional',            // si integra nell'autocomplete del campo email
+            signal:    conditionalAbortController.signal,
+        });
+
+        const verData = await verifyAssertion(assertion);
+        showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
+        window.location.href = verData.redirect;
+
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.warn('Conditional passkey error:', err.message);
+        }
+    }
+}
+
+startConditionalPasskey();
+
+// ── Login con impronta — bottone manuale (fallback / scelta email esplicita) ───
 document.getElementById('btn-biometric').addEventListener('click', async () => {
     clearMsg();
 
-    const email = document.getElementById('email').value.trim();
-    // Email opzionale: se assente il browser mostra le passkey disponibili (discoverable)
+    // Interrompi il conditional flow in corso prima di avviarne uno modale
+    if (conditionalAbortController) {
+        conditionalAbortController.abort();
+        conditionalAbortController = null;
+    }
 
-    const btn = document.getElementById('btn-biometric');
-    btn.disabled = true;
+    const email = document.getElementById('email').value.trim();
+    const btn   = document.getElementById('btn-biometric');
+    btn.disabled    = true;
     btn.textContent = 'In attesa del dispositivo…';
 
     try {
-        // 1. Ottieni le opzioni di sfida dal server (email opzionale)
-        const optRes = await fetch('{{ route("webauthn.login.options") }}', {
-            method:  'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept':       'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-            body: JSON.stringify(email ? { email } : {}),
-        });
-
-        const optData = await optRes.json();
-        if (!optRes.ok) {
-            showMsg(optData.error || 'Errore nel recupero delle opzioni.', 'err');
-            return;
-        }
-
-        // 2. Decodifica i campi binari
-        optData.challenge = b64urlToBuffer(optData.challenge);
-        if (optData.allowCredentials) {
-            optData.allowCredentials = optData.allowCredentials.map(c => ({
-                ...c, id: b64urlToBuffer(c.id),
-            }));
-        }
-
-        // 3. Avvia il prompt biometrico del browser
+        const optData  = await getLoginOptions(email);
         const assertion = await navigator.credentials.get({ publicKey: optData });
-
-        // 4. Codifica la risposta per inviarla al server
-        const payload = {
-            id:    assertion.id,
-            rawId: bufferToB64url(assertion.rawId),
-            type:  assertion.type,
-            response: {
-                clientDataJSON:    bufferToB64url(assertion.response.clientDataJSON),
-                authenticatorData: bufferToB64url(assertion.response.authenticatorData),
-                signature:         bufferToB64url(assertion.response.signature),
-                userHandle: assertion.response.userHandle
-                    ? bufferToB64url(assertion.response.userHandle)
-                    : null,
-            },
-        };
-
-        // 5. Invia al server per la verifica
-        const verRes = await fetch('{{ route("webauthn.login.verify") }}', {
-            method:  'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept':       'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const verData = await verRes.json();
-        if (!verRes.ok) {
-            showMsg(verData.error || 'Autenticazione fallita.', 'err');
-            return;
-        }
+        const verData  = await verifyAssertion(assertion);
 
         showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
-        if (email) localStorage.setItem('kmoney_login_email', email);
+        if (email) saveAccount(email);
         window.location.href = verData.redirect;
 
     } catch (err) {
         if (err.name === 'NotAllowedError') {
             showMsg('Autenticazione annullata o non riuscita.', 'err');
         } else if (err.name === 'NotSupportedError') {
-            showMsg('Il tuo dispositivo non supporta l\'autenticazione biometrica.', 'err');
+            showMsg("Il tuo dispositivo non supporta l'autenticazione biometrica.", 'err');
         } else {
             showMsg('Errore: ' + err.message, 'err');
         }
+        // Riavvia il conditional flow dopo un errore manuale
+        startConditionalPasskey();
     } finally {
         btn.disabled = false;
         btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg> Accedi con impronta`;

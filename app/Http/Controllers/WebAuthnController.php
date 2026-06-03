@@ -82,15 +82,6 @@ class WebAuthnController extends Controller
         $serializer = $this->makeSerializer();
 
         try {
-            // Escludi credential già registrate per questo utente
-            $excludeCredentials = $user->webAuthnCredentials()
-                ->get()
-                ->map(fn($c) => PublicKeyCredentialDescriptor::create(
-                    'public-key',
-                    $this->b64UrlDecode($c->credential_id),
-                ))
-                ->all();
-
             $options = PublicKeyCredentialCreationOptions::create(
                 rp: PublicKeyCredentialRpEntity::create(
                     name: config('app.name'),
@@ -107,7 +98,8 @@ class WebAuthnController extends Controller
                     PublicKeyCredentialParameters::create('public-key', -257),  // RS256
                 ],
                 timeout:             60000,
-                excludeCredentials:  $excludeCredentials,
+                // excludeCredentials rimosso: causa crash del Credential Manager di Android
+                // quando una passkey esiste già. I duplicati sono gestiti lato server in registerVerify().
                 authenticatorSelection: AuthenticatorSelectionCriteria::create(
                     userVerification: 'required',
                 ),
