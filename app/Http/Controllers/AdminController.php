@@ -1130,7 +1130,7 @@ class AdminController extends Controller
     // =========================================================================
 
     /**
-     * Form di emissione KY.
+     * Form di emissione KY + dashboard integrità circuito.
      */
     public function emitKyForm(Request $request): View
     {
@@ -1139,6 +1139,68 @@ class AdminController extends Controller
         $systemAccount = Account::systemAccount();
         abort_unless($systemAccount !== null, 500, 'Conto Cassa Circuito non trovato. Esegui le migration.');
 
+        // ── Metriche circuito chiuso ──────────────────────────────────────────
+        // In un circuito chiuso SUM(tutti i saldi) deve essere sempre 0.
+        // Il saldo negativo della Cassa = KY netti in circolazione.
+        $kyInCirculation    = (int) abs($systemAccount->available_balance);
+        $circuitDelta       = (int) Account::query()->sum('available_balance'); // deve essere 0
+        $circuitIsHealthy   = $circuitDelta === 0;
+
+        // ── Flussi storici via trasferimento ──────────────────────────────────
+        $totalOutFromSystem = (int) Transfer::query()
+            ->where('from_account_id', $systemAccount->id)
+            ->where('status', 'booked')
+            ->sum('amount');
+
+        $totalReturnedToSystem = (int) Transfer::query()
+            ->where('to_account_id', $systemAccount->id)
+            ->where('status', 'booked')
+            ->sum('amount');
+
+        // Saldo del conto sistema spiegato dai soli trasferimenti registrati.
+        // La differenza rispetto al saldo reale = saldo impostato direttamente (seed / correzione contabile).
+        $netViaTransfers  = $totalReturnedToSystem - $totalOutFromSystem;
+        $implicitBalance  = abs($systemAccount->available_balance - $netViaTransfers);
+        $hasImplicitBalance = $implicitBalance > 0;
+
+        // ── Breakdown emissioni per tipo ──────────────────────────────────────
+        $emissionBreakdown = Transfer::query()
+            ->where('from_account_id', $systemAccount->id)
+            ->where('status', 'booked')
+            ->selectRaw('kind, COUNT(*) as cnt, SUM(amount) as total')
+            ->groupBy('kind')
+            ->orderByDesc('total')
+            ->get();
+
+        $returnBreakdown = Transfer::query()
+            ->where('to_account_id', $systemAccount->id)
+            ->where('status', 'booked')
+            ->selectRaw('kind, COUNT(*) as cnt, SUM(amount) as total')
+            ->groupBy('kind')
+            ->orderByDesc('total')
+            ->get();
+
+        // ── Conto riserva operativa (MAIN account Knm srl — source delle distribuzioni) ──
+        $mainReserveAccount = Account::query()
+            ->with(['company:id,name'])
+            ->where('type', 'main')
+            ->where('is_system_account', false)
+            ->orderBy('id')
+            ->first();
+
+        $kyOnMainReserve   = $mainReserveAccount ? (int) $mainReserveAccount->available_balance : 0;
+        $kyOnOtherAccounts = $kyInCirculation - max(0, $kyOnMainReserve);
+
+        // ── Fidi attivi ───────────────────────────────────────────────────────
+        $activeCreditLimitsTotal = (int) \App\Models\CreditLimit::query()
+            ->where('status', 'active')
+            ->sum('credit_limit');
+
+        // ── Conti con saldo positivo/negativo ────────────────────────────────
+        $accountsPositive = Account::query()->where('is_system_account', false)->where('available_balance', '>', 0)->count();
+        $accountsNegative = Account::query()->where('is_system_account', false)->where('available_balance', '<', 0)->count();
+
+        // ── Dati per form ed storico ──────────────────────────────────────────
         $targetAccounts = Account::query()
             ->with(['company:id,name,kyc_status', 'ownerUser:id,name'])
             ->where('status', 'active')
@@ -1156,18 +1218,33 @@ class AdminController extends Controller
             ->limit(20)
             ->get();
 
-        $totalEmitted = Transfer::query()
-            ->where('from_account_id', $systemAccount->id)
-            ->where('status', 'booked')
-            ->sum('amount');
-
         return view('admin.emit-ky', [
-            'pageTitle'       => 'Emissione KY -- Cassa Circuito',
-            'systemAccount'   => $systemAccount,
-            'targetAccounts'  => $targetAccounts,
-            'recentEmissions' => $recentEmissions,
-            'totalEmitted'    => (int) $totalEmitted,
-            'activeNav'       => 'emit',
+            'pageTitle'              => 'Emissione KY — Cassa Circuito',
+            'systemAccount'          => $systemAccount,
+            'targetAccounts'         => $targetAccounts,
+            'recentEmissions'        => $recentEmissions,
+            // metriche circuito
+            'kyInCirculation'        => $kyInCirculation,
+            'circuitDelta'           => $circuitDelta,
+            'circuitIsHealthy'       => $circuitIsHealthy,
+            // flussi
+            'totalOutFromSystem'     => $totalOutFromSystem,
+            'totalReturnedToSystem'  => $totalReturnedToSystem,
+            'implicitBalance'        => $implicitBalance,
+            'hasImplicitBalance'     => $hasImplicitBalance,
+            // breakdown
+            'emissionBreakdown'      => $emissionBreakdown,
+            'returnBreakdown'        => $returnBreakdown,
+            // riserva
+            'mainReserveAccount'     => $mainReserveAccount,
+            'kyOnMainReserve'        => $kyOnMainReserve,
+            'kyOnOtherAccounts'      => $kyOnOtherAccounts,
+            // fidi
+            'activeCreditLimitsTotal'=> $activeCreditLimitsTotal,
+            // conti
+            'accountsPositive'       => $accountsPositive,
+            'accountsNegative'       => $accountsNegative,
+            'activeNav'              => 'emit',
         ]);
     }
 
@@ -2027,105 +2104,4 @@ class AdminController extends Controller
         abort_unless(request()->user()->canAccessBackoffice(), 403);
         $signature->load(['user', 'company']);
 
-        $companyName = $signature->company?->name ?? $signature->user?->name ?? 'Utente';
-        $html = '<html><head><meta charset="UTF-8">
-<style>
-body{font-family:Georgia,serif;font-size:13px;line-height:1.7;color:#111;margin:40px 50px;}
-h1{font-size:1.2rem;color:#0f766e;margin-bottom:4px;}
-.meta{font-size:11px;color:#666;margin-bottom:32px;border-bottom:1px solid #ddd;padding-bottom:16px;}
-h2{font-size:.95rem;font-weight:700;margin:20px 0 8px;color:#0f766e;}
-p{margin:0 0 12px;}
-hr{border:none;border-top:1px solid #ddd;margin:20px 0;}
-ul,ol{padding-left:20px;}
-li{margin-bottom:6px;}
-.footer{margin-top:40px;border-top:2px solid #0f766e;padding-top:16px;font-size:11px;color:#555;}
-</style></head><body>
-<h1>Contratto di Adesione al Circuito KMoney &mdash; v' . $signature->contract_version . '</h1>
-<div class="meta">
-<strong>Azienda:</strong> ' . e($companyName) . ' &nbsp;|&nbsp;
-<strong>Firmato il:</strong> ' . $signature->signed_at->format('d/m/Y \l\l\e H:i:s') . ' &nbsp;|&nbsp;
-<strong>IP:</strong> ' . e($signature->ip_address ?? 'n.d.') . ' &nbsp;|&nbsp;
-<strong>Utente:</strong> ' . e($signature->user?->name ?? '') . ' (' . e($signature->user?->email ?? '') . ')
-</div>
-' . $signature->contract_html_snapshot . '
-<div class="footer">
-Documento generato da KMoney &mdash; Firma digitale con OTP via email<br>
-Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at), 0, 12)) . '
-</div>
-</body></html>';
-
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->setPaper('a4');
-        $filename = 'contratto-' . \Illuminate\Support\Str::slug($companyName) . '-' . $signature->signed_at->format('Ymd') . '.pdf';
-        return $pdf->download($filename);
-    }
-
-
-    public function branding(Request $request): \Illuminate\View\View
-    {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-        $branding = \App\Models\SystemSetting::branding();
-        return view('admin.branding', compact('branding'));
-    }
-
-    public function brandingUpdate(Request $request): \Illuminate\Http\RedirectResponse
-    {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-
-        $validated = $request->validate([
-            'circuit_name'    => ['required', 'string', 'max:80'],
-            'circuit_tagline' => ['nullable', 'string', 'max:160'],
-            'contact_email'   => ['nullable', 'email', 'max:120'],
-            'contact_phone'   => ['nullable', 'string', 'max:40'],
-            'website_url'     => ['nullable', 'url', 'max:200'],
-            'primary_color'   => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'accent_color'    => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'footer_text'     => ['nullable', 'string', 'max:255'],
-            'logo'            => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg', 'max:1024'],
-        ]);
-
-        $branding = \App\Models\SystemSetting::branding();
-
-        if ($request->hasFile('logo')) {
-            // Cancella vecchio logo
-            if ($branding->logo_path) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($branding->logo_path);
-            }
-            $validated['logo_path'] = $request->file('logo')->store('branding', 'public');
-        }
-
-        unset($validated['logo']);
-        $branding->update($validated);
-
-        \App\Models\AuditLog::create([
-            'actor_user_id'  => $request->user()->id,
-            'event'          => 'admin.branding.update',
-            'auditable_type' => \App\Models\SystemSetting::class,
-            'auditable_id'   => $branding->id,
-            'context'        => ['circuit_name' => $branding->circuit_name],
-        ]);
-
-        return back()->with('success', 'Impostazioni branding aggiornate.');
-    }
-
-    public function supportMessages(): \Illuminate\View\View
-    {
-        $messages = \App\Models\SupportMessage::with('user')
-            ->orderByRaw("status = 'open' DESC")
-            ->orderByDesc('created_at')
-            ->paginate(30);
-
-        return view('admin.support.index', [
-            'pageTitle'  => 'Messaggi assistenza',
-            'activeNav'  => 'admin-support',
-            'messages'   => $messages,
-            'openCount'  => \App\Models\SupportMessage::where('status', 'open')->count(),
-        ]);
-    }
-
-    public function resolveSupport(\App\Models\SupportMessage $message): \Illuminate\Http\RedirectResponse
-    {
-        $message->update(['status' => 'resolved']);
-        return back()->with('success', 'Messaggio #' . $message->id . ' segnato come risolto.');
-    }
-
-}
+        $companyName = $

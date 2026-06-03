@@ -5,10 +5,8 @@
 <a class="cta secondary" href="{{ route('admin.transfers.index') }}">Movimenti</a>
 @endsection
 
-
-
-
 @section('content')
+
 {{-- Alert sessione --}}
 @if(session('portal_success'))
     <div class="alert-banner success">{{ session('portal_success') }}</div>
@@ -17,37 +15,262 @@
     <div class="alert-banner error">{{ session('portal_error') }}</div>
 @endif
 
-{{-- ── Riepilogo Cassa Circuito ──────────────────────────────────────────── --}}
-<section class="hero-strip">
-    <article class="stat-card" style="border-left:4px solid #6d28d9;">
-        <div class="eyebrow">Cassa Circuito</div>
-        <div class="section-title" style="word-break:break-word;font-size:15px;">{{ $systemAccount->account_number }}</div>
-        <div class="table-muted">Conto riserva sovrana</div>
+{{-- ══════════════════════════════════════════════════════════════════════════
+     BANNER INTEGRITÀ CIRCUITO
+══════════════════════════════════════════════════════════════════════════ --}}
+@if($circuitIsHealthy)
+<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+    <span style="font-size:24px;">✅</span>
+    <div>
+        <strong style="color:#15803d;font-size:14px;">Circuito chiuso — Integrità verificata</strong>
+        <div style="font-size:12px;color:#166534;margin-top:2px;">
+            Somma di tutti i saldi = <strong>0,00 KY</strong>. Ogni KY emesso è contabilizzato. Nessuna discrepanza.
+        </div>
+    </div>
+    <div style="margin-left:auto;text-align:right;flex-shrink:0;">
+        <div style="font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;">SOMMA CIRCUITO</div>
+        <div style="font-size:20px;font-weight:800;color:#15803d;">0,00 KY ✅</div>
+    </div>
+</div>
+@else
+<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+    <span style="font-size:24px;">🚨</span>
+    <div>
+        <strong style="color:#dc2626;font-size:14px;">ANOMALIA — Circuito NON bilanciato</strong>
+        <div style="font-size:12px;color:#991b1b;margin-top:2px;">
+            La somma di tutti i saldi non è zero. Investigare immediatamente.
+            Delta: <strong>{{ number_format($circuitDelta, 2, ',', '.') }} KY</strong>
+        </div>
+    </div>
+    <div style="margin-left:auto;text-align:right;flex-shrink:0;">
+        <div style="font-size:11px;color:#dc2626;font-weight:700;text-transform:uppercase;">DELTA ANOMALIA</div>
+        <div style="font-size:20px;font-weight:800;color:#dc2626;">{{ number_format($circuitDelta, 2, ',', '.') }} KY ❌</div>
+    </div>
+</div>
+@endif
+
+{{-- ══════════════════════════════════════════════════════════════════════════
+     HERO METRICS — 6 KPI
+══════════════════════════════════════════════════════════════════════════ --}}
+<section class="hero-strip" style="margin-bottom:16px;">
+
+    {{-- KY in circolazione (DATO PRINCIPALE) --}}
+    <article class="stat-card" style="border-left:4px solid #7c3aed;">
+        <div class="eyebrow">KY in circolazione</div>
+        <div class="section-title" style="color:#7c3aed;font-size:22px;">
+            {{ number_format($kyInCirculation, 2, ',', '.') }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">= |saldo Cassa Circuito|</div>
     </article>
+
+    {{-- Saldo Cassa Circuito --}}
     <article class="stat-card" style="border-left:4px solid {{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};">
-        <div class="eyebrow">Saldo Cassa</div>
-        <div class="section-title" style="color:{{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};">
+        <div class="eyebrow">Saldo Cassa Circuito</div>
+        <div class="section-title" style="color:{{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};font-size:18px;">
             {{ number_format($systemAccount->available_balance, 2, ',', '.') }} KY
         </div>
-        <div class="table-muted">Negativo = KY in circolazione</div>
+        <div class="table-muted" style="font-size:11px;">{{ $systemAccount->account_number }}</div>
     </article>
-    <article class="stat-card" style="border-left:4px solid #0f52c4;">
-        <div class="eyebrow">KY Totale Emesso</div>
-        <div class="section-title" style="color:#0f52c4;">
-            {{ number_format($totalEmitted, 2, ',', '.') }} KY
-        </div>
-        <div class="table-muted">Storico emissioni</div>
-    </article>
+
+    {{-- KY su conto riserva operativa (MAIN Knm srl) --}}
+    @if($mainReserveAccount)
     <article class="stat-card" style="border-left:4px solid #0284c7;">
-        <div class="eyebrow">Ultime emissioni</div>
-        <div class="section-title" style="color:#0284c7;">{{ $recentEmissions->count() }}</div>
-        <div class="table-muted">In questa pagina</div>
+        <div class="eyebrow">Riserva operativa</div>
+        <div class="section-title" style="color:#0284c7;font-size:18px;">
+            {{ number_format($kyOnMainReserve, 2, ',', '.') }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">{{ $mainReserveAccount->company?->name ?? $mainReserveAccount->display_name }} (MAIN)</div>
     </article>
+    @endif
+
+    {{-- KY effettivamente circolanti su conti membri --}}
+    <article class="stat-card" style="border-left:4px solid #059669;">
+        <div class="eyebrow">KY su conti membri</div>
+        <div class="section-title" style="color:#059669;font-size:18px;">
+            {{ number_format($kyOnOtherAccounts, 2, ',', '.') }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">{{ $accountsPositive }} conti con saldo positivo</div>
+    </article>
+
+    {{-- Uscite dal sistema (via trasferimenti tracciati) --}}
+    <article class="stat-card" style="border-left:4px solid #ea580c;">
+        <div class="eyebrow">Emessi via trasf.</div>
+        <div class="section-title" style="color:#ea580c;font-size:18px;">
+            {{ number_format($totalOutFromSystem, 2, ',', '.') }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">rientrati: {{ number_format($totalReturnedToSystem, 2, ',', '.') }} KY</div>
+    </article>
+
+    {{-- Fidi attivi --}}
+    <article class="stat-card" style="border-left:4px solid #d97706;">
+        <div class="eyebrow">Fidi attivi</div>
+        <div class="section-title" style="color:#d97706;font-size:18px;">
+            {{ number_format($activeCreditLimitsTotal, 2, ',', '.') }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">{{ $accountsNegative }} conti in rosso</div>
+    </article>
+
 </section>
 
-<div class="summary-grid" style="margin-bottom:12px;">
+{{-- Nota saldo implicito (se presente) --}}
+@if($hasImplicitBalance)
+<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;font-size:13px;">
+    <span style="font-size:18px;flex-shrink:0;">ℹ️</span>
+    <div style="color:#92400e;">
+        <strong>Nota contabile — Saldo iniziale impostato direttamente:</strong>
+        {{ number_format($implicitBalance, 2, ',', '.') }} KY non risultano da trasferimenti registrati
+        (saldo iniziale da seed o correzione contabile diretta). Il circuito è comunque bilanciato (somma circuito = 0,00 KY).
+    </div>
+</div>
+@endif
 
-    {{-- ── Form emissione ──────────────────────────────────────────────────── --}}
+{{-- ══════════════════════════════════════════════════════════════════════════
+     ANALISI EMISSIONI + RIENTRI
+══════════════════════════════════════════════════════════════════════════ --}}
+<div class="summary-grid" style="margin-bottom:16px;">
+
+    {{-- Breakdown emissioni per tipo --}}
+    <section class="card light-card">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Flussi uscenti dalla Cassa</span>
+                <h3 class="section-title">Emissioni per tipo di operazione</h3>
+            </div>
+            <span style="font-size:20px;">📤</span>
+        </div>
+
+        @if($emissionBreakdown->isNotEmpty())
+        <table class="data-table" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th style="text-align:right;">N°</th>
+                    <th style="text-align:right;">Totale KY</th>
+                    <th style="text-align:right;">% sul circolante</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($emissionBreakdown as $row)
+                @php
+                    $pct = $kyInCirculation > 0 ? round(($row->total / $kyInCirculation) * 100, 1) : 0;
+                    $kindLabel = match($row->kind) {
+                        'ky_emission'        => '🏦 Emissione diretta',
+                        'admin_credit'       => '👤 Accredito admin',
+                        'kycard_topup'       => '💳 Ricarica KY Card',
+                        'kycard_purchase'    => '💳 Acquisto KY Card',
+                        'trade_payment'      => '🔄 Pagamento circuito',
+                        'p2p_receive'        => '↔️ P2P ricevuto',
+                        'bank_transfer'      => '🏧 Bonifico',
+                        'referral_commission'=> '🎁 Commissione referral',
+                        default              => $row->kind,
+                    };
+                @endphp
+                <tr>
+                    <td><span style="font-size:12px;">{{ $kindLabel }}</span></td>
+                    <td style="text-align:right;color:var(--ink-muted);">{{ $row->cnt }}</td>
+                    <td style="text-align:right;font-weight:700;color:#ea580c;">
+                        {{ number_format($row->total, 2, ',', '.') }} KY
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+                            <div style="width:50px;height:5px;background:#fee2e2;border-radius:3px;overflow:hidden;">
+                                <div style="width:{{ min(100,$pct) }}%;height:100%;background:#ea580c;border-radius:3px;"></div>
+                            </div>
+                            <span style="font-size:11px;color:var(--ink-muted);">{{ $pct }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr style="border-top:2px solid var(--border);">
+                    <td colspan="2"><strong style="font-size:12px;">Totale emissioni via trasf.</strong></td>
+                    <td style="text-align:right;font-weight:800;color:#ea580c;">
+                        {{ number_format($totalOutFromSystem, 2, ',', '.') }} KY
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        @else
+        <div style="text-align:center;padding:24px;color:var(--ink-muted);font-size:13px;">Nessuna emissione tracciata via trasferimento.</div>
+        @endif
+    </section>
+
+    {{-- Breakdown rientri per tipo --}}
+    <section class="card light-card">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Flussi entranti alla Cassa</span>
+                <h3 class="section-title">Rientri per tipo di operazione</h3>
+            </div>
+            <span style="font-size:20px;">📥</span>
+        </div>
+
+        @if($returnBreakdown->isNotEmpty())
+        <table class="data-table" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th style="text-align:right;">N°</th>
+                    <th style="text-align:right;">Totale KY</th>
+                    <th style="text-align:right;">% sul circolante</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($returnBreakdown as $row)
+                @php
+                    $pct = $kyInCirculation > 0 ? round(($row->total / $kyInCirculation) * 100, 1) : 0;
+                    $kindLabel = match($row->kind) {
+                        'admin_debit'        => '🔻 Addebito admin',
+                        'admin_credit'       => '👤 Accredito admin',
+                        'bank_transfer'      => '🏧 Bonifico in entrata',
+                        'kycard_purchase'    => '💳 Acquisto KY Card',
+                        'purchase'           => '🛒 Acquisto',
+                        'trade_payment'      => '🔄 Pagamento circuito',
+                        default              => $row->kind,
+                    };
+                @endphp
+                <tr>
+                    <td><span style="font-size:12px;">{{ $kindLabel }}</span></td>
+                    <td style="text-align:right;color:var(--ink-muted);">{{ $row->cnt }}</td>
+                    <td style="text-align:right;font-weight:700;color:#059669;">
+                        {{ number_format($row->total, 2, ',', '.') }} KY
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+                            <div style="width:50px;height:5px;background:#dcfce7;border-radius:3px;overflow:hidden;">
+                                <div style="width:{{ min(100,$pct) }}%;height:100%;background:#059669;border-radius:3px;"></div>
+                            </div>
+                            <span style="font-size:11px;color:var(--ink-muted);">{{ $pct }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr style="border-top:2px solid var(--border);">
+                    <td colspan="2"><strong style="font-size:12px;">Totale rientri via trasf.</strong></td>
+                    <td style="text-align:right;font-weight:800;color:#059669;">
+                        {{ number_format($totalReturnedToSystem, 2, ',', '.') }} KY
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        @else
+        <div style="text-align:center;padding:24px;color:var(--ink-muted);font-size:13px;">Nessun rientro registrato.</div>
+        @endif
+    </section>
+
+</div>
+
+{{-- ══════════════════════════════════════════════════════════════════════════
+     FORM + LOGICA
+══════════════════════════════════════════════════════════════════════════ --}}
+<div class="summary-grid" style="margin-bottom:16px;">
+
+    {{-- Form emissione --}}
     <section class="card light-card">
         <div class="section-head">
             <div>
@@ -71,7 +294,6 @@
         <form method="POST" action="{{ route('admin.ky.emit.submit') }}" id="emitForm">
             @csrf
 
-            {{-- Conto destinatario --}}
             <div style="margin-bottom:10px;">
                 <label class="form-label" style="margin-bottom:4px;">Conto destinatario *</label>
                 <select name="to_account_id" id="to_account_id" required class="form-control">
@@ -85,10 +307,9 @@
                 </select>
             </div>
 
-            {{-- Importo + Note affiancati --}}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
                 <div>
-                    <label class="form-label" style="margin-bottom:4px;">Importo da emettere (KY) *</label>
+                    <label class="form-label" style="margin-bottom:4px;">Importo KY *</label>
                     <div style="position:relative;">
                         <input type="number" name="amount" id="amount" required
                             min="1" max="10000000" step="1"
@@ -105,9 +326,10 @@
                 </div>
             </div>
 
-            {{-- Riepilogo prima del submit --}}
             <div id="preview" style="display:none;background:#dbeafe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#1d4ed8;border:1px solid #bfdbfe;">
-                <strong>Riepilogo:</strong> Emissione di <strong id="previewAmount">—</strong> KY su <strong id="previewAccount">—</strong>. Irreversibile senza storno manuale.
+                <strong>Riepilogo:</strong> Emissione di <strong id="previewAmount">—</strong> KY su <strong id="previewAccount">—</strong>.
+                Il saldo Cassa passerà a <strong id="previewNewBalance">—</strong> KY.
+                KY totali in circolazione: <strong id="previewCirculating">—</strong> KY.
             </div>
 
             <button type="submit" class="cta" id="submitBtn" style="width:100%;padding:10px;"
@@ -117,49 +339,82 @@
         </form>
     </section>
 
-    {{-- ── Info riserva ──────────────────────────────────────────────────── --}}
+    {{-- Info riserva + stato --}}
     <section class="card light-card">
         <div class="section-head">
-            <span class="eyebrow">Logica emissione</span>
+            <span class="eyebrow">Stato circuito</span>
         </div>
 
-        <div style="display:grid;gap:8px;">
+        {{-- Distribuzione KY --}}
+        @if($kyInCirculation > 0)
+        <div style="margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Distribuzione KY in circolazione</div>
+            @php
+                $pctRiserva = round(($kyOnMainReserve / $kyInCirculation) * 100, 1);
+                $pctMembri  = max(0, round(($kyOnOtherAccounts / $kyInCirculation) * 100, 1));
+            @endphp
+
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                    <span>🏛 Riserva operativa (@if($mainReserveAccount){{ $mainReserveAccount->company?->name ?? 'MAIN' }}@endif)</span>
+                    <strong>{{ $pctRiserva }}%</strong>
+                </div>
+                <div style="height:8px;background:#e0e7ff;border-radius:4px;overflow:hidden;">
+                    <div style="width:{{ min(100,$pctRiserva) }}%;height:100%;background:#0284c7;border-radius:4px;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ number_format($kyOnMainReserve, 2, ',', '.') }} KY</div>
+            </div>
+
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                    <span>🏪 Conti membri del circuito ({{ $accountsPositive }})</span>
+                    <strong>{{ $pctMembri }}%</strong>
+                </div>
+                <div style="height:8px;background:#dcfce7;border-radius:4px;overflow:hidden;">
+                    <div style="width:{{ min(100,$pctMembri) }}%;height:100%;background:#059669;border-radius:4px;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ number_format($kyOnOtherAccounts, 2, ',', '.') }} KY</div>
+            </div>
+        </div>
+        @endif
+
+        <div style="display:grid;gap:8px;margin-bottom:12px;">
             <div style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="font-size:16px;flex-shrink:0;">📉</span>
-                <div><strong style="font-size:12px;">Cassa si indebita</strong><br><span style="font-size:12px;color:var(--ink-soft);">Saldo negativo = KY totale circolante.</span></div>
+                <span style="font-size:15px;flex-shrink:0;">📉</span>
+                <div><strong style="font-size:12px;">Cassa si indebita</strong><br><span style="font-size:12px;color:var(--ink-soft);">Saldo negativo = KY netti circolanti.</span></div>
             </div>
             <div style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="font-size:16px;flex-shrink:0;">📒</span>
-                <div><strong style="font-size:12px;">Double-entry ledger</strong><br><span style="font-size:12px;color:var(--ink-soft);">Debito Cassa + credito destinatario. Somma = 0.</span></div>
+                <span style="font-size:15px;flex-shrink:0;">📒</span>
+                <div><strong style="font-size:12px;">Double-entry ledger</strong><br><span style="font-size:12px;color:var(--ink-soft);">Debito Cassa + credito destinatario. Somma sempre = 0.</span></div>
             </div>
             <div style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="font-size:16px;flex-shrink:0;">🔒</span>
+                <span style="font-size:15px;flex-shrink:0;">🔒</span>
                 <div><strong style="font-size:12px;">Solo super admin</strong><br><span style="font-size:12px;color:var(--ink-soft);">Registrato in audit log con IP e timestamp.</span></div>
             </div>
-            <div style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="font-size:16px;flex-shrink:0;">⚠️</span>
-                <div><strong style="font-size:12px;">Irreversibile</strong><br><span style="font-size:12px;color:var(--ink-soft);">Per annullare usa "Storno" nel dettaglio movimento.</span></div>
-            </div>
         </div>
 
-        {{-- Stato cassa circuito --}}
-        <div style="margin-top:12px;padding:12px;background:{{ $systemAccount->available_balance < 0 ? '#fef2f2' : '#f0fdf4' }};border-radius:10px;text-align:center;">
+        <div style="padding:12px;background:{{ $circuitIsHealthy ? '#f0fdf4' : '#fef2f2' }};border-radius:10px;text-align:center;">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:4px;">KY in circolazione</div>
-            <div style="font-size:24px;font-weight:800;color:{{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};">
-                {{ number_format(abs($systemAccount->available_balance), 2, ',', '.') }} KY
+            <div style="font-size:26px;font-weight:800;color:#7c3aed;">
+                {{ number_format($kyInCirculation, 2, ',', '.') }} KY
+            </div>
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">
+                Somma circuito: <strong style="color:{{ $circuitIsHealthy ? '#15803d' : '#dc2626' }};">{{ $circuitIsHealthy ? '0,00 ✅' : number_format($circuitDelta, 2, ',', '.').' ❌' }} KY</strong>
             </div>
         </div>
     </section>
 
 </div>
 
-{{-- ── Storico emissioni ───────────────────────────────────────────────────── --}}
+{{-- ══════════════════════════════════════════════════════════════════════════
+     STORICO — ultimi movimenti in uscita dalla Cassa
+══════════════════════════════════════════════════════════════════════════ --}}
 @if($recentEmissions->isNotEmpty())
 <section class="card light-card" style="margin-bottom:24px;">
     <div class="section-head">
         <div>
             <span class="eyebrow">Storico</span>
-            <h3 class="section-title">Ultime {{ $recentEmissions->count() }} emissioni</h3>
+            <h3 class="section-title">Ultimi {{ $recentEmissions->count() }} movimenti in uscita dalla Cassa</h3>
         </div>
     </div>
 
@@ -168,37 +423,47 @@
             <thead>
                 <tr>
                     <th>Data</th>
+                    <th>Tipo</th>
                     <th>Conto destinatario</th>
                     <th>Importo</th>
                     <th>Note</th>
-                    <th>Emesso da</th>
-                    <th>Riferimento</th>
+                    <th>Registrato da</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($recentEmissions as $emission)
+                @php
+                    $kindLabel = match($emission->kind) {
+                        'ky_emission'        => '🏦 Emissione',
+                        'admin_credit'       => '👤 Accredito admin',
+                        'kycard_topup'       => '💳 KY Card top-up',
+                        'kycard_purchase'    => '💳 KY Card acquisto',
+                        'trade_payment'      => '🔄 Pagamento',
+                        'p2p_receive'        => '↔️ P2P',
+                        'referral_commission'=> '🎁 Referral',
+                        default              => $emission->kind ?? '—',
+                    };
+                @endphp
                 <tr>
                     <td class="table-muted" style="white-space:nowrap;">
                         {{ $emission->booked_at?->format('d/m/Y H:i') ?? '—' }}
+                    </td>
+                    <td>
+                        <span style="font-size:12px;">{{ $kindLabel }}</span>
                     </td>
                     <td>
                         <div style="font-weight:600;">{{ $emission->toAccount?->display_name ?? '—' }}</div>
                         <div class="table-muted" style="font-size:11px;">{{ $emission->toAccount?->account_number }}</div>
                     </td>
                     <td>
-                        <span style="font-weight:700;font-size:15px;color:#0f52c4;">
+                        <span style="font-weight:700;font-size:15px;color:#ea580c;">
                             +{{ number_format($emission->amount, 2, ',', '.') }} KY
                         </span>
                     </td>
-                    <td class="table-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    <td class="table-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                         {{ $emission->description ?: '—' }}
                     </td>
-                    <td class="table-muted">{{ $emission->initiator?->name ?? '—' }}</td>
-                    <td>
-                        <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">
-                            {{ $emission->reference ?? substr($emission->id, 0, 8) }}
-                        </code>
-                    </td>
+                    <td class="table-muted">{{ $emission->initiator?->name ?? 'Sistema' }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -206,29 +471,39 @@
     </div>
 </section>
 @else
-<section class="card light-card" style="text-align:center;padding:40px;color:var(--ink-muted);">
+<section class="card light-card" style="text-align:center;padding:40px;color:var(--ink-muted);margin-bottom:24px;">
     <div style="font-size:36px;margin-bottom:12px;">🏦</div>
-    <div style="font-weight:600;margin-bottom:4px;">Nessuna emissione effettuata</div>
-    <div style="font-size:13px;">Le emissioni KY appariranno qui non appena ne eseguirai una.</div>
+    <div style="font-weight:600;margin-bottom:4px;">Nessun movimento in uscita dalla Cassa</div>
+    <div style="font-size:13px;">Le emissioni KY tramite questo pannello appariranno qui.</div>
 </section>
 @endif
 
 <script>
-// Preview dinamico nel form
-const amountInput = document.getElementById('amount');
-const accountSelect = document.getElementById('to_account_id');
-const preview = document.getElementById('preview');
-const previewAmount = document.getElementById('previewAmount');
+const amountInput    = document.getElementById('amount');
+const accountSelect  = document.getElementById('to_account_id');
+const preview        = document.getElementById('preview');
+const previewAmount  = document.getElementById('previewAmount');
 const previewAccount = document.getElementById('previewAccount');
+const previewNewBal  = document.getElementById('previewNewBalance');
+const previewCirc    = document.getElementById('previewCirculating');
+const systemBalance  = {{ $systemAccount->available_balance }};   // valore raw (stessa unità del DB)
+const kyCirculation  = {{ $kyInCirculation }};
+
+function fmt(n) {
+    return n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 
 function updatePreview() {
-    const amount = amountInput.value;
-    const accountText = accountSelect.options[accountSelect.selectedIndex]?.text ?? '';
-    if (amount && accountSelect.value) {
+    const amount  = parseInt(amountInput.value) || 0;
+    const acctTxt = accountSelect.options[accountSelect.selectedIndex]?.text ?? '';
+
+    if (amount > 0 && accountSelect.value) {
         preview.style.display = 'block';
-        previewAmount.textContent = parseInt(amount).toLocaleString('it-IT');
-        // Estrai solo il nome (prima delle parentesi)
-        previewAccount.textContent = accountText.split('(')[0].trim();
+        previewAmount.textContent  = fmt(amount);
+        previewAccount.textContent = acctTxt.split('(')[0].trim();
+        previewNewBal.textContent  = fmt(systemBalance - amount);
+        previewNewBal.style.color  = (systemBalance - amount) < 0 ? '#dc2626' : '#16a34a';
+        previewCirc.textContent    = fmt(kyCirculation + amount);
     } else {
         preview.style.display = 'none';
     }
@@ -239,3 +514,4 @@ accountSelect.addEventListener('change', updatePreview);
 </script>
 
 @endsection
+                                                                                                 
