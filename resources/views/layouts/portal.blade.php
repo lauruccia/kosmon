@@ -1871,6 +1871,132 @@
     </nav>
     @endif
 
+    {{-- ═══════════════════════════════════════════════════════════════════
+         Overlay: Sessione scaduta
+         Mostrato quando la sessione Laravel scade (HTTP 419/401).
+         Causa principale su mobile: iOS/Android sospendono le tab in
+         background → al ritorno il CSRF token risulta scaduto.
+         ══════════════════════════════════════════════════════════════════ --}}
+    <div id="km-session-expired"
+         style="display:none;position:fixed;inset:0;z-index:99999;
+                background:rgba(0,0,0,.48);backdrop-filter:blur(6px);
+                -webkit-backdrop-filter:blur(6px);
+                align-items:center;justify-content:center;padding:24px;">
+        <div style="background:var(--bg,#fff);border-radius:24px;padding:36px 28px;
+                    width:min(100%,360px);box-shadow:0 24px 64px rgba(0,0,0,.25);
+                    text-align:center;">
+            <div style="width:64px;height:64px;background:var(--bg-soft,#f1f5f9);
+                        border-radius:50%;display:flex;align-items:center;
+                        justify-content:center;margin:0 auto 20px;font-size:30px;">⏱️</div>
+            <h2 style="margin:0 0 10px;font-size:22px;font-weight:700;color:var(--ink,#1e293b);">
+                Sessione scaduta
+            </h2>
+            <p style="margin:0 0 24px;font-size:14px;color:var(--ink-soft,#64748b);line-height:1.6;">
+                La tua sessione è scaduta per inattività.<br>
+                Ricarica la pagina per continuare da dove eri rimasto.
+            </p>
+            <button onclick="window.location.reload()"
+                    style="display:flex;align-items:center;justify-content:center;gap:8px;
+                           width:100%;padding:14px;background:var(--primary,#0b2244);
+                           color:#fff;border:none;border-radius:12px;font-size:15px;
+                           font-weight:600;cursor:pointer;margin-bottom:10px;">
+                ↺ Ricarica la pagina
+            </button>
+            <button onclick="window.location.href='/'"
+                    style="display:flex;align-items:center;justify-content:center;gap:8px;
+                           width:100%;padding:14px;background:transparent;
+                           color:var(--ink-soft,#64748b);
+                           border:1.5px solid var(--border,#e2e8f0);
+                           border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;">
+                ← Torna alla home
+            </button>
+            <p style="margin:16px 0 0;font-size:12px;color:var(--ink-muted,#94a3b8);">
+                La pagina si ricaricherà automaticamente tra
+                <strong id="km-session-countdown">10</strong> secondi.
+            </p>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var overlay     = document.getElementById('km-session-expired');
+        var countdownEl = document.getElementById('km-session-countdown');
+        var shown       = false;
+
+        function showExpired() {
+            if (shown) return;
+            shown = true;
+            overlay.style.display = 'flex';
+            var secs = 10;
+            countdownEl.textContent = secs;
+            var t = setInterval(function () {
+                secs--;
+                if (countdownEl) countdownEl.textContent = secs;
+                if (secs <= 0) { clearInterval(t); window.location.reload(); }
+            }, 1000);
+        }
+
+        // ── 1. Intercetta axios (usato nei polling QR/NFC e switch profilo) ──
+        function attachAxios(ax) {
+            ax.interceptors.response.use(
+                function (r) { return r; },
+                function (err) {
+                    var s = err.response && err.response.status;
+                    if (s === 419 || s === 401) showExpired();
+                    return Promise.reject(err);
+                }
+            );
+        }
+        if (window.axios) {
+            attachAxios(window.axios);
+        } else {
+            window.addEventListener('DOMContentLoaded', function () {
+                if (window.axios) attachAxios(window.axios);
+            });
+        }
+
+        // ── 2. Wrappa fetch nativo (usato nelle view QR/NFC/Sonic) ───────────
+        var _nativeFetch = window.fetch;
+        window.fetch = function (input, init) {
+            return _nativeFetch.call(this, input, init).then(function (res) {
+                if (res.status === 419 || res.status === 401) showExpired();
+                return res;
+            });
+        };
+
+        // ── 3. Controlla sessione al ritorno dalla sospensione (mobile) ──────
+        // Su iOS/Android, dopo >5 min in background il CSRF token è scaduto.
+        var hiddenAt = null;
+        var SOGLIA   = 5 * 60 * 1000; // 5 minuti
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                hiddenAt = Date.now();
+            } else if (hiddenAt && (Date.now() - hiddenAt) > SOGLIA) {
+                hiddenAt = null;
+                _nativeFetch('/dashboard', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                }).then(function (res) {
+                    if (res.status === 401 || res.status === 419) showExpired();
+                }).catch(function () { /* offline, ignora */ });
+            } else {
+                hiddenAt = null;
+            }
+        });
+
+        // ── 4. bfcache: su mobile il browser ripristina la pagina dal cache ──
+        // In questo caso il CSRF token nel DOM è obsoleto → forza reload.
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) window.location.reload();
+        });
+    })();
+    </script>
+
     {{-- Legal Footer --}}
     <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;text-align:center;">
         <p style="margin:0;font-size:11px;color:rgba(255,255,255,.38);">
