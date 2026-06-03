@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class ScheduledPayment extends Model
@@ -24,6 +25,7 @@ class ScheduledPayment extends Model
         'recurrence_index',
         'recurrence_total',
         'recurrence_type',
+        'payment_plan_installment_id',
     ];
 
     protected $casts = [
@@ -63,6 +65,11 @@ class ScheduledPayment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function planInstallment(): BelongsTo
+    {
+        return $this->belongsTo(PaymentPlanInstallment::class, 'payment_plan_installment_id');
+    }
+
     // ── Stato ─────────────────────────────────────────────────────────────────
 
     // ── Ricorrenza ────────────────────────────────────────────────────────────
@@ -70,6 +77,12 @@ class ScheduledPayment extends Model
     public function isRecurring(): bool
     {
         return $this->recurrence_group !== null;
+    }
+
+    /** True se questa scheduled payment è la rappresentazione di una rata di un piano rateale. */
+    public function isPlanInstallment(): bool
+    {
+        return $this->payment_plan_installment_id !== null;
     }
 
     /** Etichetta leggibile della frequenza. */

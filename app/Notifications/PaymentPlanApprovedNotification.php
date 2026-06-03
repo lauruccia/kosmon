@@ -12,10 +12,12 @@ use Illuminate\Notifications\Notification;
 class PaymentPlanApprovedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
-
-    public function __construct(public readonly PaymentPlan $plan) {}
-
     use RespectsNotificationPreferences;
+
+    public function __construct(
+        public readonly PaymentPlan $plan,
+        public readonly bool        $isApprover = false,
+    ) {}
 
     public function via(object $notifiable): array
     {
@@ -24,24 +26,46 @@ class PaymentPlanApprovedNotification extends Notification implements ShouldQueu
 
     public function toArray(object $notifiable): array
     {
-        $counterparty = $this->plan->counterpartyAccount()?->display_name ?? 'La controparte';
-        $total        = number_format($this->plan->total_amount, 2, ',', '.');
-        $count        = $this->plan->installments_count;
+        $total = number_format($this->plan->total_amount, 2, ',', '.');
+        $count = $this->plan->installments_count;
+        $freq  = $this->plan->frequencyLabel();
+
+        if ($this->isApprover) {
+            $counterparty = $this->plan->proposerAccount()?->display_name ?? 'La controparte';
+            $body = 'Hai accettato il piano rateale di ' . $counterparty . ': ' . $total . ' KY in ' . $count . ' rate ' . $freq . 'i. I pagamenti partiranno alla prima scadenza.';
+        } else {
+            $counterparty = $this->plan->counterpartyAccount()?->display_name ?? 'La controparte';
+            $body = $counterparty . ' ha accettato il tuo piano rateale di ' . $total . ' KY in ' . $count . ' rate ' . $freq . 'i. I pagamenti partiranno alla prima scadenza.';
+        }
 
         return [
             'icon'  => '✅',
             'title' => 'Piano rateale approvato',
-            'body'  => $counterparty . ' ha accettato il tuo piano rateale di ' . $total . ' KY in ' . $count . ' rate. Le rate partiranno dalla prima scadenza.',
+            'body'  => $body,
             'link'  => route('portal.payment-plans.show', $this->plan),
         ];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
+        $total = number_format($this->plan->total_amount, 2, ',', '.');
+        $count = $this->plan->installments_count;
+        $freq  = $this->plan->frequencyLabel();
+        $first = $this->plan->first_due_date?->format('d/m/Y') ?? '—';
+
+        if ($this->isApprover) {
+            $counterparty = $this->plan->proposerAccount()?->display_name ?? 'La controparte';
+            $intro = 'Hai accettato il piano rateale di ' . $counterparty . ': ' . $total . ' KY in ' . $count . ' rate ' . $freq . 'i.';
+        } else {
+            $counterparty = $this->plan->counterpartyAccount()?->display_name ?? 'La controparte';
+            $intro = $counterparty . ' ha accettato il tuo piano rateale di ' . $total . ' KY in ' . $count . ' rate ' . $freq . 'i.';
+        }
+
         return (new MailMessage)
-            ->subject('Piano rateale approvato — ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY')
-            ->greeting('Piano rateale approvato')
-            ->line(($this->plan->counterpartyAccount()?->display_name ?? 'La controparte') . ' ha accettato il piano rateale di ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY in ' . $this->plan->installments_count . ' rate.')
+            ->subject('Piano rateale approvato — ' . $total . ' KY')
+            ->greeting('Piano rateale approvato ✅')
+            ->line($intro)
+            ->line('Prima rata: **' . $first . '**.')
             ->action('Visualizza piano', route('portal.payment-plans.show', $this->plan))
             ->salutation('Il team KMoney');
     }

@@ -23,7 +23,9 @@ class ProcessDueInstallments implements ShouldQueue
 
     public function handle(PaymentPlanService $service): void
     {
-        // Fetch all pending installments whose due_date <= today, for active plans
+        // Fetch all pending installments whose due_date <= today, for active plans.
+        // Esclude le rate che hanno già una ScheduledPayment pending collegata:
+        // quelle vengono gestite da ProcessScheduledPayments.
         $due = PaymentPlanInstallment::query()
             ->with(['paymentPlan.fromAccount.company', 'paymentPlan.fromAccount.ownerUser',
                     'paymentPlan.toAccount.company', 'paymentPlan.toAccount.ownerUser'])
@@ -31,6 +33,7 @@ class ProcessDueInstallments implements ShouldQueue
                 $q->where('status', 'active')
                   ->whereHas('fromAccount', fn ($a) => $a->whereHas('company', fn ($c) => $c->whereNull('payments_paused_at')));
             })
+            ->whereDoesntHave('scheduledPayment', fn ($q) => $q->where('status', 'pending'))
             ->where('status', 'pending')
             ->whereDate('due_date', '<=', now()->toDateString())
             ->orderBy('due_date')
@@ -62,9 +65,13 @@ class ProcessDueInstallments implements ShouldQueue
 
                 $plan      = $installment->paymentPlan;
                 $fromOwner = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
+                $toOwner   = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
 
                 if ($fromOwner) {
-                    $fromOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage()));
+                    $fromOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage(), isCreditor: false));
+                }
+                if ($toOwner && $toOwner->id !== $fromOwner?->id) {
+                    $toOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage(), isCreditor: true));
                 }
 
                 Log::warning('[ProcessDueInstallments] Installment #' . $installment->id . ' FAILED: ' . $e->getMessage());

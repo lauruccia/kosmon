@@ -8,6 +8,7 @@ use App\Models\PaymentPlan;
 use App\Models\PaymentPlanInstallment;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\ScheduledPayment;
 use App\Notifications\PaymentPlanApprovedNotification;
 use App\Notifications\PaymentPlanProposedNotification;
 use App\Notifications\PaymentPlanRejectedNotification;
@@ -19,7 +20,10 @@ use RuntimeException;
 
 class PaymentPlanService
 {
-    public function __construct(private readonly TransferBookingService $bookingService) {}
+    public function __construct(
+        private readonly TransferBookingService    $bookingService,
+        private readonly ScheduledPaymentService   $scheduledPaymentService,
+    ) {}
 
     /**
      * Create a payment plan and persist all installment rows.
@@ -118,15 +122,42 @@ class PaymentPlanService
 
     /**
      * Approva una proposta di piano rateale (chiamata dalla controparte).
+     * Crea una ScheduledPayment per ogni rata e notifica entrambe le parti.
      */
     public function approve(PaymentPlan $plan, int $approvedBy, ?string $ipAddress = null): void
     {
         if ($plan->status !== 'pending_approval') {
-            throw new RuntimeException('Il piano non e\' in attesa di approvazione.');
+            throw new RuntimeException('Il piano non è in attesa di approvazione.');
         }
 
         DB::transaction(function () use ($plan, $approvedBy, $ipAddress) {
+            $plan->load(['installments', 'fromAccount.company', 'fromAccount.ownerUser',
+                         'toAccount.company', 'toAccount.ownerUser', 'initiator']);
+
             $plan->forceFill(['status' => 'active'])->save();
+
+            // Crea una ScheduledPayment per ogni rata, collegate dallo stesso recurrence_group
+            $group    = $plan->uuid;
+            $total    = $plan->installments_count;
+            $approver = User::find($approvedBy);
+
+            foreach ($plan->installments as $installment) {
+                ScheduledPayment::create([
+                    'from_account_id'            => $plan->from_account_id,
+                    'to_account_id'              => $plan->to_account_id,
+                    'amount'                     => $installment->amount,
+                    'description'                => trim(($plan->description ? $plan->description . ' — ' : '') . 'Rata ' . $installment->installment_number . '/' . $total),
+                    // Esegui a mezzanotte della data scadenza (ProcessScheduledPayments la processerà)
+                    'scheduled_at'               => Carbon::parse($installment->due_date)->startOfDay(),
+                    'status'                     => 'pending',
+                    'created_by'                 => $plan->initiated_by,
+                    'recurrence_group'           => $group,
+                    'recurrence_index'           => $installment->installment_number,
+                    'recurrence_total'           => $total,
+                    'recurrence_type'            => $plan->frequency,
+                    'payment_plan_installment_id' => $installment->id,
+                ]);
+            }
 
             AuditLog::create([
                 'actor_user_id'  => $approvedBy,
@@ -137,11 +168,16 @@ class PaymentPlanService
                 'context'        => ['approved_by' => $approvedBy],
             ]);
 
-            // Notifica al proponente
+            // Notifica al proponente (chi ha proposto il piano)
             $proposerAccount = $plan->proposerAccount();
-            $proposerOwner = $proposerAccount?->ownerUser ?? $proposerAccount?->company?->users()->first();
+            $proposerOwner   = $proposerAccount?->ownerUser ?? $proposerAccount?->company?->users()->first();
             if ($proposerOwner) {
-                $proposerOwner->notify(new PaymentPlanApprovedNotification($plan));
+                $proposerOwner->notify(new PaymentPlanApprovedNotification($plan, isApprover: false));
+            }
+
+            // Notifica anche all'approvatore (la controparte che ha accettato)
+            if ($approver) {
+                $approver->notify(new PaymentPlanApprovedNotification($plan, isApprover: true));
             }
         });
     }

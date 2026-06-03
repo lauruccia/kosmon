@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\ScheduledPayment;
 use App\Models\User;
+use App\Notifications\InstallmentFailedNotification;
+use App\Notifications\InstallmentPaidNotification;
 use App\Notifications\ScheduledPaymentExecutedNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -115,6 +117,9 @@ class ScheduledPaymentService
     /**
      * Esegue un pagamento programmato scaduto.
      * Chiamato dal job ProcessScheduledPayments.
+     *
+     * Se la scheduled payment è collegata a una rata di un piano rateale,
+     * delega l'esecuzione a PaymentPlanService::processInstallment().
      */
     public function execute(ScheduledPayment $payment): void
     {
@@ -128,7 +133,13 @@ class ScheduledPaymentService
             return;
         }
 
-        // Usa lo stesso utente che ha creato il pagamento come initiator
+        // ── Rata di un piano rateale ──────────────────────────────────────────
+        if ($payment->isPlanInstallment()) {
+            $this->executeInstallment($payment);
+            return;
+        }
+
+        // ── Pagamento programmato standard ───────────────────────────────────
         $initiator = $payment->creator ?? User::findOrFail($payment->created_by);
 
         try {
@@ -163,6 +174,68 @@ class ScheduledPaymentService
                 'status'         => 'failed',
                 'failure_reason' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Esegue una scheduled payment collegata a una rata di piano rateale.
+     * Delega il bookkeeping a PaymentPlanService::processInstallment() e
+     * invia notifiche in-app + email a entrambe le parti.
+     */
+    private function executeInstallment(ScheduledPayment $payment): void
+    {
+        $payment->load(['planInstallment.paymentPlan.fromAccount.ownerUser',
+                        'planInstallment.paymentPlan.toAccount.ownerUser']);
+
+        $installment = $payment->planInstallment;
+        if (! $installment) {
+            // Installment rimossa: marca come fallita e torna
+            $payment->update(['status' => 'failed', 'failure_reason' => 'Rata non trovata.']);
+            return;
+        }
+
+        $plan = $installment->paymentPlan;
+
+        /** @var \App\Services\PaymentPlanService $planService */
+        $planService = app(\App\Services\PaymentPlanService::class);
+
+        try {
+            $transfer = $planService->processInstallment($installment);
+
+            $payment->update([
+                'status'      => 'executed',
+                'transfer_id' => $transfer->id,
+                'executed_at' => now(),
+            ]);
+
+            // Notifica in-app + email a entrambe le parti
+            $installment->refresh();
+            $fromOwner = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
+            $toOwner   = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
+
+            if ($fromOwner) {
+                $fromOwner->notify(new InstallmentPaidNotification($installment, $plan));
+            }
+            if ($toOwner && $toOwner->id !== $fromOwner?->id) {
+                $toOwner->notify(new InstallmentPaidNotification($installment, $plan));
+            }
+
+        } catch (\Throwable $e) {
+            $payment->update([
+                'status'         => 'failed',
+                'failure_reason' => $e->getMessage(),
+            ]);
+
+            // Notifica fallimento a entrambe le parti
+            $fromOwner = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
+            $toOwner   = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
+
+            if ($fromOwner) {
+                $fromOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage()));
+            }
+            if ($toOwner && $toOwner->id !== $fromOwner?->id) {
+                $toOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage()));
+            }
         }
     }
 

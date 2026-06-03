@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PaymentPlanInstallment extends Model
 {
@@ -34,6 +35,20 @@ class PaymentPlanInstallment extends Model
     public function transfer(): BelongsTo
     {
         return $this->belongsTo(Transfer::class);
+    }
+
+    /** La scheduled payment creata al momento dell'approvazione del piano, se presente. */
+    public function scheduledPayment(): HasOne
+    {
+        return $this->hasOne(ScheduledPayment::class, 'payment_plan_installment_id');
+    }
+
+    /** True se questa rata è gestita da una ScheduledPayment ancora in attesa. */
+    public function hasPendingScheduledPayment(): bool
+    {
+        return $this->scheduledPayment()
+            ->where('status', 'pending')
+            ->exists();
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
