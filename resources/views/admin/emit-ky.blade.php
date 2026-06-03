@@ -514,4 +514,3 @@ accountSelect.addEventListener('change', updatePreview);
 </script>
 
 @endsection
-                                                                                                 

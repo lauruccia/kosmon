@@ -186,6 +186,7 @@ class PortalController extends Controller
         abort_unless($currentUser->canOperateAccount($currentAccount), 403);
 
         $company = $currentAccount->company;
+        abort_if($company === null, 404);
 
         return view('portal.profile-edit', [
             'pageTitle'      => 'Profilo azienda',
@@ -207,6 +208,7 @@ class PortalController extends Controller
         abort_unless($currentUser->canOperateAccount($currentAccount), 403);
 
         $company = $currentAccount->company;
+        abort_if($company === null, 404);
 
         $validated = $request->validate([
             'sector'        => ['nullable', 'string', 'max:120', \Illuminate\Validation\Rule::in(Sector::activeList()->push('')->toArray())],

@@ -549,6 +549,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
     Route::get('/admin/users/{user}', [AdminController::class, 'showUser'])->name('admin.users.show');
     Route::post('/admin/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
+    Route::post('/admin/users/{user}/password', [AdminController::class, 'changePasswordUser'])->name('admin.users.password');
 
     Route::get('/admin/roles', [AdminController::class, 'roles'])->name('admin.roles.index');
     Route::post('/admin/roles', [AdminController::class, 'storeRole'])->name('admin.roles.store');

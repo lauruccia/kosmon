@@ -27,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\StreamedResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -649,6 +650,31 @@ class AdminController extends Controller
         }
 
         return back()->with('portal_success', 'Utente aggiornato correttamente.');
+    }
+
+    public function changePasswordUser(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'users.manage');
+
+        $validated = $request->validate([
+            'new_password'              => ['required', 'string', 'min:8', 'confirmed'],
+            'new_password_confirmation' => ['required', 'string'],
+        ]);
+
+        $user->forceFill([
+            'password' => Hash::make($validated['new_password']),
+        ])->save();
+
+        AuditLog::create([
+            'user_id'     => $request->user()->id,
+            'action'      => 'admin.change_password',
+            'target_type' => 'user',
+            'target_id'   => $user->id,
+            'metadata'    => ['target_user_email' => $user->email],
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return back()->with('portal_success', 'Password aggiornata correttamente.');
     }
 
     public function updateLimitDefaults(Request $request): RedirectResponse

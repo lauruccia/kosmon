@@ -272,6 +272,14 @@
             .submit-row { flex-direction: column; }
             .btn-ghost { width: 100%; justify-content: center; }
         }
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 42px !important; }
+        .pw-eye {
+            position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; padding: 4px;
+            color: rgba(255,255,255,0.45); display: flex; align-items: center;
+        }
+        .pw-eye:hover { color: rgba(255,255,255,0.85); }
     </style>
 </head>
 <body>

@@ -842,6 +842,15 @@
         }
         .field textarea { min-height: 100px; resize: vertical; }
         .field-inline { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 14px; }
+        /* ── PASSWORD TOGGLE ─────────────────────────────────────────── */
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 42px !important; }
+        .pw-eye {
+            position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; padding: 4px;
+            color: var(--ink-soft); display: flex; align-items: center; line-height: 1;
+        }
+        .pw-eye:hover { color: var(--ink); }
 
         /* ── PERMISSION TILES ───────────────────────────────────────── */
         .permission-grid, .role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

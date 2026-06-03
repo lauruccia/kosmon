@@ -222,6 +222,30 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
         btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg> Accedi con impronta`;
     }
 });
+
+// ── Toggle visibilità password ────────────────────────────────────────────────
+(function () {
+    const eyeShow = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const eyeHide = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    document.querySelectorAll('input[type=password]').forEach(function (input) {
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'position:relative;';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        input.style.paddingRight = '42px';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Mostra/nascondi password');
+        btn.style.cssText = 'position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:rgba(255,255,255,0.5);';
+        btn.innerHTML = eyeShow;
+        btn.addEventListener('click', function () {
+            var visible = input.type === 'text';
+            input.type = visible ? 'password' : 'text';
+            btn.innerHTML = visible ? eyeShow : eyeHide;
+        });
+        wrap.appendChild(btn);
+    });
+})();
 </script>
 </body>
 </html>

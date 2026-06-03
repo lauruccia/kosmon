@@ -15,6 +15,7 @@
         <div class="page-actions">
             <a class="cta secondary" href="{{ route('admin.users.index') }}">Torna all'elenco</a>
             <a class="cta secondary" href="#user-limits">Limiti utente</a>
+            <a class="cta secondary" href="#user-password">Cambio password</a>
             <a class="cta secondary" href="#user-update">Aggiorna utente</a>
             <a class="cta" href="#user-movements">Movimenti filtrati</a>
         </div>
@@ -275,6 +276,33 @@
                 </table>
             </div>
         @endif
+    </section>
+
+    <section class="card light-card" id="user-password" style="margin-bottom:22px;">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Sicurezza account</span>
+                <h3 class="section-title">Cambia password</h3>
+            </div>
+        </div>
+        <form method="post" action="{{ route('admin.users.password', $userRecord) }}" class="field-grid" style="max-width:480px;">
+            @csrf
+            <div class="field">
+                <label>Nuova password</label>
+                <div class="pw-wrap">
+                    <input name="new_password" type="password" required minlength="8" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="field">
+                <label>Conferma nuova password</label>
+                <div class="pw-wrap">
+                    <input name="new_password_confirmation" type="password" required minlength="8" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="cta" onclick="return confirm('Impostare la nuova password per {{ addslashes($userRecord->name) }}?')">Imposta password</button>
+            </div>
+        </form>
     </section>
 
     <section class="card light-card" id="user-update">
