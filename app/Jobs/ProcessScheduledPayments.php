@@ -22,7 +22,12 @@ class ProcessScheduledPayments implements ShouldQueue
             ->where('status', 'pending')
             ->where('scheduled_at', '<=', now())
             ->whereHas('fromAccount', function ($q) {
-                $q->whereHas('company', fn ($c) => $c->whereNull('payments_paused_at'));
+                $q->where('status', 'active')
+                  ->where(function ($sub) {
+                      // Conto aziendale: l'azienda non deve avere i pagamenti in pausa
+                      $sub->whereDoesntHave('company')
+                          ->orWhereHas('company', fn ($c) => $c->whereNull('payments_paused_at'));
+                  });
             })
             ->get();
 

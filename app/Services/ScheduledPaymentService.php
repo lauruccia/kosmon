@@ -140,9 +140,9 @@ class ScheduledPaymentService
         }
 
         // ── Pagamento programmato standard ───────────────────────────────────
-        $initiator = $payment->creator ?? User::findOrFail($payment->created_by);
-
         try {
+            $initiator = $payment->creator ?? User::findOrFail($payment->created_by);
+
             $transfer = $this->booking->book([
                 'initiated_by'    => $initiator->id,
                 'from_account_id' => $payment->from_account_id,
@@ -160,13 +160,11 @@ class ScheduledPaymentService
             ]);
 
             // Notifica al mittente
-            if ($initiator) {
-                $initiator->notify(new ScheduledPaymentExecutedNotification($payment, isRecipient: false));
-            }
+            $initiator->notify(new ScheduledPaymentExecutedNotification($payment, isRecipient: false));
 
             // Notifica al destinatario
             $toOwner = $payment->toAccount?->ownerUser;
-            if ($toOwner) {
+            if ($toOwner && $toOwner->id !== $initiator->id) {
                 $toOwner->notify(new ScheduledPaymentExecutedNotification($payment, isRecipient: true));
             }
         } catch (\Throwable $e) {
@@ -189,12 +187,13 @@ class ScheduledPaymentService
 
         $installment = $payment->planInstallment;
         if (! $installment) {
-            // Installment rimossa: marca come fallita e torna
             $payment->update(['status' => 'failed', 'failure_reason' => 'Rata non trovata.']);
             return;
         }
 
-        $plan = $installment->paymentPlan;
+        $plan        = $installment->paymentPlan;
+        $fromOwner   = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
+        $toOwner     = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
 
         /** @var \App\Services\PaymentPlanService $planService */
         $planService = app(\App\Services\PaymentPlanService::class);
@@ -208,11 +207,7 @@ class ScheduledPaymentService
                 'executed_at' => now(),
             ]);
 
-            // Notifica in-app + email a entrambe le parti
             $installment->refresh();
-            $fromOwner = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
-            $toOwner   = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
-
             if ($fromOwner) {
                 $fromOwner->notify(new InstallmentPaidNotification($installment, $plan));
             }
@@ -225,10 +220,6 @@ class ScheduledPaymentService
                 'status'         => 'failed',
                 'failure_reason' => $e->getMessage(),
             ]);
-
-            // Notifica fallimento a entrambe le parti
-            $fromOwner = $plan->fromAccount?->ownerUser ?? $plan->fromAccount?->company?->users()->first();
-            $toOwner   = $plan->toAccount?->ownerUser  ?? $plan->toAccount?->company?->users()->first();
 
             if ($fromOwner) {
                 $fromOwner->notify(new InstallmentFailedNotification($installment, $plan, $e->getMessage()));

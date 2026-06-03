@@ -19,8 +19,8 @@ Schedule::job(new ProcessDueInstallments())->dailyAt('06:00')->name('process-due
 // Scade le PaymentRequest (QR dinamico) ogni minuto
 Schedule::job(new ExpirePaymentRequests())->everyMinute()->name('expire-payment-requests')->withoutOverlapping();
 
-// Esegue i pagamenti programmati ogni minuto
-Schedule::job(new ProcessScheduledPayments())->everyMinute()->name('process-scheduled-payments')->withoutOverlapping();
+// Esegue i pagamenti programmati ogni minuto (onConnection('sync') = bypass coda, esecuzione diretta)
+Schedule::job(new ProcessScheduledPayments())->everyMinute()->onConnection('sync')->name('process-scheduled-payments')->withoutOverlapping();
 
 // Resoconto mensile il 1 del mese alle 08:00
 Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-monthly-statements')->withoutOverlapping();
