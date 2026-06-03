@@ -16,25 +16,25 @@
     {{-- Filtri --}}
     <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;">
         <input type="text" name="search" value="{{ request('search') }}" placeholder="Cerca azienda..."
-               style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface-soft);color:var(--ink);">
-        <select name="status" style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface-soft);color:var(--ink);">
+               style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface-soft);color:var(--ink);">
+        <select name="status" style="flex:1;min-width:140px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface-soft);color:var(--ink);">
             <option value="">Tutti gli stati</option>
             @foreach(['pending','issued','delivered','active','blocked','revoked'] as $s)
                 <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst($s) }}</option>
             @endforeach
         </select>
-        <button type="submit" class="cta secondary" style="font-size:13px;padding:8px 16px;">Filtra</button>
+        <button type="submit" class="cta secondary" style="font-size:13px;padding:8px 16px;width:100%;">Filtra</button>
     </form>
 
-    <section class="card" style="overflow:hidden;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <section class="card" style="overflow-x:auto;">
+        <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px;">
             <thead>
                 <tr style="border-bottom:1px solid var(--line);background:var(--surface-soft);">
-                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;">Seriale</th>
-                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;">Cliente</th>
-                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;">Stato</th>
-                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;">Emessa</th>
-                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;">Ultimo uso</th>
+                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;white-space:nowrap;">Seriale</th>
+                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;white-space:nowrap;">Cliente</th>
+                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;white-space:nowrap;">Stato</th>
+                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;white-space:nowrap;">Emessa</th>
+                    <th style="padding:10px 16px;text-align:left;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;white-space:nowrap;">Ultimo uso</th>
                     <th style="padding:10px 16px;text-align:right;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:11px;letter-spacing:.06em;"></th>
                 </tr>
             </thead>
@@ -52,18 +52,18 @@
                         $sc = $statusColors[$card->status] ?? ['bg'=>'#f3f4f6','color'=>'#374151'];
                     @endphp
                     <tr style="border-bottom:1px solid var(--line);">
-                        <td style="padding:12px 16px;font-weight:600;color:var(--ink);font-family:monospace;">
+                        <td style="padding:12px 16px;font-weight:600;color:var(--ink);font-family:monospace;white-space:nowrap;">
                             {{ $card->serial_number ?? substr($card->uuid, 0, 8) }}
                         </td>
                         <td style="padding:12px 16px;color:var(--ink);">{{ $card->company->name ?? '—' }}</td>
-                        <td style="padding:12px 16px;">
+                        <td style="padding:12px 16px;white-space:nowrap;">
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:{{ $sc['bg'] }};color:{{ $sc['color'] }};">
                                 {{ strtoupper($card->status) }}
                             </span>
                         </td>
-                        <td style="padding:12px 16px;color:var(--ink-muted);">{{ $card->issued_at?->format('d/m/Y') ?? '—' }}</td>
-                        <td style="padding:12px 16px;color:var(--ink-muted);">{{ $card->last_used_at?->diffForHumans() ?? 'Mai' }}</td>
-                        <td style="padding:12px 16px;text-align:right;">
+                        <td style="padding:12px 16px;color:var(--ink-muted);white-space:nowrap;">{{ $card->issued_at?->format('d/m/Y') ?? '—' }}</td>
+                        <td style="padding:12px 16px;color:var(--ink-muted);white-space:nowrap;">{{ $card->last_used_at?->diffForHumans() ?? 'Mai' }}</td>
+                        <td style="padding:12px 16px;text-align:right;white-space:nowrap;">
                             <a href="{{ route('admin.nfc-cards.show', $card) }}" style="font-size:12px;font-weight:600;color:var(--primary);">Gestisci</a>
                         </td>
                     </tr>
