@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\ScheduledPayment;
 use App\Models\User;
 use App\Notifications\ScheduledPaymentExecutedNotification;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 class ScheduledPaymentService
@@ -34,6 +35,81 @@ class ScheduledPaymentService
             'status'          => 'pending',
             'created_by'      => $createdBy->id,
         ]);
+    }
+
+    /**
+     * Crea un gruppo di pagamenti ricorrenti (N rate generate tutte subito).
+     *
+     * @param  string  $recurrenceType  monthly | weekly | biweekly
+     * @return ScheduledPayment[]
+     */
+    public function createRecurring(
+        Account $fromAccount,
+        Account $toAccount,
+        int $amount,
+        string $description,
+        \DateTimeInterface $firstDate,
+        string $recurrenceType,
+        \DateTimeInterface $endDate,
+        User $createdBy,
+    ): array {
+        $dates = $this->computeRecurrenceDates(
+            Carbon::instance($firstDate),
+            $recurrenceType,
+            Carbon::instance($endDate),
+        );
+
+        abort_if(count($dates) === 0, 422, 'Le date selezionate non producono alcuna rata.');
+        abort_if(count($dates) > 60, 422, 'Non è possibile creare più di 60 rate ricorrenti in una volta.');
+
+        $group   = (string) Str::uuid();
+        $total   = count($dates);
+        $created = [];
+
+        foreach ($dates as $i => $date) {
+            $index = $i + 1;
+            $suffix = $total > 1 ? " (rata $index di $total)" : '';
+
+            $created[] = ScheduledPayment::create([
+                'from_account_id'  => $fromAccount->id,
+                'to_account_id'    => $toAccount->id,
+                'amount'           => $amount,
+                'description'      => $description . $suffix,
+                'scheduled_at'     => $date,
+                'status'           => 'pending',
+                'created_by'       => $createdBy->id,
+                'recurrence_group' => $group,
+                'recurrence_index' => $index,
+                'recurrence_total' => $total,
+                'recurrence_type'  => $recurrenceType,
+            ]);
+        }
+
+        return $created;
+    }
+
+    /**
+     * Calcola le date di esecuzione in base alla frequenza e alla data fine.
+     *
+     * @return Carbon[]
+     */
+    private function computeRecurrenceDates(Carbon $first, string $type, Carbon $end): array
+    {
+        $dates   = [];
+        $current = $first->copy();
+
+        while ($current->lte($end)) {
+            $dates[] = $current->copy();
+
+            $current = match ($type) {
+                'monthly'  => $current->addMonthNoOverflow(),
+                'weekly'   => $current->addWeek(),
+                'biweekly' => $current->addWeeks(2),
+                default    => $current->addMonthNoOverflow(),
+            };
+        }
+
+        return $dates;
     }
 
     /**

@@ -20,12 +20,18 @@ class ScheduledPayment extends Model
         'failure_reason',
         'executed_at',
         'created_by',
+        'recurrence_group',
+        'recurrence_index',
+        'recurrence_total',
+        'recurrence_type',
     ];
 
     protected $casts = [
-        'scheduled_at' => 'datetime',
-        'executed_at'  => 'datetime',
-        'amount'       => 'integer',
+        'scheduled_at'      => 'datetime',
+        'executed_at'       => 'datetime',
+        'amount'            => 'integer',
+        'recurrence_index'  => 'integer',
+        'recurrence_total'  => 'integer',
     ];
 
     protected static function booted(): void
@@ -55,6 +61,38 @@ class ScheduledPayment extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // ── Stato ─────────────────────────────────────────────────────────────────
+
+    // ── Ricorrenza ────────────────────────────────────────────────────────────
+
+    public function isRecurring(): bool
+    {
+        return $this->recurrence_group !== null;
+    }
+
+    /** Etichetta leggibile della frequenza. */
+    public function recurrenceTypeLabel(): string
+    {
+        return match ($this->recurrence_type) {
+            'monthly'  => 'Mensile',
+            'weekly'   => 'Settimanale',
+            'biweekly' => 'Bisettimanale',
+            default    => ucfirst($this->recurrence_type ?? ''),
+        };
+    }
+
+    /** Tutte le rate dello stesso gruppo (ordinate). */
+    public function siblings(): \Illuminate\Database\Eloquent\Collection
+    {
+        if (! $this->recurrence_group) {
+            return collect();
+        }
+
+        return static::where('recurrence_group', $this->recurrence_group)
+            ->orderBy('recurrence_index')
+            ->get();
     }
 
     // ── Stato ─────────────────────────────────────────────────────────────────

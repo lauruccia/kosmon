@@ -40,6 +40,11 @@
                     </td>
                     <td style="font-size:13px;color:var(--ink-muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                         {{ $p->description }}
+                        @if($p->isRecurring())
+                            <span class="chip" style="font-size:10px;margin-left:4px;vertical-align:middle;background:var(--primary-soft,#ede9fe);color:var(--primary);">
+                                {{ $p->recurrence_index }}/{{ $p->recurrence_total }}
+                            </span>
+                        @endif
                     </td>
                     <td>
                         <span style="font-weight:700;color:{{ $isSender ? 'var(--danger)' : 'var(--success-color,#16a34a)' }};">

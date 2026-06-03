@@ -69,6 +69,12 @@ class ScheduledPaymentController extends Controller
     {
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user());
 
+        $isRecurring = $request->boolean('is_recurring');
+
+        if ($isRecurring) {
+            return $this->storeRecurring($request, $currentAccount, $currentUser);
+        }
+
         $data = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
             'amount'        => ['required', 'integer', 'min:1', 'max:9999999'],
@@ -93,6 +99,70 @@ class ScheduledPaymentController extends Controller
         return redirect()
             ->route('portal.scheduled-payments.show', $payment)
             ->with('portal_success', 'Pagamento programmato per ' . \Carbon\Carbon::parse($data['scheduled_at'])->format('d/m/Y H:i') . '.');
+    }
+
+    private function storeRecurring(Request $request, Account $currentAccount, User $currentUser): RedirectResponse
+    {
+        $data = $request->validate([
+            'to_account_id'       => ['required', 'integer', 'exists:accounts,id'],
+            'amount'              => ['required', 'integer', 'min:1', 'max:9999999'],
+            // max 480 per lasciare spazio al suffisso " (rata XX di XX)" aggiunto dal service
+            'description'         => ['required', 'string', 'min:3', 'max:480'],
+            'scheduled_at'        => ['required', 'date', 'after:now'],
+            'recurrence_type'     => ['required', 'in:monthly,weekly,biweekly'],
+            'recurrence_end_date' => ['required', 'date', 'after:scheduled_at'],
+        ]);
+
+        abort_if((int) $data['to_account_id'] === $currentAccount->id, 422, 'Non puoi programmare un pagamento a te stesso.');
+
+        $toAccount = Account::findOrFail($data['to_account_id']);
+        abort_unless($toAccount->status === 'active', 422, 'Il conto destinatario non è attivo.');
+
+        $payments = $this->service->createRecurring(
+            fromAccount:    $currentAccount,
+            toAccount:      $toAccount,
+            amount:         (int) $data['amount'],
+            description:    $data['description'],
+            firstDate:      new \DateTime($data['scheduled_at']),
+            recurrenceType: $data['recurrence_type'],
+            endDate:        \Carbon\Carbon::parse($data['recurrence_end_date'])->endOfDay(),
+            createdBy:      $currentUser,
+        );
+
+        $total = count($payments);
+        $label = match ($data['recurrence_type']) {
+            'weekly'   => 'settimanali',
+            'biweekly' => 'bisettimanali',
+            default    => 'mensili',
+        };
+
+        return redirect()
+            ->route('portal.scheduled-payments.index')
+            ->with('portal_success', "Creati {$total} pagamenti ricorrenti {$label} a partire dal " . \Carbon\Carbon::parse($data['scheduled_at'])->format('d/m/Y') . '.');
+    }
+
+    // ── CancelGroup ───────────────────────────────────────────────────────────
+
+    public function cancelGroup(Request $request, string $group): RedirectResponse
+    {
+        [$currentAccount] = $this->resolveCurrentContext($request->user());
+
+        $pending = \App\Models\ScheduledPayment::where('recurrence_group', $group)
+            ->where('from_account_id', $currentAccount->id)
+            ->where('status', 'pending')
+            ->get();
+
+        abort_if($pending->isEmpty(), 404, 'Nessuna rata in attesa da annullare per questo gruppo.');
+
+        foreach ($pending as $payment) {
+            $payment->update(['status' => 'cancelled']);
+        }
+
+        $count = $pending->count();
+
+        return redirect()
+            ->route('portal.scheduled-payments.index')
+            ->with('portal_success', "Annullate {$count} rate ricorrenti rimanenti.");
     }
 
     // ── Show ──────────────────────────────────────────────────────────────────

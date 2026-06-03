@@ -457,6 +457,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/pagamenti-programmati', [ScheduledPaymentController::class, 'index'])->name('portal.scheduled-payments.index');
     Route::get('/pagamenti-programmati/nuovo', [ScheduledPaymentController::class, 'create'])->name('portal.scheduled-payments.create');
     Route::post('/pagamenti-programmati', [ScheduledPaymentController::class, 'store'])->name('portal.scheduled-payments.store')->middleware('throttle:financial_ops');
+    Route::post('/pagamenti-programmati/gruppo/{group}/annulla', [ScheduledPaymentController::class, 'cancelGroup'])->name('portal.scheduled-payments.cancel-group');
     Route::get('/pagamenti-programmati/{scheduledPayment}', [ScheduledPaymentController::class, 'show'])->name('portal.scheduled-payments.show');
     Route::post('/pagamenti-programmati/{scheduledPayment}/annulla', [ScheduledPaymentController::class, 'cancel'])->name('portal.scheduled-payments.cancel');
 
