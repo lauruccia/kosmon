@@ -151,13 +151,16 @@ function removeAccount(email) {
     renderSavedAccounts();
 }
 
+// Email selezionata esplicitamente dall'utente (null = nessuna selezione)
+let selectedEmail = null;
+
 function selectAccount(email) {
+    selectedEmail = email;
     document.getElementById('email').value = email;
     document.getElementById('password').value = '';
-    document.getElementById('password').focus();
-    // nascondi la lista, mostra il campo email con il valore selezionato
     document.getElementById('saved-accounts').style.display = 'none';
     document.getElementById('field-email').style.display = '';
+    document.getElementById('password').focus();
 }
 
 function renderSavedAccounts() {
@@ -171,29 +174,31 @@ function renderSavedAccounts() {
         return;
     }
 
+    // Usa <button> per ogni card: garantisce il tap su mobile Android
     listEl.innerHTML = list.map(email => `
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;"
-             onclick="selectAccount(${JSON.stringify(email)})">
-            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <span style="color:#fff;font-weight:700;font-size:15px;">${email[0].toUpperCase()}</span>
-            </div>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(email)}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:1px;">Tocca per selezionare</div>
-            </div>
-            <button onclick="event.stopPropagation();removeAccount(${JSON.stringify(email)})"
-                    style="background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);font-size:18px;line-height:1;"
-                    title="Rimuovi">&times;</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button"
+                onclick="selectAccount(${JSON.stringify(email)})"
+                style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;text-align:left;font-family:inherit;">
+                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <span style="color:#fff;font-weight:700;font-size:15px;">${escapeHtml(email[0].toUpperCase())}</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(email)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:1px;">Tocca per continuare</div>
+                </div>
+            </button>
+            <button type="button"
+                onclick="removeAccount(${JSON.stringify(email)})"
+                style="flex-shrink:0;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;padding:8px 10px;color:var(--muted);font-size:18px;line-height:1;"
+                title="Rimuovi">&times;</button>
         </div>
     `).join('');
 
     container.style.display = 'block';
-    // Nascondi il campo email quando ci sono account salvati (l'utente sceglie dalla lista)
     document.getElementById('field-email').style.display = 'none';
-    // Pre-seleziona il primo account nel campo email (per il form submit)
-    if (!document.getElementById('email').value) {
-        document.getElementById('email').value = list[0];
-    }
+    // Non pre-impostare email.value: l'utente deve scegliere esplicitamente
+    selectedEmail = null;
 }
 
 function escapeHtml(str) {
@@ -296,9 +301,15 @@ async function startConditionalPasskey() {
 
 startConditionalPasskey();
 
-// ── Login con impronta — bottone manuale (fallback / scelta email esplicita) ───
+// ── Login con impronta — bottone manuale ──────────────────────────────────────
 document.getElementById('btn-biometric').addEventListener('click', async () => {
     clearMsg();
+
+    // Se la lista account è visibile e nessuno è stato selezionato, avvisa
+    if (document.getElementById('saved-accounts').style.display !== 'none' && !selectedEmail) {
+        showMsg('Seleziona prima un account dalla lista.', 'err');
+        return;
+    }
 
     // Interrompi il conditional flow in corso prima di avviarne uno modale
     if (conditionalAbortController) {
@@ -306,15 +317,16 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
         conditionalAbortController = null;
     }
 
-    const email = document.getElementById('email').value.trim();
+    // Usa l'email selezionata esplicitamente, oppure quella nel campo visibile
+    const email = selectedEmail || document.getElementById('email').value.trim() || null;
     const btn   = document.getElementById('btn-biometric');
     btn.disabled    = true;
     btn.textContent = 'In attesa del dispositivo…';
 
     try {
-        const optData  = await getLoginOptions(email);
+        const optData   = await getLoginOptions(email);
         const assertion = await navigator.credentials.get({ publicKey: optData });
-        const verData  = await verifyAssertion(assertion);
+        const verData   = await verifyAssertion(assertion);
 
         showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
         if (email) saveAccount(email);
@@ -325,10 +337,11 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
             showMsg('Autenticazione annullata o non riuscita.', 'err');
         } else if (err.name === 'NotSupportedError') {
             showMsg("Il tuo dispositivo non supporta l'autenticazione biometrica.", 'err');
+        } else if (err.message && err.message.includes('impronta')) {
+            showMsg('Questo account non ha una passkey registrata. Usa la password.', 'err');
         } else {
             showMsg('Errore: ' + err.message, 'err');
         }
-        // Riavvia il conditional flow dopo un errore manuale
         startConditionalPasskey();
     } finally {
         btn.disabled = false;
