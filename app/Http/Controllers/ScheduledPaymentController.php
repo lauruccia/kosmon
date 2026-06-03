@@ -141,6 +141,27 @@ class ScheduledPaymentController extends Controller
             ->with('portal_success', "Creati {$total} pagamenti ricorrenti {$label} a partire dal " . \Carbon\Carbon::parse($data['scheduled_at'])->format('d/m/Y') . '.');
     }
 
+    // ── Retry ─────────────────────────────────────────────────────────────────
+
+    public function retry(Request $request, ScheduledPayment $scheduledPayment): RedirectResponse
+    {
+        [$currentAccount] = $this->resolveCurrentContext($request->user());
+
+        $this->service->retry($scheduledPayment, $currentAccount);
+
+        $scheduledPayment->refresh();
+
+        if ($scheduledPayment->isExecuted()) {
+            return redirect()
+                ->route('portal.scheduled-payments.show', $scheduledPayment)
+                ->with('portal_success', 'Pagamento eseguito con successo.');
+        }
+
+        return redirect()
+            ->route('portal.scheduled-payments.show', $scheduledPayment)
+            ->with('portal_error', 'Pagamento non riuscito: ' . ($scheduledPayment->failure_reason ?? 'errore sconosciuto'));
+    }
+
     // ── CancelGroup ───────────────────────────────────────────────────────────
 
     public function cancelGroup(Request $request, string $group): RedirectResponse

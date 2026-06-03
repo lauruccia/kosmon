@@ -31,7 +31,16 @@
         @endif
     </div>
 @elseif($payment->isFailed())
-    <div class="alert alert-danger" style="margin-bottom:14px;">Esecuzione fallita: {{ $payment->failure_reason ?? 'errore sconosciuto' }}.</div>
+    <div class="alert alert-danger" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>Esecuzione fallita: {{ $payment->failure_reason ?? 'errore sconosciuto' }}.</span>
+        @if($isSender)
+        <form method="POST" action="{{ route('portal.scheduled-payments.retry', $payment) }}"
+              onsubmit="return confirm('Ritentare il pagamento ora?')">
+            @csrf
+            <button type="submit" class="btn btn-primary" style="white-space:nowrap;">↺ Riprova ora</button>
+        </form>
+        @endif
+    </div>
 @elseif($payment->isCancelled())
     <div class="alert alert-warning" style="margin-bottom:14px;">Pagamento annullato.</div>
 @elseif($payment->isDue())

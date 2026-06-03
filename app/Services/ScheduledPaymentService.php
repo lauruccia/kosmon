@@ -231,6 +231,26 @@ class ScheduledPaymentService
     }
 
     /**
+     * Riprova immediatamente un pagamento fallito.
+     * Resetta lo stato a pending e chiama execute() subito.
+     */
+    public function retry(ScheduledPayment $payment, Account $byAccount): void
+    {
+        abort_unless($payment->isFailed(), 422, 'Solo i pagamenti falliti possono essere ritentati.');
+        abort_unless((int) $payment->from_account_id === $byAccount->id, 403, 'Non autorizzato.');
+
+        $payment->update([
+            'status'         => 'pending',
+            'scheduled_at'   => now(),
+            'failure_reason' => null,
+            'executed_at'    => null,
+            'transfer_id'    => null,
+        ]);
+
+        $this->execute($payment);
+    }
+
+    /**
      * Annulla un pagamento programmato.
      */
     public function cancel(ScheduledPayment $payment, Account $byAccount): void
