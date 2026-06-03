@@ -2211,6 +2211,12 @@ Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at),
         unset($validated['logo']);
         $branding->update($validated);
 
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.branding.update',
+            'auditable_type' => \App\Models\SystemSetting::class,
+            'auditable_id'   => $branding->id,
+            'context'        => ['circuit_name' => $branding->circuit_name],
         ]);
 
         return back()->with('admin_success', 'Branding aggiornato con successo.');
@@ -2261,19 +2267,6 @@ Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at),
         AuditLog::create([
             'actor_user_id'  => $request->user()->id,
             'event'          => 'admin.user.sessions.terminate_all',
-            'auditable_type' => User::class,
-            'auditable_id'   => $user->id,
-            'context'        => ['sessions_terminated' => $terminated],
-        ]);
-
-        $msg = $terminated > 0
-            ? "Disconnesso {$user->name} da tutti i {$terminated} dispositivi."
-            : "{$user->name} non aveva sessioni attive.";
-
-        return back()->with('admin_success', $msg);
-    }
-}
-l',
             'auditable_type' => User::class,
             'auditable_id'   => $user->id,
             'context'        => ['sessions_terminated' => $terminated],
