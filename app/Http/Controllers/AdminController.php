@@ -666,12 +666,12 @@ class AdminController extends Controller
         ])->save();
 
         AuditLog::create([
-            'user_id'     => $request->user()->id,
-            'action'      => 'admin.change_password',
-            'target_type' => 'user',
-            'target_id'   => $user->id,
-            'metadata'    => ['target_user_email' => $user->email],
-            'ip_address'  => $request->ip(),
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.change_password',
+            'auditable_type' => 'user',
+            'auditable_id'   => $user->id,
+            'context'        => ['target_user_email' => $user->email],
+            'ip_address'     => $request->ip(),
         ]);
 
         return back()->with('portal_success', 'Password aggiornata correttamente.');
