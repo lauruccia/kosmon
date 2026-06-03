@@ -68,6 +68,58 @@ class DocsController extends Controller
                             'status'            => ['type' => 'string'],
                         ],
                     ],
+
+                    'Balance' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'account_number'         => ['type' => 'string'],
+                            'currency'               => ['type' => 'string', 'example' => 'KY'],
+                            'balance'                => ['type' => 'integer', 'description' => 'Saldo contabile in centesimi KY'],
+                            'credit_limit'           => ['type' => 'integer', 'description' => 'Fido attivo in centesimi KY'],
+                            'available_balance'      => ['type' => 'integer', 'description' => 'Saldo disponibile (balance + credit_limit)'],
+                            'max_balance'            => ['type' => 'integer', 'nullable' => true, 'description' => 'Tetto massimo (null = nessun tetto)'],
+                            'is_in_debit'            => ['type' => 'boolean'],
+                            'is_at_ceiling'          => ['type' => 'boolean'],
+                            'can_sell'               => ['type' => 'boolean'],
+                            'allowed_ky_percentages' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                        ],
+                    ],
+                    'PaymentPlan' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'uuid'               => ['type' => 'string', 'format' => 'uuid'],
+                            'status'             => ['type' => 'string', 'enum' => ['active', 'pending_approval', 'completed', 'cancelled', 'rejected']],
+                            'role'               => ['type' => 'string', 'enum' => ['debtor', 'creditor']],
+                            'total_amount'       => ['type' => 'integer'],
+                            'currency'           => ['type' => 'string', 'example' => 'KY'],
+                            'installments_count' => ['type' => 'integer'],
+                            'frequency'          => ['type' => 'string', 'enum' => ['monthly', 'weekly', 'biweekly']],
+                            'first_due_date'     => ['type' => 'string', 'format' => 'date'],
+                            'description'        => ['type' => 'string'],
+                            'debtor'             => ['type' => 'object'],
+                            'creditor'           => ['type' => 'object'],
+                            'installments'       => ['type' => 'array', 'items' => ['type' => 'object']],
+                            'created_at'         => ['type' => 'string', 'format' => 'date-time'],
+                        ],
+                    ],
+                    'PaymentRequest' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'uuid'          => ['type' => 'string', 'format' => 'uuid'],
+                            'status'        => ['type' => 'string', 'enum' => ['pending', 'paid', 'expired', 'cancelled']],
+                            'direction'     => ['type' => 'string', 'enum' => ['incoming', 'outgoing']],
+                            'kind'          => ['type' => 'string', 'enum' => ['qr_dynamic', 'nfc', 'link', 'text']],
+                            'amount'        => ['type' => 'integer'],
+                            'currency'      => ['type' => 'string', 'example' => 'KY'],
+                            'description'   => ['type' => 'string'],
+                            'expires_at'    => ['type' => 'string', 'format' => 'date-time'],
+                            'paid_at'       => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                            'creditor'      => ['type' => 'object'],
+                            'payer'         => ['type' => 'object', 'nullable' => true],
+                            'transfer_uuid' => ['type' => 'string', 'nullable' => true],
+                            'created_at'    => ['type' => 'string', 'format' => 'date-time'],
+                        ],
+                    ],
                     'ErrorResponse' => [
                         'type' => 'object',
                         'properties' => [
@@ -84,6 +136,81 @@ class DocsController extends Controller
                         'tags'        => ['Account'],
                         'responses'   => [
                             '200' => ['description' => 'Account corrente', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/Account']]]],
+                            '401' => ['description' => 'Non autenticato'],
+                        ],
+                    ],
+                ],
+
+                '/balance' => [
+                    'get' => [
+                        'summary'     => 'Saldo dettagliato',
+                        'operationId' => 'getBalance',
+                        'tags'        => ['Account'],
+                        'responses'   => [
+                            '200' => ['description' => 'Saldo, fido, disponibile, capacita di vendita', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/Balance']]]],
+                            '401' => ['description' => 'Non autenticato'],
+                            '404' => ['description' => 'Nessun conto attivo'],
+                        ],
+                    ],
+                ],
+                '/payment-plans' => [
+                    'get' => [
+                        'summary'     => 'Lista piani rateali',
+                        'operationId' => 'listPaymentPlans',
+                        'tags'        => ['PaymentPlans'],
+                        'parameters'  => [
+                            ['name' => 'status',   'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['active', 'pending_approval', 'completed', 'cancelled', 'rejected']]],
+                            ['name' => 'role',     'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['debtor', 'creditor']]],
+                            ['name' => 'per_page', 'in' => 'query', 'schema' => ['type' => 'integer', 'default' => 25, 'maximum' => 100]],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Lista paginata piani rateali'],
+                            '401' => ['description' => 'Non autenticato'],
+                        ],
+                    ],
+                ],
+                '/payment-plans/{uuid}' => [
+                    'get' => [
+                        'summary'     => 'Dettaglio piano rateale',
+                        'operationId' => 'getPaymentPlan',
+                        'tags'        => ['PaymentPlans'],
+                        'parameters'  => [
+                            ['name' => 'uuid', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Dettaglio piano rateale', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/PaymentPlan']]]],
+                            '404' => ['description' => 'Non trovato'],
+                            '401' => ['description' => 'Non autenticato'],
+                        ],
+                    ],
+                ],
+                '/payment-requests' => [
+                    'get' => [
+                        'summary'     => 'Lista richieste di pagamento',
+                        'operationId' => 'listPaymentRequests',
+                        'tags'        => ['PaymentRequests'],
+                        'parameters'  => [
+                            ['name' => 'status',    'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['pending', 'paid', 'expired', 'cancelled']]],
+                            ['name' => 'direction', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['incoming', 'outgoing']]],
+                            ['name' => 'per_page',  'in' => 'query', 'schema' => ['type' => 'integer', 'default' => 25, 'maximum' => 100]],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Lista paginata richieste di pagamento'],
+                            '401' => ['description' => 'Non autenticato'],
+                        ],
+                    ],
+                ],
+                '/payment-requests/{uuid}' => [
+                    'get' => [
+                        'summary'     => 'Dettaglio richiesta di pagamento',
+                        'operationId' => 'getPaymentRequest',
+                        'tags'        => ['PaymentRequests'],
+                        'parameters'  => [
+                            ['name' => 'uuid', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Dettaglio richiesta di pagamento', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/PaymentRequest']]]],
+                            '404' => ['description' => 'Non trovato'],
                             '401' => ['description' => 'Non autenticato'],
                         ],
                     ],
