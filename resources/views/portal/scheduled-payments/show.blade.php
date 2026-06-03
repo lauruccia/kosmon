@@ -43,17 +43,6 @@
     </div>
 @elseif($payment->isCancelled())
     <div class="alert alert-warning" style="margin-bottom:14px;">Pagamento annullato.</div>
-@elseif($payment->isDue())
-    <div class="alert alert-warning" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span>Scaduto — in attesa di elaborazione automatica.</span>
-        @if($isSender)
-        <form method="POST" action="{{ route('portal.scheduled-payments.retry', $payment) }}"
-              onsubmit="return confirm('Eseguire il pagamento ora?')">
-            @csrf
-            <button type="submit" class="btn btn-primary" style="white-space:nowrap;">▶ Esegui ora</button>
-        </form>
-        @endif
-    </div>
 @endif
 
 {{-- Riga sommario (full-width) --}}
@@ -142,6 +131,19 @@
     {{-- Azioni --}}
     <div style="display:flex;flex-direction:column;gap:12px;">
         @if($canCancel)
+            {{-- Esegui ora (sempre visibile per pagamenti pending del mittente) --}}
+            <div class="card card-pad" style="border:1.5px solid var(--primary);">
+                <div style="font-weight:700;margin-bottom:6px;font-size:14px;color:var(--primary);">▶ Esegui ora</div>
+                <p style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;line-height:1.4;">
+                    Invia il pagamento immediatamente senza aspettare la scadenza automatica.
+                </p>
+                <form method="POST" action="{{ route('portal.scheduled-payments.retry', $payment) }}"
+                      onsubmit="return confirm('Eseguire il pagamento adesso?')">
+                    @csrf
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Esegui ora</button>
+                </form>
+            </div>
+
             <div class="card card-pad">
                 <div style="font-weight:700;margin-bottom:6px;font-size:14px;">Annulla questa rata</div>
                 <p style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;line-height:1.4;">

@@ -240,7 +240,7 @@ class ScheduledPaymentService
      */
     public function retry(ScheduledPayment $payment, Account $byAccount): void
     {
-        abort_unless($payment->isFailed() || $payment->isDue(), 422, 'Il pagamento non può essere eseguito ora.');
+        abort_unless($payment->isFailed() || $payment->isPending(), 422, 'Il pagamento non può essere eseguito ora.');
         abort_unless((int) $payment->from_account_id === $byAccount->id, 403, 'Non autorizzato.');
 
         // Resetta campi di esecuzione precedente e porta scheduled_at a ora
