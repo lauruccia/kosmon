@@ -174,26 +174,36 @@ function renderSavedAccounts() {
         return;
     }
 
-    // Usa <button> per ogni card: garantisce il tap su mobile Android
+    // Usa data-email invece di onclick inline: JSON.stringify produce virgolette doppie
+    // che rompono l'attributo HTML onclick="..." e impediscono il click.
     listEl.innerHTML = list.map(email => `
         <div style="display:flex;align-items:center;gap:10px;">
             <button type="button"
-                onclick="selectAccount(${JSON.stringify(email)})"
+                data-action="select" data-email="${escapeHtml(email)}"
                 style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;text-align:left;font-family:inherit;">
-                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none;">
                     <span style="color:#fff;font-weight:700;font-size:15px;">${escapeHtml(email[0].toUpperCase())}</span>
                 </div>
-                <div style="flex:1;min-width:0;">
+                <div style="flex:1;min-width:0;pointer-events:none;">
                     <div style="font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(email)}</div>
                     <div style="font-size:12px;color:var(--muted);margin-top:1px;">Tocca per continuare</div>
                 </div>
             </button>
             <button type="button"
-                onclick="removeAccount(${JSON.stringify(email)})"
+                data-action="remove" data-email="${escapeHtml(email)}"
                 style="flex-shrink:0;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;padding:8px 10px;color:var(--muted);font-size:18px;line-height:1;"
                 title="Rimuovi">&times;</button>
         </div>
     `).join('');
+
+    // Event listener unico tramite delegazione — nessun onclick inline
+    listEl.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const email = btn.dataset.email;
+        if (btn.dataset.action === 'select') selectAccount(email);
+        if (btn.dataset.action === 'remove') removeAccount(email);
+    });
 
     container.style.display = 'block';
     document.getElementById('field-email').style.display = 'none';
