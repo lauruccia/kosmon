@@ -20,7 +20,7 @@ Schedule::job(new ProcessDueInstallments())->dailyAt('06:00')->name('process-due
 Schedule::job(new ExpirePaymentRequests())->everyMinute()->name('expire-payment-requests')->withoutOverlapping();
 
 // Esegue i pagamenti programmati ogni minuto — comando diretto, no coda, no mutex
-Schedule::command('payments:run-scheduled')->everyMinute()->withoutOverlapping(5);
+Schedule::command('payments:run-scheduled')->everyMinute()->withoutOverlapping(5)->appendOutputTo(storage_path('logs/payments-scheduled.log'));
 
 // Resoconto mensile il 1 del mese alle 08:00
 Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-monthly-statements')->withoutOverlapping();
