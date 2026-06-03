@@ -6,10 +6,13 @@ use App\Models\Account;
 use App\Models\AccountManager;
 use App\Models\AuditLog;
 use App\Models\SubAccountInvitation;
+use App\Models\SubAccountLimitRequest;
 use App\Models\User;
-use App\Notifications\SubAccountInvitationSent;
 use App\Notifications\SubAccountAccessGranted;
 use App\Notifications\SubAccountAccessRevoked;
+use App\Notifications\SubAccountInvitationSent;
+use App\Notifications\SubAccountLimitDecided;
+use App\Notifications\SubAccountLimitRequested;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -260,11 +263,9 @@ class SubAccountService
     {
         $subAccount->forceFill(['status' => $status])->save();
 
-        // Suspend/reactivate the legacy managed_account_id users too
-        if ($subAccount->spending_limit !== null || true) {
-            User::where('managed_account_id', $subAccount->id)
-                ->update(['is_active' => $status === 'active']);
-        }
+        // Propaga lo stato agli utenti legacy collegati via managed_account_id
+        User::where('managed_account_id', $subAccount->id)
+            ->update(['is_active' => $status === 'active']);
 
         AuditLog::create([
             'actor_user_id'  => $updatedBy->id,
@@ -274,5 +275,192 @@ class SubAccountService
             'ip_address'     => $ipAddress,
             'context'        => ['status' => $status],
         ]);
+    }
+
+    // ─── Richieste di aumento limite / sforamento ─────────────────────────
+
+    /**
+     * Il gestore di un sottoconto invia una richiesta al titolare del conto padre.
+     *
+     * @param  string  $type  spending_limit_increase|daily_limit_increase|monthly_limit_increase|temporary_overdraft
+     */
+    public function requestLimitChange(
+        Account $subAccount,
+        User    $requestedBy,
+        string  $type,
+        int     $requestedAmount,
+        string  $reason,
+        string  $ipAddress = '',
+    ): SubAccountLimitRequest {
+        if (! $subAccount->isSubAccount()) {
+            throw new RuntimeException('Le richieste di limite sono disponibili solo per i sottoconti.');
+        }
+
+        $validTypes = [
+            'spending_limit_increase', 'daily_limit_increase',
+            'monthly_limit_increase', 'temporary_overdraft',
+        ];
+        if (! in_array($type, $validTypes, true)) {
+            throw new RuntimeException('Tipo di richiesta non valido.');
+        }
+
+        if ($requestedAmount <= 0) {
+            throw new RuntimeException('L\'importo richiesto deve essere maggiore di zero.');
+        }
+
+        // Blocca duplicati pending per lo stesso tipo sullo stesso sottoconto
+        if (SubAccountLimitRequest::where('sub_account_id', $subAccount->id)
+            ->where('type', $type)
+            ->where('status', 'pending')
+            ->exists()) {
+            throw new RuntimeException('Esiste già una richiesta in attesa per questo tipo di limite.');
+        }
+
+        $limitRequest = SubAccountLimitRequest::create([
+            'sub_account_id'        => $subAccount->id,
+            'requested_by_user_id'  => $requestedBy->id,
+            'type'                  => $type,
+            'requested_amount'      => $requestedAmount,
+            'reason'                => $reason,
+            'status'                => 'pending',
+        ]);
+
+        AuditLog::create([
+            'actor_user_id'  => $requestedBy->id,
+            'event'          => 'subaccount.limit_requested',
+            'auditable_type' => SubAccountLimitRequest::class,
+            'auditable_id'   => $limitRequest->id,
+            'ip_address'     => $ipAddress,
+            'context'        => [
+                'sub_account_id'   => $subAccount->id,
+                'type'             => $type,
+                'requested_amount' => $requestedAmount,
+            ],
+        ]);
+
+        // Notifica il titolare del conto padre
+        $limitRequest->load('subAccount.parentAccount.ownerUser');
+        $parentOwner = $this->resolveParentOwner($subAccount);
+        $parentOwner?->notify(new SubAccountLimitRequested($limitRequest));
+
+        return $limitRequest;
+    }
+
+    /**
+     * Il titolare approva la richiesta.
+     * - Per increase: aggiorna i limiti del sottoconto.
+     * - Per overdraft: imposta finestra temporanea di 24h.
+     */
+    public function approveLimitRequest(
+        SubAccountLimitRequest $limitRequest,
+        User                   $approvedBy,
+        ?string                $note = null,
+        string                 $ipAddress = '',
+    ): void {
+        if (! $limitRequest->isPending()) {
+            throw new RuntimeException('Questa richiesta è già stata gestita.');
+        }
+
+        DB::transaction(function () use ($limitRequest, $approvedBy, $note, $ipAddress): void {
+            $subAccount = $limitRequest->subAccount;
+
+            if ($limitRequest->isTemporaryOverdraft()) {
+                // Sforamento una-tantum: 24h per usarlo
+                $limitRequest->forceFill([
+                    'status'               => 'approved',
+                    'decided_by_user_id'   => $approvedBy->id,
+                    'decision_note'        => $note,
+                    'overdraft_expires_at' => now()->addHours(24),
+                ])->save();
+            } else {
+                // Aumento permanente del limite
+                $field = match ($limitRequest->type) {
+                    'spending_limit_increase'  => 'spending_limit',
+                    'daily_limit_increase'     => 'daily_outgoing_limit',
+                    'monthly_limit_increase'   => 'monthly_outgoing_limit',
+                };
+
+                $subAccount->forceFill([$field => $limitRequest->requested_amount])->save();
+
+                $limitRequest->forceFill([
+                    'status'             => 'approved',
+                    'decided_by_user_id' => $approvedBy->id,
+                    'decision_note'      => $note,
+                ])->save();
+            }
+
+            AuditLog::create([
+                'actor_user_id'  => $approvedBy->id,
+                'event'          => 'subaccount.limit_approved',
+                'auditable_type' => SubAccountLimitRequest::class,
+                'auditable_id'   => $limitRequest->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'type'             => $limitRequest->type,
+                    'requested_amount' => $limitRequest->requested_amount,
+                    'is_overdraft'     => $limitRequest->isTemporaryOverdraft(),
+                ],
+            ]);
+        });
+
+        // Notifica il gestore del sottoconto
+        $limitRequest->requestedBy->notify(new SubAccountLimitDecided($limitRequest));
+    }
+
+    /**
+     * Il titolare rifiuta la richiesta.
+     */
+    public function rejectLimitRequest(
+        SubAccountLimitRequest $limitRequest,
+        User                   $rejectedBy,
+        ?string                $note = null,
+        string                 $ipAddress = '',
+    ): void {
+        if (! $limitRequest->isPending()) {
+            throw new RuntimeException('Questa richiesta è già stata gestita.');
+        }
+
+        $limitRequest->forceFill([
+            'status'             => 'rejected',
+            'decided_by_user_id' => $rejectedBy->id,
+            'decision_note'      => $note,
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $rejectedBy->id,
+            'event'          => 'subaccount.limit_rejected',
+            'auditable_type' => SubAccountLimitRequest::class,
+            'auditable_id'   => $limitRequest->id,
+            'ip_address'     => $ipAddress,
+            'context'        => ['type' => $limitRequest->type],
+        ]);
+
+        $limitRequest->requestedBy->notify(new SubAccountLimitDecided($limitRequest));
+    }
+
+    // ─── Helper privati ───────────────────────────────────────────────────
+
+    /**
+     * Risolve l'utente titolare del conto padre di un sottoconto.
+     */
+    private function resolveParentOwner(Account $subAccount): ?User
+    {
+        $parent = $subAccount->parentAccount ?? Account::find($subAccount->parent_account_id);
+
+        if ($parent === null) {
+            return null;
+        }
+
+        if ($parent->owner_user_id) {
+            return User::find($parent->owner_user_id);
+        }
+
+        if ($parent->company_id) {
+            return User::where('company_id', $parent->company_id)
+                ->whereNull('managed_account_id')
+                ->first();
+        }
+
+        return null;
     }
 }

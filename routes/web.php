@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
+use App\Http\Controllers\SubAccountLimitRequestController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSectorController;
 use App\Http\Controllers\AnnouncementController;
@@ -322,6 +323,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/conti/sottoconti/{subaccount}/gestori/{manager}', [AccountController::class, 'revokeManager'])->name('portal.accounts.subaccounts.revoke');
     Route::post('/conti/sottoconti/{subaccount}/accetta', [AccountController::class, 'acceptAssignment'])->name('portal.accounts.subaccounts.accept');
     Route::post('/conti/sottoconti/{subaccount}/rifiuta', [AccountController::class, 'declineAssignment'])->name('portal.accounts.subaccounts.decline');
+
+    // Richieste limite / sforamento sottoconti
+    Route::post('/conti/sottoconti/{subaccount}/richieste-limite', [SubAccountLimitRequestController::class, 'store'])->name('portal.accounts.subaccounts.limit-request.store');
+    Route::post('/conti/sottoconti/richieste-limite/{limitRequest}/approva', [SubAccountLimitRequestController::class, 'approve'])->name('portal.accounts.subaccounts.limit-request.approve');
+    Route::post('/conti/sottoconti/richieste-limite/{limitRequest}/rifiuta', [SubAccountLimitRequestController::class, 'reject'])->name('portal.accounts.subaccounts.limit-request.reject');
     Route::post('/conto/switch', [PortalController::class, 'switchAccount'])->name('portal.switch-account');
 
     Route::get('/azienda/profilo', [PortalController::class, 'editProfile'])->name('portal.profile.edit');

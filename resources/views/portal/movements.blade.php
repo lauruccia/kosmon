@@ -119,7 +119,26 @@
                         <option value="portal_cashback" {{ $filters['kind'] === 'portal_cashback' ? 'selected' : '' }}>Cashback</option>
                     </select>
                 </div>
-                @if(array_filter($filters))
+                {{-- Filtro sottoconto (solo per titolari con sottoconti) --}}
+                @if(isset($childAccounts) && $childAccounts->isNotEmpty())
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Sottoconto</label>
+                    <select name="sub_account_id" onchange="document.getElementById('filters-form').submit()"
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;max-width:200px;">
+                        <option value="">Tutti i conti</option>
+                        <option value="{{ $currentAccount->id }}" {{ ($filters['sub_account_id'] ?? 0) == $currentAccount->id ? 'selected' : '' }}>
+                            {{ $currentAccount->account_name ?? $currentAccount->display_name }} (principale)
+                        </option>
+                        @foreach($childAccounts as $child)
+                            <option value="{{ $child->id }}" {{ ($filters['sub_account_id'] ?? 0) == $child->id ? 'selected' : '' }}>
+                                {{ $child->account_name ?? $child->display_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+
+                @if(array_filter(array_map('strval', $filters)))
                     <a href="{{ route('portal.movements') }}"
                        style="padding:7px 14px;border-radius:8px;font-size:13px;background:var(--danger-soft);color:var(--danger);border:1px solid #fecdd3;text-decoration:none;font-weight:600;white-space:nowrap;align-self:flex-end;">
                         Azzera filtri
@@ -166,8 +185,21 @@
             <tbody>
                 @forelse ($transfers as $transfer)
                     @php
-                        $isOutgoing = $transfer->from_account_id === $currentAccount->id;
+                        // Per il conto padre: il movimento è "outgoing" se parte da padre o da un figlio
+                        $childIds = isset($childAccounts) ? $childAccounts->pluck('id')->all() : [];
+                        $isOutgoing = $transfer->from_account_id === $currentAccount->id
+                            || in_array($transfer->from_account_id, $childIds, true);
                         $counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount;
+
+                        // Individua se il movimento appartiene a un sottoconto
+                        $subAccountSource = null;
+                        if (isset($childAccounts) && $childAccounts->isNotEmpty()) {
+                            if (in_array($transfer->from_account_id, $childIds, true)) {
+                                $subAccountSource = $childAccounts->firstWhere('id', $transfer->from_account_id);
+                            } elseif (in_array($transfer->to_account_id, $childIds, true)) {
+                                $subAccountSource = $childAccounts->firstWhere('id', $transfer->to_account_id);
+                            }
+                        }
                         $isPendingRequestToConfirm = $transfer->status === 'pending' && $isOutgoing && $transfer->kind === 'portal_collection_request';
                         $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment'];
                         $isRefundable = $transfer->status === 'booked'
@@ -222,6 +254,11 @@
                                 </span>
                                 @if($isCashback)
                                     <span style="background:#fef9c3;border:1px solid #fde047;color:#854d0e;border-radius:5px;padding:1px 6px;font-size:9px;font-weight:700;white-space:nowrap;">CASHBACK</span>
+                                @endif
+                                @if($subAccountSource)
+                                    <span style="background:#ede9fe;border:1px solid #c4b5fd;color:#6d28d9;border-radius:5px;padding:1px 6px;font-size:9px;font-weight:700;white-space:nowrap;" title="Sottoconto: {{ $subAccountSource->account_name }}">
+                                        ↳ {{ $subAccountSource->account_name }}
+                                    </span>
                                 @endif
                             </div>
                             <div style="font-size:11.5px;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:480px;margin-top:1px;">

@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AccountManager;
 use App\Models\AuditLog;
 use App\Models\SubAccountInvitation;
+use App\Models\SubAccountLimitRequest;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Services\SubAccountService;
@@ -51,17 +52,38 @@ class AccountController extends Controller
             ->whereNull('accepted_at')
             ->get();
 
+        // Richieste limite/sforamento in attesa per il titolare del conto radice
+        $pendingLimitRequests = collect();
+        if ($currentUser->canCreateSubaccountsFor($rootAccount) && $subaccounts->isNotEmpty()) {
+            $pendingLimitRequests = SubAccountLimitRequest::with(['subAccount', 'requestedBy'])
+                ->whereIn('sub_account_id', $subaccounts->pluck('id'))
+                ->where('status', 'pending')
+                ->latest()
+                ->get();
+        }
+
+        // Richieste del sottoconto attivo (per il gestore che sta operando su un sub)
+        $mySubAccountRequests = collect();
+        if ($currentAccount->isSubAccount()) {
+            $mySubAccountRequests = SubAccountLimitRequest::where('sub_account_id', $currentAccount->id)
+                ->latest()
+                ->limit(10)
+                ->get();
+        }
+
         return view('portal.accounts', [
-            'pageTitle'             => 'Struttura conti',
-            'currentAccount'        => $currentAccount,
-            'currentUser'           => $currentUser,
-            'rootAccount'           => $rootAccount,
-            'subaccounts'           => $subaccounts,
-            'canManageSubaccounts'  => $currentUser->canCreateSubaccountsFor($rootAccount),
-            'pendingAssignments'    => $pendingAssignments,
-            'switchableAccounts'    => $currentUser->switchableAccounts(),
-            'activeAccountId'       => session('active_account_id'),
-            'activeNav'             => 'conti',
+            'pageTitle'              => 'Struttura conti',
+            'currentAccount'         => $currentAccount,
+            'currentUser'            => $currentUser,
+            'rootAccount'            => $rootAccount,
+            'subaccounts'            => $subaccounts,
+            'canManageSubaccounts'   => $currentUser->canCreateSubaccountsFor($rootAccount),
+            'pendingAssignments'     => $pendingAssignments,
+            'pendingLimitRequests'   => $pendingLimitRequests,
+            'mySubAccountRequests'   => $mySubAccountRequests,
+            'switchableAccounts'     => $currentUser->switchableAccounts(),
+            'activeAccountId'        => session('active_account_id'),
+            'activeNav'              => 'conti',
         ]);
     }
 

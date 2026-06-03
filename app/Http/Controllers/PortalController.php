@@ -316,10 +316,26 @@ class PortalController extends Controller
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($currentUser->canOperateAccount($currentAccount), 403);
 
-        // Filtri
+        // Filtri (include sub_account_id)
         $filters = $this->movementsFilters($request);
 
-        $query = $this->accountTransfers($currentAccount);
+        // Sottoconti del conto padre (per filtro e badge)
+        $childAccounts = $currentAccount->isSubAccount()
+            ? collect()
+            : $currentAccount->childAccounts()->orderBy('account_name')->get();
+
+        // Determina gli account ID da includere nella query
+        if ($filters['sub_account_id'] && ! $currentAccount->isSubAccount()) {
+            // Filtro per sottoconto specifico: solo quel conto
+            $accountIds = [(int) $filters['sub_account_id']];
+        } elseif (! $currentAccount->isSubAccount() && $childAccounts->isNotEmpty()) {
+            // Conto padre senza filtro: padre + tutti i sottoconti
+            $accountIds = $childAccounts->pluck('id')->prepend($currentAccount->id)->all();
+        } else {
+            $accountIds = [$currentAccount->id];
+        }
+
+        $query = $this->accountTransfersForIds($accountIds);
 
         // Filtro data da
         if ($filters['from']) {
@@ -342,11 +358,12 @@ class PortalController extends Controller
             $query->where('kind', $filters['kind']);
         }
 
-        // Filtro direzione (entrata/uscita)
+        // Filtro direzione (entrata/uscita) — riferita al conto principale o al sottoconto selezionato
+        $directionAccountId = $filters['sub_account_id'] ?: $currentAccount->id;
         if ($filters['direction'] === 'in') {
-            $query->where('to_account_id', $currentAccount->id);
+            $query->where('to_account_id', $directionAccountId);
         } elseif ($filters['direction'] === 'out') {
-            $query->where('from_account_id', $currentAccount->id);
+            $query->where('from_account_id', $directionAccountId);
         }
 
         // Filtro stato
@@ -357,16 +374,17 @@ class PortalController extends Controller
         $transfers = $query->paginate(25)->withQueryString();
 
         return view('portal.movements', [
-            'pageTitle'            => 'Lista movimenti',
-            'currentAccount'       => $currentAccount,
-            'currentUser'          => $currentUser,
-            'transfers'            => $transfers,
-            'filters'              => $filters,
-            'currentBalance'       => (int) $currentAccount->available_balance,
-            'availableBalance'     => $currentAccount->saldoDisponibile(),
-            'massimale'            => $currentAccount->massimale(),
+            'pageTitle'              => 'Lista movimenti',
+            'currentAccount'         => $currentAccount,
+            'currentUser'            => $currentUser,
+            'transfers'              => $transfers,
+            'filters'                => $filters,
+            'childAccounts'          => $childAccounts,
+            'currentBalance'         => (int) $currentAccount->available_balance,
+            'availableBalance'       => $currentAccount->saldoDisponibile(),
+            'massimale'              => $currentAccount->massimale(),
             'commercialAvailability' => $currentAccount->disponibilitaCommerciale(),
-            'activeNav'            => 'movimenti',
+            'activeNav'              => 'movimenti',
         ]);
     }
 
@@ -536,6 +554,7 @@ class PortalController extends Controller
         $kind      = trim((string) $request->query('kind', ''));
         $direction = trim((string) $request->query('direction', ''));
         $status    = trim((string) $request->query('status', ''));
+        $subId     = (int) $request->query('sub_account_id', 0);
 
         $validKinds = [
             'trade_payment', 'portal_payment', 'portal_collection_request',
@@ -546,11 +565,12 @@ class PortalController extends Controller
         $validStatuses   = ['booked', 'pending', 'cancelled'];
 
         return [
-            'from'      => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('from', ''))  ? $request->query('from')  : '',
-            'to'        => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('to', ''))    ? $request->query('to')    : '',
-            'kind'      => in_array($kind, $validKinds, true)           ? $kind      : '',
-            'direction' => in_array($direction, $validDirections, true)  ? $direction : '',
-            'status'    => in_array($status, $validStatuses, true)       ? $status    : '',
+            'from'            => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('from', ''))  ? $request->query('from')  : '',
+            'to'              => preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->query('to', ''))    ? $request->query('to')    : '',
+            'kind'            => in_array($kind, $validKinds, true)           ? $kind      : '',
+            'direction'       => in_array($direction, $validDirections, true)  ? $direction : '',
+            'status'          => in_array($status, $validStatuses, true)       ? $status    : '',
+            'sub_account_id'  => $subId > 0 ? $subId : 0,
         ];
     }
 
@@ -1166,10 +1186,19 @@ class PortalController extends Controller
 
     private function accountTransfers(Account $currentAccount)
     {
-        return Transfer::query()
+        return $this->accountTransfersForIds([$currentAccount->id]);
+    }
+
+    /**
+     * Query trasferimenti per uno o più account ID (padre + sottoconti).
+     */
+    private function accountTransfersForIds(array $accountIds)
+    {
+        return \App\Models\Transfer::query()
             ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'initiator'])
-            ->where(function ($query) use ($currentAccount) {
-                $query->where('from_account_id', $currentAccount->id)->orWhere('to_account_id', $currentAccount->id);
+            ->where(function ($query) use ($accountIds) {
+                $query->whereIn('from_account_id', $accountIds)
+                      ->orWhereIn('to_account_id', $accountIds);
             })
             ->orderByRaw('COALESCE(booked_at, created_at) DESC')
             ->latest('id');

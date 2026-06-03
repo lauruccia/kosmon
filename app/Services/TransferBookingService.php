@@ -565,7 +565,12 @@ class TransferBookingService
                     'currency_code'      => $fromAccount->currency_code,
                 ],
             ]);
-            return $transfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator']);
+            $transfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator']);
+
+            // Notifica al titolare del conto padre
+            $this->notifyParentOfSubAccountTransfer($transfer, $fromAccount, $parentAccount, $initiator);
+
+            return $transfer;
         }
 
         $this->assertTransferWithinLimits($fromAccount, $amount, $initiator);
@@ -804,6 +809,44 @@ class TransferBookingService
             \App\Models\LedgerEntry::create(['transfer_id' => $transfer->id, 'account_id' => $fromAccount->id, 'type' => 'debit',  'amount' => $fee]);
             \App\Models\LedgerEntry::create(['transfer_id' => $transfer->id, 'account_id' => $systemAccount->id, 'type' => 'credit', 'amount' => $fee]);
         });
+    }
+
+    /**
+     * Invia notifica al titolare del conto padre quando un sottoconto effettua un pagamento.
+     */
+    private function notifyParentOfSubAccountTransfer(
+        Transfer $transfer,
+        Account  $subAccount,
+        Account  $parentAccount,
+        User     $initiator,
+    ): void {
+        // Recupera il proprietario del conto padre
+        $ownerUser = $parentAccount->ownerUser;
+
+        if ($ownerUser === null && $parentAccount->company_id !== null) {
+            // Fallback: cerca l'utente collegato alla company
+            $ownerUser = \App\Models\User::where('company_id', $parentAccount->company_id)
+                ->whereNull('managed_account_id')
+                ->first();
+        }
+
+        if ($ownerUser === null) {
+            return;
+        }
+
+        // Non notificare se il titolare ha eseguito lui stesso il pagamento
+        if ($ownerUser->id === $initiator->id) {
+            return;
+        }
+
+        $ownerUser->notify(
+            new \App\Notifications\SubAccountTransferNotification(
+                transfer:      $transfer,
+                subAccount:    $subAccount,
+                parentAccount: $parentAccount,
+                initiator:     $initiator,
+            )
+        );
     }
 
 }

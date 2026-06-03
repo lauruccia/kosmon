@@ -5,6 +5,135 @@
     {{-- ─── COLONNA SINISTRA: struttura conti ─────────────────────────── --}}
     <div class="stack">
 
+        {{-- ═══ RICHIESTE LIMITE/SFORAMENTO IN ATTESA (per il titolare) ═══ --}}
+        @if ($pendingLimitRequests->isNotEmpty())
+            <section class="card light-card" style="border-left:4px solid #7c3aed;">
+                <div class="section-head">
+                    <div>
+                        <span class="eyebrow" style="color:#7c3aed;">Richieste da approvare</span>
+                        <h3 class="section-title">Richieste dai sottoconti</h3>
+                    </div>
+                    <span class="chip pink" style="font-size:12px;">{{ $pendingLimitRequests->count() }} in attesa</span>
+                </div>
+                <div class="timeline-list">
+                    @foreach ($pendingLimitRequests as $lr)
+                        <article class="timeline-item" style="border-left:3px solid #ede9fe;padding-left:12px;">
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                                <div>
+                                    <strong style="font-size:14px;">{{ $lr->subAccount->account_name }}</strong>
+                                    <span class="chip" style="margin-left:6px;font-size:11px;">{{ $lr->typeLabel() }}</span>
+                                    <div class="table-muted" style="margin-top:4px;">
+                                        Da: <strong>{{ $lr->requestedBy->name }}</strong>
+                                        · Importo: <strong>{{ number_format($lr->requested_amount, 2, ',', '.') }} KY</strong>
+                                        · {{ $lr->created_at->diffForHumans() }}
+                                    </div>
+                                    <div style="margin-top:6px;font-size:13px;color:var(--ink);background:var(--surface-soft);padding:8px 10px;border-radius:6px;max-width:480px;">
+                                        "{{ $lr->reason }}"
+                                    </div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;">
+                                    <form method="POST"
+                                          action="{{ route('portal.accounts.subaccounts.limit-request.approve', $lr) }}">
+                                        @csrf
+                                        <input type="hidden" name="decision_note" value="">
+                                        <button type="submit" class="cta"
+                                                style="width:100%;font-size:13px;padding:7px 14px;"
+                                                onclick="return confirm('Approvare la richiesta di {{ $lr->typeLabel() }} da {{ $lr->subAccount->account_name }}?')">
+                                            ✓ Approva
+                                        </button>
+                                    </form>
+                                    <form method="POST"
+                                          action="{{ route('portal.accounts.subaccounts.limit-request.reject', $lr) }}">
+                                        @csrf
+                                        <input type="hidden" name="decision_note" value="">
+                                        <button type="submit" class="cta secondary"
+                                                style="width:100%;font-size:13px;padding:7px 14px;"
+                                                onclick="return confirm('Rifiutare la richiesta?')">
+                                            ✗ Rifiuta
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
+        {{-- ═══ FORM RICHIESTA LIMITE (per il gestore del sottoconto) ═══ --}}
+        @if ($currentAccount->isSubAccount())
+            <section class="card light-card" style="border-left:4px solid #7c3aed;">
+                <div class="section-head">
+                    <div>
+                        <span class="eyebrow" style="color:#7c3aed;">Sottoconto: {{ $currentAccount->account_name }}</span>
+                        <h3 class="section-title">Richiedi aumento o sforamento</h3>
+                    </div>
+                </div>
+                <p class="subtle" style="font-size:13px;margin:0 0 16px;">
+                    Invia una richiesta motivata al titolare del conto. Riceverai una notifica quando verrà approvata o rifiutata.
+                </p>
+                <form method="POST"
+                      action="{{ route('portal.accounts.subaccounts.limit-request.store', $currentAccount) }}">
+                    @csrf
+                    <div class="field-grid">
+                        <div class="field">
+                            <label>Tipo di richiesta</label>
+                            <select name="type" required
+                                    style="border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--surface-soft);color:var(--ink);width:100%;">
+                                <option value="">Seleziona...</option>
+                                <option value="spending_limit_increase">Aumento limite per singolo pagamento</option>
+                                <option value="daily_limit_increase">Aumento limite giornaliero</option>
+                                <option value="monthly_limit_increase">Aumento limite mensile</option>
+                                <option value="temporary_overdraft">Sforamento una-tantum (spesa imprevista)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Importo richiesto (KY)</label>
+                            <input name="requested_amount" type="number" min="1" required
+                                   placeholder="es. 50000 = 500,00 KY">
+                            <span class="subtle" style="font-size:12px;margin-top:4px;display:block;">
+                                Stesso formato dei limiti: 50000 corrisponde a 500,00 KY.
+                            </span>
+                        </div>
+                        <div class="field">
+                            <label>Motivazione</label>
+                            <textarea name="reason" rows="3" required minlength="10" maxlength="1000"
+                                      placeholder="Descrivi il motivo della richiesta (min. 10 caratteri)..."
+                                      style="resize:vertical;min-height:80px;"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="cta">Invia richiesta</button>
+                    </div>
+                </form>
+
+                {{-- Storico ultime richieste --}}
+                @if ($mySubAccountRequests->isNotEmpty())
+                    <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+                        <span class="eyebrow" style="display:block;margin-bottom:10px;">Ultime richieste inviate</span>
+                        <div class="timeline-list">
+                            @foreach ($mySubAccountRequests as $req)
+                                <div class="timeline-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;">
+                                    <div>
+                                        <span style="font-size:13px;font-weight:600;">{{ $req->typeLabel() }}</span>
+                                        <span class="table-muted" style="margin-left:8px;">{{ number_format($req->requested_amount / 100, 2, ',', '.') }} KY</span>
+                                        <div class="table-muted" style="font-size:12px;margin-top:2px;">{{ $req->created_at->format('d/m/Y H:i') }}</div>
+                                    </div>
+                                    <span class="chip {{ $req->status === 'approved' ? 'success' : ($req->status === 'rejected' ? 'pink' : '') }}"
+                                          style="font-size:11px;">
+                                        {{ $req->statusLabel() }}
+                                        @if ($req->isApproved() && $req->isTemporaryOverdraft() && $req->isOverdraftUsable())
+                                            · scade {{ $req->overdraft_expires_at->format('d/m H:i') }}
+                                        @endif
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </section>
+        @endif
+
         {{-- Stato inviti in attesa (model B) --}}
         @if ($pendingAssignments->isNotEmpty())
             <section class="card light-card" style="border-left: 4px solid #f59e0b;">
@@ -332,9 +461,18 @@
                     <strong>Limiti di spesa:</strong> imposta un tetto per singola operazione, giornaliero o mensile.
                     Il sistema rifiuta automaticamente i pagamenti che superano i limiti.
                 </p>
-                <p class="subtle" style="font-size:14px;line-height:1.6;margin:0;">
+                <p class="subtle" style="font-size:14px;line-height:1.6;margin:0 0 10px;">
                     <strong>Gestori:</strong> un gestore vede solo il suo sottoconto e il saldo disponibile del conto principale.
                     Puoi assegnare piu gestori allo stesso sottoconto o revocare l'accesso in qualsiasi momento.
+                </p>
+                <p class="subtle" style="font-size:14px;line-height:1.6;margin:0 0 10px;">
+                    <strong>Notifiche:</strong> ricevi una notifica in-app e via email per ogni pagamento effettuato da qualsiasi sottoconto.
+                    Nella sezione Movimenti puoi filtrare per singolo sottoconto o vedere tutto in un colpo.
+                </p>
+                <p class="subtle" style="font-size:14px;line-height:1.6;margin:0;">
+                    <strong>Richieste limite:</strong> il gestore di un sottoconto può chiedere un aumento di limite o uno sforamento una-tantum (ad esempio per una spesa imprevista).
+                    La richiesta arriva a te via notifica e deve essere approvata prima che il pagamento possa procedere.
+                    Per gli sforamenti approvati, l'autorizzazione scade automaticamente dopo 24 ore.
                 </p>
             </div>
         </section>
