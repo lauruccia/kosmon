@@ -17,12 +17,48 @@ class LoginLogController extends Controller
             ->orderByDesc('logged_in_at')
             ->paginate(25);
 
+        $currentSessionId = $request->session()->getId();
+
+        $activeSessions = DB::table('sessions')
+            ->where('user_id', $user->id)
+            ->orderByDesc('last_activity')
+            ->get()
+            ->map(function ($session) use ($currentSessionId) {
+                $session->is_current = ($session->id === $currentSessionId);
+                return $session;
+            });
+
         return view('portal.login-logs', [
-            'pageTitle'    => 'Sessioni e accessi',
-            'activeNav'    => 'sessioni',
-            'logs'         => $logs,
-            'activeCount'  => DB::table('sessions')->where('user_id', $user->id)->count(),
+            'pageTitle'      => 'Sessioni e accessi',
+            'activeNav'      => 'sessioni',
+            'logs'           => $logs,
+            'activeSessions' => $activeSessions,
+            'activeCount'    => $activeSessions->count(),
         ]);
+    }
+
+    /**
+     * Termina una singola sessione attiva (non quella corrente).
+     */
+    public function logoutSession(Request $request, string $sessionId): \Illuminate\Http\RedirectResponse
+    {
+        $user             = $request->user();
+        $currentSessionId = $request->session()->getId();
+
+        if ($sessionId === $currentSessionId) {
+            return back()->with('portal_error', 'Non puoi disconnettere la sessione corrente da qui.');
+        }
+
+        $deleted = DB::table('sessions')
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->delete();
+
+        $msg = $deleted
+            ? 'Dispositivo disconnesso con successo.'
+            : 'Sessione non trovata o già terminata.';
+
+        return back()->with('portal_success', $msg);
     }
 
     /**

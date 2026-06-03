@@ -262,6 +262,16 @@ class AdminController extends Controller
             ->whereIn('from_account_id', $accountIds)
             ->sum('amount');
 
+        $activeSessions = DB::table('sessions')
+            ->where('user_id', $user->id)
+            ->orderByDesc('last_activity')
+            ->get();
+
+        $loginLogs = \App\Models\LoginLog::where('user_id', $user->id)
+            ->orderByDesc('logged_in_at')
+            ->limit(20)
+            ->get();
+
         return view('admin.user-show', [
             'pageTitle' => 'Dettaglio utente',
             'userRecord' => $user,
@@ -280,6 +290,8 @@ class AdminController extends Controller
                 'incoming' => $incomingTotal,
                 'outgoing' => $outgoingTotal,
             ],
+            'activeSessions' => $activeSessions,
+            'loginLogs'      => $loginLogs,
             'activeNav' => 'users',
         ]);
     }
@@ -2199,36 +2211,78 @@ Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at),
         unset($validated['logo']);
         $branding->update($validated);
 
-        \App\Models\AuditLog::create([
+        ]);
+
+        return back()->with('admin_success', 'Branding aggiornato con successo.');
+    }
+
+    // -----------------------------------------------------------------------
+    // Gestione sessioni utente (admin)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Termina una singola sessione attiva di un utente.
+     */
+    public function terminateUserSession(Request $request, User $user, string $sessionId): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $deleted = DB::table('sessions')
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->delete();
+
+        AuditLog::create([
             'actor_user_id'  => $request->user()->id,
-            'event'          => 'admin.branding.update',
-            'auditable_type' => \App\Models\SystemSetting::class,
-            'auditable_id'   => $branding->id,
-            'context'        => ['circuit_name' => $branding->circuit_name],
+            'event'          => 'admin.user.session.terminate',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'context'        => ['session_id' => $sessionId, 'terminated' => (bool) $deleted],
         ]);
 
-        return back()->with('success', 'Impostazioni branding aggiornate.');
+        $msg = $deleted
+            ? "Sessione terminata per {$user->name}."
+            : 'Sessione non trovata o già scaduta.';
+
+        return back()->with('admin_success', $msg);
     }
 
-    public function supportMessages(): \Illuminate\View\View
+    /**
+     * Termina tutte le sessioni attive di un utente.
+     */
+    public function terminateAllUserSessions(Request $request, User $user): RedirectResponse
     {
-        $messages = \App\Models\SupportMessage::with('user')
-            ->orderByRaw("status = 'open' DESC")
-            ->orderByDesc('created_at')
-            ->paginate(30);
+        $this->authorizeBackoffice($request->user());
 
-        return view('admin.support.index', [
-            'pageTitle'  => 'Messaggi assistenza',
-            'activeNav'  => 'admin-support',
-            'messages'   => $messages,
-            'openCount'  => \App\Models\SupportMessage::where('status', 'open')->count(),
+        $terminated = DB::table('sessions')
+            ->where('user_id', $user->id)
+            ->delete();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.user.sessions.terminate_all',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'context'        => ['sessions_terminated' => $terminated],
         ]);
-    }
 
-    public function resolveSupport(\App\Models\SupportMessage $message): \Illuminate\Http\RedirectResponse
-    {
-        $message->update(['status' => 'resolved']);
-        return back()->with('success', 'Messaggio #' . $message->id . ' segnato come risolto.');
-    }
+        $msg = $terminated > 0
+            ? "Disconnesso {$user->name} da tutti i {$terminated} dispositivi."
+            : "{$user->name} non aveva sessioni attive.";
 
+        return back()->with('admin_success', $msg);
+    }
+}
+l',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'context'        => ['sessions_terminated' => $terminated],
+        ]);
+
+        $msg = $terminated > 0
+            ? "Disconnesso {$user->name} da tutti i {$terminated} dispositivi."
+            : "{$user->name} non aveva sessioni attive.";
+
+        return back()->with('admin_success', $msg);
+    }
 }

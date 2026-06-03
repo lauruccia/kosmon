@@ -15,6 +15,7 @@
         <div class="page-actions">
             <a class="cta secondary" href="{{ route('admin.users.index') }}">Torna all'elenco</a>
             <a class="cta secondary" href="#user-limits">Limiti utente</a>
+            <a class="cta secondary" href="#user-sessions">Sessioni</a>
             <a class="cta secondary" href="#user-password">Cambio password</a>
             <a class="cta secondary" href="#user-update">Aggiorna utente</a>
             <a class="cta" href="#user-movements">Movimenti filtrati</a>
@@ -275,6 +276,128 @@
                     </tbody>
                 </table>
             </div>
+        @endif
+    </section>
+
+    {{-- ===== SESSIONI ATTIVE + STORICO ACCESSI ===== --}}
+    <section class="card light-card" id="user-sessions" style="margin-bottom:22px;">
+        <div class="section-head" style="margin-bottom:18px;">
+            <div>
+                <span class="eyebrow">Sicurezza</span>
+                <h3 class="section-title">Sessioni attive</h3>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                @if($activeSessions->count() > 0)
+                    <span class="pill {{ $activeSessions->count() > 1 ? 'warn' : 'success' }}">
+                        {{ $activeSessions->count() }} {{ $activeSessions->count() === 1 ? 'sessione' : 'sessioni' }}
+                    </span>
+                @endif
+                @if($activeSessions->count() > 0)
+                <form method="POST" action="{{ route('admin.users.sessions.terminate-all', $userRecord) }}"
+                      onsubmit="return confirm('Terminare TUTTE le sessioni attive di {{ $userRecord->name }}?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="cta danger" style="font-size:12px;padding:6px 14px;">
+                        Disconnetti tutti
+                    </button>
+                </form>
+                @endif
+            </div>
+        </div>
+
+        @if($activeSessions->isEmpty())
+            <p class="table-muted" style="padding:16px 0;">Nessuna sessione attiva per questo utente.</p>
+        @else
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
+                @foreach($activeSessions as $session)
+                @php
+                    $ua       = $session->user_agent ?? '';
+                    $isMobile = stripos($ua, 'mobile') !== false || stripos($ua, 'android') !== false;
+                    $isTablet = stripos($ua, 'tablet') !== false || stripos($ua, 'ipad') !== false;
+                    $icon     = $isMobile ? '📱' : ($isTablet ? '📟' : '🖥️');
+                    $lastSeen = \Carbon\Carbon::createFromTimestamp($session->last_activity);
+                @endphp
+                <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:22px;">{{ $icon }}</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--ink);">
+                                {{ $session->ip_address ?? 'IP sconosciuto' }}
+                            </div>
+                            <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">
+                                Attiva {{ $lastSeen->diffForHumans() }} &middot; {{ $lastSeen->format('d/m/Y H:i') }}
+                            </div>
+                            @if($ua)
+                            <div style="font-size:11px;color:var(--ink-muted);margin-top:1px;max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $ua }}">
+                                {{ Str::limit($ua, 80) }}
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ route('admin.users.sessions.terminate', [$userRecord, $session->id]) }}"
+                          onsubmit="return confirm('Terminare questa sessione?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit"
+                                style="font-size:12px;font-weight:600;color:var(--danger);background:transparent;border:1.5px solid var(--danger);padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;">
+                            Disconnetti
+                        </button>
+                    </form>
+                </div>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- Storico accessi --}}
+        @if($loginLogs->isNotEmpty())
+        <div style="border-top:1px solid var(--line);padding-top:18px;">
+            <div class="eyebrow" style="margin-bottom:10px;">Ultimi accessi registrati</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--line);">
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Data</th>
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">IP</th>
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Posizione</th>
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Dispositivo</th>
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Browser</th>
+                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($loginLogs as $log)
+                    <tr style="border-bottom:1px solid var(--line-soft);">
+                        <td style="padding:8px 10px;white-space:nowrap;">
+                            <div style="font-weight:600;color:var(--ink);">{{ $log->logged_in_at?->format('d/m/Y') }}</div>
+                            <div style="color:var(--ink-muted);font-size:10px;">{{ $log->logged_in_at?->format('H:i:s') }}</div>
+                        </td>
+                        <td style="padding:8px 10px;">
+                            <code style="font-size:11px;background:var(--surface-soft);padding:2px 6px;border-radius:4px;border:1px solid var(--line);">{{ $log->ip_address ?? '—' }}</code>
+                        </td>
+                        <td style="padding:8px 10px;color:var(--ink);">
+                            {{ implode(', ', array_filter([$log->city, $log->country])) ?: '—' }}
+                        </td>
+                        <td style="padding:8px 10px;">
+                            @php $dIcon = match($log->device_type) { 'mobile' => '📱', 'tablet' => '📟', 'desktop' => '🖥️', default => '💻' }; @endphp
+                            {{ $dIcon }} {{ ucfirst($log->device_type ?? '—') }}
+                        </td>
+                        <td style="padding:8px 10px;">
+                            <div style="color:var(--ink);">{{ $log->browser ?? '—' }}</div>
+                            <div style="color:var(--ink-muted);font-size:10px;">{{ $log->os ?? '' }}</div>
+                        </td>
+                        <td style="padding:8px 10px;text-align:right;">
+                            @if($loop->first)
+                                <span style="background:#dbeafe;color:#1d4ed8;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;">Più recente</span>
+                            @elseif($log->is_new_ip)
+                                <span style="background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;" title="Primo accesso da questo IP">⚠ Nuovo IP</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @else
+            <p class="table-muted" style="padding-top:12px;">Nessun accesso registrato nella cronologia.</p>
         @endif
     </section>
 

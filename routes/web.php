@@ -298,6 +298,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/profilo/sicurezza', [TwoFactorController::class, 'showSetup'])->name('portal.security');
     Route::get('/sessioni', [LoginLogController::class, 'index'])->name('portal.login-logs');
     Route::post('/sessioni/logout-all', [LoginLogController::class, 'logoutAll'])->name('portal.login-logs.logout-all');
+    Route::delete('/sessioni/{sessionId}', [LoginLogController::class, 'logoutSession'])->name('portal.login-logs.logout-session');
     // Beneficiari
     Route::get('/beneficiari', [BeneficiaryController::class, 'index'])->name('portal.beneficiaries.index');
     Route::post('/beneficiari', [BeneficiaryController::class, 'store'])->name('portal.beneficiaries.store');
@@ -550,6 +551,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/users/{user}', [AdminController::class, 'showUser'])->name('admin.users.show');
     Route::post('/admin/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
     Route::post('/admin/users/{user}/password', [AdminController::class, 'changePasswordUser'])->name('admin.users.password');
+    Route::delete('/admin/users/{user}/sessioni/{sessionId}', [AdminController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate');
+    Route::delete('/admin/users/{user}/sessioni', [AdminController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all');
 
     Route::get('/admin/roles', [AdminController::class, 'roles'])->name('admin.roles.index');
     Route::post('/admin/roles', [AdminController::class, 'storeRole'])->name('admin.roles.store');
