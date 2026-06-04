@@ -40,9 +40,8 @@ class NfcCardPaymentControllerTest extends TestCase
             'role'                => 'owner',
             'is_active'           => true,
             'contract_signed_at'  => now(),
+            'email_verified_at'   => now(),
         ]);
-        // email_verified_at non è in $fillable → forceFill obbligatorio
-        $user->forceFill(['email_verified_at' => now()])->save();
 
         $account = Account::create([
             'company_id'        => $company->id,
@@ -50,7 +49,6 @@ class NfcCardPaymentControllerTest extends TestCase
             'currency_code'     => 'KY',
             'status'            => 'active',
             'available_balance' => 100000,
-            'balance'           => 100000,
         ]);
         return compact('company', 'user', 'account');
     }
@@ -202,7 +200,7 @@ class NfcCardPaymentControllerTest extends TestCase
             'merchant_company_id' => $company->id,
             'amount'              => 500,
             'status'              => 'pending',
-            'expires_at'          => now()->addMinutes(3),
+            'expires_at'          => now()->addMinutes(10),
         ]);
 
         $this->actingAs($merchant)
@@ -238,7 +236,7 @@ class NfcCardPaymentControllerTest extends TestCase
 
     // ─── authorize ───────────────────────────────────────────────────────────
 
-    public function test_authorize_with_correct_pin_executes_transfer(): void
+    public function test_authorize_executes_transfer(): void
     {
         Notification::fake();
 
@@ -254,11 +252,11 @@ class NfcCardPaymentControllerTest extends TestCase
             'amount'              => 2000, // 20 KY
             'description'         => 'Test pagamento',
             'status'              => 'pending',
-            'expires_at'          => now()->addMinutes(3),
+            'expires_at'          => now()->addMinutes(10),
         ]);
 
         $response = $this->actingAs($customer)
-            ->post(route('nfc.card.authorize.post', $session->nonce), ['pin' => '1234']);
+            ->post(route('nfc.card.authorize.post', $session->nonce));
 
         $response->assertRedirect(route('portal.dashboard'));
         $this->assertDatabaseHas('nfc_card_auth_sessions', [
@@ -270,33 +268,6 @@ class NfcCardPaymentControllerTest extends TestCase
             'to_account_id'   => $merchantAccount->id,
             'amount'          => 2000,
             'kind'            => 'nfc_card',
-        ]);
-    }
-
-    public function test_authorize_with_wrong_pin_returns_error(): void
-    {
-        ['company' => $merchantCompany, 'user' => $merchant, 'account' => $merchantAccount] = $this->makeCompanyUser();
-        ['company' => $customerCompany, 'user' => $customer] = $this->makeCompanyUser();
-
-        $card = $this->makeActiveCard($customerCompany, $merchant);
-
-        $session = NfcCardAuthSession::create([
-            'nfc_card_id'         => $card->id,
-            'merchant_company_id' => $merchantCompany->id,
-            'merchant_account_id' => $merchantAccount->id,
-            'amount'              => 500,
-            'status'              => 'pending',
-            'expires_at'          => now()->addMinutes(3),
-        ]);
-
-        $response = $this->actingAs($customer)
-            ->post(route('nfc.card.authorize.post', $session->nonce), ['pin' => '9999']);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('portal_error');
-        $this->assertDatabaseHas('nfc_card_auth_sessions', [
-            'nonce'  => $session->nonce,
-            'status' => 'pending',
         ]);
     }
 
@@ -314,11 +285,11 @@ class NfcCardPaymentControllerTest extends TestCase
             'merchant_account_id' => $merchantAccount->id,
             'amount'              => 500,
             'status'              => 'pending',
-            'expires_at'          => now()->addMinutes(3),
+            'expires_at'          => now()->addMinutes(10),
         ]);
 
         $this->actingAs($intruder)
-            ->post(route('nfc.card.authorize.post', $session->nonce), ['pin' => '1234'])
+            ->post(route('nfc.card.authorize.post', $session->nonce))
             ->assertForbidden();
     }
 }

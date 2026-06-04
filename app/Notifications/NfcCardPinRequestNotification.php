@@ -15,6 +15,7 @@ class NfcCardPinRequestNotification extends Notification implements ShouldQueue
     public function __construct(
         public readonly NfcCardAuthSession $session,
         public readonly ?Company           $merchant,
+        public readonly string             $signedUrl,
     ) {}
 
     public function via(object $notifiable): array
@@ -26,13 +27,14 @@ class NfcCardPinRequestNotification extends Notification implements ShouldQueue
     {
         return [
             'icon'  => '💳',
-            'title' => 'Autorizza pagamento Card NFC',
+            'title' => 'Richiesta di pagamento',
             'body'  => sprintf(
-                '%s richiede %s KY. Apri l\'app e inserisci il PIN per autorizzare.',
+                '%s richiede %s KY. Tocca per confermare.',
                 $this->merchant?->name ?? 'Un commerciante',
                 ky_format($this->session->amount),
             ),
-            'link'  => route('nfc.card.authorize', $this->session->nonce),
+            'link'       => $this->signedUrl,
+            'expires_at' => $this->session->expires_at->toISOString(),
         ];
     }
 }

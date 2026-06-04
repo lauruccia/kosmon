@@ -11,23 +11,28 @@ use App\Services\TransferBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
 /**
  * Flusso pagamento con card NFC fisica (Opzione A).
  *
  * MERCHANT (incassa):
- *   1. POST /nfc/card/identify   — legge UUID+sig dal chip, verifica HMAC, ottiene owner info
- *   2. POST /nfc/card/request    — invia importo, crea NfcCardAuthSession, invia push al cliente
+ *   1. POST /nfc/card/identify       — legge UUID+sig dal chip, verifica HMAC, ottiene owner info
+ *   2. POST /nfc/card/request        — invia importo, crea NfcCardAuthSession, invia push al cliente
  *   3. GET  /nfc/card/status/{nonce} — polling stato autorizzazione
  *
- * CLIENTE (paga):
- *   4. GET  /nfc/card/authorize/{nonce} — pagina PIN
- *   5. POST /nfc/card/authorize/{nonce} — verifica PIN, esegue transfer
+ * CLIENTE (conferma dal proprio telefono):
+ *   4. GET  /nfc/card/authorize/{nonce} — pagina di conferma (via URL firmato o sessione)
+ *   5. POST /nfc/card/authorize/{nonce} — conferma pagamento (senza PIN, auth via URL firmato)
  *
  * LANDING card:
  *   GET  /nfc/{uuid}             — pagina intermedia se il telefono del merchant
  *                                   apre l'URL NFC direttamente (senza NDEFReader attivo)
+ *
+ * NOTA: le route authorize sono fuori dal middleware auth — gestiscono autonomamente
+ *       sia l'accesso tramite sessione attiva sia tramite URL firmato temporaneo.
  */
 class NfcCardPaymentController extends Controller
 {
@@ -121,7 +126,7 @@ class NfcCardPaymentController extends Controller
             return response()->json(['error' => 'Nessun conto attivo associato al tuo account.'], 403);
         }
 
-        // Crea sessione auth (scade in 3 minuti)
+        // Crea sessione auth (scade in 10 minuti — tempo sufficiente per login se necessario)
         $session = NfcCardAuthSession::create([
             'nfc_card_id'          => $card->id,
             'merchant_company_id'  => $merchantAccount->company_id,
@@ -129,17 +134,24 @@ class NfcCardPaymentController extends Controller
             'amount'               => $amountCents,
             'description'          => $data['description'] ?? null,
             'status'               => 'pending',
-            'expires_at'           => now()->addMinutes(3),
+            'expires_at'           => now()->addMinutes(10),
         ]);
+
+        // URL firmato (valido 10 min) — funziona anche senza sessione attiva
+        $signedUrl = URL::temporarySignedRoute(
+            'nfc.card.authorize',
+            now()->addMinutes(10),
+            ['nonce' => $session->nonce],
+        );
 
         // Notifica tutti gli utenti della company titolare della card
         try {
             $merchant = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
-            $card->company->users->each(function ($user) use ($session, $merchant) {
-                $user->notify(new NfcCardPinRequestNotification($session, $merchant));
+            $card->company->users->each(function ($user) use ($session, $merchant, $signedUrl) {
+                $user->notify(new NfcCardPinRequestNotification($session, $merchant, $signedUrl));
             });
         } catch (\Throwable $e) {
-            \Log::warning('NFC card PIN notification failed: ' . $e->getMessage());
+            \Log::warning('NFC card notification failed: ' . $e->getMessage());
         }
 
         return response()->json([
@@ -175,28 +187,37 @@ class NfcCardPaymentController extends Controller
 
     /**
      * GET /nfc/card/authorize/{nonce}
-     * Pagina cliente per inserire PIN.
+     * Pagina conferma pagamento — accessibile via URL firmato (push notification)
+     * oppure tramite sessione autenticata normale.
      */
     public function authorizeForm(Request $request, string $nonce): View|RedirectResponse
     {
-        $session = NfcCardAuthSession::with(['card.company', 'merchant'])
+        $session = NfcCardAuthSession::with(['card.company', 'merchant', 'merchantAccount'])
             ->where('nonce', $nonce)
             ->firstOrFail();
 
         if ($session->isExpired()) {
             $session->update(['status' => 'expired']);
-            return redirect()->route('portal.dashboard')
+            return redirect()->route('login')
                 ->with('portal_error', 'La richiesta di pagamento è scaduta.');
         }
 
         abort_unless($session->status === 'pending', 403, 'Richiesta già processata.');
 
-        // Verifica che sia la card del cliente loggato
-        $user = $request->user();
-        abort_unless($session->card->company_id === $user->company_id, 403);
+        // Autenticazione: URL firmato oppure sessione attiva
+        if ($request->hasValidSignature()) {
+            // Accesso da notifica push — auto-login del titolare della card
+            $this->autoLoginCardOwner($session);
+        } elseif ($user = $request->user()) {
+            // Sessione attiva — verifica che sia il titolare della card
+            abort_unless($session->card->company_id === $user->company_id, 403);
+        } else {
+            // Né URL firmato né sessione → redirect al login con intended
+            return redirect()->route('login');
+        }
 
         return view('portal.nfc-cards.authorize', [
-            'pageTitle' => 'Autorizza pagamento',
+            'pageTitle' => 'Conferma pagamento',
             'session'   => $session,
             'activeNav' => 'nfc-cards',
         ]);
@@ -204,54 +225,40 @@ class NfcCardPaymentController extends Controller
 
     /**
      * POST /nfc/card/authorize/{nonce}
-     * Cliente verifica PIN → esegue transfer.
+     * Conferma pagamento — senza PIN, autenticazione garantita da URL firmato o sessione.
      */
     public function authorize(Request $request, string $nonce, TransferBookingService $svc): RedirectResponse
     {
-        $session = NfcCardAuthSession::with(['card', 'merchant'])
+        $session = NfcCardAuthSession::with(['card', 'merchant', 'merchantAccount'])
             ->where('nonce', $nonce)
             ->firstOrFail();
 
         abort_unless($session->isPending(), 403, 'Sessione non valida o scaduta.');
 
         $user = $request->user();
-        abort_unless($session->card->company_id === $user->company_id, 403);
-
-        $request->validate([
-            'pin' => ['required', 'string', 'min:4', 'max:8'],
-        ]);
+        abort_unless($user && $session->card->company_id === $user->company_id, 403);
 
         $card = $session->card;
 
-        // Verifica PIN (con auto-lock dopo 3 tentativi)
-        if (! $card->verifyPin($request->pin)) {
-            $msg = $card->isPinLocked()
-                ? 'Troppi tentativi errati. Card bloccata per 30 minuti.'
-                : 'PIN errato. Riprova.';
-
-            return back()->with('portal_error', $msg);
-        }
-
-        // Ricontrolla limiti (potrebbero essere cambiati nel frattempo)
+        // Verifica limiti
         [$ok, $reason] = $card->checkLimits($session->amount);
         if (! $ok) {
             $session->update(['status' => 'failed']);
             return back()->with('portal_error', $reason);
         }
 
-        // Risolvi account cliente
+        // Risolvi account cliente (titolare della card)
         $customerAccount = Account::where('company_id', $user->company_id)
             ->whereNull('parent_account_id')
             ->firstOrFail();
 
-        // Risolvi account merchant (merchant_account_id se disponibile, altrimenti company_id)
+        // Risolvi account merchant
         $merchantAccount = $session->merchant_account_id
             ? Account::findOrFail($session->merchant_account_id)
             : Account::where('company_id', $session->merchant_company_id)
                 ->whereNull('parent_account_id')
                 ->firstOrFail();
 
-        // Esegui il transfer
         try {
             $transfer = $svc->book([
                 'from_account_id' => $customerAccount->id,
@@ -264,13 +271,11 @@ class NfcCardPaymentController extends Controller
                 'ip_address'      => $request->ip(),
             ]);
 
-            // Aggiorna sessione
             $session->update([
                 'status'        => 'authorized',
                 'transfer_uuid' => $transfer->uuid,
             ]);
 
-            // Aggiorna contatori card
             $card->recordSpent($session->amount);
             $card->logs()->create([
                 'event'               => 'payment_ok',
@@ -286,8 +291,34 @@ class NfcCardPaymentController extends Controller
             return back()->with('portal_error', 'Pagamento fallito: ' . $e->getMessage());
         }
 
+        $merchantName = $session->merchant?->name
+            ?? $session->merchantAccount?->display_name
+            ?? 'Commerciante';
+
         return redirect()->route('portal.dashboard')
-            ->with('portal_success', "Pagamento di {$session->amount} KY a {$session->merchant->name} autorizzato con successo.");
+            ->with('portal_success', 'Pagamento di ' . ky_format($session->amount) . ' KY a ' . $merchantName . ' autorizzato.');
+    }
+
+    /**
+     * Auto-login del titolare della card quando accede via URL firmato (push notification).
+     * Bypassa solo l'autenticazione di sessione — il flusso 2FA/onboarding non viene toccato
+     * perché la route è fuori dal gruppo middleware.
+     */
+    private function autoLoginCardOwner(NfcCardAuthSession $session): void
+    {
+        if (Auth::check()) {
+            return; // già loggato
+        }
+
+        $owner = $session->card->company
+            ?->users()
+            ->where('role', 'owner')
+            ->where('is_active', true)
+            ->first();
+
+        if ($owner) {
+            Auth::login($owner, remember: true);
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

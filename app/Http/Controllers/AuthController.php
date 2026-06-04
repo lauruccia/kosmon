@@ -118,7 +118,7 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt(array_merge($credentials, ['is_active' => true]), $request->boolean('remember'))) {
+        if (! Auth::attempt(array_merge($credentials, ['is_active' => true]), true)) {
             return back()->withInput()->withErrors([
                 'email' => 'Credenziali non valide o utente disattivato.',
             ]);

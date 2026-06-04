@@ -104,16 +104,13 @@ class NfcCard extends Model
             $attempts = $this->pin_attempts + 1;
             $update   = ['pin_attempts' => $attempts];
 
-            if ($attempts >= 3) {
-                $update['pin_locked_until'] = now()->addMinutes(30);
-                $update['pin_attempts']     = 0;
-
-                $this->logs()->create(['event' => 'pin_locked']);
-            }
-
             $this->update($update);
 
             $this->logs()->create(['event' => 'auth_fail']);
+
+            if ($attempts >= 3) {
+                $this->logs()->create(['event' => 'pin_locked']);
+            }
 
             return false;
         }
@@ -136,17 +133,17 @@ class NfcCard extends Model
         $this->refresh();
 
         if ($this->limit_per_transaction !== null && $amount > $this->limit_per_transaction) {
-            return [false, "Supera il limite per transazione ({$this->limit_per_transaction} KY)"];
+            return [false, 'Supera il limite per transazione (' . ky_format($this->limit_per_transaction) . ' KY)'];
         }
 
         if ($this->limit_daily !== null && ($this->daily_spent + $amount) > $this->limit_daily) {
             $remaining = max(0, $this->limit_daily - $this->daily_spent);
-            return [false, "Supera il limite giornaliero (disponibile: {$remaining} KY)"];
+            return [false, 'Supera il limite giornaliero (disponibile: ' . ky_format($remaining) . ' KY)'];
         }
 
         if ($this->limit_monthly !== null && ($this->monthly_spent + $amount) > $this->limit_monthly) {
             $remaining = max(0, $this->limit_monthly - $this->monthly_spent);
-            return [false, "Supera il limite mensile (disponibile: {$remaining} KY)"];
+            return [false, 'Supera il limite mensile (disponibile: ' . ky_format($remaining) . ' KY)'];
         }
 
         return [true, null];

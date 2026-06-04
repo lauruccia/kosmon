@@ -23,6 +23,7 @@ class NfcCardController extends Controller
     {
         $user  = $request->user();
         $cards = collect();
+        $pendingSessions = collect();
 
         if ($user->company_id) {
             $company = $this->resolveCompany($user);
@@ -30,12 +31,21 @@ class NfcCardController extends Controller
                 ->whereNotIn('status', ['pending', 'issued'])
                 ->latest()
                 ->get();
+
+            // Richieste di pagamento pendenti sulle card del cliente
+            $pendingSessions = \App\Models\NfcCardAuthSession::with(['card', 'merchant', 'merchantAccount'])
+                ->whereHas('card', fn ($q) => $q->where('company_id', $company->id))
+                ->where('status', 'pending')
+                ->where('expires_at', '>', now())
+                ->latest()
+                ->get();
         }
 
         return view('portal.nfc-cards.index', [
-            'pageTitle' => 'Le mie Card NFC',
-            'cards'     => $cards,
-            'activeNav' => 'nfc-cards',
+            'pageTitle'       => 'Le mie Card NFC',
+            'cards'           => $cards,
+            'pendingSessions' => $pendingSessions,
+            'activeNav'       => 'nfc-cards',
         ]);
     }
 

@@ -18,6 +18,35 @@
                 </div>
             @endif
 
+            {{-- Richieste di pagamento pendenti --}}
+            @if($pendingSessions->isNotEmpty())
+                <section>
+                    <h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0 0 10px;">
+                        &#128276; Richieste in attesa ({{ $pendingSessions->count() }})
+                    </h2>
+                    <div class="stack" style="gap:8px;">
+                        @foreach($pendingSessions as $ps)
+                            <a href="{{ route('nfc.card.authorize', $ps->nonce) }}"
+                               style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;text-decoration:none;">
+                                <div style="font-size:28px;">&#128179;</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:15px;font-weight:800;color:var(--ink);">
+                                        {{ ky_format($ps->amount) }} KY
+                                    </div>
+                                    <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">
+                                        da {{ $ps->merchant?->name ?? $ps->merchantAccount?->display_name ?? 'Commerciante' }}
+                                        &middot; scade {{ $ps->expires_at->diffForHumans() }}
+                                    </div>
+                                </div>
+                                <div style="font-size:13px;font-weight:700;color:#92400e;background:#fef3c7;padding:6px 12px;border-radius:20px;white-space:nowrap;">
+                                    Conferma ›
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
             @if($cards->isEmpty())
                 <section class="card card-pad" style="text-align:center;padding:48px 24px;">
                     <div style="font-size:48px;margin-bottom:16px;">&#128246;</div>

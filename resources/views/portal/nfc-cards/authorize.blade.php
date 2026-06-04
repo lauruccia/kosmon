@@ -9,24 +9,24 @@
             <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin:0;">Richiesta di pagamento</h1>
         </div>
 
-        {{-- Riepilogo richiesta --}}
+        {{-- Riepilogo --}}
         <section class="card card-pad" style="text-align:center;">
-            <div style="font-size:40px;font-weight:900;color:var(--ink);">
-                {{ ky_format($session->amount) }} KY
+            <div style="font-size:44px;font-weight:900;color:var(--ink);">
+                {{ ky_format($session->amount) }} <span style="font-size:24px;font-weight:600;">KY</span>
             </div>
             @if($session->description)
-                <div style="font-size:14px;color:var(--ink-muted);margin-top:4px;">{{ $session->description }}</div>
+                <div style="font-size:14px;color:var(--ink-muted);margin-top:6px;">{{ $session->description }}</div>
             @endif
-            <div style="margin-top:12px;font-size:13px;color:var(--ink-muted);">
-                Richiesta da <strong style="color:var(--ink);">{{ $session->merchant->name }}</strong>
+            <div style="margin-top:14px;font-size:14px;color:var(--ink-muted);">
+                Da <strong style="color:var(--ink);">{{ $session->merchant?->name ?? $session->merchantAccount?->display_name ?? 'Commerciante' }}</strong>
             </div>
-            <div style="margin-top:8px;font-size:12px;color:var(--ink-muted);">
+            <div style="margin-top:6px;font-size:12px;color:var(--ink-muted);">
                 Card: {{ $session->card->serial_number ?? substr($session->card->uuid, 0, 8) }}
             </div>
 
             {{-- Countdown --}}
             <div style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--ink-muted);">
-                &#9203; Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);">3:00</span>
+                &#9203; Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);"></span>
             </div>
             <div style="margin-top:6px;height:3px;background:var(--surface-soft);border-radius:2px;overflow:hidden;">
                 <div id="timer-bar" style="height:100%;background:var(--primary);transition:width .5s linear;width:100%;"></div>
@@ -39,35 +39,25 @@
             </div>
         @endif
 
-        {{-- Form PIN --}}
-        <section class="card card-pad">
-            <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:16px;text-align:center;">
-                &#128274; Inserisci il tuo PIN per confermare
-            </div>
+        {{-- Azioni --}}
+        <form method="POST" action="{{ route('nfc.card.authorize.post', $session->nonce) }}">
+            @csrf
 
-            <form method="POST" action="{{ route('nfc.card.authorize.post', $session->nonce) }}">
-                @csrf
-                <div style="margin-bottom:20px;">
-                    <input type="password" name="pin" inputmode="numeric" pattern="\d*"
-                           minlength="4" maxlength="8" required autofocus autocomplete="current-password"
-                           placeholder="&#9679;&#9679;&#9679;&#9679;"
-                           style="width:100%;border:1.5px solid var(--line);border-radius:12px;padding:16px;font-size:28px;text-align:center;letter-spacing:10px;background:var(--surface-soft);color:var(--ink);outline:none;">
-                </div>
-
-                <button type="submit" class="cta" style="width:100%;font-size:16px;padding:14px;">
-                    Autorizza pagamento
+            <div class="stack" style="gap:12px;">
+                <button type="submit" id="btn-conferma" class="cta" style="width:100%;font-size:18px;padding:18px;border-radius:14px;">
+                    &#10003;&nbsp; Conferma pagamento
                 </button>
 
                 <a href="{{ route('portal.dashboard') }}"
-                   style="display:block;text-align:center;margin-top:12px;font-size:13px;color:var(--ink-muted);">
+                   style="display:block;text-align:center;padding:14px;font-size:14px;color:var(--ink-muted);border:1.5px solid var(--line);border-radius:14px;text-decoration:none;">
                     Rifiuta
                 </a>
-            </form>
-        </section>
+            </div>
+        </form>
 
-        <div style="font-size:11px;color:var(--ink-muted);text-align:center;line-height:1.5;">
-            Dopo 3 tentativi errati la card viene bloccata temporaneamente per 30 minuti.
-        </div>
+        <p style="font-size:11px;color:var(--ink-muted);text-align:center;line-height:1.5;margin:0;">
+            Confermando autorizzi l'addebito di {{ ky_format($session->amount) }} KY sul tuo conto.
+        </p>
 
     </div>
 </div>
@@ -75,13 +65,13 @@
 <script>
 (function () {
     const expiresAt = new Date(@json($session->expires_at->valueOf()));
-    const totalMs   = 3 * 60 * 1000;
+    const totalMs   = 10 * 60 * 1000;
     const cntEl     = document.getElementById('countdown');
     const barEl     = document.getElementById('timer-bar');
 
     function tick() {
         const remaining = Math.max(0, expiresAt - Date.now());
-        const secs      = Math.floor(remaining / 1000);
+        const secs = Math.floor(remaining / 1000);
         const m = Math.floor(secs / 60);
         const s = secs % 60;
         if (cntEl) cntEl.textContent = m + ':' + String(s).padStart(2, '0');
@@ -89,6 +79,8 @@
 
         if (remaining <= 0) {
             clearInterval(timer);
+            document.getElementById('btn-conferma').disabled = true;
+            if (cntEl) cntEl.textContent = 'Scaduta';
             window.location = '{{ route('portal.dashboard') }}';
         }
     }
