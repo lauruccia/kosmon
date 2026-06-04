@@ -90,9 +90,6 @@ class NfcCardPaymentController extends Controller
      */
     public function createRequest(Request $request): JsonResponse
     {
-        // DEBUG TEMPORANEO — rimuovere dopo il fix
-        try {
-
         $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
 
         $data = $request->validate([
@@ -116,35 +113,29 @@ class NfcCardPaymentController extends Controller
             return response()->json(['error' => $reason], 422);
         }
 
-        // Merchant company
-        $merchantCompany = Company::where('id', $request->user()->company_id)->firstOrFail();
+        // Risolvi account merchant (supporta KYB con company_id e KYP con owner_user_id)
+        $merchantAccount = $this->resolveMerchantAccount($request->user());
+
+        if (! $merchantAccount) {
+            return response()->json(['error' => 'Nessun conto attivo associato al tuo account.'], 403);
+        }
 
         // Crea sessione auth (scade in 3 minuti)
         $session = NfcCardAuthSession::create([
-            'nfc_card_id'        => $card->id,
-            'merchant_company_id'=> $merchantCompany->id,
-            'amount'             => $amountCents,
-            'description'        => $data['description'] ?? null,
-            'status'             => 'pending',
-            'expires_at'         => now()->addMinutes(3),
+            'nfc_card_id'          => $card->id,
+            'merchant_company_id'  => $merchantAccount->company_id,
+            'merchant_account_id'  => $merchantAccount->id,
+            'amount'               => $amountCents,
+            'description'          => $data['description'] ?? null,
+            'status'               => 'pending',
+            'expires_at'           => now()->addMinutes(3),
         ]);
-
-        // TODO: invia push notification al cliente (quando Web Push è configurato)
-        // Notification::send($card->company->ownerUser, new NfcPaymentRequestNotification($session));
 
         return response()->json([
             'nonce'      => $session->nonce,
             'expires_at' => $session->expires_at->toISOString(),
             'status_url' => route('nfc.card.status', $session->nonce),
         ]);
-
-        } catch (\Throwable $e) {
-            // DEBUG — rimuovere dopo il fix
-            return response()->json([
-                'error' => '[DEBUG] ' . get_class($e) . ': ' . $e->getMessage()
-                         . ' in ' . basename($e->getFile()) . ':' . $e->getLine(),
-            ], 500);
-        }
     }
 
     /**
@@ -242,10 +233,12 @@ class NfcCardPaymentController extends Controller
             ->whereNull('parent_account_id')
             ->firstOrFail();
 
-        // Risolvi account merchant
-        $merchantAccount = Account::where('company_id', $session->merchant_company_id)
-            ->whereNull('parent_account_id')
-            ->firstOrFail();
+        // Risolvi account merchant (merchant_account_id se disponibile, altrimenti company_id)
+        $merchantAccount = $session->merchant_account_id
+            ? Account::findOrFail($session->merchant_account_id)
+            : Account::where('company_id', $session->merchant_company_id)
+                ->whereNull('parent_account_id')
+                ->firstOrFail();
 
         // Esegui il transfer
         try {
@@ -284,6 +277,32 @@ class NfcCardPaymentController extends Controller
 
         return redirect()->route('portal.dashboard')
             ->with('portal_success', "Pagamento di {$session->amount} KY a {$session->merchant->name} autorizzato con successo.");
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    /**
+     * Risolve l'account principale del merchant loggato.
+     * Supporta KYB (company_id), KYP (owner_user_id) e sub-account manager.
+     */
+    private function resolveMerchantAccount(\App\Models\User $user): ?Account
+    {
+        if ($user->managed_account_id !== null) {
+            $sub = Account::with('parentAccount')->find($user->managed_account_id);
+            return $sub ? ($sub->parentAccount ?? $sub) : null;
+        }
+
+        if ($user->company_id !== null) {
+            return Account::where('company_id', $user->company_id)
+                ->whereNull('parent_account_id')
+                ->orderBy('id')
+                ->first();
+        }
+
+        return Account::where('owner_user_id', $user->id)
+            ->whereNull('parent_account_id')
+            ->orderBy('id')
+            ->first();
     }
 
     // ─── Landing NFC (apertura URL dal chip) ─────────────────────────────────
