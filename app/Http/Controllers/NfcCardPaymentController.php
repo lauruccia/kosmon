@@ -90,6 +90,9 @@ class NfcCardPaymentController extends Controller
      */
     public function createRequest(Request $request): JsonResponse
     {
+        // DEBUG TEMPORANEO — rimuovere dopo il fix
+        try {
+
         $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
 
         $data = $request->validate([
@@ -134,6 +137,14 @@ class NfcCardPaymentController extends Controller
             'expires_at' => $session->expires_at->toISOString(),
             'status_url' => route('nfc.card.status', $session->nonce),
         ]);
+
+        } catch (\Throwable $e) {
+            // DEBUG — rimuovere dopo il fix
+            return response()->json([
+                'error' => '[DEBUG] ' . get_class($e) . ': ' . $e->getMessage()
+                         . ' in ' . basename($e->getFile()) . ':' . $e->getLine(),
+            ], 500);
+        }
     }
 
     /**

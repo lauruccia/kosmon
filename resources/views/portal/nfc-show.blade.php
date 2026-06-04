@@ -480,7 +480,12 @@
             const data = await res.json();
 
             if (!res.ok) {
-                statusEl.textContent = '✕ ' + (data.error || 'Errore invio richiesta');
+                // DEBUG — mostra errore completo
+                const errMsg = data.error
+                    || (data.errors ? JSON.stringify(data.errors) : null)
+                    || data.message
+                    || ('HTTP ' + res.status);
+                statusEl.textContent = '✕ ' + errMsg;
                 statusEl.style.color = 'var(--danger)';
                 return;
             }
