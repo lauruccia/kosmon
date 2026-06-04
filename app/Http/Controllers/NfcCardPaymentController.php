@@ -288,8 +288,19 @@ class NfcCardPaymentController extends Controller
 
         $card = NfcCard::with('company')->where('uuid', $uuid)->firstOrFail();
 
-        // Se il merchant è loggato, redirect al form incasso con uuid pre-compilato
-        if ($request->user()?->company_id && ! $request->user()?->canAccessBackoffice()) {
+        $user = $request->user();
+
+        if ($user && ! $user->canAccessBackoffice() && $user->company_id) {
+            // Il TITOLARE ha avvicinato la PROPRIA card: non può incassare/pagare
+            // se stesso. Lo mando alla gestione della card invece che al form di
+            // incasso (che genererebbe il vicolo cieco "paga il tuo stesso conto").
+            if ($user->company_id === $card->company_id) {
+                return redirect()->route('portal.nfc-cards.show', $card->uuid)
+                    ->with('portal_info', 'Questa è la tua card. Per ricevere un pagamento con essa è il commerciante a doverla avvicinare dal proprio dispositivo.');
+            }
+
+            // Un commerciante diverso ha avvicinato la card del cliente:
+            // flusso di incasso con la card del cliente pre-selezionata.
             return redirect()->route('portal.incasso-nfc.form', ['card_uuid' => $uuid]);
         }
 

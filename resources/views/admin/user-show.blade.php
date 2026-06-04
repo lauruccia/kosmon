@@ -56,7 +56,20 @@
             </div>
 
             <div class="info-grid">
-                <div><div class="eyebrow">Email</div><strong>{{ $userRecord->email }}</strong></div>
+                <div>
+                    <div class="eyebrow">Email</div>
+                    <strong>{{ $userRecord->email }}</strong>
+                    @if ($userRecord->hasVerifiedEmail())
+                        <span class="pill success" style="margin-left:.5rem;">Verificata</span>
+                    @else
+                        <span class="pill warn" style="margin-left:.5rem;">Non verificata</span>
+                        <form method="post" action="{{ route('admin.users.verify-email', $userRecord) }}" style="margin-top:.5rem;"
+                              onsubmit="return confirm('Verificare manualmente l\'email e attivare questo utente?');">
+                            @csrf
+                            <button type="submit" class="cta secondary users-compact-cta">Verifica email e attiva</button>
+                        </form>
+                    @endif
+                </div>
                 <div><div class="eyebrow">Telefono</div><strong>{{ $userRecord->phone ?: 'Non impostato' }}</strong></div>
                 <div><div class="eyebrow">Ruolo interno</div><strong>{{ $userRecord->role }}</strong></div>
                 <div><div class="eyebrow">Tipologia</div><strong>{{ $userRecord->account_holder_type }}</strong></div>

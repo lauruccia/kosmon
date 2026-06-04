@@ -283,6 +283,13 @@
             @endif
         </div>
 
+        {{-- ── Azione bulk: verifica tutti gli utenti non verificati ──────── --}}
+        <form method="post" action="{{ route('admin.users.verify-all') }}" style="margin:0 0 1rem;"
+              onsubmit="return confirm('Verificare e attivare TUTTI gli utenti con email non ancora verificata?');">
+            @csrf
+            <button type="submit" class="cta secondary">Verifica e attiva tutti gli utenti non verificati</button>
+        </form>
+
         {{-- ── Table ──────────────────────────────────────────────────────── --}}
         @if ($users->isEmpty())
             <div class="empty-state">Nessun utente trovato con i filtri correnti.</div>

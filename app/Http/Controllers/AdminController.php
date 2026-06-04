@@ -664,6 +664,67 @@ class AdminController extends Controller
         return back()->with('portal_success', 'Utente aggiornato correttamente.');
     }
 
+    /**
+     * Verifica manualmente l'email di un utente (bypassa il link di verifica)
+     * e ne garantisce l'attivazione. Utile quando l'email di verifica non arriva.
+     */
+    public function verifyUserEmail(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'users.manage');
+
+        if ($user->hasVerifiedEmail() && $user->is_active) {
+            return back()->with('portal_info', 'Utente già verificato e attivo.');
+        }
+
+        $user->forceFill([
+            'email_verified_at' => $user->email_verified_at ?? now(),
+            'is_active'         => true,
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.verify_email',
+            'auditable_type' => 'user',
+            'auditable_id'   => $user->id,
+            'context'        => ['target_user_email' => $user->email],
+            'ip_address'     => $request->ip(),
+        ]);
+
+        return back()->with('portal_success', "Email di {$user->email} verificata e account attivato.");
+    }
+
+    /**
+     * Verifica e attiva in blocco tutti gli utenti con email non ancora verificata.
+     */
+    public function verifyAllUsers(Request $request): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'users.manage');
+
+        $count = 0;
+
+        User::whereNull('email_verified_at')->each(function (User $user) use ($request, &$count) {
+            $user->forceFill([
+                'email_verified_at' => now(),
+                'is_active'         => true,
+            ])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $request->user()->id,
+                'event'          => 'admin.verify_email_bulk',
+                'auditable_type' => 'user',
+                'auditable_id'   => $user->id,
+                'context'        => ['target_user_email' => $user->email],
+                'ip_address'     => $request->ip(),
+            ]);
+
+            $count++;
+        });
+
+        return back()->with('portal_success', $count === 0
+            ? 'Nessun utente da verificare: erano già tutti verificati.'
+            : "{$count} utenti verificati e attivati.");
+    }
+
     public function changePasswordUser(Request $request, User $user): RedirectResponse
     {
         $this->authorizePermission($request->user(), 'users.manage');

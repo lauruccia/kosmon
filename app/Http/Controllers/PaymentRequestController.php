@@ -50,7 +50,7 @@ class PaymentRequestController extends Controller
         // Non puoi pagare te stesso
         if ($fromAccount->id === $pr->to_account_id) {
             return redirect()->route('portal.dashboard')
-                ->with('portal_error', 'Non puoi pagare il tuo stesso conto.');
+                ->with('portal_error', 'Non puoi pagare il tuo stesso conto. (Conto pagatore ' . $fromAccount->account_number . ' = conto destinatario ' . $pr->toAccount?->account_number . ')');
         }
 
         return view('portal.pay-request', [
@@ -97,7 +97,7 @@ class PaymentRequestController extends Controller
 
         if ($fromAccount->id === $pr->to_account_id) {
             return redirect()->route('portal.dashboard')
-                ->with('portal_error', 'Non puoi pagare il tuo stesso conto.');
+                ->with('portal_error', 'Non puoi pagare il tuo stesso conto. (Conto pagatore ' . $fromAccount->account_number . ' = conto destinatario ' . $pr->toAccount?->account_number . ')');
         }
 
         if ($fromAccount->status !== 'active') {
