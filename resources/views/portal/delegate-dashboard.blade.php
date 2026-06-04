@@ -27,10 +27,10 @@
             <section class="card account-hero card-pad">
                 <div class="k-tag">Delegate wallet</div>
                 <h1 style="position:relative;z-index:1;margin:16px 0 18px;">Controllo operativo</h1>
-                <div class="metric"><div class="metric-label">Saldo sottoconto</div><div class="metric-value">{{ number_format($currentBalance, 2, ',', '.') }} KY</div></div>
-                <div class="metric"><div class="metric-label">Saldo disponibile</div><div class="metric-value">{{ number_format($availableBalance, 2, ',', '.') }} KY</div></div>
-                <div class="metric"><div class="metric-label">Massimale</div><div class="metric-value">{{ number_format($massimale, 2, ',', '.') }} KY</div></div>
-                <div class="metric"><div class="metric-label">Consumato oggi</div><div class="metric-value">{{ number_format($dailySpent, 2, ',', '.') }} KY</div></div>
+                <div class="metric"><div class="metric-label">Saldo sottoconto</div><div class="metric-value">{{ ky_format($currentBalance) }} KY</div></div>
+                <div class="metric"><div class="metric-label">Saldo disponibile</div><div class="metric-value">{{ ky_format($availableBalance) }} KY</div></div>
+                <div class="metric"><div class="metric-label">Massimale</div><div class="metric-value">{{ ky_format($massimale) }} KY</div></div>
+                <div class="metric"><div class="metric-label">Consumato oggi</div><div class="metric-value">{{ ky_format($dailySpent) }} KY</div></div>
             </section>
 
             <section class="card light-card">
@@ -45,12 +45,12 @@
                     <article class="timeline-item">
                         <strong>Budget disponibile</strong>
                         <div class="subtle">Saldo immediatamente spendibile sul sottoconto delegato.</div>
-                        <div class="metric-value" style="font-size:22px; color:var(--teal-strong);">{{ number_format($availableBalance, 2, ',', '.') }} KY</div>
+                        <div class="metric-value" style="font-size:22px; color:var(--teal-strong);">{{ ky_format($availableBalance) }} KY</div>
                     </article>
                     <article class="timeline-item">
                         <strong>Plafond giornaliero residuo</strong>
                         <div class="subtle">{{ $remainingDailyLimit === null ? 'Nessun tetto giornaliero configurato dal proprietario.' : 'Quanto ti resta oggi prima del blocco automatico.' }}</div>
-                        <div class="metric-value" style="font-size:22px; color:var(--teal-strong);">{{ $remainingDailyLimit === null ? 'Illimitato' : number_format($remainingDailyLimit, 2, ',', '.') . ' KY' }}</div>
+                        <div class="metric-value" style="font-size:22px; color:var(--teal-strong);">{{ $remainingDailyLimit === null ? 'Illimitato' : ky_format($remainingDailyLimit) . ' KY' }}</div>
                     </article>
                 </div>
             </section>
@@ -70,7 +70,7 @@
                         @forelse ($recentTransfers as $transfer)
                             @php($isOutgoing = $transfer->from_account_id === $currentAccount->id)
                             @php($counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount)
-                            <tr><td><div class="date-block">{{ optional($transfer->booked_at)->format('d') }}<span>{{ optional($transfer->booked_at)->format('M') }}</span></div></td><td>{{ $counterparty?->display_name }}<div class="subtle">{{ $transfer->description ?: 'Movimento circuito' }}</div></td><td class="flow {{ $isOutgoing ? 'out' : 'in' }}">{{ $isOutgoing ? 'Spesa delegata' : 'Budget ricevuto' }}<small>{{ $transfer->kind }}</small></td><td>{{ $isOutgoing ? '-' : '+' }}{{ number_format($transfer->amount, 2, ',', '.') }} KY</td></tr>
+                            <tr><td><div class="date-block">{{ optional($transfer->booked_at)->format('d') }}<span>{{ optional($transfer->booked_at)->format('M') }}</span></div></td><td>{{ $counterparty?->display_name }}<div class="subtle">{{ $transfer->description ?: 'Movimento circuito' }}</div></td><td class="flow {{ $isOutgoing ? 'out' : 'in' }}">{{ $isOutgoing ? 'Spesa delegata' : 'Budget ricevuto' }}<small>{{ $transfer->kind }}</small></td><td>{{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }} KY</td></tr>
                         @empty
                             <tr><td colspan="4" class="subtle">Nessun movimento disponibile.</td></tr>
                         @endforelse

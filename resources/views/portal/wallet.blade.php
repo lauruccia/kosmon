@@ -19,7 +19,7 @@
         </div>
         <div class="ky-card-balance-label">Saldo disponibile</div>
         <div class="ky-card-balance">
-          {{ number_format($account->available_balance ?? 0, 2, ',', '.') }}
+          {{ ky_format($account->available_balance ?? 0) }}
           <span class="ky-card-currency">KY</span>
         </div>
         <div class="ky-card-bottom">
@@ -48,13 +48,13 @@
       <div class="wallet-stat-box">
         <div class="wallet-stat-label">Saldo effettivo</div>
         <div class="wallet-stat-value {{ $bal >= 0 ? 'positive' : 'negative' }}">
-          {{ $bal >= 0 ? '+' : '' }}{{ number_format($bal, 2, ',', '.') }} KY
+          {{ $bal >= 0 ? '+' : '' }}{{ ky_format($bal) }} KY
         </div>
       </div>
       <div class="wallet-stat-box">
         <div class="wallet-stat-label">Fido disponibile</div>
         <div class="wallet-stat-value">
-          {{ $fido > 0 ? number_format($fido, 2, ',', '.') . ' KY' : '—' }}
+          {{ $fido > 0 ? ky_format($fido) . ' KY' : '—' }}
         </div>
       </div>
     </div>

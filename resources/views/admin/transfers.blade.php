@@ -21,7 +21,7 @@
     <section class="grid-cards">
         <article class="stat-card"><div class="eyebrow">Movimenti filtrati</div><div class="section-title">{{ $movementTotals['count'] }}</div></article>
         <article class="stat-card"><div class="eyebrow">Contabilizzati</div><div class="section-title">{{ $movementTotals['bookedCount'] }}</div></article>
-        <article class="stat-card"><div class="eyebrow">Volume</div><div class="section-title">{{ number_format($movementTotals['volume'], 2, ',', '.') }} KY</div></article>
+        <article class="stat-card"><div class="eyebrow">Volume</div><div class="section-title">{{ ky_format($movementTotals['volume']) }} KY</div></article>
         <article class="stat-card"><div class="eyebrow">Storni</div><div class="section-title">{{ $movementTotals['refunds'] }}</div></article>
     </section>
 
@@ -88,7 +88,7 @@
                     <div class="field-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;">
                         <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Da</div><strong>{{ $transfer->fromAccount?->display_name ?? 'N/D' }}</strong><div class="table-muted">{{ $transfer->fromAccount?->company?->name ?? $transfer->fromAccount?->ownerLabel }}</div></div>
                         <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">A</div><strong>{{ $transfer->toAccount?->display_name ?? 'N/D' }}</strong><div class="table-muted">{{ $transfer->toAccount?->company?->name ?? $transfer->toAccount?->ownerLabel }}</div></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Importo</div><strong>{{ number_format($transfer->amount, 2, ',', '.') }} {{ $transfer->currency_code }}</strong><div class="table-muted">{{ $transfer->description ?: 'nessuna causale' }}</div></div>
+                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Importo</div><strong>{{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}</strong><div class="table-muted">{{ $transfer->description ?: 'nessuna causale' }}</div></div>
                     </div>
 
                     @if (! $supportsTransferRefunds)

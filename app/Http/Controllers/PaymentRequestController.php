@@ -154,7 +154,7 @@ class PaymentRequestController extends Controller
         }
 
         return redirect()->route('portal.dashboard')
-            ->with('portal_success', 'Pagamento di ' . number_format($pr->amount, 2, ',', '.') . ' KY eseguito con successo!');
+            ->with('portal_success', 'Pagamento di ' . ky_format($pr->amount) . ' KY eseguito con successo!');
     }
 
     // ─────────────────────────────────────────────────────────────────────────

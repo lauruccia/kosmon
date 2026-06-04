@@ -15,7 +15,7 @@
     <div style="margin-left:auto;text-align:right;">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:2px;">Disponibile</div>
         <div style="font-size:22px;font-weight:800;color:{{ $fromAccount->saldoDisponibile() >= 0 ? 'var(--ink)' : '#dc2626' }};">
-            {{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} <span style="font-size:13px;font-weight:600;">KY</span>
+            {{ ky_format($fromAccount->saldoDisponibile()) }} <span style="font-size:13px;font-weight:600;">KY</span>
         </div>
     </div>
 </div>
@@ -67,7 +67,7 @@
                     <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:var(--teal-strong);">KY</span>
                 </div>
                 <div id="amountHint" style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                    Massimo disponibile: <strong>{{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY</strong>
+                    Massimo disponibile: <strong>{{ ky_format($fromAccount->saldoDisponibile()) }} KY</strong>
                 </div>
                 @error('amount')
                     <span style="font-size:11px;color:#dc2626;margin-top:4px;display:block;">{{ $message }}</span>
@@ -133,16 +133,16 @@
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:8px;">
                 <span style="color:var(--text-muted);">Saldo attuale</span>
                 <strong style="color:{{ $fromAccount->available_balance >= 0 ? 'var(--ink)' : '#dc2626' }};">
-                    {{ number_format($fromAccount->available_balance, 2, ',', '.') }} KY
+                    {{ ky_format($fromAccount->available_balance) }} KY
                 </strong>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:8px;">
                 <span style="color:var(--text-muted);">Disponibile</span>
-                <strong style="color:var(--teal-strong);">{{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY</strong>
+                <strong style="color:var(--teal-strong);">{{ ky_format($fromAccount->saldoDisponibile()) }} KY</strong>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
                 <span style="color:var(--text-muted);">Massimale fido</span>
-                <strong>{{ number_format($fromAccount->creditLimits->sum('limit_amount'), 2, ',', '.') }} KY</strong>
+                <strong>{{ ky_format($fromAccount->creditLimits->sum('limit_amount')) }} KY</strong>
             </div>
         </section>
 

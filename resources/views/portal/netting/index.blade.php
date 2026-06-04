@@ -84,14 +84,14 @@
                                 <div class="table-muted" style="font-size:11px;">{{ Str::limit($proposal->description, 40) }}</div>
                             @endif
                         </td>
-                        <td style="font-weight:700;color:#0284c7;">{{ number_format($proposal->proposer_total, 2, ',', '.') }} KY</td>
-                        <td style="font-weight:700;color:#16a34a;">{{ number_format($proposal->counterparty_total, 2, ',', '.') }} KY</td>
+                        <td style="font-weight:700;color:#0284c7;">{{ ky_format($proposal->proposer_total) }} KY</td>
+                        <td style="font-weight:700;color:#16a34a;">{{ ky_format($proposal->counterparty_total) }} KY</td>
                         <td>
                             @if($proposal->net_amount === 0)
                                 <span style="color:#16a34a;font-weight:600;">Pareggio</span>
                             @else
                                 <span style="font-weight:700;color:{{ $proposal->net_payer_account_id === $currentAccount->id ? '#dc2626' : '#16a34a' }};">
-                                    {{ $proposal->net_payer_account_id === $currentAccount->id ? '-' : '+' }}{{ number_format($proposal->net_amount, 2, ',', '.') }} KY
+                                    {{ $proposal->net_payer_account_id === $currentAccount->id ? '-' : '+' }}{{ ky_format($proposal->net_amount) }} KY
                                 </span>
                             @endif
                         </td>
@@ -159,14 +159,14 @@
                                 <div class="table-muted" style="font-size:11px;">{{ Str::limit($proposal->description, 40) }}</div>
                             @endif
                         </td>
-                        <td style="font-weight:700;color:#0284c7;">{{ number_format($proposal->proposer_total, 2, ',', '.') }} KY</td>
-                        <td style="font-weight:700;color:#16a34a;">{{ number_format($proposal->counterparty_total, 2, ',', '.') }} KY</td>
+                        <td style="font-weight:700;color:#0284c7;">{{ ky_format($proposal->proposer_total) }} KY</td>
+                        <td style="font-weight:700;color:#16a34a;">{{ ky_format($proposal->counterparty_total) }} KY</td>
                         <td>
                             @if($proposal->net_amount === 0)
                                 <span style="color:#16a34a;font-weight:600;">Pareggio</span>
                             @else
                                 <span style="font-weight:700;color:{{ $proposal->net_payer_account_id === $currentAccount->id ? '#dc2626' : '#16a34a' }};">
-                                    {{ $proposal->net_payer_account_id === $currentAccount->id ? '-' : '+' }}{{ number_format($proposal->net_amount, 2, ',', '.') }} KY
+                                    {{ $proposal->net_payer_account_id === $currentAccount->id ? '-' : '+' }}{{ ky_format($proposal->net_amount) }} KY
                                 </span>
                             @endif
                         </td>

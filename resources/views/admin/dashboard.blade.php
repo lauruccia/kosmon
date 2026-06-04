@@ -2,7 +2,7 @@
 
 @section('content')
     @php
-        $fmtKy = fn ($value) => number_format((int) $value, 2, ',', '.') . ' KY';
+        $fmtKy = fn ($value) => ky_format((int) $value) . ' KY';
         $maxMonthlyVolume = max($monthlyChart['volumes'] ?? [0]) ?: 1;
         $maxMonthlyCount = max($monthlyChart['counts'] ?? [0]) ?: 1;
         $liquidityRatio = $circuitKpis['kyInCirculation'] > 0

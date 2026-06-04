@@ -27,7 +27,7 @@ class PaymentRequestRejected extends Mailable implements ShouldQueue
     {
         return new Envelope(
             to: $this->recipient->email,
-            subject: 'Richiesta rifiutata — ' . number_format($this->transfer->amount, 2, ',', '.') . ' KY non addebitati',
+            subject: 'Richiesta rifiutata — ' . ky_format($this->transfer->amount) . ' KY non addebitati',
         );
     }
 

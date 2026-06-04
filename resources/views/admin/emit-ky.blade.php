@@ -39,12 +39,12 @@
         <strong style="color:#dc2626;font-size:14px;">ANOMALIA — Circuito NON bilanciato</strong>
         <div style="font-size:12px;color:#991b1b;margin-top:2px;">
             La somma di tutti i saldi non è zero. Investigare immediatamente.
-            Delta: <strong>{{ number_format($circuitDelta, 2, ',', '.') }} KY</strong>
+            Delta: <strong>{{ ky_format($circuitDelta) }} KY</strong>
         </div>
     </div>
     <div style="margin-left:auto;text-align:right;flex-shrink:0;">
         <div style="font-size:11px;color:#dc2626;font-weight:700;text-transform:uppercase;">DELTA ANOMALIA</div>
-        <div style="font-size:20px;font-weight:800;color:#dc2626;">{{ number_format($circuitDelta, 2, ',', '.') }} KY ❌</div>
+        <div style="font-size:20px;font-weight:800;color:#dc2626;">{{ ky_format($circuitDelta) }} KY ❌</div>
     </div>
 </div>
 @endif
@@ -58,7 +58,7 @@
     <article class="stat-card" style="border-left:4px solid #7c3aed;">
         <div class="eyebrow">KY in circolazione</div>
         <div class="section-title" style="color:#7c3aed;font-size:22px;">
-            {{ number_format($kyInCirculation, 2, ',', '.') }} KY
+            {{ ky_format($kyInCirculation) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">= |saldo Cassa Circuito|</div>
     </article>
@@ -67,7 +67,7 @@
     <article class="stat-card" style="border-left:4px solid {{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};">
         <div class="eyebrow">Saldo Cassa Circuito</div>
         <div class="section-title" style="color:{{ $systemAccount->available_balance < 0 ? '#dc2626' : '#16a34a' }};font-size:18px;">
-            {{ number_format($systemAccount->available_balance, 2, ',', '.') }} KY
+            {{ ky_format($systemAccount->available_balance) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">{{ $systemAccount->account_number }}</div>
     </article>
@@ -77,7 +77,7 @@
     <article class="stat-card" style="border-left:4px solid #0284c7;">
         <div class="eyebrow">Riserva operativa</div>
         <div class="section-title" style="color:#0284c7;font-size:18px;">
-            {{ number_format($kyOnMainReserve, 2, ',', '.') }} KY
+            {{ ky_format($kyOnMainReserve) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">{{ $mainReserveAccount->company?->name ?? $mainReserveAccount->display_name }} (MAIN)</div>
     </article>
@@ -87,7 +87,7 @@
     <article class="stat-card" style="border-left:4px solid #059669;">
         <div class="eyebrow">KY su conti membri</div>
         <div class="section-title" style="color:#059669;font-size:18px;">
-            {{ number_format($kyOnOtherAccounts, 2, ',', '.') }} KY
+            {{ ky_format($kyOnOtherAccounts) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">{{ $accountsPositive }} conti con saldo positivo</div>
     </article>
@@ -96,16 +96,16 @@
     <article class="stat-card" style="border-left:4px solid #ea580c;">
         <div class="eyebrow">Emessi via trasf.</div>
         <div class="section-title" style="color:#ea580c;font-size:18px;">
-            {{ number_format($totalOutFromSystem, 2, ',', '.') }} KY
+            {{ ky_format($totalOutFromSystem) }} KY
         </div>
-        <div class="table-muted" style="font-size:11px;">rientrati: {{ number_format($totalReturnedToSystem, 2, ',', '.') }} KY</div>
+        <div class="table-muted" style="font-size:11px;">rientrati: {{ ky_format($totalReturnedToSystem) }} KY</div>
     </article>
 
     {{-- Fidi attivi --}}
     <article class="stat-card" style="border-left:4px solid #d97706;">
         <div class="eyebrow">Fidi attivi</div>
         <div class="section-title" style="color:#d97706;font-size:18px;">
-            {{ number_format($activeCreditLimitsTotal, 2, ',', '.') }} KY
+            {{ ky_format($activeCreditLimitsTotal) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">{{ $accountsNegative }} conti in rosso</div>
     </article>
@@ -118,7 +118,7 @@
     <span style="font-size:18px;flex-shrink:0;">ℹ️</span>
     <div style="color:#92400e;">
         <strong>Nota contabile — Saldo iniziale impostato direttamente:</strong>
-        {{ number_format($implicitBalance, 2, ',', '.') }} KY non risultano da trasferimenti registrati
+        {{ ky_format($implicitBalance) }} KY non risultano da trasferimenti registrati
         (saldo iniziale da seed o correzione contabile diretta). Il circuito è comunque bilanciato (somma circuito = 0,00 KY).
     </div>
 </div>
@@ -169,7 +169,7 @@
                     <td><span style="font-size:12px;">{{ $kindLabel }}</span></td>
                     <td style="text-align:right;color:var(--ink-muted);">{{ $row->cnt }}</td>
                     <td style="text-align:right;font-weight:700;color:#ea580c;">
-                        {{ number_format($row->total, 2, ',', '.') }} KY
+                        {{ ky_format($row->total) }} KY
                     </td>
                     <td style="text-align:right;">
                         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
@@ -186,7 +186,7 @@
                 <tr style="border-top:2px solid var(--border);">
                     <td colspan="2"><strong style="font-size:12px;">Totale emissioni via trasf.</strong></td>
                     <td style="text-align:right;font-weight:800;color:#ea580c;">
-                        {{ number_format($totalOutFromSystem, 2, ',', '.') }} KY
+                        {{ ky_format($totalOutFromSystem) }} KY
                     </td>
                     <td></td>
                 </tr>
@@ -235,7 +235,7 @@
                     <td><span style="font-size:12px;">{{ $kindLabel }}</span></td>
                     <td style="text-align:right;color:var(--ink-muted);">{{ $row->cnt }}</td>
                     <td style="text-align:right;font-weight:700;color:#059669;">
-                        {{ number_format($row->total, 2, ',', '.') }} KY
+                        {{ ky_format($row->total) }} KY
                     </td>
                     <td style="text-align:right;">
                         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
@@ -252,7 +252,7 @@
                 <tr style="border-top:2px solid var(--border);">
                     <td colspan="2"><strong style="font-size:12px;">Totale rientri via trasf.</strong></td>
                     <td style="text-align:right;font-weight:800;color:#059669;">
-                        {{ number_format($totalReturnedToSystem, 2, ',', '.') }} KY
+                        {{ ky_format($totalReturnedToSystem) }} KY
                     </td>
                     <td></td>
                 </tr>
@@ -300,7 +300,7 @@
                     <option value="">— Seleziona conto —</option>
                     @foreach($targetAccounts as $account)
                         <option value="{{ $account->id }}" @selected(old('to_account_id') == $account->id)>
-                            {{ $account->display_name }} ({{ $account->account_number }}) — {{ number_format($account->available_balance, 2, ',', '.') }} KY
+                            {{ $account->display_name }} ({{ $account->account_number }}) — {{ ky_format($account->available_balance) }} KY
                             @if($account->company?->kyc_status === 'approved') ✓ @else [non verif.] @endif
                         </option>
                     @endforeach
@@ -362,7 +362,7 @@
                 <div style="height:8px;background:#e0e7ff;border-radius:4px;overflow:hidden;">
                     <div style="width:{{ min(100,$pctRiserva) }}%;height:100%;background:#0284c7;border-radius:4px;"></div>
                 </div>
-                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ number_format($kyOnMainReserve, 2, ',', '.') }} KY</div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyOnMainReserve) }} KY</div>
             </div>
 
             <div>
@@ -373,7 +373,7 @@
                 <div style="height:8px;background:#dcfce7;border-radius:4px;overflow:hidden;">
                     <div style="width:{{ min(100,$pctMembri) }}%;height:100%;background:#059669;border-radius:4px;"></div>
                 </div>
-                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ number_format($kyOnOtherAccounts, 2, ',', '.') }} KY</div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyOnOtherAccounts) }} KY</div>
             </div>
         </div>
         @endif
@@ -396,10 +396,10 @@
         <div style="padding:12px;background:{{ $circuitIsHealthy ? '#f0fdf4' : '#fef2f2' }};border-radius:10px;text-align:center;">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:4px;">KY in circolazione</div>
             <div style="font-size:26px;font-weight:800;color:#7c3aed;">
-                {{ number_format($kyInCirculation, 2, ',', '.') }} KY
+                {{ ky_format($kyInCirculation) }} KY
             </div>
             <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">
-                Somma circuito: <strong style="color:{{ $circuitIsHealthy ? '#15803d' : '#dc2626' }};">{{ $circuitIsHealthy ? '0,00 ✅' : number_format($circuitDelta, 2, ',', '.').' ❌' }} KY</strong>
+                Somma circuito: <strong style="color:{{ $circuitIsHealthy ? '#15803d' : '#dc2626' }};">{{ $circuitIsHealthy ? '0,00 ✅' : ky_format($circuitDelta).' ❌' }} KY</strong>
             </div>
         </div>
     </section>
@@ -457,7 +457,7 @@
                     </td>
                     <td>
                         <span style="font-weight:700;font-size:15px;color:#ea580c;">
-                            +{{ number_format($emission->amount, 2, ',', '.') }} KY
+                            +{{ ky_format($emission->amount) }} KY
                         </span>
                     </td>
                     <td class="table-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">

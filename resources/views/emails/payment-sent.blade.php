@@ -8,7 +8,7 @@
     <div class="amount-block">
         <div class="amount-label">Importo inviato</div>
         <div class="amount-value">
-            {{ number_format($transfer->amount, 2, ',', '.') }}<span>KY</span>
+            {{ ky_format($transfer->amount) }}<span>KY</span>
         </div>
     </div>
 
@@ -37,7 +37,7 @@
         @endif
         <tr>
             <td>Saldo dopo operazione</td>
-            <td style="color:#991b1b;"><strong>{{ number_format($balanceAfter, 2, ',', '.') }} KY</strong></td>
+            <td style="color:#991b1b;"><strong>{{ ky_format($balanceAfter) }} KY</strong></td>
         </tr>
     </table>
 

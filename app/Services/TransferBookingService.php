@@ -385,7 +385,7 @@ class TransferBookingService
 
             if ($refundAmount <= 0 || $refundAmount > $maxRefundable) {
                 throw new RuntimeException(
-                    'Importo non valido. Puoi rimborsare al massimo ' . number_format($maxRefundable, 2, ',', '.') . ' KY.'
+                    'Importo non valido. Puoi rimborsare al massimo ' . ky_format($maxRefundable) . ' KY.'
                 );
             }
 

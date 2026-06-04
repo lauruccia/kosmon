@@ -34,7 +34,7 @@ class PaymentReceivedNotification extends Notification implements ShouldQueue
             'title' => 'Pagamento ricevuto',
             'body'  => sprintf(
                 'Hai ricevuto %s KY da %s.',
-                number_format($this->transfer->amount, 2, ',', '.'),
+                ky_format($this->transfer->amount),
                 $this->fromAccount->display_name,
             ),
             'link'  => route('portal.movements'),

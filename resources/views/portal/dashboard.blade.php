@@ -264,7 +264,7 @@
             </div>
             <div class="bkpi__label">Saldo effettivo</div>
             <div class="bkpi__value">
-                {{ $currentBalance >= 0 ? '+' : '' }}{{ number_format($currentBalance, 2, ',', '.') }}<span class="bkpi__currency">KY</span>
+                {{ $currentBalance >= 0 ? '+' : '' }}{{ ky_format($currentBalance) }}<span class="bkpi__currency">KY</span>
             </div>
             <div class="bkpi__note">{{ $currentBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo' }}</div>
         </div>
@@ -280,8 +280,8 @@
                     $fidoUsato = $currentBalance < 0 ? abs($currentBalance) : 0;
                     $fidoResiduo = max(0, $massimale - $fidoUsato);
                 @endphp
-                <div class="bkpi__value">{{ number_format($massimale, 2, ',', '.') }}<span class="bkpi__currency">KY</span></div>
-                <div class="bkpi__note">Residuo: <strong>{{ number_format($fidoResiduo, 2, ',', '.') }} KY</strong></div>
+                <div class="bkpi__value">{{ ky_format($massimale) }}<span class="bkpi__currency">KY</span></div>
+                <div class="bkpi__note">Residuo: <strong>{{ ky_format($fidoResiduo) }} KY</strong></div>
             @else
                 <div class="bkpi__value bkpi__value--muted">—</div>
                 <div class="bkpi__note"><a href="{{ route('portal.fido') }}">Nessun fido attivo</a></div>
@@ -310,7 +310,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </div>
             <div class="bkpi__label">Totale spendibile</div>
-            <div class="bkpi__value">{{ number_format($availableBalance, 2, ',', '.') }}<span class="bkpi__currency">KY</span></div>
+            <div class="bkpi__value">{{ ky_format($availableBalance) }}<span class="bkpi__currency">KY</span></div>
             <div class="bkpi__note">@if($massimale > 0) Saldo + fido residuo @else Saldo disponibile @endif</div>
         </div>
 
@@ -335,7 +335,7 @@
                 <div class="limit-item__label">Saldo massimo</div>
                 <div class="limit-item__value">
                     @if($limitMaxBalance !== null)
-                        {{ number_format($limitMaxBalance, 2, ',', '.') }}<span class="limit-item__unit">KY</span>
+                        {{ ky_format($limitMaxBalance) }}<span class="limit-item__unit">KY</span>
                     @else
                         <span class="limit-item__unlimited">Nessun limite</span>
                     @endif
@@ -351,7 +351,7 @@
                 <div class="limit-item__label">Limite per transazione</div>
                 <div class="limit-item__value">
                     @if($limitSingleTx !== null)
-                        {{ number_format($limitSingleTx, 2, ',', '.') }}<span class="limit-item__unit">KY</span>
+                        {{ ky_format($limitSingleTx) }}<span class="limit-item__unit">KY</span>
                     @else
                         <span class="limit-item__unlimited">Nessun limite</span>
                     @endif
@@ -367,7 +367,7 @@
                 <div class="limit-item__label">Limite giornaliero</div>
                 <div class="limit-item__value">
                     @if($limitDaily !== null)
-                        {{ number_format($limitDaily, 2, ',', '.') }}<span class="limit-item__unit">KY</span>
+                        {{ ky_format($limitDaily) }}<span class="limit-item__unit">KY</span>
                     @else
                         <span class="limit-item__unlimited">Nessun limite</span>
                     @endif
@@ -383,7 +383,7 @@
                 <div class="limit-item__label">Limite mensile</div>
                 <div class="limit-item__value">
                     @if($limitMonthly !== null)
-                        {{ number_format($limitMonthly, 2, ',', '.') }}<span class="limit-item__unit">KY</span>
+                        {{ ky_format($limitMonthly) }}<span class="limit-item__unit">KY</span>
                     @else
                         <span class="limit-item__unlimited">Nessun limite</span>
                     @endif
@@ -414,7 +414,7 @@
     <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);">
         <div style="flex:1;min-width:0;">
             <div style="font-weight:600;font-size:13px;">
-                {{ $requester?->display_name ?? 'Azienda' }} ti chiede <strong style="color:#0f52c4;">{{ number_format($req->amount, 2, ',', '.') }} KY</strong>
+                {{ $requester?->display_name ?? 'Azienda' }} ti chiede <strong style="color:#0f52c4;">{{ ky_format($req->amount) }} KY</strong>
             </div>
             @if($req->description)
             <div style="font-size:12px;color:var(--ink-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">{{ $req->description }}</div>
@@ -424,7 +424,7 @@
         <div style="display:flex;gap:8px;flex-shrink:0;">
             <form method="POST" action="{{ route('portal.receive.requests.confirm', $req) }}" style="display:inline;">
                 @csrf
-                <button type="submit" class="cta" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Confermi il pagamento di {{ number_format($req->amount, 2, ',', '.') }} KY?')">Conferma</button>
+                <button type="submit" class="cta" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Confermi il pagamento di {{ ky_format($req->amount) }} KY?')">Conferma</button>
             </form>
             <form method="POST" action="{{ route('portal.receive.requests.reject', $req) }}" style="display:inline;">
                 @csrf
@@ -454,7 +454,7 @@
             <section class="card light-card card-pad" style="border-left:4px solid #16a34a;border-radius:var(--radius,8px);">
                 <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Entrate — 30 gg</div>
                 <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#16a34a;">
-                    +{{ number_format($income30, 2, ',', '.') }} <span style="font-size:12px;font-weight:600;">KY</span>
+                    +{{ ky_format($income30) }} <span style="font-size:12px;font-weight:600;">KY</span>
                 </div>
                 @if($incomeTrend !== null)
                 <div style="font-size:12px;margin-top:5px;color:{{ $incomeTrend >= 0 ? '#16a34a' : '#dc2626' }};">
@@ -467,7 +467,7 @@
             <section class="card light-card card-pad" style="border-left:4px solid #dc2626;border-radius:var(--radius,8px);">
                 <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Uscite — 30 gg</div>
                 <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#dc2626;">
-                    -{{ number_format($expense30, 2, ',', '.') }} <span style="font-size:12px;font-weight:600;">KY</span>
+                    -{{ ky_format($expense30) }} <span style="font-size:12px;font-weight:600;">KY</span>
                 </div>
                 @if($expenseTrend !== null)
                 <div style="font-size:12px;margin-top:5px;color:{{ $expenseTrend <= 0 ? '#16a34a' : '#dc2626' }};">
@@ -511,7 +511,7 @@
                             <span class="bank-trend-track in"><span style="width:{{ $incomeWidth }}%;"></span></span>
                             <span class="bank-trend-track out"><span style="width:{{ $expenseWidth }}%;"></span></span>
                         </span>
-                        <span class="bank-trend-value" style="color:{{ $trendNet >= 0 ? '#16a34a' : '#dc2626' }};">{{ $trendNet >= 0 ? '+' : '' }}{{ number_format($trendNet, 2, ',', '.') }} KY</span>
+                        <span class="bank-trend-value" style="color:{{ $trendNet >= 0 ? '#16a34a' : '#dc2626' }};">{{ $trendNet >= 0 ? '+' : '' }}{{ ky_format($trendNet) }} KY</span>
                     </div>
                 @endforeach
             </div>
@@ -546,7 +546,7 @@
                 <div>
                     <div class="eyebrow" style="color:#7c3aed;">Fido attivo</div>
                     <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#7c3aed;margin-top:4px;">
-                        {{ number_format($massimale, 2, ',', '.') }} <span style="font-size:13px;font-weight:600;">KY</span>
+                        {{ ky_format($massimale) }} <span style="font-size:13px;font-weight:600;">KY</span>
                     </div>
                 </div>
                 <a href="{{ route('portal.fido') }}" class="cta secondary" style="font-size:12px;min-height:28px;padding:0 10px;margin-top:2px;">Dettagli</a>
@@ -555,8 +555,8 @@
                 <span style="width:{{ $fidoPct }}%;background:#7c3aed;"></span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
-                <span class="subtle" style="font-size:11.5px;">Usato: <strong style="color:{{ $fidoUsato > 0 ? '#dc2626' : 'inherit' }};">{{ number_format($fidoUsato, 2, ',', '.') }} KY</strong></span>
-                <span class="subtle" style="font-size:11.5px;">Residuo: <strong style="color:#7c3aed;">{{ number_format($fidoResiduo, 2, ',', '.') }} KY</strong></span>
+                <span class="subtle" style="font-size:11.5px;">Usato: <strong style="color:{{ $fidoUsato > 0 ? '#dc2626' : 'inherit' }};">{{ ky_format($fidoUsato) }} KY</strong></span>
+                <span class="subtle" style="font-size:11.5px;">Residuo: <strong style="color:#7c3aed;">{{ ky_format($fidoResiduo) }} KY</strong></span>
             </div>
         </section>
         @endif
@@ -599,7 +599,7 @@
                                 {{ $isOutgoing ? 'Uscita' : 'Entrata' }}
                             </td>
                             <td style="text-align:right;padding:10px 12px;">
-                                <strong style="font-size:14px;">{{ $isOutgoing ? '-' : '+' }}{{ number_format($transfer->amount, 2, ',', '.') }}</strong>
+                                <strong style="font-size:14px;">{{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }}</strong>
                                 <div style="color:var(--teal-strong);font-size:10.5px;font-weight:700;">{{ $transfer->currency_code }}</div>
                             </td>
                         </tr>
@@ -636,8 +636,8 @@
                                 <span class="chip {{ $subaccount->status === 'active' ? 'success' : 'pink' }}">{{ $subaccount->status === 'active' ? 'Attivo' : 'Sospeso' }}</span>
                             </div>
                             <div style="display:flex;gap:10px;">
-                                <small style="color:var(--ink-soft);"><strong>{{ number_format($subaccount->available_balance, 2, ',', '.') }} KY</strong> disponibili</small>
-                                <small style="color:var(--ink-muted);">Limite {{ number_format($subaccount->spending_limit ?? 0, 2, ',', '.') }} KY</small>
+                                <small style="color:var(--ink-soft);"><strong>{{ ky_format($subaccount->available_balance) }} KY</strong> disponibili</small>
+                                <small style="color:var(--ink-muted);">Limite {{ ky_format($subaccount->spending_limit ?? 0) }} KY</small>
                             </div>
                         </article>
                     @endforeach

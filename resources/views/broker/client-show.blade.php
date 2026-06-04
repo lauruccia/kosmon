@@ -17,19 +17,19 @@
     <div class="kpi-card">
         <div class="kpi-label">Saldo attuale</div>
         <div class="kpi-value {{ $account->available_balance >= 0 ? 'positive' : '' }}" style="{{ $account->available_balance < 0 ? 'color:#dc2626;' : '' }}">
-            {{ number_format($account->available_balance, 2, ',', '.') }}
+            {{ ky_format($account->available_balance) }}
             <small style="font-size:13px;font-weight:600;">KY</small>
         </div>
         <div class="kpi-note">Bilancio totale</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Disponibile</div>
-        <div class="kpi-value teal">{{ number_format($account->saldoDisponibile(), 2, ',', '.') }} <small style="font-size:13px;font-weight:600;">KY</small></div>
+        <div class="kpi-value teal">{{ ky_format($account->saldoDisponibile()) }} <small style="font-size:13px;font-weight:600;">KY</small></div>
         <div class="kpi-note">Pronto all'uso</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Massimale</div>
-        <div class="kpi-value">{{ number_format($account->creditLimits->sum('limit_amount'), 2, ',', '.') }} <small style="font-size:13px;font-weight:600;">KY</small></div>
+        <div class="kpi-value">{{ ky_format($account->creditLimits->sum('limit_amount')) }} <small style="font-size:13px;font-weight:600;">KY</small></div>
         <div class="kpi-note">Fido assegnato</div>
     </div>
     <div class="kpi-card">
@@ -170,7 +170,7 @@
                     </td>
                     <td style="text-align:right;padding:10px 12px;white-space:nowrap;">
                         <strong style="font-size:14px;color:{{ $isOutgoing ? '#dc2626' : 'var(--teal-strong)' }};">
-                            {{ $isOutgoing ? '-' : '+' }}{{ number_format($transfer->amount, 2, ',', '.') }}
+                            {{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }}
                         </strong>
                         <div style="color:var(--text-muted);font-size:10px;font-weight:700;">KY</div>
                     </td>

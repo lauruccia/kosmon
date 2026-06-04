@@ -36,7 +36,7 @@ class InstallmentPaidNotification extends Notification implements ShouldQueue
                 'Rata %d/%d di %s KY contabilizzata. Piano: %s.',
                 $this->installment->installment_number,
                 $this->plan->installments_count,
-                number_format($this->installment->amount, 2, ',', '.'),
+                ky_format($this->installment->amount),
                 $this->plan->description ?? 'Piano rateale',
             ),
             'link'  => route('portal.payment-plans.show', $this->plan),
@@ -48,7 +48,7 @@ class InstallmentPaidNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject('Rata ' . $this->installment->installment_number . '/' . $this->plan->installments_count . ' eseguita')
             ->greeting('Rata contabilizzata')
-            ->line('Rata ' . $this->installment->installment_number . ' di ' . $this->plan->installments_count . ' da ' . number_format($this->installment->amount, 2, ',', '.') . ' KY contabilizzata con successo.')
+            ->line('Rata ' . $this->installment->installment_number . ' di ' . $this->plan->installments_count . ' da ' . ky_format($this->installment->amount) . ' KY contabilizzata con successo.')
             ->lineIf($this->installment->installment_number === $this->plan->installments_count, 'Piano rateale completato!')
             ->action('Visualizza piano', route('portal.payment-plans.show', $this->plan))
             ->salutation('Il team KMoney');

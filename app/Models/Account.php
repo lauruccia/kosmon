@@ -177,17 +177,17 @@ class Account extends Model
     {
         if ($this->spending_limit !== null && $amount > $this->spending_limit) {
             throw new \RuntimeException(
-                'Il pagamento supera il limite per singola operazione del sottoconto (' . number_format($this->spending_limit, 2, ',', '.') . ' KY).'
+                'Il pagamento supera il limite per singola operazione del sottoconto (' . ky_format($this->spending_limit) . ' KY).'
             );
         }
         if ($this->hasReachedDailyLimit($amount)) {
             throw new \RuntimeException(
-                'Il pagamento supera il limite giornaliero del sottoconto (' . number_format($this->daily_outgoing_limit, 2, ',', '.') . ' KY).'
+                'Il pagamento supera il limite giornaliero del sottoconto (' . ky_format($this->daily_outgoing_limit) . ' KY).'
             );
         }
         if ($this->hasReachedMonthlyLimit($amount)) {
             throw new \RuntimeException(
-                'Il pagamento supera il limite mensile del sottoconto (' . number_format($this->monthly_outgoing_limit, 2, ',', '.') . ' KY).'
+                'Il pagamento supera il limite mensile del sottoconto (' . ky_format($this->monthly_outgoing_limit) . ' KY).'
             );
         }
     }

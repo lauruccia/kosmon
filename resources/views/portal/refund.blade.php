@@ -51,12 +51,12 @@
                 </div>
                 <div>
                     <div style="font-size:12px;color:var(--ink-muted);">Importo totale</div>
-                    <div style="font-weight:800;font-size:20px;color:#0f52c4;">{{ number_format($transfer->amount, 2, ',', '.') }} KY</div>
+                    <div style="font-weight:800;font-size:20px;color:#0f52c4;">{{ ky_format($transfer->amount) }} KY</div>
                 </div>
                 <div>
                     <div style="font-size:12px;color:var(--ink-muted);">Già rimborsato</div>
                     <div style="font-weight:700;font-size:18px;color:{{ $alreadyRefunded > 0 ? '#f59e0b' : 'var(--ink-muted)' }};">
-                        {{ number_format($alreadyRefunded, 2, ',', '.') }} KY
+                        {{ ky_format($alreadyRefunded) }} KY
                     </div>
                 </div>
             </div>
@@ -74,7 +74,7 @@
         {{-- Importo disponibile --}}
         <div style="background:#d1fae5;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#065f46;border:1px solid #a7f3d0;">
             <strong>Massimo rimborsabile:</strong>
-            <span style="font-size:16px;font-weight:800;margin-left:6px;">{{ number_format($maxRefundable, 2, ',', '.') }} KY</span>
+            <span style="font-size:16px;font-weight:800;margin-left:6px;">{{ ky_format($maxRefundable) }} KY</span>
         </div>
 
         <form method="POST" action="{{ route('portal.refund.submit', $transfer) }}" id="refundForm">
@@ -163,7 +163,7 @@
                     <strong style="display:block;font-size:13px;margin-bottom:3px;">Rimborso parziale</strong>
                     <span style="font-size:13px;color:var(--ink-soft);">
                         Puoi fare più rimborsi parziali sullo stesso movimento, fino a esaurire
-                        l'importo originale ({{ number_format($transfer->amount, 2, ',', '.') }} KY).
+                        l'importo originale ({{ ky_format($transfer->amount) }} KY).
                     </span>
                 </div>
             </div>

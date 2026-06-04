@@ -25,7 +25,7 @@ class PaymentPlanRejectedNotification extends Notification implements ShouldQueu
     public function toArray(object $notifiable): array
     {
         $counterparty = $this->plan->counterpartyAccount()?->display_name ?? 'La controparte';
-        $total        = number_format($this->plan->total_amount, 2, ',', '.');
+        $total        = ky_format($this->plan->total_amount);
 
         return [
             'icon'  => '❌',
@@ -38,9 +38,9 @@ class PaymentPlanRejectedNotification extends Notification implements ShouldQueu
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Piano rateale rifiutato — ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY')
+            ->subject('Piano rateale rifiutato — ' . ky_format($this->plan->total_amount) . ' KY')
             ->greeting('Piano rateale rifiutato')
-            ->line(($this->plan->counterpartyAccount()?->display_name ?? 'La controparte') . ' ha rifiutato la proposta di piano rateale da ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY.')
+            ->line(($this->plan->counterpartyAccount()?->display_name ?? 'La controparte') . ' ha rifiutato la proposta di piano rateale da ' . ky_format($this->plan->total_amount) . ' KY.')
             ->action('Visualizza dettagli', route('portal.payment-plans.index'))
             ->salutation('Il team KMoney');
     }

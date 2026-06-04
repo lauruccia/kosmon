@@ -59,9 +59,9 @@ class RecalcAccountBalances extends Command
             ['Account ID', 'Saldo attuale (cent)', 'Saldo ricalcolato (cent)', 'Differenza'],
             array_map(fn ($r) => [
                 $r['account_id'],
-                number_format($r['current'], 2, ',', '.'),
-                number_format($r['calculated'], 2, ',', '.'),
-                ($r['diff'] >= 0 ? '+' : '') . number_format($r['diff'], 2, ',', '.'),
+                ky_format($r['current']),
+                ky_format($r['calculated']),
+                ($r['diff'] >= 0 ? '+' : '') . ky_format($r['diff']),
             ], $rows)
         );
 

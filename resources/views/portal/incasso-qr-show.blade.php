@@ -18,7 +18,7 @@
             {{-- Importo --}}
             <div style="margin-bottom:16px;">
                 <div style="font-size:42px;font-weight:800;letter-spacing:-1px;line-height:1;">
-                    {{ number_format($pr->amount, 2, ',', '.') }} <span style="font-size:22px;font-weight:600;color:var(--text-muted);">KY</span>
+                    {{ ky_format($pr->amount) }} <span style="font-size:22px;font-weight:600;color:var(--text-muted);">KY</span>
                 </div>
                 @if($pr->description)
                     <div style="margin-top:6px;font-size:14px;color:var(--text-muted);">{{ $pr->description }}</div>

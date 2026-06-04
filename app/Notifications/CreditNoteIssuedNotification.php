@@ -28,7 +28,7 @@ class CreditNoteIssuedNotification extends Notification implements ShouldQueue
     {
         $body = sprintf(
             'Hai ricevuto una nota di credito di %s KY da %s.',
-            number_format($this->creditNote->amount, 2, ',', '.'),
+            ky_format($this->creditNote->amount),
             $this->fromAccount->display_name,
         );
 

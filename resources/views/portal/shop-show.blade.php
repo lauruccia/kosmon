@@ -86,7 +86,7 @@
                         <div class="subtle">{{ $rel->company->name }}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <strong style="color:#0c4a86;">{{ number_format($rel->price_ky, 2, ',', '.') }} KY</strong>
+                        <strong style="color:#0c4a86;">{{ ky_format($rel->price_ky) }} KY</strong>
                         <a href="{{ route('portal.shop.show', $rel) }}" class="cta secondary" style="padding:6px 14px;font-size:13px;">Vedi</a>
                     </div>
                 </article>
@@ -101,7 +101,7 @@
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
             <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;margin:16px 0 4px;">
-                {{ number_format($listing->price_ky, 2, ',', '.') }}
+                {{ ky_format($listing->price_ky) }}
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
                 <span style="font-size:14px;color:#64748b;">KY (KMoney)</span>
@@ -129,7 +129,7 @@
             @endif
             <div class="metric">
                 <div class="metric-label">Il tuo saldo</div>
-                <div class="metric-value">{{ number_format($currentAccount->saldoDisponibile(), 2, ',', '.') }} KY</div>
+                <div class="metric-value">{{ ky_format($currentAccount->saldoDisponibile()) }} KY</div>
             </div>
 
             <div class="quick-actions" style="margin-top:20px;">
@@ -137,7 +137,7 @@
                     <a class="cta"
                        href="{{ route('portal.pay.form') }}?to_company_id={{ $listing->company_id }}&amount={{ $listing->price_ky }}&description={{ urlencode('Acquisto: ' . $listing->title) }}"
                        style="width:100%;text-align:center;">
-                        Paga {{ number_format($listing->price_ky, 2, ',', '.') }} KY
+                        Paga {{ ky_format($listing->price_ky) }} KY
                     </a>
                 @else
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
@@ -148,7 +148,7 @@
 
             @if($currentAccount->saldoDisponibile() < $listing->price_ky)
             <p style="font-size:12px;color:#94a3b8;margin-top:10px;text-align:center;">
-                Ti mancano {{ number_format($listing->price_ky - $currentAccount->saldoDisponibile(), 2, ',', '.') }} KY
+                Ti mancano {{ ky_format($listing->price_ky - $currentAccount->saldoDisponibile()) }} KY
             </p>
             @endif
         </section>

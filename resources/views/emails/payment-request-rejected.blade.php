@@ -8,7 +8,7 @@
     <div class="amount-block">
         <div class="amount-label">Importo richiesto (non addebitato)</div>
         <div class="amount-value" style="color:#b64e62;">
-            {{ number_format($transfer->amount, 2, ',', '.') }}<span>KY</span>
+            {{ ky_format($transfer->amount) }}<span>KY</span>
         </div>
     </div>
 

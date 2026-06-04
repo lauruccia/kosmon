@@ -263,7 +263,7 @@
         </div>
         <div class="company-stat-card">
             <div class="company-stat-label">Volume ricevuto</div>
-            <div class="company-stat-value">{{ number_format($totalVolume, 2, ',', '.') }} <small style="font-size:13px;font-weight:600;">KY</small></div>
+            <div class="company-stat-value">{{ ky_format($totalVolume) }} <small style="font-size:13px;font-weight:600;">KY</small></div>
             <div class="company-stat-note">Transazioni totali nel circuito</div>
         </div>
     </div>
@@ -298,7 +298,7 @@
                         <div class="listing-card-body">
                             <div class="listing-card-category">{{ $listing->category_label }}</div>
                             <div class="listing-card-title">{{ $listing->title }}</div>
-                            <div class="listing-card-price">{{ number_format($listing->price_ky, 2, ',', '.') }} KY</div>
+                            <div class="listing-card-price">{{ ky_format($listing->price_ky) }} KY</div>
                         </div>
                         <div class="listing-card-footer" style="justify-content:space-between;align-items:center;">
                             <span style="font-size:11px;color:var(--ink-muted);">Paga in KY</span>

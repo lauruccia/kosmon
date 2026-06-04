@@ -31,7 +31,7 @@ class PaymentRequestRejectedNotification extends Notification implements ShouldQ
             'body'  => sprintf(
                 '%s ha rifiutato la tua richiesta di %s KY.',
                 $this->fromAccount->display_name,
-                number_format($this->transfer->amount, 2, ',', '.'),
+                ky_format($this->transfer->amount),
             ),
             'link'  => route('portal.movements'),
         ];

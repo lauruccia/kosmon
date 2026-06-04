@@ -27,7 +27,7 @@ class CashbackReceivedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $formatted = number_format($this->amount, 2, ',', '.');
+        $formatted = ky_format($this->amount);
 
         return (new MailMessage)
             ->subject("Hai ricevuto un cashback di {$formatted} KY!")

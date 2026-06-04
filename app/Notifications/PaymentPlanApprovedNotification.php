@@ -26,7 +26,7 @@ class PaymentPlanApprovedNotification extends Notification implements ShouldQueu
 
     public function toArray(object $notifiable): array
     {
-        $total = number_format($this->plan->total_amount, 2, ',', '.');
+        $total = ky_format($this->plan->total_amount);
         $count = $this->plan->installments_count;
         $freq  = $this->plan->frequencyLabel();
 
@@ -48,7 +48,7 @@ class PaymentPlanApprovedNotification extends Notification implements ShouldQueu
 
     public function toMail(object $notifiable): MailMessage
     {
-        $total = number_format($this->plan->total_amount, 2, ',', '.');
+        $total = ky_format($this->plan->total_amount);
         $count = $this->plan->installments_count;
         $freq  = $this->plan->frequencyLabel();
         $first = $this->plan->first_due_date?->format('d/m/Y') ?? '—';

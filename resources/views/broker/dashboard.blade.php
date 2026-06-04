@@ -30,9 +30,9 @@
                 @if($account)
                     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Saldo attuale</div>
                     <div style="font-size:20px;font-weight:800;color:{{ $account->available_balance >= 0 ? 'var(--ink)' : '#dc2626' }};">
-                        {{ number_format($account->available_balance, 2, ',', '.') }} <span style="font-size:12px;font-weight:600;">KY</span>
+                        {{ ky_format($account->available_balance) }} <span style="font-size:12px;font-weight:600;">KY</span>
                     </div>
-                    <div style="font-size:10px;color:var(--text-muted);">Disponibile: {{ number_format($account->saldoDisponibile(), 2, ',', '.') }} KY</div>
+                    <div style="font-size:10px;color:var(--text-muted);">Disponibile: {{ ky_format($account->saldoDisponibile()) }} KY</div>
                 @else
                     <span class="table-muted" style="font-size:12px;">Nessun conto</span>
                 @endif
@@ -42,7 +42,7 @@
             <div style="min-width:160px;font-size:12px;color:var(--text-muted);">
                 @if($last)
                     <div style="font-weight:600;color:var(--text);">Ultimo mov.</div>
-                    <div>{{ $last->booked_at->format('d/m/Y') }} · {{ number_format($last->amount, 2, ',', '.') }} KY</div>
+                    <div>{{ $last->booked_at->format('d/m/Y') }} · {{ ky_format($last->amount) }} KY</div>
                 @else
                     <div>Nessun movimento</div>
                 @endif

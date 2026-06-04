@@ -29,7 +29,7 @@ class CreditNoteIssued extends Mailable implements ShouldQueue
     {
         return new Envelope(
             to: $this->recipient->email,
-            subject: 'Nota di credito ricevuta: ' . number_format($this->creditNote->amount, 2, ',', '.') . ' KY',
+            subject: 'Nota di credito ricevuta: ' . ky_format($this->creditNote->amount) . ' KY',
         );
     }
 

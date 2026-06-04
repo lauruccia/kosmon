@@ -48,7 +48,7 @@
                     </div>
                 </div>
                 <div style="font-weight:800;font-size:18px;color:#0f52c4;">
-                    {{ number_format($linkedTransfer->amount, 2, ',', '.') }} KY
+                    {{ ky_format($linkedTransfer->amount) }} KY
                 </div>
             </div>
             <input type="hidden" name="original_transfer_id_prefill" value="{{ $linkedTransfer->id }}">

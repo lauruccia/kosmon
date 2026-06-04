@@ -32,7 +32,7 @@ class InstallmentFailedNotification extends Notification implements ShouldQueue
     {
         $num    = $this->installment->installment_number;
         $total  = $this->plan->installments_count;
-        $amount = number_format($this->installment->amount, 2, ',', '.');
+        $amount = ky_format($this->installment->amount);
 
         if ($this->isCreditor) {
             $body = sprintf(
@@ -65,7 +65,7 @@ class InstallmentFailedNotification extends Notification implements ShouldQueue
     {
         $num    = $this->installment->installment_number;
         $total  = $this->plan->installments_count;
-        $amount = number_format($this->installment->amount, 2, ',', '.');
+        $amount = ky_format($this->installment->amount);
 
         if ($this->isCreditor) {
             $subject = 'Rata ' . $num . '/' . $total . ' non incassata';

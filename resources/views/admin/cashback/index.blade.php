@@ -49,11 +49,11 @@
                                 <div style="font-weight:700;">{{ $rule->name }}</div>
                                 <div class="subtle" style="font-size:11px;">creata da {{ $rule->creator?->name ?? '—' }}</div>
                             </td>
-                            <td style="text-align:right;">{{ number_format($rule->min_amount, 2, ',', '.') }} KY</td>
+                            <td style="text-align:right;">{{ ky_format($rule->min_amount) }} KY</td>
                             <td style="text-align:right;font-weight:700;color:var(--primary);">{{ number_format($rule->percentage, 2, ',', '.') }}%</td>
                             <td style="text-align:right;">
                                 @if($rule->max_cashback)
-                                    {{ number_format($rule->max_cashback, 2, ',', '.') }} KY
+                                    {{ ky_format($rule->max_cashback) }} KY
                                 @else
                                     <span class="subtle">—</span>
                                 @endif

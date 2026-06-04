@@ -21,7 +21,7 @@ class CreditLimitApproved extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->creditRequest->approved_amount, 2, ',', '.');
+        $amount = ky_format($this->creditRequest->approved_amount);
 
         return (new MailMessage)
             ->subject('[KMoney] Fido approvato — ' . $amount . ' KY')

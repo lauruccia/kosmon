@@ -180,7 +180,7 @@ class NettingService
                 ) {
                     throw new RuntimeException(
                         'Saldo insufficiente per il pagamento netto di ' .
-                        number_format($proposal->net_amount, 2, ',', '.') . ' KY.'
+                        ky_format($proposal->net_amount) . ' KY.'
                     );
                 }
 

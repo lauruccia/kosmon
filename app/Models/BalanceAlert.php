@@ -43,7 +43,7 @@ class BalanceAlert extends Model
     /** Importo soglia formattato (es. "50,00 KY") */
     public function thresholdFormatted(): string
     {
-        return number_format($this->threshold_amount / 100, 2, ',', '.') . ' KY';
+        return ky_format($this->threshold_amount) . ' KY';
     }
 
     /** Importo soglia in KY con decimali (float) */

@@ -437,7 +437,7 @@ class AdminController extends Controller
         $account->update(['max_balance' => $maxBalance]);
 
         $label = $maxBalance !== null
-            ? number_format($maxBalance, 2, ',', '.') . ' KY'
+            ? ky_format($maxBalance) . ' KY'
             : 'nessun tetto';
 
         return back()->with('portal_success',
@@ -1432,7 +1432,7 @@ class AdminController extends Controller
                         $t->fromAccount?->account_number ?? '-',
                         $t->toAccount?->company?->name ?? $t->toAccount?->display_name ?? '-',
                         $t->toAccount?->account_number ?? '-',
-                        number_format($t->amount / 100, 2, ',', '.'),
+                        ky_format($t->amount),
                         $t->description ?? '-',
                         $t->idempotency_key ?? '-',
                     ], ';');

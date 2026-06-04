@@ -52,16 +52,16 @@ $csvParams = http_build_query(array_filter([
     </article>
     <article class="stat-card">
         <div class="eyebrow">Transazioni</div>
-        <div class="section-title" style="font-size:30px;">{{ number_format($totals['bookedCount'], 2, ',', '.') }}</div>
+        <div class="section-title" style="font-size:30px;">{{ ky_format($totals['bookedCount']) }}</div>
     </article>
     <article class="stat-card">
         <div class="eyebrow">Volume totale</div>
-        <div class="section-title" style="font-size:30px;">{{ number_format($totals['volume'], 2, ',', '.') }} <small style="font-size:14px;color:var(--text-muted);">KY</small></div>
+        <div class="section-title" style="font-size:30px;">{{ ky_format($totals['volume']) }} <small style="font-size:14px;color:var(--text-muted);">KY</small></div>
     </article>
     <article class="stat-card">
         <div class="eyebrow">Media per transazione</div>
         <div class="section-title" style="font-size:30px;">
-            {{ $totals['bookedCount'] > 0 ? number_format($totals['volume'] / $totals['bookedCount'], 2, ',', '.') : '—' }}
+            {{ $totals['bookedCount'] > 0 ? ky_format($totals['volume'] / $totals['bookedCount']) : '—' }}
             <small style="font-size:14px;color:var(--text-muted);">KY</small>
         </div>
     </article>
@@ -116,10 +116,10 @@ $csvParams = http_build_query(array_filter([
                             </a>
                         </td>
                         <td style="text-align:right;font-weight:700;font-family:monospace;">
-                            {{ number_format($company->volume, 2, ',', '.') }}
+                            {{ ky_format($company->volume) }}
                         </td>
                         <td style="text-align:right;color:var(--text-muted);">
-                            {{ number_format($company->tx_count, 2, ',', '.') }}
+                            {{ ky_format($company->tx_count) }}
                         </td>
                     </tr>
                 @empty

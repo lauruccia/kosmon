@@ -8,9 +8,9 @@
     $isCancelled = $pr->status === 'cancelled';
     $isExpired   = $pr->status === 'expired';
 
-    $whatsappText = urlencode('Ciao! Ti mando il link per il pagamento di ' . number_format($pr->amount, 2, ',', '.') . ' KY' . ($pr->description ? ' — ' . $pr->description : '') . ': ' . $payUrl);
-    $mailSubject  = urlencode('Richiesta pagamento ' . number_format($pr->amount, 2, ',', '.') . ' KY');
-    $mailBody     = urlencode('Ciao,' . "\n\n" . 'Ecco il link per il pagamento di ' . number_format($pr->amount, 2, ',', '.') . ' KY' . ($pr->description ? ' (' . $pr->description . ')' : '') . ':' . "\n\n" . $payUrl . "\n\nGrazie.");
+    $whatsappText = urlencode('Ciao! Ti mando il link per il pagamento di ' . ky_format($pr->amount) . ' KY' . ($pr->description ? ' — ' . $pr->description : '') . ': ' . $payUrl);
+    $mailSubject  = urlencode('Richiesta pagamento ' . ky_format($pr->amount) . ' KY');
+    $mailBody     = urlencode('Ciao,' . "\n\n" . 'Ecco il link per il pagamento di ' . ky_format($pr->amount) . ' KY' . ($pr->description ? ' (' . $pr->description . ')' : '') . ':' . "\n\n" . $payUrl . "\n\nGrazie.");
 @endphp
 
 <div class="portal-grid" style="--grid-cols:2;align-items:start;">
@@ -41,7 +41,7 @@
 
             {{-- Importo --}}
             <div style="font-size:48px;font-weight:800;letter-spacing:-2px;line-height:1;color:var(--ink);margin-bottom:4px;">
-                {{ number_format($pr->amount, 2, ',', '.') }}
+                {{ ky_format($pr->amount) }}
                 <span style="font-size:22px;font-weight:600;color:var(--ink-muted);">KY</span>
             </div>
             @if($pr->description)
@@ -133,7 +133,7 @@
             <div style="margin-top:16px;display:grid;gap:14px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;">
                     <span style="font-size:13px;color:var(--ink-muted);">Importo</span>
-                    <strong style="font-size:16px;">{{ number_format($pr->amount, 2, ',', '.') }} KY</strong>
+                    <strong style="font-size:16px;">{{ ky_format($pr->amount) }} KY</strong>
                 </div>
                 @if($pr->description)
                 <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px;">

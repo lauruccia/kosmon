@@ -88,14 +88,14 @@
                     @endif
                 </div>
                 <div style="text-align:right;min-width:120px;">
-                    <div style="font-size:24px;font-weight:800;color:#0f52c4;">{{ number_format($transfer->amount, 2, ',', '.') }} KY</div>
+                    <div style="font-size:24px;font-weight:800;color:#0f52c4;">{{ ky_format($transfer->amount) }} KY</div>
                     <div class="table-muted" style="font-size:11px;">{{ $transfer->reference ?? substr($transfer->id, 0, 8) }}</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <form method="POST" action="{{ route('portal.receive.requests.confirm', $transfer) }}">
                         @csrf
                         <button type="submit" class="cta" style="padding:10px 18px;font-size:14px;"
-                            onclick="return confirm('Confermi il pagamento di {{ number_format($transfer->amount, 2, ',', '.') }} KY a {{ $requesterName }}?')">
+                            onclick="return confirm('Confermi il pagamento di {{ ky_format($transfer->amount) }} KY a {{ $requesterName }}?')">
                             ✓ Conferma
                         </button>
                     </form>
@@ -147,7 +147,7 @@
                                     <div class="table-muted" style="font-size:11px;">{{ $transfer->toAccount?->account_number }}</div>
                                 </td>
                                 <td style="font-weight:700;font-size:14px;color:#0f52c4;white-space:nowrap;">
-                                    {{ number_format($transfer->amount, 2, ',', '.') }} KY
+                                    {{ ky_format($transfer->amount) }} KY
                                 </td>
                                 <td>
                                     @if($transfer->status === 'booked')
@@ -204,7 +204,7 @@
                                     <div class="table-muted" style="font-size:11px;">{{ $transfer->fromAccount?->account_number }}</div>
                                 </td>
                                 <td style="font-weight:700;font-size:14px;color:#0284c7;white-space:nowrap;">
-                                    +{{ number_format($transfer->amount, 2, ',', '.') }} KY
+                                    +{{ ky_format($transfer->amount) }} KY
                                 </td>
                             </tr>
                             @endforeach
@@ -243,7 +243,7 @@
                                     <div class="table-muted" style="font-size:11px;">{{ $transfer->fromAccount?->account_number }}</div>
                                 </td>
                                 <td style="font-weight:700;font-size:14px;color:#16a34a;white-space:nowrap;">
-                                    +{{ number_format($transfer->amount, 2, ',', '.') }} KY
+                                    +{{ ky_format($transfer->amount) }} KY
                                 </td>
                                 <td>
                                     @if($transfer->status === 'booked')

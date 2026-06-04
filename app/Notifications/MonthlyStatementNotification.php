@@ -29,9 +29,9 @@ class MonthlyStatementNotification extends Notification implements ShouldQueue
         $branding  = \App\Models\SystemSetting::branding();
         $name      = $this->account->company?->name ?? $notifiable->name;
         $month     = $this->data['month_label'];
-        $income    = number_format($this->data['income'], 2, ',', '.');
-        $expense   = number_format($this->data['expense'], 2, ',', '.');
-        $balance   = number_format($this->data['balance'], 2, ',', '.');
+        $income    = ky_format($this->data['income']);
+        $expense   = ky_format($this->data['expense']);
+        $balance   = ky_format($this->data['balance']);
         $dueSoon   = $this->data['due_installments'];
 
         $mail = (new MailMessage)
@@ -57,9 +57,9 @@ class MonthlyStatementNotification extends Notification implements ShouldQueue
             'icon'  => '📊',
             'title' => 'Resoconto mensile ' . $this->data['month_label'],
             'body'  => sprintf('Saldo: %s KY | Entrate: +%s KY | Uscite: -%s KY',
-                number_format($this->data['balance'], 2, ',', '.'),
-                number_format($this->data['income'], 2, ',', '.'),
-                number_format($this->data['expense'], 2, ',', '.')),
+                ky_format($this->data['balance']),
+                ky_format($this->data['income']),
+                ky_format($this->data['expense'])),
             'link'  => route('portal.movements'),
         ];
     }

@@ -22,7 +22,7 @@ class CreditLimitRequested extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $company = $this->creditRequest->account->company;
-        $amount  = number_format($this->creditRequest->requested_amount, 2, ',', '.');
+        $amount  = ky_format($this->creditRequest->requested_amount);
 
         return (new MailMessage)
             ->subject("[KMoney] Nuova richiesta fido — {$company->name}")

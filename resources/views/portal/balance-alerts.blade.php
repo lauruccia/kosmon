@@ -39,7 +39,7 @@
         <div>
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:3px;">Saldo attuale</div>
             <div style="font-size:24px;font-weight:900;color:var(--teal);letter-spacing:-.03em;">
-                {{ number_format($account->balance / 100, 2, ',', '.') }} <span style="font-size:14px;font-weight:600;color:var(--ink-muted);">KY</span>
+                {{ ky_format($account->balance) }} <span style="font-size:14px;font-weight:600;color:var(--ink-muted);">KY</span>
             </div>
         </div>
     </div>

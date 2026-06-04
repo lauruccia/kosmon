@@ -27,7 +27,7 @@
     <article class="stat-card">
         <div class="eyebrow">Saldo netto circolante</div>
         <div class="section-title" style="font-size:20px;color:{{ $totalBalance >= 0 ? 'var(--teal)' : 'var(--danger)' }};">
-            {{ number_format($totalBalance, 2, ',', '.') }} KY
+            {{ ky_format($totalBalance) }} KY
         </div>
         <div class="table-muted" style="margin-top:4px;">Somma saldi contabili</div>
     </article>
@@ -192,14 +192,14 @@
                 {{-- Saldo --}}
                 <td style="text-align:right;">
                     <strong style="font-size:14px;font-variant-numeric:tabular-nums;color:{{ $balance < 0 ? 'var(--danger)' : ($balance > 0 ? 'var(--teal)' : 'var(--ink-muted)') }};">
-                        {{ number_format($balance, 2, ',', '.') }} <span style="font-size:11px;font-weight:400;opacity:.7;">{{ $account->currency_code }}</span>
+                        {{ ky_format($balance) }} <span style="font-size:11px;font-weight:400;opacity:.7;">{{ $account->currency_code }}</span>
                     </strong>
                 </td>
 
                 {{-- Disponibile (+ fido inline) --}}
                 <td style="text-align:right;">
                     <span style="font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink);">
-                        {{ number_format($saldoDisponibile, 2, ',', '.') }} <span style="font-size:11px;opacity:.55;">{{ $account->currency_code }}</span>
+                        {{ ky_format($saldoDisponibile) }} <span style="font-size:11px;opacity:.55;">{{ $account->currency_code }}</span>
                     </span>
                     @if($massimale > 0)
                         <div style="font-size:10px;color:var(--accent);margin-top:2px;">

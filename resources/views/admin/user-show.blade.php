@@ -25,22 +25,22 @@
     <section class="hero-strip" style="margin-bottom:22px;">
         <article class="stat-card">
             <div class="eyebrow">Saldo disponibile</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($balances['available'], 2, ',', '.') }} {{ $currency }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($balances['available']) }} {{ $currency }}</div>
             <div class="table-muted">Somma di tutti i conti collegati</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Saldo pending</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($balances['pending'], 2, ',', '.') }} {{ $currency }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($balances['pending']) }} {{ $currency }}</div>
             <div class="table-muted">Transazioni non ancora consolidate</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Incassato filtrato</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($balances['incoming'], 2, ',', '.') }} {{ $currency }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($balances['incoming']) }} {{ $currency }}</div>
             <div class="table-muted">Entrate nel periodo selezionato</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Speso filtrato</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($balances['outgoing'], 2, ',', '.') }} {{ $currency }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($balances['outgoing']) }} {{ $currency }}</div>
             <div class="table-muted">Uscite nel periodo selezionato</div>
         </article>
     </section>
@@ -109,9 +109,9 @@
                         </div>
                     </div>
                     <div class="field-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;">
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Disponibile</div><strong>{{ number_format($primaryAccount->available_balance, 2, ',', '.') }} {{ $primaryAccount->currency_code }}</strong></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ number_format($primaryAccount->pending_balance, 2, ',', '.') }} {{ $primaryAccount->currency_code }}</strong></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $primaryAccount->daily_outgoing_limit ? number_format($primaryAccount->daily_outgoing_limit, 2, ',', '.') . ' ' . $primaryAccount->currency_code : 'non impostato' }}</strong></div>
+                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Disponibile</div><strong>{{ ky_format($primaryAccount->available_balance) }} {{ $primaryAccount->currency_code }}</strong></div>
+                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ ky_format($primaryAccount->pending_balance) }} {{ $primaryAccount->currency_code }}</strong></div>
+                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $primaryAccount->daily_outgoing_limit ? ky_format($primaryAccount->daily_outgoing_limit) . ' ' . $primaryAccount->currency_code : 'non impostato' }}</strong></div>
                     </div>
                 </div>
             @else
@@ -133,32 +133,32 @@
             <div class="timeline-item">
                 <strong>Disponibilita commerciale</strong>
                 <div class="table-muted">Valore di beni o servizi messi a disposizione nel circuito.</div>
-                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['circuit_capacity_limit'] !== null ? number_format($effectiveTransferLimits['circuit_capacity_limit'], 2, ',', '.') . ' ' . $currency : 'Non impostato' }}</div>
-                <div class="table-muted">Default admin: {{ $defaultTransferLimits['circuit_capacity_limit'] !== null ? number_format($defaultTransferLimits['circuit_capacity_limit'], 2, ',', '.') . ' ' . $currency : 'non impostato' }}</div>
+                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['circuit_capacity_limit'] !== null ? ky_format($effectiveTransferLimits['circuit_capacity_limit']) . ' ' . $currency : 'Non impostato' }}</div>
+                <div class="table-muted">Default admin: {{ $defaultTransferLimits['circuit_capacity_limit'] !== null ? ky_format($defaultTransferLimits['circuit_capacity_limit']) . ' ' . $currency : 'non impostato' }}</div>
             </div>
             <div class="timeline-item">
                 <strong>Massimale</strong>
                 <div class="table-muted">Linea di credito spendibile sul conto.</div>
-                <div class="section-title" style="font-size:22px;">-{{ number_format((int) ($effectiveTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} {{ $currency }}</div>
-                <div class="table-muted">Default admin: -{{ number_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} {{ $currency }}</div>
+                <div class="section-title" style="font-size:22px;">-{{ ky_format((int) ($effectiveTransferLimits['negative_balance_limit'] ?? 0)) }} {{ $currency }}</div>
+                <div class="table-muted">Default admin: -{{ ky_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0)) }} {{ $currency }}</div>
             </div>
             <div class="timeline-item">
                 <strong>Limite giornaliero</strong>
                 <div class="table-muted">Massimo spendibile nel giorno corrente.</div>
-                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['daily_transaction_limit'] !== null ? number_format($effectiveTransferLimits['daily_transaction_limit'], 2, ',', '.') . ' ' . $currency : 'Non impostato' }}</div>
-                <div class="table-muted">Default admin: {{ $defaultTransferLimits['daily_transaction_limit'] !== null ? number_format($defaultTransferLimits['daily_transaction_limit'], 2, ',', '.') . ' ' . $currency : 'non impostato' }}</div>
+                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['daily_transaction_limit'] !== null ? ky_format($effectiveTransferLimits['daily_transaction_limit']) . ' ' . $currency : 'Non impostato' }}</div>
+                <div class="table-muted">Default admin: {{ $defaultTransferLimits['daily_transaction_limit'] !== null ? ky_format($defaultTransferLimits['daily_transaction_limit']) . ' ' . $currency : 'non impostato' }}</div>
             </div>
             <div class="timeline-item">
                 <strong>Limite mensile</strong>
                 <div class="table-muted">Massimo spendibile nel mese corrente.</div>
-                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['monthly_transaction_limit'] !== null ? number_format($effectiveTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' ' . $currency : 'Non impostato' }}</div>
-                <div class="table-muted">Default admin: {{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? number_format($defaultTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' ' . $currency : 'non impostato' }}</div>
+                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['monthly_transaction_limit'] !== null ? ky_format($effectiveTransferLimits['monthly_transaction_limit']) . ' ' . $currency : 'Non impostato' }}</div>
+                <div class="table-muted">Default admin: {{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? ky_format($defaultTransferLimits['monthly_transaction_limit']) . ' ' . $currency : 'non impostato' }}</div>
             </div>
             <div class="timeline-item">
                 <strong>Limite per movimento</strong>
                 <div class="table-muted">Massimo spendibile per singola operazione.</div>
-                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['per_movement_limit'] !== null ? number_format($effectiveTransferLimits['per_movement_limit'], 2, ',', '.') . ' ' . $currency : 'Non impostato' }}</div>
-                <div class="table-muted">Default admin: {{ $defaultTransferLimits['per_movement_limit'] !== null ? number_format($defaultTransferLimits['per_movement_limit'], 2, ',', '.') . ' ' . $currency : 'non impostato' }}</div>
+                <div class="section-title" style="font-size:22px;">{{ $effectiveTransferLimits['per_movement_limit'] !== null ? ky_format($effectiveTransferLimits['per_movement_limit']) . ' ' . $currency : 'Non impostato' }}</div>
+                <div class="table-muted">Default admin: {{ $defaultTransferLimits['per_movement_limit'] !== null ? ky_format($defaultTransferLimits['per_movement_limit']) . ' ' . $currency : 'non impostato' }}</div>
             </div>
         </div>
     </section>
@@ -190,10 +190,10 @@
                             </div>
                         </div>
                         <div class="field-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;">
-                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Saldo</div><strong>{{ number_format($account->available_balance, 2, ',', '.') }} {{ $account->currency_code }}</strong></div>
-                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ number_format($account->pending_balance, 2, ',', '.') }} {{ $account->currency_code }}</strong></div>
-                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite singolo conto</div><strong>{{ $account->spending_limit ? number_format($account->spending_limit, 2, ',', '.') . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
-                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $account->daily_outgoing_limit ? number_format($account->daily_outgoing_limit, 2, ',', '.') . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
+                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Saldo</div><strong>{{ ky_format($account->available_balance) }} {{ $account->currency_code }}</strong></div>
+                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ ky_format($account->pending_balance) }} {{ $account->currency_code }}</strong></div>
+                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite singolo conto</div><strong>{{ $account->spending_limit ? ky_format($account->spending_limit) . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
+                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $account->daily_outgoing_limit ? ky_format($account->daily_outgoing_limit) . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
                         </div>
                     </article>
                 @endforeach
@@ -267,7 +267,7 @@
                                     <div class="table-muted">{{ $transfer->toAccount?->ownerLabel ?? 'N/D' }}</div>
                                 </td>
                                 <td>
-                                    <strong>{{ number_format($transfer->amount, 2, ',', '.') }} {{ $transfer->currency_code }}</strong>
+                                    <strong>{{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}</strong>
                                     <div class="table-muted">{{ $transfer->description ?: 'nessuna causale' }}</div>
                                 </td>
                                 <td>{{ $transfer->initiator?->name ?? 'sistema' }}</td>

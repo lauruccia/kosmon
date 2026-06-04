@@ -30,7 +30,7 @@ class NettingAcceptedNotification extends Notification implements ShouldQueue
 
         $body = $counterpartyName . ' ha accettato la compensazione #' . $this->proposal->id . '.';
         if ($this->proposal->net_amount > 0) {
-            $body .= ' Saldo netto di ' . number_format($this->proposal->net_amount, 2, ',', '.') . ' KY già contabilizzato.';
+            $body .= ' Saldo netto di ' . ky_format($this->proposal->net_amount) . ' KY già contabilizzato.';
         } else {
             $body .= ' Tutti i crediti incrociati sono stati compensati.';
         }
@@ -49,7 +49,7 @@ class NettingAcceptedNotification extends Notification implements ShouldQueue
             ->subject('Compensazione accettata #' . $this->proposal->id)
             ->greeting('Compensazione accettata')
             ->line(($this->proposal->counterpartyAccount?->display_name ?? 'La controparte') . ' ha accettato la compensazione #' . $this->proposal->id . '.')
-            ->line($this->proposal->net_amount > 0 ? 'Saldo netto di ' . number_format($this->proposal->net_amount, 2, ',', '.') . ' KY contabilizzato.' : 'Tutti i crediti incrociati sono stati compensati.')
+            ->line($this->proposal->net_amount > 0 ? 'Saldo netto di ' . ky_format($this->proposal->net_amount) . ' KY contabilizzato.' : 'Tutti i crediti incrociati sono stati compensati.')
             ->action('Visualizza compensazione', route('portal.netting.show', $this->proposal))
             ->salutation('Il team KMoney');
     }

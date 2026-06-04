@@ -48,7 +48,7 @@
         <div style="text-align:center;padding:10px 0 20px;">
           <div id="sonic-icon" style="font-size:64px;margin-bottom:12px;">&#128266;</div>
           <div style="font-size:32px;font-weight:800;color:var(--ink);">
-            {{ number_format($pr->amount, 2, ',', '.') }} KY
+            {{ ky_format($pr->amount) }} KY
           </div>
           @if($pr->description)
             <div style="color:var(--ink-muted);font-size:14px;margin-top:4px;">{{ $pr->description }}</div>
@@ -100,7 +100,7 @@
         <div style="font-size:64px;margin-bottom:16px;">&#10003;</div>
         <div style="font-size:24px;font-weight:800;color:var(--success,#16a34a);">Pagamento ricevuto!</div>
         <div style="font-size:32px;font-weight:700;margin:8px 0;">
-          {{ number_format($pr->amount, 2, ',', '.') }} KY
+          {{ ky_format($pr->amount) }} KY
         </div>
         <div id="paid-payer" style="font-size:14px;color:var(--ink-muted);"></div>
         <div id="paid-time"  style="font-size:13px;color:var(--ink-muted);margin-top:4px;"></div>

@@ -39,7 +39,7 @@
                     <div style="font-size:12px;color:var(--ink-muted);">Richiesta il {{ $req->created_at->format('d/m/Y H:i') }}</div>
                 </div>
                 <div style="margin-left:auto;text-align:right;">
-                    <div style="font-size:22px;font-weight:900;color:var(--ink);">{{ number_format($req->requested_amount, 2, ',', '.') }} <span style="font-size:13px;color:var(--ink-muted);">KY</span></div>
+                    <div style="font-size:22px;font-weight:900;color:var(--ink);">{{ ky_format($req->requested_amount) }} <span style="font-size:13px;color:var(--ink-muted);">KY</span></div>
                     <div style="font-size:11px;color:var(--ink-muted);">importo richiesto</div>
                 </div>
             </div>
@@ -51,10 +51,10 @@
             @endphp
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
                 <span style="background:var(--bg-soft,#f3f4f6);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--ink-soft);">
-                    Saldo: <strong>{{ number_format($saldoConto, 2, ',', '.') }} KY</strong>
+                    Saldo: <strong>{{ ky_format($saldoConto) }} KY</strong>
                 </span>
                 <span style="background:var(--bg-soft,#f3f4f6);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--ink-soft);">
-                    Fido attuale: <strong>{{ $fidoAttuale > 0 ? number_format($fidoAttuale, 2, ',', '.') . ' KY' : 'nessuno' }}</strong>
+                    Fido attuale: <strong>{{ $fidoAttuale > 0 ? ky_format($fidoAttuale) . ' KY' : 'nessuno' }}</strong>
                 </span>
                 <span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;font-size:12px;color:#1e40af;font-weight:700;">
                     Se approvi {{ number_format($req->requested_amount, 0, ',', '.') }} KY → totale {{ number_format($fidoTotale, 0, ',', '.') }} KY
@@ -166,10 +166,10 @@
             @foreach($recent as $r)
             <tr>
                 <td style="font-weight:600;">{{ $r->account->ownerLabel ?? 'N/D' }}</td>
-                <td style="text-align:right;">{{ number_format($r->requested_amount, 2, ',', '.') }} KY</td>
+                <td style="text-align:right;">{{ ky_format($r->requested_amount) }} KY</td>
                 <td style="text-align:right;font-weight:700;">
                     @if($r->isApproved())
-                        {{ number_format($r->approved_amount, 2, ',', '.') }} KY
+                        {{ ky_format($r->approved_amount) }} KY
                         @if($r->approved_amount != $r->requested_amount)
                         <span style="font-size:10px;color:var(--ink-muted);">(mod.)</span>
                         @endif

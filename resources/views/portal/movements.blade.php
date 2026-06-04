@@ -18,25 +18,25 @@
                 <div style="padding:0 20px;border-right:1px solid rgba(255,255,255,.12);">
                     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.55);white-space:nowrap;">Saldo attuale</div>
                     <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-top:3px;white-space:nowrap;">
-                        {{ number_format($currentBalance, 2, ',', '.') }}&thinsp;KY
+                        {{ ky_format($currentBalance) }}&thinsp;KY
                     </div>
                 </div>
                 <div style="padding:0 20px;border-right:1px solid rgba(255,255,255,.12);">
                     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.55);white-space:nowrap;">Disponibile</div>
                     <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-top:3px;white-space:nowrap;">
-                        {{ number_format($availableBalance, 2, ',', '.') }}&thinsp;KY
+                        {{ ky_format($availableBalance) }}&thinsp;KY
                     </div>
                 </div>
                 <div style="padding:0 20px;border-right:1px solid rgba(255,255,255,.12);">
                     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.55);white-space:nowrap;">Massimale</div>
                     <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-top:3px;white-space:nowrap;">
-                        {{ number_format($massimale, 2, ',', '.') }}&thinsp;KY
+                        {{ ky_format($massimale) }}&thinsp;KY
                     </div>
                 </div>
                 <div style="padding:0 20px;">
                     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.55);white-space:nowrap;">Disponib. commerciale</div>
                     <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-top:3px;white-space:nowrap;">
-                        {{ number_format($commercialAvailability, 2, ',', '.') }}&thinsp;KY
+                        {{ ky_format($commercialAvailability) }}&thinsp;KY
                     </div>
                 </div>
             </div>
@@ -274,7 +274,7 @@
                         {{-- Importo su unica riga --}}
                         <td style="text-align:right;white-space:nowrap;">
                             <span style="font-size:14px;font-weight:800;letter-spacing:-.01em;color:{{ $isOutgoing ? 'var(--danger)' : 'var(--success)' }};">
-                                {{ $isOutgoing ? '−' : '+' }}{{ number_format($transfer->amount, 2, ',', '.') }}&thinsp;{{ $transfer->currency_code }}
+                                {{ $isOutgoing ? '−' : '+' }}{{ ky_format($transfer->amount) }}&thinsp;{{ $transfer->currency_code }}
                             </span>
                         </td>
 

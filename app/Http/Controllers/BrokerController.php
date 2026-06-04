@@ -164,7 +164,7 @@ class BrokerController extends Controller
         }
 
         return redirect()->route('broker.clients.show', $company)
-            ->with('portal_success', 'Pagamento di ' . number_format($validated['amount'], 2, ',', '.') . ' KY eseguito per conto di ' . $company->name . '.');
+            ->with('portal_success', 'Pagamento di ' . ky_format($validated['amount']) . ' KY eseguito per conto di ' . $company->name . '.');
     }
 
     // ──────────────────────────────────────────────────────────────────────

@@ -31,7 +31,7 @@ class PaymentRequestedNotification extends Notification implements ShouldQueue
             'body'  => sprintf(
                 '%s ti ha richiesto %s KY. Conferma o rifiuta dai movimenti.',
                 $this->toAccount->display_name,
-                number_format($this->transfer->amount, 2, ',', '.'),
+                ky_format($this->transfer->amount),
             ),
             'link'  => route('portal.movements'),
         ];

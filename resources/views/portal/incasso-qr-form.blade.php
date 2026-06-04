@@ -97,7 +97,7 @@
                 <div style="font-size:15px;font-weight:700;">{{ $account->company?->name ?? $account->display_name }}</div>
                 <div style="font-size:12px;color:var(--text-muted);font-family:monospace;margin-top:4px;">{{ $account->account_number }}</div>
                 <div style="margin-top:10px;font-size:13px;color:var(--text-muted);">
-                    Saldo disponibile: <strong style="color:var(--text);">{{ number_format($account->saldoDisponibile(), 2, ',', '.') }} KY</strong>
+                    Saldo disponibile: <strong style="color:var(--text);">{{ ky_format($account->saldoDisponibile()) }} KY</strong>
                 </div>
             </div>
         </section>

@@ -25,7 +25,7 @@ class PaymentPlanProposedNotification extends Notification implements ShouldQueu
     public function toArray(object $notifiable): array
     {
         $proposer = $this->plan->proposerAccount()?->display_name ?? 'Un\'azienda';
-        $total    = number_format($this->plan->total_amount, 2, ',', '.');
+        $total    = ky_format($this->plan->total_amount);
         $count    = $this->plan->installments_count;
         $freq     = $this->plan->frequencyLabel();
 
@@ -48,7 +48,7 @@ class PaymentPlanProposedNotification extends Notification implements ShouldQueu
         return (new MailMessage)
             ->subject('Proposta piano rateale da ' . ($this->plan->proposerAccount()?->display_name ?? 'Un azienda'))
             ->greeting('Piano rateale proposto')
-            ->line(($this->plan->proposerAccount()?->display_name ?? 'Un azienda') . ' propone di pagare ' . number_format($this->plan->total_amount, 2, ',', '.') . ' KY in ' . $this->plan->installments_count . ' rate.')
+            ->line(($this->plan->proposerAccount()?->display_name ?? 'Un azienda') . ' propone di pagare ' . ky_format($this->plan->total_amount) . ' KY in ' . $this->plan->installments_count . ' rate.')
             ->action('Visualizza proposta', route('portal.payment-plans.show', $this->plan))
             ->salutation('Il team KMoney');
     }

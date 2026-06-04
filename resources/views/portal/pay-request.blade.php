@@ -46,7 +46,7 @@
                 <div style="text-align:center;padding:24px 0;border-bottom:1px solid var(--border);margin-bottom:24px;">
                     <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Importo da pagare</div>
                     <div style="font-size:52px;font-weight:800;letter-spacing:-1.5px;line-height:1;">
-                        {{ number_format($pr->amount, 2, ',', '.') }}
+                        {{ ky_format($pr->amount) }}
                         <span style="font-size:26px;font-weight:600;color:var(--text-muted);">KY</span>
                     </div>
                     @if($pr->description)
@@ -62,7 +62,7 @@
                             <div style="font-size:14px;font-weight:700;">{{ $fromAccount->company?->name ?? $fromAccount->display_name }}</div>
                             <div style="font-size:11px;color:var(--text-muted);font-family:monospace;">{{ $fromAccount->account_number }}</div>
                             <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-                                Disponibile: <strong>{{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY</strong>
+                                Disponibile: <strong>{{ ky_format($fromAccount->saldoDisponibile()) }} KY</strong>
                             </div>
                         </div>
                     </div>
@@ -95,14 +95,14 @@
                             id="pay-btn"
                             onclick="this.disabled=true;this.textContent='Pagamento in corso...';this.form.submit();"
                         >
-                            Paga {{ number_format($pr->amount, 2, ',', '.') }} KY ora
+                            Paga {{ ky_format($pr->amount) }} KY ora
                         </button>
                     </form>
                 @else
                     <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;margin-bottom:12px;">
                         <strong style="color:#dc2626;">Saldo insufficiente</strong>
                         <div style="font-size:13px;color:#b91c1c;margin-top:4px;">
-                            Il tuo saldo disponibile ({{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY) non copre l'importo richiesto.
+                            Il tuo saldo disponibile ({{ ky_format($fromAccount->saldoDisponibile()) }} KY) non copre l'importo richiesto.
                         </div>
                     </div>
                     <a href="{{ route('portal.dashboard') }}" class="cta secondary" style="width:100%;justify-content:center;">Torna al conto</a>
@@ -128,16 +128,16 @@
             <div style="margin-top:12px;">
                 <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;">
                     <span style="color:var(--text-muted);">Saldo attuale</span>
-                    <strong>{{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY</strong>
+                    <strong>{{ ky_format($fromAccount->saldoDisponibile()) }} KY</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;">
                     <span style="color:var(--text-muted);">Importo</span>
-                    <strong style="color:#dc2626;">− {{ number_format($pr->amount, 2, ',', '.') }} KY</strong>
+                    <strong style="color:#dc2626;">− {{ ky_format($pr->amount) }} KY</strong>
                 </div>
                 <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;font-size:15px;">
                     <span style="font-weight:600;">Saldo residuo</span>
                     <strong style="{{ ($fromAccount->saldoDisponibile() - $pr->amount) < 0 ? 'color:#dc2626' : 'color:#059669' }}">
-                        {{ number_format($fromAccount->saldoDisponibile() - $pr->amount, 2, ',', '.') }} KY
+                        {{ ky_format($fromAccount->saldoDisponibile() - $pr->amount) }} KY
                     </strong>
                 </div>
             </div>

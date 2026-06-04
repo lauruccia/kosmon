@@ -40,13 +40,13 @@
                             @if($fee->fee_type === 'percentage')
                                 {{ $fee->fee_value }}%
                             @else
-                                {{ number_format($fee->fee_value, 2, ',', '.') }} KY
+                                {{ ky_format($fee->fee_value) }} KY
                             @endif
                         </td>
                         <td style="text-align:right;font-size:12.5px;color:var(--ink-soft);">
-                            {{ $fee->min_fee ? number_format($fee->min_fee, 2, ',', '.') : '—' }}
+                            {{ $fee->min_fee ? ky_format($fee->min_fee) : '—' }}
                             /
-                            {{ $fee->max_fee ? number_format($fee->max_fee, 2, ',', '.') : '—' }}
+                            {{ $fee->max_fee ? ky_format($fee->max_fee) : '—' }}
                         </td>
                         <td>
                             <span class="chip {{ $fee->is_active ? 'success' : 'default' }}">{{ $fee->is_active ? 'Attiva' : 'Disattiva' }}</span>

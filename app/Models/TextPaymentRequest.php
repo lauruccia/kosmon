@@ -112,7 +112,7 @@ class TextPaymentRequest extends Model
 
     public function formattedAmount(): string
     {
-        return number_format($this->amount, 2, ',', '.') . ' KY';
+        return ky_format($this->amount) . ' KY';
     }
 
     public function statusLabel(): string

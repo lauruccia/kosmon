@@ -61,19 +61,19 @@
 <section class="hero-strip" style="margin-bottom:22px;">
     <article class="stat-card" style="border-left:4px solid #0284c7;">
         <div class="eyebrow">Crediti {{ $proposal->proposerAccount?->display_name }}</div>
-        <div class="section-title" style="font-size:28px;color:#0284c7;">{{ number_format($proposal->proposer_total, 2, ',', '.') }} KY</div>
+        <div class="section-title" style="font-size:28px;color:#0284c7;">{{ ky_format($proposal->proposer_total) }} KY</div>
         <div class="table-muted">{{ count($proposal->proposer_transfer_ids ?? []) }} trasferimenti</div>
     </article>
     <article class="stat-card" style="border-left:4px solid #16a34a;">
         <div class="eyebrow">Crediti {{ $proposal->counterpartyAccount?->display_name }}</div>
-        <div class="section-title" style="font-size:28px;color:#16a34a;">{{ number_format($proposal->counterparty_total, 2, ',', '.') }} KY</div>
+        <div class="section-title" style="font-size:28px;color:#16a34a;">{{ ky_format($proposal->counterparty_total) }} KY</div>
         <div class="table-muted">{{ count($proposal->counterparty_transfer_ids ?? []) }} trasferimenti</div>
     </article>
     <article class="stat-card" style="border-left:4px solid {{ $proposal->net_amount === 0 ? '#6d28d9' : '#f59e0b' }};">
         <div class="eyebrow">Saldo netto</div>
         <div class="section-title" style="font-size:28px;color:{{ $proposal->net_amount === 0 ? '#6d28d9' : '#f59e0b' }};">
             @if($proposal->net_amount === 0) ⚖️ Pareggio
-            @else {{ number_format($proposal->net_amount, 2, ',', '.') }} KY
+            @else {{ ky_format($proposal->net_amount) }} KY
             @endif
         </div>
         @if($proposal->net_amount > 0)
@@ -182,11 +182,11 @@
                         <div style="font-size:13px;font-weight:600;">{{ $t->description ?: '—' }}</div>
                         <div style="font-size:11px;color:var(--ink-muted);">Rif. {{ $t->reference }}</div>
                     </div>
-                    <div style="font-weight:700;color:#0284c7;white-space:nowrap;">{{ number_format($t->amount, 2, ',', '.') }} KY</div>
+                    <div style="font-weight:700;color:#0284c7;white-space:nowrap;">{{ ky_format($t->amount) }} KY</div>
                 </div>
                 @endforeach
                 <div style="text-align:right;font-size:13px;font-weight:700;padding:6px 12px;color:#0284c7;">
-                    Totale: {{ number_format($proposal->proposer_total, 2, ',', '.') }} KY
+                    Totale: {{ ky_format($proposal->proposer_total) }} KY
                 </div>
             </div>
         @endif
@@ -211,11 +211,11 @@
                         <div style="font-size:13px;font-weight:600;">{{ $t->description ?: '—' }}</div>
                         <div style="font-size:11px;color:var(--ink-muted);">Rif. {{ $t->reference }}</div>
                     </div>
-                    <div style="font-weight:700;color:#16a34a;white-space:nowrap;">{{ number_format($t->amount, 2, ',', '.') }} KY</div>
+                    <div style="font-weight:700;color:#16a34a;white-space:nowrap;">{{ ky_format($t->amount) }} KY</div>
                 </div>
                 @endforeach
                 <div style="text-align:right;font-size:13px;font-weight:700;padding:6px 12px;color:#16a34a;">
-                    Totale: {{ number_format($proposal->counterparty_total, 2, ',', '.') }} KY
+                    Totale: {{ ky_format($proposal->counterparty_total) }} KY
                 </div>
             </div>
         @endif

@@ -29,7 +29,7 @@ class RefundIssued extends Mailable implements ShouldQueue
     {
         return new Envelope(
             to: $this->recipient->email,
-            subject: 'Rimborso ricevuto: ' . number_format($this->refundTransfer->amount, 2, ',', '.') . ' KY',
+            subject: 'Rimborso ricevuto: ' . ky_format($this->refundTransfer->amount) . ' KY',
         );
     }
 

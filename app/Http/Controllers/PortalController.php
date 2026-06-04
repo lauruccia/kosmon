@@ -454,7 +454,7 @@ class PortalController extends Controller
                         $t->status,
                         $counterparty,
                         $isCredit ? 'ENTRATA' : 'USCITA',
-                        number_format($t->amount, 2, ',', '.'),
+                        ky_format($t->amount),
                         $t->description ?? '-',
                         $t->reference ?? '-',
                     ], ';');
@@ -512,7 +512,7 @@ class PortalController extends Controller
                         ? ($t->fromAccount?->company?->name ?? $t->fromAccount?->display_name ?? 'Controparte')
                         : ($t->toAccount?->company?->name  ?? $t->toAccount?->display_name  ?? 'Controparte');
 
-                    $importo      = number_format($t->amount / 100, 2, ',', '.');
+                    $importo      = ky_format($t->amount);
                     $descrizione  = $t->description ?: ('Operazione ' . ($t->kind ?? ''));
                     $data         = $t->booked_at?->format('d/m/Y') ?? now()->format('d/m/Y');
                     $ndoc         = strtoupper(substr($t->uuid ?? (string) $t->id, 0, 12));
@@ -879,7 +879,7 @@ class PortalController extends Controller
         }
 
         return redirect()->route('portal.movements')->with('portal_success',
-            'Nota di credito di ' . number_format((int) $validated['amount'], 2, ',', '.') . ' KY emessa correttamente.'
+            'Nota di credito di ' . ky_format((int) $validated['amount']) . ' KY emessa correttamente.'
         );
     }
 
@@ -963,7 +963,7 @@ class PortalController extends Controller
         }
 
         return redirect()->route('portal.movements')->with('portal_success',
-            'Rimborso di ' . number_format((int) $validated['amount'], 2, ',', '.') . ' KY emesso correttamente.'
+            'Rimborso di ' . ky_format((int) $validated['amount']) . ' KY emesso correttamente.'
         );
     }
 

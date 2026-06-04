@@ -23,7 +23,7 @@
                         <input id="amount" name="amount" type="number" min="1"
                                value="{{ old('amount', request('amount')) }}"
                                placeholder="Es. 500" required autofocus>
-                        <div class="table-muted">Saldo disponibile: {{ number_format($fromAccount->saldoDisponibile(), 2, ',', '.') }} KY</div>
+                        <div class="table-muted">Saldo disponibile: {{ ky_format($fromAccount->saldoDisponibile()) }} KY</div>
                     </div>
                     <div class="field">
                         <label for="description">Causale</label>

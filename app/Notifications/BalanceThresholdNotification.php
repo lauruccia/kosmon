@@ -32,7 +32,7 @@ class BalanceThresholdNotification extends Notification implements ShouldQueue
     public function toMail(mixed $notifiable): MailMessage
     {
         $threshold = $this->alert->thresholdFormatted();
-        $current   = number_format($this->currentBalance / 100, 2, ',', '.') . ' KY';
+        $current   = ky_format($this->currentBalance) . ' KY';
 
         return (new MailMessage)
             ->subject("Avviso saldo KY — sotto soglia {$threshold}")
@@ -47,7 +47,7 @@ class BalanceThresholdNotification extends Notification implements ShouldQueue
     public function toArray(mixed $notifiable): array
     {
         $threshold = $this->alert->thresholdFormatted();
-        $current   = number_format($this->currentBalance / 100, 2, ',', '.') . ' KY';
+        $current   = ky_format($this->currentBalance) . ' KY';
 
         return [
             'type'  => 'balance_alert',

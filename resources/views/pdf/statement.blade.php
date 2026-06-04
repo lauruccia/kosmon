@@ -93,12 +93,12 @@
 <div class="balance-row">
   <div class="balance-card opening">
     <div class="bal-label">Saldo iniziale</div>
-    <div class="bal-value">{{ number_format($openingBalance, 2, ',', '.') }} <span class="bal-currency">KY</span></div>
+    <div class="bal-value">{{ ky_format($openingBalance) }} <span class="bal-currency">KY</span></div>
     <div style="font-size:9px;color:#6b7280;margin-top:4px;">al {{ $periodStart->format('d/m/Y') }}</div>
   </div>
   <div class="balance-card closing">
     <div class="bal-label">Saldo finale</div>
-    <div class="bal-value">{{ number_format($closingBalance, 2, ',', '.') }} <span class="bal-currency">KY</span></div>
+    <div class="bal-value">{{ ky_format($closingBalance) }} <span class="bal-currency">KY</span></div>
     <div style="font-size:9px;color:#7c3aed;margin-top:4px;">al {{ $periodEnd->format('d/m/Y') }}</div>
   </div>
 </div>
@@ -135,9 +135,9 @@
         <td class="td-desc">{{ $transfer->description ?: '—' }}</td>
         <td class="td-amount {{ $isCredit ? 'credit' : 'debit' }}">
           <span class="chip {{ $isCredit ? 'chip-credit' : 'chip-debit' }}">{{ $isCredit ? '+' : '-' }}</span>
-          {{ number_format($transfer->amount, 2, ',', '.') }} KY
+          {{ ky_format($transfer->amount) }} KY
         </td>
-        <td class="td-balance">{{ $balAfter !== null ? number_format($balAfter, 2, ',', '.') . ' KY' : '—' }}</td>
+        <td class="td-balance">{{ $balAfter !== null ? ky_format($balAfter) . ' KY' : '—' }}</td>
       </tr>
     @endforeach
   </tbody>

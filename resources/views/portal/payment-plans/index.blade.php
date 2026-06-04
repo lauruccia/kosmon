@@ -35,7 +35,7 @@
                     {{ $proposerName }} <span style="color:var(--text-muted);font-weight:400;font-size:13px;">{{ $roleLabel }}</span>
                 </div>
                 <div style="font-size:13px;color:var(--text-muted);">
-                    <strong style="color:var(--text);">{{ number_format($plan->total_amount, 2, ',', '.') }} KY</strong>
+                    <strong style="color:var(--text);">{{ ky_format($plan->total_amount) }} KY</strong>
                     in {{ $plan->installments_count }} rate {{ $plan->frequencyLabel() }}i
                     &mdash; prima rata {{ \Carbon\Carbon::parse($plan->first_due_date)->format('d/m/Y') }}
                 </div>
@@ -169,7 +169,7 @@
                             <div style="font-weight:600;">{{ $plan->toAccount?->display_name ?? '—' }}</div>
                             <div class="table-muted" style="font-size:11px;">{{ $plan->description }}</div>
                         </td>
-                        <td style="font-weight:700;color:#0f52c4;">{{ number_format($plan->total_amount, 2, ',', '.') }} KY</td>
+                        <td style="font-weight:700;color:#0f52c4;">{{ ky_format($plan->total_amount) }} KY</td>
                         <td style="min-width:120px;">
                             <div style="height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:4px;">
                                 <div style="height:100%;width:{{ $pct }}%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:4px;transition:width .4s;"></div>
@@ -249,7 +249,7 @@
                             <div style="font-weight:600;">{{ $plan->fromAccount?->display_name ?? '—' }}</div>
                             <div class="table-muted" style="font-size:11px;">{{ $plan->description }}</div>
                         </td>
-                        <td style="font-weight:700;color:#16a34a;">+{{ number_format($plan->total_amount, 2, ',', '.') }} KY</td>
+                        <td style="font-weight:700;color:#16a34a;">+{{ ky_format($plan->total_amount) }} KY</td>
                         <td style="min-width:130px;">
                             <div style="height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:4px;">
                                 <div style="height:100%;width:{{ $pct }}%;background:linear-gradient(90deg,#0284c7,#38bdf8);border-radius:4px;transition:width .4s;"></div>

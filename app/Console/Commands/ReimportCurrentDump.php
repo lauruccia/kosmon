@@ -206,12 +206,12 @@ class ReimportCurrentDump extends Command
         $this->info("  Profili/limiti aggiornati: {$profilesUpdated}");
         $this->info("  Saldi aggiornati: {$balanceUpdated} account");
         $this->info("  Non trovati nel nuovo DB: {$balanceNotFound}");
-        $this->info("  Totale KY in circolazione: " . number_format($totalEmitted, 2, ',', '.') . " KY");
+        $this->info("  Totale KY in circolazione: " . ky_format($totalEmitted) . " KY");
 
         // Aggiorna Cassa Circuito = -(totale emesso)
         if ($systemAccount) {
             $systemAccount->forceFill(['available_balance' => -$totalEmitted])->save();
-            $this->info("  Cassa Circuito: -" . number_format($totalEmitted, 2, ',', '.') . " KY");
+            $this->info("  Cassa Circuito: -" . ky_format($totalEmitted) . " KY");
         }
 
         // ----------------------------------------------------------------
@@ -386,7 +386,7 @@ class ReimportCurrentDump extends Command
             $lauraTxns = Transfer::where('from_account_id', $lauraAcc?->id)
                 ->orWhere('to_account_id', $lauraAcc?->id)
                 ->count();
-            $this->info("  Laura (lauragulli):    " . number_format(($lauraAcc?->available_balance ?? 0), 2, ',', '.') . " KY — {$lauraTxns} transfer");
+            $this->info("  Laura (lauragulli):    " . ky_format(($lauraAcc?->available_balance ?? 0)) . " KY — {$lauraTxns} transfer");
         }
 
         return 0;

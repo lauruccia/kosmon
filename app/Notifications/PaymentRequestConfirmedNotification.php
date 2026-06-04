@@ -31,7 +31,7 @@ class PaymentRequestConfirmedNotification extends Notification implements Should
             'body'  => sprintf(
                 '%s ha confermato il pagamento di %s KY.',
                 $this->fromAccount->display_name,
-                number_format($this->transfer->amount, 2, ',', '.'),
+                ky_format($this->transfer->amount),
             ),
             'link'  => route('portal.movements'),
         ];

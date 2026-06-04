@@ -10,12 +10,12 @@
         </article>
         <article class="stat-card">
             <div class="eyebrow">Massimale / fido default</div>
-            <div class="section-title">{{ number_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} KY</div>
+            <div class="section-title">{{ ky_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0)) }} KY</div>
             <div class="table-muted">Credito spendibile di default</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Limite mensile default</div>
-            <div class="section-title">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? number_format($defaultTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' KY' : '—' }}</div>
+            <div class="section-title">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? ky_format($defaultTransferLimits['monthly_transaction_limit']) . ' KY' : '—' }}</div>
             <div class="table-muted">Soglia mensile uscite</div>
         </article>
         <article class="stat-card" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;">
@@ -35,22 +35,22 @@
                 <div class="timeline-item" style="padding:10px;">
                     <strong style="font-size:12px;">Massimale consentito</strong>
                     <div class="table-muted" style="font-size:11px;">Fido max in negativo.</div>
-                    <div class="section-title" style="font-size:18px;">-{{ number_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0), 2, ',', '.') }} KY</div>
+                    <div class="section-title" style="font-size:18px;">-{{ ky_format((int) ($defaultTransferLimits['negative_balance_limit'] ?? 0)) }} KY</div>
                 </div>
                 <div class="timeline-item" style="padding:10px;">
                     <strong style="font-size:12px;">Limite giornaliero</strong>
                     <div class="table-muted" style="font-size:11px;">Max uscite per giorno.</div>
-                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['daily_transaction_limit'] !== null ? number_format($defaultTransferLimits['daily_transaction_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['daily_transaction_limit'] !== null ? ky_format($defaultTransferLimits['daily_transaction_limit']) . ' KY' : 'Non impostato' }}</div>
                 </div>
                 <div class="timeline-item" style="padding:10px;">
                     <strong style="font-size:12px;">Limite mensile</strong>
                     <div class="table-muted" style="font-size:11px;">Max uscite nel mese.</div>
-                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? number_format($defaultTransferLimits['monthly_transaction_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['monthly_transaction_limit'] !== null ? ky_format($defaultTransferLimits['monthly_transaction_limit']) . ' KY' : 'Non impostato' }}</div>
                 </div>
                 <div class="timeline-item" style="padding:10px;">
                     <strong style="font-size:12px;">Limite per movimento</strong>
                     <div class="table-muted" style="font-size:11px;">Max per singola operazione.</div>
-                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['per_movement_limit'] !== null ? number_format($defaultTransferLimits['per_movement_limit'], 2, ',', '.') . ' KY' : 'Non impostato' }}</div>
+                    <div class="section-title" style="font-size:18px;">{{ $defaultTransferLimits['per_movement_limit'] !== null ? ky_format($defaultTransferLimits['per_movement_limit']) . ' KY' : 'Non impostato' }}</div>
                 </div>
             </div>
             <div class="notice" style="margin-top:14px;font-size:12px;">

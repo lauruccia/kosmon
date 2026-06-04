@@ -338,7 +338,7 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <strong class="user-balance {{ $balClass }}">{{ number_format($totalBalance, 2, ',', '.') }} KY</strong>
+                                    <strong class="user-balance {{ $balClass }}">{{ ky_format($totalBalance) }} KY</strong>
                                 </td>
                                 <td>
                                     <div style="display:flex;gap:4px;flex-wrap:wrap;">

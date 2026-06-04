@@ -151,7 +151,7 @@ class NettingProposal extends Model
             return 'Pareggio perfetto — nessun pagamento netto';
         }
         return $this->netPayerAccount?->display_name . ' paga ' .
-               number_format($this->net_amount, 2, ',', '.') . ' KY';
+               ky_format($this->net_amount) . ' KY';
     }
 
     /** L'account dato è il proposer? */

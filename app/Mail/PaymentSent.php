@@ -28,7 +28,7 @@ class PaymentSent extends Mailable implements ShouldQueue
     {
         return new Envelope(
             to: $this->sender->email,
-            subject: 'Pagamento di ' . number_format($this->transfer->amount, 2, ',', '.') . ' KY inviato',
+            subject: 'Pagamento di ' . ky_format($this->transfer->amount) . ' KY inviato',
         );
     }
 

@@ -31,7 +31,7 @@ class RefundIssuedNotification extends Notification implements ShouldQueue
             'title' => 'Rimborso ricevuto',
             'body'  => sprintf(
                 'Hai ricevuto un rimborso di %s KY da %s (rif. %s).',
-                number_format($this->refundTransfer->amount, 2, ',', '.'),
+                ky_format($this->refundTransfer->amount),
                 $this->fromAccount->display_name,
                 $this->originalTransfer->reference,
             ),

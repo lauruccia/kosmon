@@ -96,7 +96,7 @@
 <div class="amount-hero">
   <div class="amount-label">{{ $isOutgoing ? 'Importo inviato' : 'Importo ricevuto' }}</div>
   <div class="amount-value {{ $isOutgoing ? 'outgoing' : 'incoming' }}">
-    <span class="amount-sign">{{ $isOutgoing ? '−' : '+' }}</span>{{ number_format($transfer->amount, 2, ',', '.') }}<span class="amount-currency">KY</span>
+    <span class="amount-sign">{{ $isOutgoing ? '−' : '+' }}</span>{{ ky_format($transfer->amount) }}<span class="amount-currency">KY</span>
   </div>
 </div>
 
@@ -142,7 +142,7 @@
     </tr>
     <tr>
       <td class="label">Importo</td>
-      <td class="value" style="font-size:14px;font-weight:800;">{{ number_format($transfer->amount, 2, ',', '.') }} KY</td>
+      <td class="value" style="font-size:14px;font-weight:800;">{{ ky_format($transfer->amount) }} KY</td>
     </tr>
     <tr>
       <td class="label">Tipologia</td>

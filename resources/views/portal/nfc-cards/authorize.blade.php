@@ -12,7 +12,7 @@
         {{-- Riepilogo richiesta --}}
         <section class="card card-pad" style="text-align:center;">
             <div style="font-size:40px;font-weight:900;color:var(--ink);">
-                {{ number_format($session->amount, 2, ',', '.') }} KY
+                {{ ky_format($session->amount) }} KY
             </div>
             @if($session->description)
                 <div style="font-size:14px;color:var(--ink-muted);margin-top:4px;">{{ $session->description }}</div>

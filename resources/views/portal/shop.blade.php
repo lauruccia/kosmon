@@ -59,7 +59,7 @@
                 <span class="pill success">★ Evidenza</span>
             </div>
             <div style="font-size:22px;font-weight:300;color:#0c4a86;letter-spacing:.06em;margin:10px 0;">
-                {{ number_format($listing->price_ky, 2, ',', '.') }} KY
+                {{ ky_format($listing->price_ky) }} KY
             </div>
             <div class="page-actions" style="margin-top:0;">
                 <a class="cta" href="{{ route('portal.shop.show', $listing) }}">Vedi dettaglio</a>
@@ -90,7 +90,7 @@
             @if($listing->featured)<span class="pill warn">★</span>@endif
         </div>
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
-            <div class="catalog-price">{{ number_format($listing->price_ky, 2, ',', '.') }} KY</div>
+            <div class="catalog-price">{{ ky_format($listing->price_ky) }} KY</div>
             @if($listing->ky_percentage < 100)
                 <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;{{ $listing->ky_badge_color }}">
                     {{ $listing->ky_badge_label }}

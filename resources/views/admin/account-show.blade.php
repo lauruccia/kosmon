@@ -34,17 +34,17 @@
         </article>
         <article class="stat-card">
             <div class="eyebrow">Saldo attuale</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($accountRecord->available_balance, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($accountRecord->available_balance) }} {{ $accountRecord->currency_code }}</div>
             <div class="table-muted">Saldo contabile del conto</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Saldo disponibile</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($saldoDisponibile, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($saldoDisponibile) }} {{ $accountRecord->currency_code }}</div>
             <div class="table-muted">Saldo attuale + massimale</div>
         </article>
         <article class="stat-card">
             <div class="eyebrow">Massimale</div>
-            <div class="section-title" style="font-size:34px;">{{ number_format($massimale, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div>
+            <div class="section-title" style="font-size:34px;">{{ ky_format($massimale) }} {{ $accountRecord->currency_code }}</div>
             <div class="table-muted">Linea di credito spendibile sul conto</div>
         </article>
     </section>
@@ -76,7 +76,7 @@
                     <span class="chip">{{ $accountRecord->childAccounts->count() }} sottoconti figli</span>
                 @endif
                 <span class="chip">{{ $accountRecord->allow_negative_balance ? 'saldo negativo conto consentito' : 'saldo negativo conto bloccato' }}</span>
-                <span class="chip">{{ $accountRecord->max_balance !== null ? 'saldo massimo ' . number_format($accountRecord->max_balance, 2, ',', '.') . ' ' . $accountRecord->currency_code : 'nessun saldo massimo' }}</span>
+                <span class="chip">{{ $accountRecord->max_balance !== null ? 'saldo massimo ' . ky_format($accountRecord->max_balance) . ' ' . $accountRecord->currency_code : 'nessun saldo massimo' }}</span>
             </div>
         </article>
 
@@ -111,10 +111,10 @@
                 <span class="pill">vendita nel circuito</span>
             </div>
             <div class="field-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;">
-                <div class="timeline-item"><strong>Disponibilita commerciale</strong><div class="table-muted">Valore dei beni o servizi che il conto mette a disposizione nel circuito.</div><div class="section-title" style="font-size:22px;">{{ number_format($disponibilitaCommerciale, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div></div>
+                <div class="timeline-item"><strong>Disponibilita commerciale</strong><div class="table-muted">Valore dei beni o servizi che il conto mette a disposizione nel circuito.</div><div class="section-title" style="font-size:22px;">{{ ky_format($disponibilitaCommerciale) }} {{ $accountRecord->currency_code }}</div></div>
                 <div class="timeline-item"><strong>Percentuale di utilizzo</strong><div class="table-muted">Entrate contabilizzate nell'anno in corso rispetto alla disponibilita commerciale.</div><div class="section-title" style="font-size:22px;">{{ number_format($disponibilitaCommercialePercentuale, 2, ',', '.') }}%</div></div>
-                <div class="timeline-item"><strong>Utilizzata</strong><div class="table-muted">Totale entrate contabilizzate dall'inizio dell'anno.</div><div class="section-title" style="font-size:22px;">{{ number_format($disponibilitaCommercialeUsata, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div></div>
-                <div class="timeline-item"><strong>Residua</strong><div class="table-muted">Disponibilita commerciale ancora spendibile come capacita di vendita.</div><div class="section-title" style="font-size:22px;">{{ number_format($disponibilitaCommercialeResidua, 2, ',', '.') }} {{ $accountRecord->currency_code }}</div></div>
+                <div class="timeline-item"><strong>Utilizzata</strong><div class="table-muted">Totale entrate contabilizzate dall'inizio dell'anno.</div><div class="section-title" style="font-size:22px;">{{ ky_format($disponibilitaCommercialeUsata) }} {{ $accountRecord->currency_code }}</div></div>
+                <div class="timeline-item"><strong>Residua</strong><div class="table-muted">Disponibilita commerciale ancora spendibile come capacita di vendita.</div><div class="section-title" style="font-size:22px;">{{ ky_format($disponibilitaCommercialeResidua) }} {{ $accountRecord->currency_code }}</div></div>
             </div>
         </article>
 
@@ -170,7 +170,7 @@
                         <div>
                             <strong>{{ $managedUser->name }}</strong>
                             <div class="table-muted">{{ $managedUser->email }}</div>
-                            <div class="table-muted">Massimale utente: {{ number_format((int) ($managedUser->effectiveTransferLimits()['negative_balance_limit'] ?? 0), 2, ',', '.') }} {{ $accountRecord->currency_code }}</div>
+                            <div class="table-muted">Massimale utente: {{ ky_format((int) ($managedUser->effectiveTransferLimits()['negative_balance_limit'] ?? 0)) }} {{ $accountRecord->currency_code }}</div>
                         </div>
                         <div class="entity-meta">
                             <span class="chip {{ $managedUser->is_active ? 'success' : 'pink' }}">{{ $managedUser->is_active ? 'Attivo' : 'Disattivo' }}</span>
@@ -239,7 +239,7 @@
                                     <div class="table-muted">{{ $counterparty?->ownerLabel ?? 'N/D' }}</div>
                                 </td>
                                 <td>
-                                    <strong>{{ number_format($transfer->amount, 2, ',', '.') }} {{ $transfer->currency_code }}</strong>
+                                    <strong>{{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}</strong>
                                     <div class="table-muted">{{ $transfer->description ?: 'nessuna causale' }}</div>
                                 </td>
                                 <td>{{ $transfer->initiator?->name ?? 'sistema' }}</td>

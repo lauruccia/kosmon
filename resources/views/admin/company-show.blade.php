@@ -18,7 +18,7 @@
         <div class="kpi-label">Saldo attuale</div>
         @if($account)
         <div class="kpi-value {{ $account->available_balance >= 0 ? 'positive' : '' }}" style="{{ $account->available_balance < 0 ? 'color:#dc2626;' : '' }}">
-            {{ number_format($account->available_balance, 2, ',', '.') }}
+            {{ ky_format($account->available_balance) }}
             <small style="font-size:13px;font-weight:600;">KY</small>
         </div>
         @else
@@ -32,7 +32,7 @@
         @php $cl = $account->activeCreditLimit(); @endphp
         <div class="kpi-value" style="font-size:{{ $cl ? '22px' : '16px' }};">
             @if($cl)
-                {{ number_format($cl->credit_limit, 2, ',', '.') }}
+                {{ ky_format($cl->credit_limit) }}
                 <small style="font-size:13px;font-weight:600;">KY</small>
             @else
                 <span style="color:var(--text-muted);">—</span>
@@ -301,17 +301,17 @@
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
                 <div style="text-align:center;padding:12px 8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;">
                     <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Fido circuito</div>
-                    <div style="font-size:18px;font-weight:800;color:var(--primary);">{{ number_format($activeLimit->credit_limit, 2, ',', '.') }}</div>
+                    <div style="font-size:18px;font-weight:800;color:var(--primary);">{{ ky_format($activeLimit->credit_limit) }}</div>
                     <div style="font-size:10px;color:var(--text-muted);font-weight:700;">KY</div>
                 </div>
                 <div style="text-align:center;padding:12px 8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;">
                     <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Limite giornaliero</div>
-                    <div style="font-size:18px;font-weight:800;">{{ $activeLimit->daily_outgoing_limit ? number_format($activeLimit->daily_outgoing_limit, 2, ',', '.') : '—' }}</div>
+                    <div style="font-size:18px;font-weight:800;">{{ $activeLimit->daily_outgoing_limit ? ky_format($activeLimit->daily_outgoing_limit) : '—' }}</div>
                     <div style="font-size:10px;color:var(--text-muted);font-weight:700;">KY</div>
                 </div>
                 <div style="text-align:center;padding:12px 8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;">
                     <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Limite singolo</div>
-                    <div style="font-size:18px;font-weight:800;">{{ $activeLimit->single_transfer_limit ? number_format($activeLimit->single_transfer_limit, 2, ',', '.') : '—' }}</div>
+                    <div style="font-size:18px;font-weight:800;">{{ $activeLimit->single_transfer_limit ? ky_format($activeLimit->single_transfer_limit) : '—' }}</div>
                     <div style="font-size:10px;color:var(--text-muted);font-weight:700;">KY</div>
                 </div>
             </div>
@@ -412,7 +412,7 @@
                             </td>
                             <td style="text-align:right;white-space:nowrap;">
                                 <strong style="color:{{ $isOut ? '#dc2626' : 'var(--teal-strong)' }};">
-                                    {{ $isOut ? '-' : '+' }}{{ number_format($t->amount, 2, ',', '.') }}
+                                    {{ $isOut ? '-' : '+' }}{{ ky_format($t->amount) }}
                                 </strong>
                                 <div style="font-size:10px;color:var(--text-muted);font-weight:700;">KY</div>
                             </td>
@@ -451,19 +451,19 @@
                 <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Saldo attuale</div>
                     <div style="font-size:18px;font-weight:800;color:{{ $mainAccount->available_balance < 0 ? '#dc2626' : 'var(--primary)' }};">
-                        {{ number_format($mainAccount->available_balance, 2, ',', '.') }} KY
+                        {{ ky_format($mainAccount->available_balance) }} KY
                     </div>
                 </div>
                 <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Tetto massimo</div>
                     <div style="font-size:18px;font-weight:800;color:var(--primary);">
-                        {{ $mainAccount->max_balance !== null ? number_format($mainAccount->max_balance, 2, ',', '.') . ' KY' : '—' }}
+                        {{ $mainAccount->max_balance !== null ? ky_format($mainAccount->max_balance) . ' KY' : '—' }}
                     </div>
                 </div>
                 <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Massimale (fido)</div>
                     <div style="font-size:18px;font-weight:800;color:var(--primary);">
-                        {{ number_format($mainAccount->massimale(), 2, ',', '.') }} KY
+                        {{ ky_format($mainAccount->massimale()) }} KY
                     </div>
                 </div>
             </div>

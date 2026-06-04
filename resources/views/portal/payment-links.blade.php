@@ -53,7 +53,7 @@
                         <div style="color:var(--ink-muted);">{{ $link->created_at->format('H:i') }}</div>
                     </td>
                     <td>
-                        <span style="font-weight:700;font-size:15px;">{{ number_format($link->amount, 2, ',', '.') }}</span>
+                        <span style="font-weight:700;font-size:15px;">{{ ky_format($link->amount) }}</span>
                         <span style="font-size:11px;color:var(--ink-muted);font-weight:600;">KY</span>
                     </td>
                     <td style="font-size:13px;color:var(--ink-muted);max-width:200px;">

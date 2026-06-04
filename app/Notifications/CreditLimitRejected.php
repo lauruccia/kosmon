@@ -21,7 +21,7 @@ class CreditLimitRejected extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->creditRequest->requested_amount, 2, ',', '.');
+        $amount = ky_format($this->creditRequest->requested_amount);
 
         return (new MailMessage)
             ->subject('[KMoney] Richiesta fido non approvata')

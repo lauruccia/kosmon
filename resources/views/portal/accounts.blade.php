@@ -24,7 +24,7 @@
                                     <span class="chip" style="margin-left:6px;font-size:11px;">{{ $lr->typeLabel() }}</span>
                                     <div class="table-muted" style="margin-top:4px;">
                                         Da: <strong>{{ $lr->requestedBy->name }}</strong>
-                                        · Importo: <strong>{{ number_format($lr->requested_amount, 2, ',', '.') }} KY</strong>
+                                        · Importo: <strong>{{ ky_format($lr->requested_amount) }} KY</strong>
                                         · {{ $lr->created_at->diffForHumans() }}
                                     </div>
                                     <div style="margin-top:6px;font-size:13px;color:var(--ink);background:var(--surface-soft);padding:8px 10px;border-radius:6px;max-width:480px;">
@@ -116,7 +116,7 @@
                                 <div class="timeline-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;">
                                     <div>
                                         <span style="font-size:13px;font-weight:600;">{{ $req->typeLabel() }}</span>
-                                        <span class="table-muted" style="margin-left:8px;">{{ number_format($req->requested_amount / 100, 2, ',', '.') }} KY</span>
+                                        <span class="table-muted" style="margin-left:8px;">{{ ky_format($req->requested_amount) }} KY</span>
                                         <div class="table-muted" style="font-size:12px;margin-top:2px;">{{ $req->created_at->format('d/m/Y H:i') }}</div>
                                     </div>
                                     <span class="chip {{ $req->status === 'approved' ? 'success' : ($req->status === 'rejected' ? 'pink' : '') }}"
@@ -178,7 +178,7 @@
             <div class="hero-strip">
                 <article class="stat-card">
                     <div class="section-icon">BL</div>
-                    <div><div class="eyebrow">Saldo</div><strong>{{ number_format($rootAccount->available_balance, 2, ',', '.') }}</strong><div class="subtle">KY disponibili</div></div>
+                    <div><div class="eyebrow">Saldo</div><strong>{{ ky_format($rootAccount->available_balance) }}</strong><div class="subtle">KY disponibili</div></div>
                 </article>
                 <article class="stat-card">
                     <div class="section-icon">SC</div>
@@ -260,9 +260,9 @@
                             </div>
 
                             <div class="entity-meta">
-                                <span class="chip">Singolo: {{ $subaccount->spending_limit ? number_format($subaccount->spending_limit, 2, ',', '.') . ' KY' : 'illimitato' }}</span>
-                                <span class="chip">Giorno: {{ $subaccount->daily_outgoing_limit ? number_format($subaccount->daily_outgoing_limit, 2, ',', '.') . ' KY' : 'illimitato' }}</span>
-                                <span class="chip">Mese: {{ $subaccount->monthly_outgoing_limit ? number_format($subaccount->monthly_outgoing_limit, 2, ',', '.') . ' KY' : 'illimitato' }}</span>
+                                <span class="chip">Singolo: {{ $subaccount->spending_limit ? ky_format($subaccount->spending_limit) . ' KY' : 'illimitato' }}</span>
+                                <span class="chip">Giorno: {{ $subaccount->daily_outgoing_limit ? ky_format($subaccount->daily_outgoing_limit) . ' KY' : 'illimitato' }}</span>
+                                <span class="chip">Mese: {{ $subaccount->monthly_outgoing_limit ? ky_format($subaccount->monthly_outgoing_limit) . ' KY' : 'illimitato' }}</span>
                                 <span class="chip">{{ $subaccount->managers->count() }} gestori</span>
                             </div>
 

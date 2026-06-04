@@ -28,15 +28,15 @@
             {{ $isStandard ? 'Fido standard' : 'Fido attivo' }}
         </div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:18px;">
-            <span style="font-size:42px;font-weight:900;line-height:1;">{{ number_format($fidoEffettivo, 2, ',', '.') }}</span>
+            <span style="font-size:42px;font-weight:900;line-height:1;">{{ ky_format($fidoEffettivo) }}</span>
             <span style="font-size:16px;font-weight:700;opacity:.75;">KY</span>
         </div>
 
         {{-- Barra utilizzo --}}
         <div style="margin-bottom:14px;">
             <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.75;margin-bottom:6px;">
-                <span>Utilizzato: <strong>{{ number_format($usato, 2, ',', '.') }} KY</strong></span>
-                <span>Residuo: <strong>{{ number_format($disponibile, 2, ',', '.') }} KY</strong></span>
+                <span>Utilizzato: <strong>{{ ky_format($usato) }} KY</strong></span>
+                <span>Residuo: <strong>{{ ky_format($disponibile) }} KY</strong></span>
             </div>
             <div style="height:8px;background:rgba(255,255,255,.18);border-radius:999px;overflow:hidden;">
                 <div style="height:100%;width:{{ min(100, $pct) }}%;background:{{ $pct > 80 ? '#f87171' : ($pct > 50 ? '#fbbf24' : '#34d399') }};border-radius:999px;transition:width .4s;"></div>
@@ -48,13 +48,13 @@
             @if(!$isStandard && $limit->daily_outgoing_limit)
             <div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 14px;">
                 <div style="font-size:10px;opacity:.65;font-weight:700;margin-bottom:2px;">LIMITE GIORNALIERO</div>
-                <div style="font-size:16px;font-weight:800;">{{ number_format($limit->daily_outgoing_limit, 2, ',', '.') }} <span style="font-size:11px;opacity:.7;">KY</span></div>
+                <div style="font-size:16px;font-weight:800;">{{ ky_format($limit->daily_outgoing_limit) }} <span style="font-size:11px;opacity:.7;">KY</span></div>
             </div>
             @endif
             @if(!$isStandard && $limit->single_transfer_limit)
             <div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 14px;">
                 <div style="font-size:10px;opacity:.65;font-weight:700;margin-bottom:2px;">LIMITE PER MOVIMENTO</div>
-                <div style="font-size:16px;font-weight:800;">{{ number_format($limit->single_transfer_limit, 2, ',', '.') }} <span style="font-size:11px;opacity:.7;">KY</span></div>
+                <div style="font-size:16px;font-weight:800;">{{ ky_format($limit->single_transfer_limit) }} <span style="font-size:11px;opacity:.7;">KY</span></div>
             </div>
             @endif
             @if(!$isStandard)
@@ -115,7 +115,7 @@
         <span style="margin-left:auto;font-size:12px;color:var(--ink-muted);">{{ $recentRequest->actioned_at?->format('d/m/Y') }}</span>
     </div>
     <p style="font-size:13px;color:var(--ink-soft);margin:0 0 2px;">
-        Importo richiesto: <strong>{{ number_format($recentRequest->requested_amount, 2, ',', '.') }} KY</strong>
+        Importo richiesto: <strong>{{ ky_format($recentRequest->requested_amount) }} KY</strong>
     </p>
     @if($recentRequest->admin_note)
     <p style="font-size:13px;color:var(--ink-soft);margin:0;">Motivazione: <em>{{ $recentRequest->admin_note }}</em></p>
@@ -133,7 +133,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:10px;">
         <div>
             <div style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Importo richiesto</div>
-            <div style="font-size:20px;font-weight:800;color:var(--ink);">{{ number_format($pendingRequest->requested_amount, 2, ',', '.') }} <span style="font-size:13px;font-weight:600;color:var(--ink-soft);">KY</span></div>
+            <div style="font-size:20px;font-weight:800;color:var(--ink);">{{ ky_format($pendingRequest->requested_amount) }} <span style="font-size:13px;font-weight:600;color:var(--ink-soft);">KY</span></div>
         </div>
         <div>
             <div style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Data invio</div>
@@ -237,9 +237,9 @@
             @foreach($limitHistory as $l)
             <tr>
                 <td style="font-size:12px;">{{ $l->approved_at?->format('d/m/Y H:i') ?? '—' }}</td>
-                <td style="text-align:right;font-weight:700;">{{ number_format($l->credit_limit, 2, ',', '.') }} KY</td>
-                <td style="text-align:right;color:var(--ink-soft);">{{ $l->daily_outgoing_limit ? number_format($l->daily_outgoing_limit, 2, ',', '.') . ' KY' : '—' }}</td>
-                <td style="text-align:right;color:var(--ink-soft);">{{ $l->single_transfer_limit ? number_format($l->single_transfer_limit, 2, ',', '.') . ' KY' : '—' }}</td>
+                <td style="text-align:right;font-weight:700;">{{ ky_format($l->credit_limit) }} KY</td>
+                <td style="text-align:right;color:var(--ink-soft);">{{ $l->daily_outgoing_limit ? ky_format($l->daily_outgoing_limit) . ' KY' : '—' }}</td>
+                <td style="text-align:right;color:var(--ink-soft);">{{ $l->single_transfer_limit ? ky_format($l->single_transfer_limit) . ' KY' : '—' }}</td>
                 <td style="text-align:center;">
                     <span class="chip {{ $l->status === 'active' ? 'success' : '' }}" style="font-size:10px;">
                         {{ $l->status === 'active' ? 'Attivo' : 'Storico' }}

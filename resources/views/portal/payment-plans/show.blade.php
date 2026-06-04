@@ -8,7 +8,7 @@
         <h2>{{ $plan->description ?: 'Piano rateale' }}</h2>
         <p>
             {{ $isDebtor ? 'Stai pagando' : 'Stai ricevendo' }}
-            <strong>{{ number_format($plan->total_amount, 2, ',', '.') }} KY</strong>
+            <strong>{{ ky_format($plan->total_amount) }} KY</strong>
             in {{ $plan->installments_count }} rate {{ $plan->frequencyLabel() }}i
             {{ $isDebtor ? 'a' : 'da' }}
             <strong>{{ $isDebtor ? $plan->toAccount?->display_name : $plan->fromAccount?->display_name }}</strong>.
@@ -52,10 +52,10 @@
                 <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">
                     <strong>{{ $plan->proposerAccount()?->display_name }}</strong>
                     @if($plan->initiator_role === 'debtor')
-                        chiede di pagarti <strong>{{ number_format($plan->total_amount, 2, ',', '.') }} KY</strong>
+                        chiede di pagarti <strong>{{ ky_format($plan->total_amount) }} KY</strong>
                         in {{ $plan->installments_count }} rate {{ $plan->frequencyLabel() }}i.
                     @else
-                        ti propone di pagare <strong>{{ number_format($plan->total_amount, 2, ',', '.') }} KY</strong>
+                        ti propone di pagare <strong>{{ ky_format($plan->total_amount) }} KY</strong>
                         in {{ $plan->installments_count }} rate {{ $plan->frequencyLabel() }}i.
                     @endif
                 </p>
@@ -109,17 +109,17 @@
 <section class="hero-strip" style="margin-bottom:22px;">
     <article class="stat-card" style="border-left:4px solid #16a34a;">
         <div class="eyebrow">Pagato</div>
-        <div class="section-title" style="font-size:28px;color:#16a34a;">{{ number_format($amtPaid, 2, ',', '.') }} KY</div>
+        <div class="section-title" style="font-size:28px;color:#16a34a;">{{ ky_format($amtPaid) }} KY</div>
         <div class="table-muted">{{ $paid }} {{ $paid === 1 ? 'rata' : 'rate' }} su {{ $plan->installments_count }}</div>
     </article>
     <article class="stat-card" style="border-left:4px solid #f59e0b;">
         <div class="eyebrow">Rimanente</div>
-        <div class="section-title" style="font-size:28px;color:#f59e0b;">{{ number_format($amtLeft, 2, ',', '.') }} KY</div>
+        <div class="section-title" style="font-size:28px;color:#f59e0b;">{{ ky_format($amtLeft) }} KY</div>
         <div class="table-muted">{{ $pending }} rate ancora da pagare</div>
     </article>
     <article class="stat-card" style="border-left:4px solid #0284c7;">
         <div class="eyebrow">Totale piano</div>
-        <div class="section-title" style="font-size:28px;color:#0284c7;">{{ number_format($plan->total_amount, 2, ',', '.') }} KY</div>
+        <div class="section-title" style="font-size:28px;color:#0284c7;">{{ ky_format($plan->total_amount) }} KY</div>
         <div class="table-muted">{{ $plan->frequencyLabel() }} · {{ $plan->installments_count }} rate</div>
     </article>
     <article class="stat-card" style="border-left:4px solid {{ $plan->status === 'active' ? '#16a34a' : ($plan->status === 'completed' ? '#6d28d9' : '#dc2626') }};">
@@ -146,8 +146,8 @@
         <div style="height:100%;width:{{ $pct }}%;background:linear-gradient(90deg,#0f52c4,#16a34a);border-radius:6px;transition:width .5s;"></div>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--ink-muted);">
-        <span>{{ number_format($amtPaid, 2, ',', '.') }} KY pagati</span>
-        <span>{{ number_format($amtLeft, 2, ',', '.') }} KY rimanenti</span>
+        <span>{{ ky_format($amtPaid) }} KY pagati</span>
+        <span>{{ ky_format($amtLeft) }} KY rimanenti</span>
     </div>
 </section>
 
@@ -188,7 +188,7 @@
             </div>
         </div>
         <div style="display:grid;gap:10px;font-size:14px;">
-            <div style="display:flex;justify-content:space-between;"><span class="table-muted">Totale</span><strong>{{ number_format($plan->total_amount, 2, ',', '.') }} KY</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span class="table-muted">Totale</span><strong>{{ ky_format($plan->total_amount) }} KY</strong></div>
             <div style="display:flex;justify-content:space-between;"><span class="table-muted">N° rate</span><strong>{{ $plan->installments_count }}</strong></div>
             <div style="display:flex;justify-content:space-between;"><span class="table-muted">Frequenza</span><strong>{{ ucfirst($plan->frequencyLabel()) }}</strong></div>
             <div style="display:flex;justify-content:space-between;"><span class="table-muted">Prima rata</span><strong>{{ $plan->first_due_date->format('d/m/Y') }}</strong></div>
@@ -230,7 +230,7 @@
                         {{ $installment->due_date->format('d/m/Y') }}
                         @if($isOverdue) <span style="font-size:11px;background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;margin-left:4px;">SCADUTA</span> @endif
                     </td>
-                    <td style="font-weight:700;">{{ number_format($installment->amount, 2, ',', '.') }} KY</td>
+                    <td style="font-weight:700;">{{ ky_format($installment->amount) }} KY</td>
                     <td>
                         @if($installment->status === 'paid')
                             <span class="chip success">Pagata</span>

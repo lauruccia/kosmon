@@ -28,7 +28,7 @@ class NettingProposedNotification extends Notification implements ShouldQueue
     {
         $proposerName = $this->proposal->proposerAccount?->display_name ?? 'Un azienda';
         $netLabel = $this->proposal->net_amount > 0
-            ? ' Saldo netto: ' . number_format($this->proposal->net_amount, 2, ',', '.') . ' KY.'
+            ? ' Saldo netto: ' . ky_format($this->proposal->net_amount) . ' KY.'
             : ' I crediti si pareggiano perfettamente.';
 
         return [
@@ -45,7 +45,7 @@ class NettingProposedNotification extends Notification implements ShouldQueue
             ->subject('Proposta di compensazione crediti — ' . ($this->proposal->proposerAccount?->display_name ?? 'Un azienda'))
             ->greeting('Compensazione crediti incrociati')
             ->line(($this->proposal->proposerAccount?->display_name ?? 'Un azienda') . ' ha proposto una compensazione dei crediti incrociati.')
-            ->line($this->proposal->net_amount > 0 ? 'Saldo netto: ' . number_format($this->proposal->net_amount, 2, ',', '.') . ' KY.' : 'I crediti si pareggiano perfettamente.')
+            ->line($this->proposal->net_amount > 0 ? 'Saldo netto: ' . ky_format($this->proposal->net_amount) . ' KY.' : 'I crediti si pareggiano perfettamente.')
             ->action('Visualizza proposta', route('portal.netting.show', $this->proposal))
             ->salutation('Il team KMoney');
     }
