@@ -21,7 +21,7 @@
 
                         <div style="margin:20px auto 0;max-width:300px;">
                             <div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px;">
-                                Avvicina lo smartphone del cliente
+                                Cliente <strong>con smartphone</strong> (senza card fisica)
                             </div>
 
                             {{-- Barra NFC status --}}
@@ -30,8 +30,11 @@
                             </div>
 
                             <button type="button" id="nfc-start-button" class="cta" style="margin-top:10px;width:100%;font-size:13px;padding:9px 14px;display:none;">
-                                Attiva NFC
+                                Attiva NFC &mdash; cliente con smartphone
                             </button>
+                            <div style="font-size:11px;color:var(--danger);margin-top:6px;line-height:1.4;">
+                                &#9888; Solo per smartphone. Se il cliente ha una <strong>card NFC fisica</strong>, NON usare questo pulsante: usa &laquo;Richiedi pagamento CARD NFC&raquo; qui sotto.
+                            </div>
 
                             {{-- Countdown --}}
                             <div style="margin-top:14px;font-size:12px;color:var(--ink-muted);">
@@ -72,8 +75,11 @@
                         <div id="card-nfc-status" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;margin-bottom:10px;display:none;">
                             Inizializzazione...
                         </div>
-                        <button type="button" id="card-nfc-btn" class="cta secondary" style="width:100%;font-size:13px;padding:10px;" onclick="startCardScan()">
-                            &#128246; Richiedi pagamento CARD NFC
+                        <div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px;">
+                            Cliente <strong>con card NFC fisica</strong>
+                        </div>
+                        <button type="button" id="card-nfc-btn" class="cta" style="width:100%;font-size:13px;padding:10px;" onclick="startCardScan()">
+                            &#128179; Richiedi pagamento CARD NFC
                         </button>
                         <div id="card-nfc-info" style="display:none;margin-top:12px;padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;text-align:left;">
                             <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">Card riconosciuta</div>
@@ -183,13 +189,65 @@
                 nfcBar.textContent = 'Avvicina lo smartphone o il tag NFC...';
 
                 const ndef = new NDEFReader();
-                await ndef.write({ records: [{ recordType: 'url', data: PAY_URL }] });
 
-                nfcBar.textContent = 'NFC pronto — avvicina lo smartphone del cliente';
-                nfcBar.style.background = 'var(--success-soft, #dcfce7)';
-                nfcBar.style.color      = 'var(--success, #16a34a)';
-                nfcBar.style.border     = '1px solid #bbf7d0';
-                if (nfcStartButton) nfcStartButton.style.display = 'none';
+                const resetWriteBtn = () => {
+                    if (nfcStartButton) {
+                        nfcStartButton.disabled = false;
+                        nfcStartButton.textContent = 'Riprova NFC';
+                        nfcStartButton.style.display = 'block';
+                    }
+                };
+
+                const doWrite = async () => {
+                    try {
+                        await ndef.write({ records: [{ recordType: 'url', data: PAY_URL }] });
+                        nfcBar.textContent = 'NFC scritto. Il cliente puo\' ora aprire il link per pagare.';
+                        nfcBar.style.background = 'var(--success-soft, #dcfce7)';
+                        nfcBar.style.color      = 'var(--success, #16a34a)';
+                        nfcBar.style.border     = '1px solid #bbf7d0';
+                        if (nfcStartButton) nfcStartButton.style.display = 'none';
+                    } catch (e) {
+                        nfcBar.textContent = 'Scrittura NFC fallita: ' + (e.message || e.name) + '. Usa il QR code.';
+                        nfcBar.style.color = 'var(--danger)';
+                        resetWriteBtn();
+                    }
+                };
+
+                let writeHandled = false;
+
+                // Prima LEGGIAMO il tag: non sovrascriviamo mai una card KMoney senza conferma.
+                await ndef.scan();
+
+                ndef.onreading = async ({ message }) => {
+                    if (writeHandled) return;
+
+                    let isKmoneyCard = false;
+                    for (const record of message.records) {
+                        if (record.recordType === 'url') {
+                            const existing = new TextDecoder().decode(record.data);
+                            if (existing.includes('/nfc/')) isKmoneyCard = true;
+                        }
+                    }
+
+                    if (isKmoneyCard && ! confirm('ATTENZIONE: questo tag contiene GIA\' una card NFC KMoney. Sovrascriverla la rendera\' inutilizzabile come card di pagamento. Vuoi davvero sovrascriverla?')) {
+                        nfcBar.textContent = 'Operazione annullata: la card non e\' stata toccata.';
+                        nfcBar.style.color = 'var(--ink-muted)';
+                        resetWriteBtn();
+                        return;
+                    }
+
+                    writeHandled = true;
+                    await doWrite();
+                };
+
+                // Tag vuoto o non leggibile come NDEF (non e\' una card KMoney): scrivibile senza rischio.
+                ndef.onreadingerror = async () => {
+                    if (writeHandled) return;
+                    writeHandled = true;
+                    await doWrite();
+                };
+
+                nfcBar.textContent = 'Avvicina il tag NFC del cliente...';
             } catch (err) {
                 if (err.name === 'NotAllowedError') {
                     nfcBar.textContent = 'NFC non autorizzato. Tocca "Attiva NFC" e conferma il permesso.';
