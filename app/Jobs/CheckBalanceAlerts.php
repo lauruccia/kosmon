@@ -32,7 +32,7 @@ class CheckBalanceAlerts implements ShouldQueue
                         continue;
                     }
 
-                    $balance = $account->balance; // centesimi
+                    $balance = $account->available_balance; // centesimi
 
                     if ($balance < $alert->threshold_amount) {
                         $user = $account->ownerUser;

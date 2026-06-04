@@ -24,6 +24,7 @@ class Transfer extends Model
         'kind',
         'idempotency_key',
         'reversed_transfer_id',
+        'related_transfer_id',
         'refunded_at',
         'admin_action',
         'description',
@@ -67,6 +68,22 @@ class Transfer extends Model
     public function reversalChildren(): HasMany
     {
         return $this->hasMany(self::class, 'reversed_transfer_id');
+    }
+
+    /**
+     * Trasferimento padre che ha generato questa commissione (kind = portal_fee).
+     */
+    public function relatedTransfer(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'related_transfer_id');
+    }
+
+    /**
+     * Commissioni generate da questo trasferimento.
+     */
+    public function feeTransfers(): HasMany
+    {
+        return $this->hasMany(self::class, 'related_transfer_id');
     }
 
     public function ledgerEntries(): HasMany

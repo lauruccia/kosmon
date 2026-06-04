@@ -788,26 +788,49 @@ class TransferBookingService
         }
 
         \DB::transaction(function () use ($fromAccount, $systemAccount, $fee, $kind, $parentTransfer, $idempotencyKey) {
+            // Ricarica con lock per aggiornare i saldi in sicurezza
+            $payer  = \App\Models\Account::lockForUpdate()->findOrFail($fromAccount->id);
+            $system = \App\Models\Account::lockForUpdate()->findOrFail($systemAccount->id);
+
+            $bookedAt          = \Carbon\CarbonImmutable::now();
+            $debitBalanceAfter  = $payer->available_balance - $fee;
+            $creditBalanceAfter = $system->available_balance + $fee;
+
+            $payer->forceFill(['available_balance'  => $debitBalanceAfter])->save();
+            $system->forceFill(['available_balance' => $creditBalanceAfter])->save();
+
             $transfer = \App\Models\Transfer::create([
-                'uuid'             => \Illuminate\Support\Str::uuid()->toString(),
-                'from_account_id'  => $fromAccount->id,
-                'to_account_id'    => $systemAccount->id,
-                'amount'           => $fee,
-                'currency_code'    => $fromAccount->currency_code ?? 'KY',
-                'kind'             => 'portal_fee',
-                'status'           => 'booked',
-                'reference'        => 'FEE-' . strtoupper(\Illuminate\Support\Str::random(8)),
-                'description'      => 'Commissione su ' . $kind,
-                'idempotency_key'  => $idempotencyKey,
-                'booked_at'        => now(),
+                'from_account_id'     => $payer->id,
+                'to_account_id'       => $system->id,
+                'amount'              => $fee,
+                'currency_code'       => $payer->currency_code ?? 'KY',
+                'kind'                => 'portal_fee',
+                'status'              => 'booked',
+                'description'        => 'Commissione su ' . $kind,
+                'idempotency_key'    => $idempotencyKey,
+                'booked_at'          => $bookedAt,
                 'related_transfer_id' => $parentTransfer->id,
             ]);
 
-            $fromAccount->decrement('available_balance', $fee);
-            $systemAccount->increment('available_balance', $fee);
+            \App\Models\LedgerEntry::create([
+                'transfer_id'   => $transfer->id,
+                'account_id'    => $payer->id,
+                'direction'     => 'debit',
+                'amount'        => $fee,
+                'balance_after' => $debitBalanceAfter,
+                'posted_at'     => $bookedAt,
+                'meta'          => ['fee_for_transfer_id' => $parentTransfer->id],
+            ]);
 
-            \App\Models\LedgerEntry::create(['transfer_id' => $transfer->id, 'account_id' => $fromAccount->id, 'type' => 'debit',  'amount' => $fee]);
-            \App\Models\LedgerEntry::create(['transfer_id' => $transfer->id, 'account_id' => $systemAccount->id, 'type' => 'credit', 'amount' => $fee]);
+            \App\Models\LedgerEntry::create([
+                'transfer_id'   => $transfer->id,
+                'account_id'    => $system->id,
+                'direction'     => 'credit',
+                'amount'        => $fee,
+                'balance_after' => $creditBalanceAfter,
+                'posted_at'     => $bookedAt,
+                'meta'          => ['fee_for_transfer_id' => $parentTransfer->id],
+            ]);
         });
     }
 
