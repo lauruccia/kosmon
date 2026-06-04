@@ -430,6 +430,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/incassa/nfc/{token}/stato', [NfcPaymentController::class, 'status'])->name('portal.incasso-nfc.status');
     Route::post('/incassa/nfc/{token}/annulla', [NfcPaymentController::class, 'cancel'])->name('portal.incasso-nfc.cancel');
 
+    // Pagamento Card NFC fisica (Opzione A)
+    Route::post('/nfc/card/identify', [NfcCardPaymentController::class, 'identify'])->name('nfc.card.identify');
+    Route::post('/nfc/card/request', [NfcCardPaymentController::class, 'createRequest'])->name('nfc.card.request')->middleware('throttle:incasso');
+    Route::get('/nfc/card/status/{nonce}', [NfcCardPaymentController::class, 'status'])->name('nfc.card.status');
+    Route::get('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorizeForm'])->name('nfc.card.authorize');
+    Route::post('/nfc/card/authorize/{nonce}', [NfcCardPaymentController::class, 'authorize'])->name('nfc.card.authorize.post');
+
     // Incasso Sonic (Web Audio API — smartphone-to-smartphone via suono)
     Route::get('/incassa/sonic', [SonicPaymentController::class, 'form'])->name('portal.incasso-sonic.form');
     Route::post('/incassa/sonic', [SonicPaymentController::class, 'store'])->name('portal.incasso-sonic.store')->middleware('throttle:incasso');
