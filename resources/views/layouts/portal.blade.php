@@ -1848,6 +1848,8 @@
     </script>
     @stack('scripts')
 
+    @include('partials.password-toggle')
+
     {{-- Mobile Bottom Navigation (solo portal, non backoffice) --}}
     @if (!$isBackoffice)
     <nav class="mobile-bottom-nav" id="mobile-bottom-nav">

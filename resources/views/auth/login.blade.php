@@ -383,5 +383,6 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
     });
 })();
 </script>
+@include('partials.password-toggle')
 </body>
 </html>

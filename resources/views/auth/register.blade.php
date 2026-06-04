@@ -531,5 +531,6 @@
     applyState(radioCompany.checked);
 })();
 </script>
+@include('partials.password-toggle')
 </body>
 </html>
