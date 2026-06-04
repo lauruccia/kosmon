@@ -454,7 +454,7 @@
         if (!scannedCardUuid) return;
 
         const statusEl = document.getElementById('card-nfc-status');
-        const amount      = @json($pr->amount);
+        const amount      = @json($pr->amount / 100);
         const description = @json($pr->description ?? '');
 
         statusEl.textContent = 'Invio richiesta al cliente...';
