@@ -133,10 +133,14 @@ class NfcCardPaymentController extends Controller
         ]);
 
         // Notifica tutti gli utenti della company titolare della card
-        $merchant = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
-        $card->company->users->each(function ($user) use ($session, $merchant) {
-            $user->notify(new NfcCardPinRequestNotification($session, $merchant));
-        });
+        try {
+            $merchant = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
+            $card->company->users->each(function ($user) use ($session, $merchant) {
+                $user->notify(new NfcCardPinRequestNotification($session, $merchant));
+            });
+        } catch (\Throwable $e) {
+            \Log::warning('NFC card PIN notification failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'nonce'      => $session->nonce,
