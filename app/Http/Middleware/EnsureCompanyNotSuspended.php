@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Account;
+use App\Models\Company;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,7 +33,14 @@ class EnsureCompanyNotSuspended
         }
 
         if (! $company) {
-            // Cerca la prima azienda di cui l'utente è owner
+            // Percorso diretto per utenti aziendali (company_id presente sul record user)
+            if ($user->company_id) {
+                $company = Company::find($user->company_id);
+            }
+        }
+
+        if (! $company) {
+            // Fallback: cerca tramite account personale (owner_user_id) per utenti privati
             $account = Account::with('company')
                 ->where('owner_user_id', $user->id)
                 ->first();

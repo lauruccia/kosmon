@@ -42,15 +42,16 @@ class TransactionFee extends Model
     public static function kindOptions(): array
     {
         return [
-            'portal_payment'        => 'Pagamento diretto',
-            'portal_text_request'   => 'Richiesta testo approvata',
-            'portal_qr_payment'     => 'QR Incasso',
-            'nfc'                   => 'NFC',
-            'portal_installment'    => 'Rata piano rateale',
-            'portal_netting'        => 'Compensazione (netting)',
-            'portal_credit_note'    => 'Nota di credito',
-            'api_payment'           => 'Pagamento API',
-            '*'                     => 'Default (tutti i tipi non coperti)',
+            'portal_payment'         => 'Pagamento diretto',
+            'portal_payment_request' => 'Pagamento via Payment Request API (W3C)',
+            'portal_text_request'    => 'Richiesta testo approvata',
+            'portal_qr_payment'      => 'QR Incasso',
+            'nfc'                    => 'NFC',
+            'portal_installment'     => 'Rata piano rateale',
+            'portal_netting'         => 'Compensazione (netting)',
+            'portal_credit_note'     => 'Nota di credito',
+            'api_payment'            => 'Pagamento API',
+            '*'                      => 'Default (tutti i tipi non coperti)',
         ];
     }
 }

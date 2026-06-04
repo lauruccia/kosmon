@@ -80,9 +80,9 @@ class PaymentHandlerController extends Controller
             return response()->json(['error' => 'Non puoi pagare te stesso.'], 422);
         }
 
-        if ($account->available_balance < $pr->amount) {
+        if ($account->saldoDisponibile() < $pr->amount) {
             return response()->json([
-                'error' => 'Saldo insufficiente (' . ky_format($account->available_balance) . ' KY disponibili).',
+                'error' => 'Saldo insufficiente (' . ky_format($account->saldoDisponibile()) . ' KY disponibili).',
             ], 422);
         }
 
@@ -92,7 +92,7 @@ class PaymentHandlerController extends Controller
                 'to_account_id'   => $pr->toAccount->id,
                 'amount'          => $pr->amount,
                 'description'     => $pr->description ?? 'Pagamento via Payment Request API',
-                'kind'            => 'payment_request',
+                'kind'            => 'portal_payment_request',
                 'idempotency_key' => 'pra-' . $pr->token,
                 'initiated_by'    => $user->id,
                 'ip_address'      => $request->ip(),

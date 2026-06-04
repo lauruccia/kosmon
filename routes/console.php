@@ -2,7 +2,6 @@
 
 use App\Jobs\ProcessDueInstallments;
 use App\Jobs\ExpirePaymentRequests;
-use App\Jobs\ProcessScheduledPayments;
 use App\Jobs\CheckBalanceAlerts;
 use App\Jobs\SendMonthlyStatements;
 use Illuminate\Foundation\Inspiring;
