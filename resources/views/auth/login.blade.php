@@ -372,7 +372,7 @@ document.getElementById('btn-biometric').addEventListener('click', async () => {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.setAttribute('aria-label', 'Mostra/nascondi password');
-        btn.style.cssText = 'position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:rgba(255,255,255,0.5);';
+        btn.style.cssText = 'position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:var(--muted);';
         btn.innerHTML = eyeShow;
         btn.addEventListener('click', function () {
             var visible = input.type === 'text';
