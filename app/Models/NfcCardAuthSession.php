@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 class NfcCardAuthSession extends Model
 {
     protected $fillable = [
-        'nonce', 'nfc_card_id', 'merchant_company_id',
+        'nonce', 'nfc_card_id', 'merchant_company_id', 'merchant_account_id',
         'amount', 'description', 'status', 'transfer_uuid', 'expires_at',
     ];
 
@@ -34,6 +34,11 @@ class NfcCardAuthSession extends Model
     public function merchant(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'merchant_company_id');
+    }
+
+    public function merchantAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'merchant_account_id');
     }
 
     public function isPending(): bool

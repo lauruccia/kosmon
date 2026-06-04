@@ -10,12 +10,12 @@ use Illuminate\Support\Facades\URL;
 
 class VerifyEmailNotification extends BaseVerifyEmail
 {
-    public function via(object $notifiable): array
+    public function via($notifiable): array
     {
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable): MailMessage
     {
         $url = $this->verificationUrl($notifiable);
 

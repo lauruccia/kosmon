@@ -28,6 +28,8 @@ class NfcCardPaymentControllerTest extends TestCase
             'status'        => 'active',
             'kyc_status'    => 'approved',
             'currency_code' => 'KY',
+            'sector'        => 'Test',
+            'description'   => 'Azienda test',
         ]);
         $user = User::create([
             'name'                => 'User ' . Str::random(4),
@@ -35,16 +37,20 @@ class NfcCardPaymentControllerTest extends TestCase
             'password'            => Hash::make('password'),
             'account_holder_type' => 'company',
             'company_id'          => $company->id,
+            'role'                => 'owner',
             'is_active'           => true,
-            'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
         ]);
+        // email_verified_at non è in $fillable → forceFill obbligatorio
+        $user->forceFill(['email_verified_at' => now()])->save();
+
         $account = Account::create([
-            'company_id'     => $company->id,
-            'owner_user_id'  => $user->id,
-            'currency_code'  => 'KY',
-            'status'         => 'active',
+            'company_id'        => $company->id,
+            'owner_user_id'     => $user->id,
+            'currency_code'     => 'KY',
+            'status'            => 'active',
             'available_balance' => 100000,
-            'balance'        => 100000,
+            'balance'           => 100000,
         ]);
         return compact('company', 'user', 'account');
     }
