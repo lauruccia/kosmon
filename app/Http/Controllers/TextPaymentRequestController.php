@@ -71,9 +71,11 @@ class TextPaymentRequestController extends Controller
     {
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user());
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $data = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount'        => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'        => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'causale'       => ['required', 'string', 'min:3', 'max:500'],
             'note'          => ['nullable', 'string', 'max:1000'],
             'due_date'      => ['nullable', 'date', 'after:today'],
@@ -87,7 +89,7 @@ class TextPaymentRequestController extends Controller
         $req = TextPaymentRequest::create([
             'from_account_id' => $currentAccount->id,
             'to_account_id'   => $toAccount->id,
-            'amount'          => (int) $data['amount'],
+            'amount'          => ky_to_cents($data['amount']),
             'causale'         => $data['causale'],
             'note'            => $data['note'] ?? null,
             'due_date'        => $data['due_date'] ?? null,

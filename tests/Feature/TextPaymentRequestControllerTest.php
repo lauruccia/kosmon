@@ -62,7 +62,7 @@ class TextPaymentRequestControllerTest extends TestCase
         $response = $this->actingAs($creditorUser)
             ->post(route('portal.text-requests.store'), [
                 'to_account_id' => $debtorAccount->id,
-                'amount'        => 400,
+                'amount'        => 4,   // 4 KY → 400 centesimi
                 'causale'       => 'Fattura 2026/001',
             ]);
 

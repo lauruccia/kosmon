@@ -71,20 +71,20 @@
                 @csrf
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <div class="field">
-                        <label>Massimale / fido</label>
-                        <input type="number" min="0" name="default_negative_balance_limit" value="{{ old('default_negative_balance_limit', $defaultTransferLimits['negative_balance_limit']) }}">
+                        <label>Massimale / fido (KY)</label>
+                        <input type="number" min="0" step="0.01" name="default_negative_balance_limit" value="{{ old('default_negative_balance_limit', ky_input($defaultTransferLimits['negative_balance_limit'])) }}">
                     </div>
                     <div class="field">
-                        <label>Limite per movimento</label>
-                        <input type="number" min="0" name="default_per_movement_limit" value="{{ old('default_per_movement_limit', $defaultTransferLimits['per_movement_limit']) }}">
+                        <label>Limite per movimento (KY)</label>
+                        <input type="number" min="0" step="0.01" name="default_per_movement_limit" value="{{ old('default_per_movement_limit', ky_input($defaultTransferLimits['per_movement_limit'])) }}">
                     </div>
                     <div class="field">
-                        <label>Limite giornaliero</label>
-                        <input type="number" min="0" name="default_daily_transaction_limit" value="{{ old('default_daily_transaction_limit', $defaultTransferLimits['daily_transaction_limit']) }}">
+                        <label>Limite giornaliero (KY)</label>
+                        <input type="number" min="0" step="0.01" name="default_daily_transaction_limit" value="{{ old('default_daily_transaction_limit', ky_input($defaultTransferLimits['daily_transaction_limit'])) }}">
                     </div>
                     <div class="field">
-                        <label>Limite mensile</label>
-                        <input type="number" min="0" name="default_monthly_transaction_limit" value="{{ old('default_monthly_transaction_limit', $defaultTransferLimits['monthly_transaction_limit']) }}">
+                        <label>Limite mensile (KY)</label>
+                        <input type="number" min="0" step="0.01" name="default_monthly_transaction_limit" value="{{ old('default_monthly_transaction_limit', ky_input($defaultTransferLimits['monthly_transaction_limit'])) }}">
                     </div>
                 </div>
                 <div class="form-actions" style="justify-content:flex-start;margin-top:6px;">

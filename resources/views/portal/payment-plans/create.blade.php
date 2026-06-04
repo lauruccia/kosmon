@@ -79,7 +79,7 @@
                 </label>
                 <div style="position:relative;">
                     <input type="number" name="total_amount" id="total_amount" required
-                        min="2" step="1" value="{{ old('total_amount') }}" placeholder="es. 1200"
+                        min="0.02" step="0.01" value="{{ old('total_amount') }}" placeholder="es. 12,00"
                         style="width:100%;padding:11px 60px 11px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:18px;font-weight:700;">
                     <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--ink-muted);font-size:14px;">KY</span>
                 </div>
@@ -257,18 +257,21 @@
     var countInput = document.getElementById('installments_count');
     var preview = document.getElementById('preview');
 
+    function kyFmt(cents) {
+        return (cents / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     function updatePreview() {
-        var total = parseInt(totalInput.value) || 0;
+        var totalCents = Math.round((parseFloat(totalInput.value) || 0) * 100);
         var count = parseInt(countInput.value) || 0;
-        if (total > 0 && count >= 2) {
-            var base = Math.floor(total / count);
-            var rem  = total - base * count;
+        if (totalCents > 0 && count >= 2) {
+            var base = Math.floor(totalCents / count);
+            var rem  = totalCents - base * count;
             preview.style.display = 'block';
-            document.getElementById('pvImportoRata').textContent = base.toLocaleString('it-IT');
+            document.getElementById('pvImportoRata').textContent = kyFmt(base);
             document.getElementById('pvNRate').textContent = count.toLocaleString('it-IT');
-            document.getElementById('pvTotale').textContent = total.toLocaleString('it-IT');
+            document.getElementById('pvTotale').textContent = kyFmt(totalCents);
             document.getElementById('pvNote').textContent = rem > 0
-                ? 'Ultima rata: ' + (base + rem).toLocaleString('it-IT') + ' KY (resto assorbito)'
+                ? 'Ultima rata: ' + kyFmt(base + rem) + ' KY (resto assorbito)'
                 : 'Tutte le rate sono uguali.';
         } else {
             preview.style.display = 'none';

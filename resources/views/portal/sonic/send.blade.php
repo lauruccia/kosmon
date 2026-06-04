@@ -23,9 +23,9 @@
         <div style="margin-bottom:16px;">
           <label class="form-label" for="amount">Importo (KY)</label>
           <input type="number" id="amount" name="amount" class="form-input"
-                 min="1" max="9999999" step="1" required autofocus
+                 min="0.01" max="9999999" step="0.01" required autofocus
                  value="{{ old('amount') }}"
-                 placeholder="es. 50">
+                 placeholder="es. 50,00">
           @error('amount')<div class="form-error">{{ $message }}</div>@enderror
         </div>
         <div style="margin-bottom:24px;">

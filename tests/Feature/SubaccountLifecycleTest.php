@@ -21,7 +21,7 @@ class SubaccountLifecycleTest extends TestCase
         [$owner, $rootAccount, $subaccount] = $this->makeOwnerAndSubaccount();
 
         $response = $this->actingAs($owner)->post(route('portal.accounts.subaccounts.budget', $subaccount), [
-            'amount' => 1200,
+            'amount' => 12,   // 12 KY → 1200 centesimi
             'description' => 'Ricarica mensile',
         ]);
 
@@ -39,8 +39,8 @@ class SubaccountLifecycleTest extends TestCase
         [$owner, $rootAccount, $subaccount] = $this->makeOwnerAndSubaccount();
 
         $response = $this->actingAs($owner)->post(route('portal.accounts.subaccounts.limits', $subaccount), [
-            'spending_limit' => 450,
-            'daily_outgoing_limit' => 900,
+            'spending_limit' => 4.5,   // 4,50 KY → 450 centesimi
+            'daily_outgoing_limit' => 9,   // 9 KY → 900 centesimi
         ]);
 
         $response->assertRedirect();

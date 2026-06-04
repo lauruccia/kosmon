@@ -33,9 +33,9 @@
                         {{-- Input importo --}}
                         <div id="amount-wrapper" style="display:flex;align-items:center;background:var(--surface-soft);border:1.5px solid var(--line);border-radius:12px;padding:4px 16px 4px 4px;transition:border-color .2s;">
                             <input type="number" name="amount" id="amount"
-                                   min="1" max="9999999"
+                                   min="0.01" step="0.01" max="9999999"
                                    value="{{ old('amount') }}"
-                                   placeholder="0"
+                                   placeholder="0,00"
                                    autofocus
                                    style="flex:1;border:none;background:transparent;padding:14px 12px;font-size:32px;font-weight:800;color:var(--ink);outline:none;min-width:0;-moz-appearance:textfield;"
                                    required>

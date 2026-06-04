@@ -48,7 +48,7 @@
                                 <a href="{{ route('portal.companies') }}" class="cta secondary">Rubrica</a>
                             </div>
                         </div>
-                        <div class="field"><label for="amount">Importo in KY</label><input id="amount" name="amount" type="number" min="1" value="{{ old('amount') }}" placeholder="Es. 1500" required></div>
+                        <div class="field"><label for="amount">Importo in KY</label><input id="amount" name="amount" type="number" min="0.01" step="0.01" value="{{ old('amount') }}" placeholder="Es. 15,00" required></div>
                         <div class="field"><label for="description">Causale</label><textarea id="description" name="description" placeholder="Inserisci riferimento fattura o descrizione breve">{{ old('description') }}</textarea></div>
                     </div>
                     <div class="form-actions"><a href="{{ route('portal.dashboard') }}" class="cta secondary">Annulla</a><button type="submit" class="cta">Prosegui</button></div>

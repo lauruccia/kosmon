@@ -65,7 +65,7 @@ class ScheduledPaymentControllerTest extends TestCase
         $response = $this->actingAs($senderUser)
             ->post(route('portal.scheduled-payments.store'), [
                 'to_account_id' => $recipientAccount->id,
-                'amount'        => 300,
+                'amount'        => 3,   // 3 KY → 300 centesimi
                 'description'   => 'Pagamento rata mensile',
                 'scheduled_at'  => $scheduledAt,
             ]);

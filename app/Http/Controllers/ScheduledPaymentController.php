@@ -133,9 +133,11 @@ class ScheduledPaymentController extends Controller
             return $this->storeRecurring($request, $currentAccount, $currentUser);
         }
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $data = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount'        => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'        => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description'   => ['required', 'string', 'min:3', 'max:500'],
             'scheduled_at'  => ['required', 'date', 'after:now'],
         ]);
@@ -148,7 +150,7 @@ class ScheduledPaymentController extends Controller
         $payment = $this->service->create(
             fromAccount:  $currentAccount,
             toAccount:    $toAccount,
-            amount:       (int) $data['amount'],
+            amount:       ky_to_cents($data['amount']),
             description:  $data['description'],
             scheduledAt:  new \DateTime($data['scheduled_at']),
             createdBy:    $currentUser,
@@ -161,9 +163,11 @@ class ScheduledPaymentController extends Controller
 
     private function storeRecurring(Request $request, Account $currentAccount, User $currentUser): RedirectResponse
     {
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $data = $request->validate([
             'to_account_id'       => ['required', 'integer', 'exists:accounts,id'],
-            'amount'              => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'              => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             // max 480 per lasciare spazio al suffisso " (rata XX di XX)" aggiunto dal service
             'description'         => ['required', 'string', 'min:3', 'max:480'],
             'scheduled_at'        => ['required', 'date', 'after:now'],
@@ -179,7 +183,7 @@ class ScheduledPaymentController extends Controller
         $payments = $this->service->createRecurring(
             fromAccount:    $currentAccount,
             toAccount:      $toAccount,
-            amount:         (int) $data['amount'],
+            amount:         ky_to_cents($data['amount']),
             description:    $data['description'],
             firstDate:      new \DateTime($data['scheduled_at']),
             recurrenceType: $data['recurrence_type'],

@@ -76,9 +76,9 @@
                 </label>
                 <div style="position:relative;">
                     <input type="number" name="amount" id="amount" required
-                        min="1" step="1"
+                        min="0.01" step="0.01"
                         value="{{ old('amount') }}"
-                        placeholder="es. 500"
+                        placeholder="es. 50,00"
                         style="width:100%;padding:11px 60px 11px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:18px;font-weight:700;">
                     <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--ink-muted);font-size:14px;">KY</span>
                 </div>
@@ -186,7 +186,7 @@ function updatePreview() {
     const accountText = accountSelect.options[accountSelect.selectedIndex]?.text ?? '';
     if (amount && accountSelect.value) {
         preview.style.display = 'block';
-        previewAmount.textContent = parseInt(amount).toLocaleString('it-IT');
+        previewAmount.textContent = parseFloat(amount).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         previewAccount.textContent = accountText.split('(')[0].trim();
     } else {
         preview.style.display = 'none';

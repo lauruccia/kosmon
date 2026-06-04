@@ -312,8 +312,8 @@
                     <label class="form-label" style="margin-bottom:4px;">Importo KY *</label>
                     <div style="position:relative;">
                         <input type="number" name="amount" id="amount" required
-                            min="1" max="10000000" step="1"
-                            value="{{ old('amount') }}" placeholder="es. 1000"
+                            min="0.01" max="10000000" step="0.01"
+                            value="{{ old('amount') }}" placeholder="es. 1000,00"
                             class="form-control" style="font-size:16px;font-weight:700;padding-right:40px;">
                         <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--ink-muted);font-size:13px;">KY</span>
                     </div>
@@ -486,15 +486,15 @@ const previewAmount  = document.getElementById('previewAmount');
 const previewAccount = document.getElementById('previewAccount');
 const previewNewBal  = document.getElementById('previewNewBalance');
 const previewCirc    = document.getElementById('previewCirculating');
-const systemBalance  = {{ $systemAccount->available_balance }};   // valore raw (stessa unità del DB)
+const systemBalance  = {{ $systemAccount->available_balance }};   // centesimi (raw DB)
 const kyCirculation  = {{ $kyInCirculation }};
 
-function fmt(n) {
-    return n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+function fmt(cents) {
+    return (cents / 100).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 function updatePreview() {
-    const amount  = parseInt(amountInput.value) || 0;
+    const amount  = Math.round((parseFloat(amountInput.value) || 0) * 100);
     const acctTxt = accountSelect.options[accountSelect.selectedIndex]?.text ?? '';
 
     if (amount > 0 && accountSelect.value) {

@@ -89,8 +89,8 @@
                         </div>
                         <div class="field">
                             <label>Importo richiesto (KY)</label>
-                            <input name="requested_amount" type="number" min="1" required
-                                   placeholder="es. 50000 = 500,00 KY">
+                            <input name="requested_amount" type="number" min="0.01" step="0.01" required
+                                   placeholder="es. 500,00">
                             <span class="subtle" style="font-size:12px;margin-top:4px;display:block;">
                                 Stesso formato dei limiti: 50000 corrisponde a 500,00 KY.
                             </span>
@@ -315,18 +315,18 @@
                                             @csrf
                                             <div class="field-inline">
                                                 <div class="field">
-                                                    <input name="spending_limit" type="number" min="1"
-                                                           value="{{ $subaccount->spending_limit }}"
+                                                    <input name="spending_limit" type="number" min="0.01" step="0.01"
+                                                           value="{{ ky_input($subaccount->spending_limit) }}"
                                                            placeholder="Limite singolo KY">
                                                 </div>
                                                 <div class="field">
-                                                    <input name="daily_outgoing_limit" type="number" min="1"
-                                                           value="{{ $subaccount->daily_outgoing_limit }}"
+                                                    <input name="daily_outgoing_limit" type="number" min="0.01" step="0.01"
+                                                           value="{{ ky_input($subaccount->daily_outgoing_limit) }}"
                                                            placeholder="Limite giornaliero KY">
                                                 </div>
                                                 <div class="field">
-                                                    <input name="monthly_outgoing_limit" type="number" min="1"
-                                                           value="{{ $subaccount->monthly_outgoing_limit }}"
+                                                    <input name="monthly_outgoing_limit" type="number" min="0.01" step="0.01"
+                                                           value="{{ ky_input($subaccount->monthly_outgoing_limit) }}"
                                                            placeholder="Limite mensile KY">
                                                 </div>
                                             </div>
@@ -407,24 +407,24 @@
                             <div class="field">
                                 <label for="spending_limit">Limite per operazione (KY)</label>
                                 <input id="spending_limit" name="spending_limit" type="number"
-                                       min="1" value="{{ old('spending_limit') }}"
-                                       placeholder="es. 500">
+                                       min="0.01" step="0.01" value="{{ old('spending_limit') }}"
+                                       placeholder="es. 50,00">
                             </div>
                             <div class="field">
                                 <label for="daily_outgoing_limit">Limite giornaliero (KY)</label>
                                 <input id="daily_outgoing_limit" name="daily_outgoing_limit"
-                                       type="number" min="1"
+                                       type="number" min="0.01" step="0.01"
                                        value="{{ old('daily_outgoing_limit') }}"
-                                       placeholder="es. 1000">
+                                       placeholder="es. 100,00">
                             </div>
                         </div>
 
                         <div class="field">
                             <label for="monthly_outgoing_limit">Limite mensile (KY)</label>
                             <input id="monthly_outgoing_limit" name="monthly_outgoing_limit"
-                                   type="number" min="1"
+                                   type="number" min="0.01" step="0.01"
                                    value="{{ old('monthly_outgoing_limit') }}"
-                                   placeholder="es. 5000 (lascia vuoto = nessun limite)">
+                                   placeholder="es. 500,00 (lascia vuoto = nessun limite)">
                             <span class="subtle" style="font-size:12px;margin-top:4px;display:block;">
                                 I pagamenti attingono direttamente dal saldo del conto principale.
                             </span>

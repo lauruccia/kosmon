@@ -26,7 +26,7 @@
             <label class="form-label">Importo (KY) *</label>
             <div style="display:flex;align-items:center;gap:8px;">
                 <input type="number" name="amount" value="{{ old('amount') }}"
-                       min="1" max="9999999" step="1" placeholder="es. 10000"
+                       min="0.01" max="9999999" step="0.01" placeholder="es. 100,00"
                        class="form-control" style="max-width:200px;" required>
                 <span style="font-size:13px;color:var(--ink-muted);">KY</span>
             </div>

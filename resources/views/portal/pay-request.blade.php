@@ -154,7 +154,7 @@ import { initPayButton } from '{{ Vite::asset("resources/js/ky-payment-request.j
 // Progressive enhancement: se il browser ha un Payment Handler registrato,
 // il bottone "Paga" mostra il native payment sheet con conferma biometrica.
 initPayButton({
-    amount:      {{ $pr->amount }},
+    amount:      {{ number_format($pr->amount / 100, 2, '.', '') }},
     label:       @json($pr->toAccount->company?->name ?? 'KMoney'),
     description: @json($pr->description ?? ''),
     prToken:     @json($pr->token),

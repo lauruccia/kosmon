@@ -22,8 +22,8 @@ class AccountStructureTest extends TestCase
         $response = $this->actingAs($owner)->post('/conti/sottoconti', [
             'account_name' => 'Budget Spesa Casa',
             'initial_budget' => 300,
-            'spending_limit' => 100,
-            'daily_outgoing_limit' => 150,
+            'spending_limit' => 1,     // 1 KY → 100 centesimi
+            'daily_outgoing_limit' => 1.5,   // 1,50 KY → 150 centesimi
             'manager_name' => 'Luca Ferri',
             'manager_email' => 'luca.ferri@kmoney.test',
             'manager_password' => 'secret123',
@@ -78,8 +78,8 @@ class AccountStructureTest extends TestCase
         $response = $this->actingAs($owner)->post('/conti/sottoconti', [
             'account_name' => 'Budget Trasferte Marco',
             'initial_budget' => 600,
-            'spending_limit' => 200,
-            'daily_outgoing_limit' => 350,
+            'spending_limit' => 2,     // 2 KY → 200 centesimi
+            'daily_outgoing_limit' => 3.5,   // 3,50 KY → 350 centesimi
             'manager_name' => 'Marco Verdi',
             'manager_email' => 'marco.verdi@kmoney.test',
             'manager_password' => 'secret123',

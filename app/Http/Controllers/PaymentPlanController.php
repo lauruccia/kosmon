@@ -87,10 +87,12 @@ class PaymentPlanController extends Controller
             $this->requestedCompanyId($request)
         );
 
+        $request->merge(['total_amount' => str_replace(',', '.', (string) $request->input('total_amount'))]);
+
         $validated = $request->validate([
             'initiator_role'     => ['required', 'in:debtor,creditor'],
             'counterparty_id'    => ['required', 'integer', 'exists:accounts,id'],
-            'total_amount'       => ['required', 'integer', 'min:2'],
+            'total_amount'       => ['required', 'numeric', 'min:0.02'],
             'installments_count' => ['required', 'integer', 'min:2', 'max:60'],
             'frequency'          => ['required', 'in:weekly,biweekly,monthly'],
             'first_due_date'     => ['required', 'date', 'after_or_equal:today'],
@@ -114,7 +116,7 @@ class PaymentPlanController extends Controller
             $plan = $this->service->create(
                 fromAccountId:      $fromAccountId,
                 toAccountId:        $toAccountId,
-                totalAmount:        (int) $validated['total_amount'],
+                totalAmount:        ky_to_cents($validated['total_amount']),
                 installmentsCount:  (int) $validated['installments_count'],
                 frequency:          $validated['frequency'],
                 firstDueDate:       Carbon::parse($validated['first_due_date']),

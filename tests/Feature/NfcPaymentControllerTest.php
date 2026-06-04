@@ -45,7 +45,7 @@ class NfcPaymentControllerTest extends TestCase
         $user = $this->makeUser();
 
         $response = $this->actingAs($user)->post(route('portal.incasso-nfc.store'), [
-            'amount'      => 1000,
+            'amount'      => 10,   // 10 KY → 1000 centesimi
             'description' => 'Test NFC',
         ]);
 

@@ -329,22 +329,22 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
                     <div>
                         <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">Fido circuito (KY) *</label>
-                        <input type="number" name="credit_limit" min="0" step="1"
-                            value="{{ old('credit_limit', $activeLimit?->credit_limit ?? '') }}"
+                        <input type="number" name="credit_limit" min="0" step="0.01"
+                            value="{{ old('credit_limit', ky_input($activeLimit?->credit_limit)) }}"
                             required
                             style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
                     </div>
                     <div>
                         <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">Limite giornaliero (KY)</label>
-                        <input type="number" name="daily_outgoing_limit" min="0" step="1"
-                            value="{{ old('daily_outgoing_limit', $activeLimit?->daily_outgoing_limit ?? '') }}"
+                        <input type="number" name="daily_outgoing_limit" min="0" step="0.01"
+                            value="{{ old('daily_outgoing_limit', ky_input($activeLimit?->daily_outgoing_limit)) }}"
                             placeholder="—"
                             style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
                     </div>
                     <div>
                         <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">Limite per movimento (KY)</label>
-                        <input type="number" name="single_transfer_limit" min="0" step="1"
-                            value="{{ old('single_transfer_limit', $activeLimit?->single_transfer_limit ?? '') }}"
+                        <input type="number" name="single_transfer_limit" min="0" step="0.01"
+                            value="{{ old('single_transfer_limit', ky_input($activeLimit?->single_transfer_limit)) }}"
                             placeholder="—"
                             style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
                     </div>
@@ -487,8 +487,8 @@
                         <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">
                             Tetto massimo conto (KY)
                         </label>
-                        <input type="number" name="max_balance" min="0" step="1"
-                            value="{{ old('max_balance', $mainAccount->max_balance ?? '') }}"
+                        <input type="number" name="max_balance" min="0" step="0.01"
+                            value="{{ old('max_balance', ky_input($mainAccount->max_balance)) }}"
                             placeholder="Lascia vuoto per nessun tetto"
                             class="form-input" style="width:100%;">
                         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">

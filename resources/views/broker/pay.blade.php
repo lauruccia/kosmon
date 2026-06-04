@@ -60,9 +60,9 @@
                     Importo (KY) <span style="color:#dc2626;">*</span>
                 </label>
                 <div style="position:relative;">
-                    <input type="number" name="amount" id="amount" min="1" step="1"
+                    <input type="number" name="amount" id="amount" min="0.01" step="0.01"
                         value="{{ old('amount') }}"
-                        required placeholder="es. 1.000"
+                        required placeholder="es. 10,00"
                         style="width:100%;padding:10px 44px 10px 12px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-weight:700;background:var(--surface);color:var(--text);box-sizing:border-box;">
                     <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:var(--teal-strong);">KY</span>
                 </div>
@@ -159,12 +159,12 @@
     const recapAmount  = document.getElementById('recapAmount');
 
     function updateRecap() {
-        const amt  = parseInt(amountInput.value, 10);
+        const amt  = parseFloat(amountInput.value);
         const dest = destSelect.options[destSelect.selectedIndex];
         if (amt > 0 && destSelect.value) {
             recap.style.display = 'block';
             recapDest.textContent   = dest.text.split('—')[0].trim();
-            recapAmount.textContent = new Intl.NumberFormat('it-IT').format(amt) + ' KY';
+            recapAmount.textContent = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amt) + ' KY';
         } else {
             recap.style.display = 'none';
         }

@@ -133,18 +133,22 @@ class BrokerController extends Controller
             ->where('status', 'active')
             ->firstOrFail();
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id', 'different:' . $fromAccount->id],
-            'amount'        => ['required', 'integer', 'min:1'],
+            'amount'        => ['required', 'numeric', 'min:0.01'],
             'description'   => ['nullable', 'string', 'max:500'],
         ]);
+
+        $amountCents = ky_to_cents($validated['amount']);
 
         try {
             $bookingService->book([
                 'initiated_by'    => $user->id,
                 'from_account_id' => $fromAccount->id,
                 'to_account_id'   => (int) $validated['to_account_id'],
-                'amount'          => (int) $validated['amount'],
+                'amount'          => $amountCents,
                 'description'     => $validated['description'] ?? 'Pagamento operato da broker ' . $user->name,
                 'kind'            => 'broker_payment',
                 'idempotency_key' => (string) Str::uuid(),
@@ -155,7 +159,7 @@ class BrokerController extends Controller
                 'initiated_by'    => $user->id,
                 'from_account_id' => $fromAccount->id,
                 'to_account_id'   => (int) $validated['to_account_id'],
-                'amount'          => (int) $validated['amount'],
+                'amount'          => $amountCents,
                 'idempotency_key' => (string) Str::uuid(),
                 'ip_address'      => $request->ip(),
             ], $e->getMessage());
@@ -164,7 +168,7 @@ class BrokerController extends Controller
         }
 
         return redirect()->route('broker.clients.show', $company)
-            ->with('portal_success', 'Pagamento di ' . ky_format($validated['amount']) . ' KY eseguito per conto di ' . $company->name . '.');
+            ->with('portal_success', 'Pagamento di ' . ky_format($amountCents) . ' KY eseguito per conto di ' . $company->name . '.');
     }
 
     // ──────────────────────────────────────────────────────────────────────

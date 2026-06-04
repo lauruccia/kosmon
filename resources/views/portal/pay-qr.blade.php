@@ -20,9 +20,9 @@
                 <div class="field-grid">
                     <div class="field">
                         <label for="amount">Importo in KY</label>
-                        <input id="amount" name="amount" type="number" min="1"
+                        <input id="amount" name="amount" type="number" min="0.01" step="0.01"
                                value="{{ old('amount', request('amount')) }}"
-                               placeholder="Es. 500" required autofocus>
+                               placeholder="Es. 50,00" required autofocus>
                         <div class="table-muted">Saldo disponibile: {{ ky_format($fromAccount->saldoDisponibile()) }} KY</div>
                     </div>
                     <div class="field">

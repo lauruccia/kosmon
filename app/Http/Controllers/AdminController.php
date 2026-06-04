@@ -396,10 +396,16 @@ class AdminController extends Controller
         $account = $company->accounts()->whereNull('parent_account_id')->where('status', 'active')->first();
         abort_unless($account, 404, 'Nessun conto principale attivo per questa azienda.');
 
+        foreach (['credit_limit', 'daily_outgoing_limit', 'single_transfer_limit'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
-            'credit_limit'           => ['required', 'integer', 'min:0'],
-            'daily_outgoing_limit'   => ['nullable', 'integer', 'min:0'],
-            'single_transfer_limit'  => ['nullable', 'integer', 'min:0'],
+            'credit_limit'           => ['required', 'numeric', 'min:0'],
+            'daily_outgoing_limit'   => ['nullable', 'numeric', 'min:0'],
+            'single_transfer_limit'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
         // Disattiva eventuali limiti precedenti
@@ -407,9 +413,9 @@ class AdminController extends Controller
 
         // Crea nuovo limite
         $account->creditLimits()->create([
-            'credit_limit'          => $validated['credit_limit'],
-            'daily_outgoing_limit'  => ($validated['daily_outgoing_limit'] ?? null) ?: null,
-            'single_transfer_limit' => ($validated['single_transfer_limit'] ?? null) ?: null,
+            'credit_limit'          => ky_to_cents($validated['credit_limit']),
+            'daily_outgoing_limit'  => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
+            'single_transfer_limit' => $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);
@@ -426,12 +432,16 @@ class AdminController extends Controller
         $account = $company->accounts()->whereNull('parent_account_id')->where('status', 'active')->first();
         abort_unless($account, 404, 'Nessun conto principale attivo per questa azienda.');
 
+        if ($request->filled('max_balance')) {
+            $request->merge(['max_balance' => str_replace(',', '.', (string) $request->input('max_balance'))]);
+        }
+
         $validated = $request->validate([
-            'max_balance' => ['nullable', 'integer', 'min:0'],
+            'max_balance' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $maxBalance = $validated['max_balance'] !== null && $validated['max_balance'] !== ''
-            ? (int) $validated['max_balance']
+        $maxBalance = $request->filled('max_balance')
+            ? ky_to_cents($validated['max_balance'])
             : null;
 
         $account->update(['max_balance' => $maxBalance]);
@@ -617,21 +627,33 @@ class AdminController extends Controller
     {
         $this->authorizePermission($request->user(), 'users.manage');
 
+        $kyLimitFields = [
+            'circuit_capacity_limit', 'negative_balance_limit', 'daily_transaction_limit',
+            'monthly_transaction_limit', 'per_movement_limit', 'primary_account_max_balance',
+        ];
+        foreach ($kyLimitFields as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'managed_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'phone' => ['nullable', 'string', 'max:30'],
             'role_label' => ['nullable', 'string', 'max:50'],
             'is_active' => ['required', 'boolean'],
-            'circuit_capacity_limit' => ['nullable', 'integer', 'min:0'],
-            'negative_balance_limit' => ['nullable', 'integer', 'min:0'],
-            'daily_transaction_limit' => ['nullable', 'integer', 'min:0'],
-            'monthly_transaction_limit' => ['nullable', 'integer', 'min:0'],
-            'per_movement_limit' => ['nullable', 'integer', 'min:0'],
-            'primary_account_max_balance' => ['nullable', 'integer', 'min:0'],
+            'circuit_capacity_limit' => ['nullable', 'numeric', 'min:0'],
+            'negative_balance_limit' => ['nullable', 'numeric', 'min:0'],
+            'daily_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'monthly_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'per_movement_limit' => ['nullable', 'numeric', 'min:0'],
+            'primary_account_max_balance' => ['nullable', 'numeric', 'min:0'],
             'roles' => ['array'],
             'roles.*' => ['integer', 'exists:roles,id'],
         ]);
+
+        $limitToCents = fn (string $field) => $request->filled($field) ? ky_to_cents($validated[$field]) : null;
 
         $user->forceFill([
             'company_id' => $validated['company_id'] ?? null,
@@ -639,11 +661,11 @@ class AdminController extends Controller
             'phone' => $validated['phone'] ?? null,
             'role' => $validated['role_label'] ?? $user->role,
             'is_active' => (bool) $validated['is_active'],
-            'circuit_capacity_limit' => $validated['circuit_capacity_limit'] ?? null,
-            'negative_balance_limit' => $validated['negative_balance_limit'] ?? null,
-            'daily_transaction_limit' => $validated['daily_transaction_limit'] ?? null,
-            'monthly_transaction_limit' => $validated['monthly_transaction_limit'] ?? null,
-            'per_movement_limit' => $validated['per_movement_limit'] ?? null,
+            'circuit_capacity_limit' => $limitToCents('circuit_capacity_limit'),
+            'negative_balance_limit' => $limitToCents('negative_balance_limit'),
+            'daily_transaction_limit' => $limitToCents('daily_transaction_limit'),
+            'monthly_transaction_limit' => $limitToCents('monthly_transaction_limit'),
+            'per_movement_limit' => $limitToCents('per_movement_limit'),
             'transfer_limits_use_defaults' => false,
         ])->save();
 
@@ -656,7 +678,7 @@ class AdminController extends Controller
 
             if ($primaryAccount) {
                 $primaryAccount->forceFill([
-                    'max_balance' => $validated['primary_account_max_balance'] ?? null,
+                    'max_balance' => $limitToCents('primary_account_max_balance'),
                 ])->save();
             }
         }
@@ -754,13 +776,28 @@ class AdminController extends Controller
     {
         $this->authorizePermission($request->user(), 'users.manage');
 
+        $defaultLimitFields = [
+            'default_circuit_capacity_limit', 'default_negative_balance_limit',
+            'default_daily_transaction_limit', 'default_monthly_transaction_limit',
+            'default_per_movement_limit',
+        ];
+        foreach ($defaultLimitFields as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
-            'default_circuit_capacity_limit' => ['nullable', 'integer', 'min:0'],
-            'default_negative_balance_limit' => ['nullable', 'integer', 'min:0'],
-            'default_daily_transaction_limit' => ['nullable', 'integer', 'min:0'],
-            'default_monthly_transaction_limit' => ['nullable', 'integer', 'min:0'],
-            'default_per_movement_limit' => ['nullable', 'integer', 'min:0'],
+            'default_circuit_capacity_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_negative_balance_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_daily_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_monthly_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_per_movement_limit' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        $validated = collect($validated)
+            ->map(fn ($value) => $value === null || $value === '' ? null : ky_to_cents($value))
+            ->all();
 
         DB::transaction(function () use ($validated): void {
             $defaults = SystemSetting::userLimitDefaults();
@@ -791,19 +828,25 @@ class AdminController extends Controller
     {
         $this->authorizePermission($request->user(), 'accounts.manage');
 
+        foreach (['max_balance', 'spending_limit', 'daily_outgoing_limit'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
             'status' => ['required', Rule::in(['active', 'suspended'])],
-            'max_balance' => ['nullable', 'integer', 'min:0'],
-            'spending_limit' => ['nullable', 'integer', 'min:1'],
-            'daily_outgoing_limit' => ['nullable', 'integer', 'min:1'],
+            'max_balance' => ['nullable', 'numeric', 'min:0'],
+            'spending_limit' => ['nullable', 'numeric', 'min:0.01'],
+            'daily_outgoing_limit' => ['nullable', 'numeric', 'min:0.01'],
             'allow_negative_balance' => ['required', 'boolean'],
         ]);
 
         $account->forceFill([
             'status' => $validated['status'],
-            'max_balance' => $validated['max_balance'] ?? null,
-            'spending_limit' => $validated['spending_limit'] ?? null,
-            'daily_outgoing_limit' => $validated['daily_outgoing_limit'] ?? null,
+            'max_balance' => $request->filled('max_balance') ? ky_to_cents($validated['max_balance']) : null,
+            'spending_limit' => $request->filled('spending_limit') ? ky_to_cents($validated['spending_limit']) : null,
+            'daily_outgoing_limit' => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
             'allow_negative_balance' => (bool) $validated['allow_negative_balance'],
         ])->save();
 
@@ -1357,11 +1400,15 @@ class AdminController extends Controller
         $systemAccount = Account::systemAccount();
         abort_unless($systemAccount !== null, 500, 'Conto Cassa Circuito non trovato.');
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount'        => ['required', 'integer', 'min:1', 'max:10000000'],
+            'amount'        => ['required', 'numeric', 'min:0.01', 'max:10000000'],
             'description'   => ['nullable', 'string', 'max:500'],
         ]);
+
+        $amountCents = ky_to_cents($validated['amount']);
 
         $toAccount = Account::query()->with(['company', 'ownerUser'])->findOrFail($validated['to_account_id']);
 
@@ -1375,7 +1422,7 @@ class AdminController extends Controller
                 'initiated_by'    => $request->user()->id,
                 'from_account_id' => $systemAccount->id,
                 'to_account_id'   => $toAccount->id,
-                'amount'          => (int) $validated['amount'],
+                'amount'          => $amountCents,
                 'description'     => $description,
                 'kind'            => 'ky_emission',
                 'idempotency_key' => (string) Str::uuid(),
@@ -1394,7 +1441,7 @@ class AdminController extends Controller
             'context'         => [
                 'to_account_id'   => $toAccount->id,
                 'to_account_name' => $toAccount->display_name,
-                'amount'          => $validated['amount'],
+                'amount'          => $amountCents,
                 'description'     => $description,
             ],
         ]);
@@ -1402,7 +1449,7 @@ class AdminController extends Controller
         $recipientName = $toAccount->display_name;
 
         return redirect()->route('admin.ky.emit')
-            ->with('portal_success', 'Emessi ' . $validated['amount'] . ' KY su "' . $recipientName . '" correttamente.');
+            ->with('portal_success', 'Emessi ' . ky_format($amountCents) . ' KY su "' . $recipientName . '" correttamente.');
     }
 
     // ─── Report avanzato circuito ────────────────────────────────────────────
@@ -1952,18 +1999,26 @@ class AdminController extends Controller
         $this->authorizeBackoffice($request->user());
         abort_unless($creditRequest->isPending(), 422, "Richiesta non più in stato pending.");
 
+        foreach (['approved_amount', 'daily_outgoing_limit', 'single_transfer_limit'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
-            'approved_amount'       => ['required', 'integer', 'min:1'],
+            'approved_amount'       => ['required', 'numeric', 'min:0.01'],
             'admin_note'            => ['nullable', 'string', 'max:500'],
-            'daily_outgoing_limit'  => ['nullable', 'integer', 'min:0'],
-            'single_transfer_limit' => ['nullable', 'integer', 'min:0'],
+            'daily_outgoing_limit'  => ['nullable', 'numeric', 'min:0'],
+            'single_transfer_limit' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        $approvedCents = ky_to_cents($validated['approved_amount']);
 
         $account = $creditRequest->account;
 
         // Fido additivo: nuovo totale = massimale attuale + importo approvato
         $existingMassimale = $account->massimale();
-        $newTotal = $existingMassimale + (int) $validated['approved_amount'];
+        $newTotal = $existingMassimale + $approvedCents;
 
         // Disattiva eventuali CreditLimit precedenti
         $account->creditLimits()->where('status', 'active')->update(['status' => 'inactive']);
@@ -1971,8 +2026,8 @@ class AdminController extends Controller
         // Crea nuovo CreditLimit con il totale sommato
         $account->creditLimits()->create([
             'credit_limit'          => $newTotal,
-            'daily_outgoing_limit'  => ($validated['daily_outgoing_limit'] ?? null) ?: null,
-            'single_transfer_limit' => ($validated['single_transfer_limit'] ?? null) ?: null,
+            'daily_outgoing_limit'  => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
+            'single_transfer_limit' => $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);
@@ -1980,7 +2035,7 @@ class AdminController extends Controller
         // Aggiorna la richiesta (approved_amount = solo la quota aggiuntiva approvata)
         $creditRequest->update([
             'status'          => 'approved',
-            'approved_amount' => (int) $validated['approved_amount'],
+            'approved_amount' => $approvedCents,
             'admin_note'      => $validated['admin_note'] ?? null,
             'admin_user_id'   => $request->user()->id,
             'actioned_at'     => now(),
@@ -1991,7 +2046,7 @@ class AdminController extends Controller
             'event'          => 'admin.credit_limit.approve',
             'auditable_type' => \App\Models\CreditLimitRequest::class,
             'auditable_id'   => $creditRequest->id,
-            'context'        => ['approved_amount' => $validated['approved_amount']],
+            'context'        => ['approved_amount' => $approvedCents],
         ]);
 
         // Notifica l'utente proprietario del conto

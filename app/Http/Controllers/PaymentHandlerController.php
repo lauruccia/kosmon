@@ -82,7 +82,7 @@ class PaymentHandlerController extends Controller
 
         if ($account->available_balance < $pr->amount) {
             return response()->json([
-                'error' => 'Saldo insufficiente (' . $account->available_balance . ' KY disponibili).',
+                'error' => 'Saldo insufficiente (' . ky_format($account->available_balance) . ' KY disponibili).',
             ], 422);
         }
 

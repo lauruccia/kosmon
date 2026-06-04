@@ -114,7 +114,7 @@ class BrokerControllerTest extends TestCase
         $response = $this->actingAs($broker)
             ->post(route('broker.pay.submit', $company), [
                 'to_account_id' => $toAccount->id,
-                'amount'        => 500,
+                'amount'        => 5,   // 5 KY → 500 centesimi
                 'description'   => 'Pagamento broker test',
             ]);
 

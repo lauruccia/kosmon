@@ -57,7 +57,7 @@
                     Fido attuale: <strong>{{ $fidoAttuale > 0 ? ky_format($fidoAttuale) . ' KY' : 'nessuno' }}</strong>
                 </span>
                 <span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;font-size:12px;color:#1e40af;font-weight:700;">
-                    Se approvi {{ number_format($req->requested_amount, 0, ',', '.') }} KY → totale {{ number_format($fidoTotale, 0, ',', '.') }} KY
+                    Se approvi {{ ky_format($req->requested_amount) }} KY → totale {{ ky_format($fidoTotale) }} KY
                 </span>
             </div>
 
@@ -78,7 +78,7 @@
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                         <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;">Approva</div>
                         <div id="totale-preview-{{ $req->id }}" style="font-size:11px;color:#166534;font-weight:600;">
-                            Totale → <strong>{{ number_format($fidoTotale, 0, ',', '.') }} KY</strong>
+                            Totale → <strong>{{ ky_format($fidoTotale) }} KY</strong>
                         </div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -86,25 +86,25 @@
                             <label style="font-size:11px;color:#166534;font-weight:600;display:block;margin-bottom:3px;">
                                 Importo aggiuntivo (KY)
                                 @if($fidoAttuale > 0)
-                                <span style="font-weight:400;opacity:.8;">+ {{ number_format($fidoAttuale, 0, ',', '.') }} att.</span>
+                                <span style="font-weight:400;opacity:.8;">+ {{ ky_format($fidoAttuale) }} att.</span>
                                 @endif
                             </label>
-                            <input type="number" name="approved_amount" min="1" value="{{ $req->requested_amount }}"
+                            <input type="number" name="approved_amount" min="0.01" step="0.01" value="{{ ky_input($req->requested_amount) }}"
                                 id="approved-{{ $req->id }}"
                                 data-current="{{ $fidoAttuale }}"
                                 data-preview="totale-preview-{{ $req->id }}"
                                 style="width:100%;padding:7px 10px;border:1px solid #86efac;border-radius:6px;font-size:14px;font-weight:700;background:#fff;box-sizing:border-box;"
                                 required
                                 oninput="(function(el){
-                                    var add=parseInt(el.value)||0;
+                                    var add=Math.round((parseFloat(el.value)||0)*100);
                                     var cur=parseInt(el.dataset.current)||0;
-                                    var tot=cur+add;
-                                    document.getElementById(el.dataset.preview).innerHTML='Totale &rarr; <strong>'+tot.toLocaleString('it-IT')+' KY</strong>';
+                                    var tot=(cur+add)/100;
+                                    document.getElementById(el.dataset.preview).innerHTML='Totale &rarr; <strong>'+tot.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})+' KY</strong>';
                                 })(this)">
                         </div>
                         <div>
                             <label style="font-size:11px;color:#166534;font-weight:600;display:block;margin-bottom:3px;">Limite giorn. (facolt.)</label>
-                            <input type="number" name="daily_outgoing_limit" min="0" placeholder="illimitato"
+                            <input type="number" name="daily_outgoing_limit" min="0" step="0.01" placeholder="illimitato"
                                 style="width:100%;padding:7px 10px;border:1px solid #86efac;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
                         </div>
                     </div>

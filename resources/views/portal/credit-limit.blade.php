@@ -182,9 +182,9 @@
                     @endif
                 </label>
                 <div style="position:relative;">
-                    <input type="number" name="requested_amount" min="1" max="9999999" step="1"
+                    <input type="number" name="requested_amount" min="0.01" max="9999999" step="0.01"
                         value="{{ old('requested_amount') }}"
-                        placeholder="es. 100"
+                        placeholder="es. 100,00"
                         style="width:100%;padding:9px 36px 9px 10px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-weight:700;background:var(--bg);color:var(--ink);box-sizing:border-box;"
                         required>
                     <span style="position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:var(--ink-muted);">KY</span>

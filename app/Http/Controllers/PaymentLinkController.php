@@ -96,13 +96,15 @@ class PaymentLinkController extends Controller
             return back()->with('portal_error', 'Il tuo conto non è attivo.');
         }
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
-            'amount'      => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description' => ['nullable', 'string', 'max:200'],
             'expires_days' => ['required', 'integer', 'min:1', 'max:90'],
         ], [
             'amount.required'       => "Inserisci l'importo.",
-            'amount.min'            => "L'importo minimo è 1 KY.",
+            'amount.min'            => "L'importo minimo è 0,01 KY.",
             'expires_days.required' => 'Seleziona la scadenza.',
         ]);
 
@@ -110,7 +112,7 @@ class PaymentLinkController extends Controller
             'kind'                => 'link',
             'created_by_user_id'  => $user->id,
             'to_account_id'       => $account->id,
-            'amount'              => (int) $validated['amount'],
+            'amount'              => ky_to_cents($validated['amount']),
             'description'         => $validated['description'] ?? null,
             'status'              => 'pending',
             'expires_at'          => now()->addDays((int) $validated['expires_days']),

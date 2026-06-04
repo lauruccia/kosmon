@@ -25,8 +25,9 @@
                             id="amount"
                             name="amount"
                             class="form-control @error('amount') is-invalid @enderror"
-                            placeholder="es. 250"
-                            min="1"
+                            placeholder="es. 250,00"
+                            min="0.01"
+                            step="0.01"
                             max="9999999"
                             value="{{ old('amount') }}"
                             autofocus

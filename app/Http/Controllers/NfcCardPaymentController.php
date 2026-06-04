@@ -90,11 +90,15 @@ class NfcCardPaymentController extends Controller
      */
     public function createRequest(Request $request): JsonResponse
     {
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $data = $request->validate([
             'card_uuid'   => ['required', 'string'],
-            'amount'      => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description' => ['nullable', 'string', 'max:200'],
         ]);
+
+        $amountCents = ky_to_cents($data['amount']);
 
         $card = NfcCard::with('company')->where('uuid', $data['card_uuid'])->firstOrFail();
 
@@ -103,9 +107,9 @@ class NfcCardPaymentController extends Controller
         }
 
         // Verifica limiti
-        [$ok, $reason] = $card->checkLimits((int) $data['amount']);
+        [$ok, $reason] = $card->checkLimits($amountCents);
         if (! $ok) {
-            $card->logs()->create(['event' => 'limit_exceeded', 'amount' => $data['amount'], 'ip' => $request->ip()]);
+            $card->logs()->create(['event' => 'limit_exceeded', 'amount' => $amountCents, 'ip' => $request->ip()]);
             return response()->json(['error' => $reason], 422);
         }
 
@@ -116,7 +120,7 @@ class NfcCardPaymentController extends Controller
         $session = NfcCardAuthSession::create([
             'nfc_card_id'        => $card->id,
             'merchant_company_id'=> $merchantCompany->id,
-            'amount'             => (int) $data['amount'],
+            'amount'             => $amountCents,
             'description'        => $data['description'] ?? null,
             'status'             => 'pending',
             'expires_at'         => now()->addMinutes(3),

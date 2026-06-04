@@ -64,7 +64,7 @@ class PaymentLinkTest extends TestCase
         [$user, $account] = $this->makeUserAndAccount();
 
         $response = $this->actingAs($user)->post(route('portal.payment-links.store'), [
-            'amount'      => 1500,
+            'amount'      => 15,   // 15 KY → 1500 centesimi
             'description' => 'Fattura #42',
             'expires_days' => 7,
         ]);

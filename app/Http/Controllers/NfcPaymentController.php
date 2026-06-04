@@ -66,17 +66,19 @@ class NfcPaymentController extends Controller
                 ->with('portal_error', 'Il tuo conto non e\' attivo.');
         }
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
-            'amount'      => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description' => ['nullable', 'string', 'max:200'],
         ], [
             'amount.required' => 'Inserisci l\'importo da incassare.',
-            'amount.min'      => 'L\'importo minimo e\' 1 KY.',
+            'amount.min'      => 'L\'importo minimo e\' 0,01 KY.',
         ]);
 
         $pr = PaymentRequest::create([
             'to_account_id' => $account->id,
-            'amount'        => (int) $validated['amount'],
+            'amount'        => ky_to_cents($validated['amount']),
             'description'   => $validated['description'] ?? null,
             'kind'          => 'nfc',
             'status'        => 'pending',

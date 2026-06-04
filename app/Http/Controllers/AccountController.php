@@ -96,13 +96,23 @@ class AccountController extends Controller
         [$currentAccount, $currentUser, $rootAccount] = $this->resolveContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($currentUser->canCreateSubaccountsFor($rootAccount), 403);
 
+        foreach (['spending_limit', 'daily_outgoing_limit', 'monthly_outgoing_limit'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
             'account_name'          => ['required', 'string', 'max:120'],
             'manager_email'         => ['nullable', 'email', 'max:120'],
-            'spending_limit'        => ['nullable', 'integer', 'min:1'],
-            'daily_outgoing_limit'  => ['nullable', 'integer', 'min:1'],
-            'monthly_outgoing_limit' => ['nullable', 'integer', 'min:1'],
+            'spending_limit'        => ['nullable', 'numeric', 'min:0.01'],
+            'daily_outgoing_limit'  => ['nullable', 'numeric', 'min:0.01'],
+            'monthly_outgoing_limit' => ['nullable', 'numeric', 'min:0.01'],
         ]);
+
+        foreach (['spending_limit', 'daily_outgoing_limit', 'monthly_outgoing_limit'] as $field) {
+            $validated[$field] = $request->filled($field) ? ky_to_cents($validated[$field]) : null;
+        }
 
         try {
             $service->create(
@@ -215,11 +225,21 @@ class AccountController extends Controller
         [$currentAccount, $currentUser, $rootAccount] = $this->resolveContext($request->user(), $this->requestedCompanyId($request));
         $subaccount = $this->resolveManagedSubaccount($currentUser, $rootAccount, $subaccount);
 
+        foreach (['spending_limit', 'daily_outgoing_limit', 'monthly_outgoing_limit'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
-            'spending_limit'         => ['nullable', 'integer', 'min:1'],
-            'daily_outgoing_limit'   => ['nullable', 'integer', 'min:1'],
-            'monthly_outgoing_limit' => ['nullable', 'integer', 'min:1'],
+            'spending_limit'         => ['nullable', 'numeric', 'min:0.01'],
+            'daily_outgoing_limit'   => ['nullable', 'numeric', 'min:0.01'],
+            'monthly_outgoing_limit' => ['nullable', 'numeric', 'min:0.01'],
         ]);
+
+        foreach (['spending_limit', 'daily_outgoing_limit', 'monthly_outgoing_limit'] as $field) {
+            $validated[$field] = $request->filled($field) ? ky_to_cents($validated[$field]) : null;
+        }
 
         $service->updateLimits($subaccount, $validated, $currentUser, $request->ip());
 
@@ -259,8 +279,10 @@ class AccountController extends Controller
         [$currentAccount, $currentUser, $rootAccount] = $this->resolveContext($request->user(), $this->requestedCompanyId($request));
         $subaccount = $this->resolveManagedSubaccount($currentUser, $rootAccount, $subaccount);
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
-            'amount'      => ['required', 'integer', 'min:1'],
+            'amount'      => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -271,7 +293,7 @@ class AccountController extends Controller
                 'initiated_by'    => $currentUser->id,
                 'from_account_id' => $rootAccount->id,
                 'to_account_id'   => $subaccount->id,
-                'amount'          => (int) $validated['amount'],
+                'amount'          => ky_to_cents($validated['amount']),
                 'description'     => $validated['description'] ?? 'Ricarica budget sottoconto',
                 'kind'            => 'subaccount_funding',
                 'idempotency_key' => (string) Str::uuid(),

@@ -145,7 +145,7 @@
             <tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:6px 8px;">{{ $plan->fromAccount?->company?->name ?? $plan->fromAccount?->display_name ?? '—' }}</td>
                 <td style="padding:6px 8px;">{{ $plan->toAccount?->company?->name ?? $plan->toAccount?->display_name ?? '—' }}</td>
-                <td style="text-align:right;padding:6px 8px;">{{ number_format($plan->total_amount) }}</td>
+                <td style="text-align:right;padding:6px 8px;">{{ ky_format($plan->total_amount) }}</td>
                 <td style="text-align:center;padding:6px 8px;"><span class="chip {{ $plan->status === 'active' ? 'success' : '' }}" style="font-size:11px;">{{ $plan->status }}</span></td>
                 <td style="text-align:center;padding:6px 8px;">
                     <form method="POST" action="{{ route('admin.payment-plans.cancel', $plan) }}" style="display:inline;">
@@ -268,7 +268,7 @@
             <tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:6px 8px;">{{ $prop->proposerAccount?->company?->name ?? '—' }}</td>
                 <td style="padding:6px 8px;">{{ $prop->counterpartyAccount?->company?->name ?? '—' }}</td>
-                <td style="text-align:right;padding:6px 8px;">{{ number_format($prop->net_amount) }}</td>
+                <td style="text-align:right;padding:6px 8px;">{{ ky_format($prop->net_amount) }}</td>
                 <td style="text-align:center;padding:6px 8px;font-size:11px;color:var(--text-muted);">
                     {{ $prop->expires_at?->format('d/m H:i') ?? '—' }}
                 </td>

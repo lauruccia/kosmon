@@ -92,9 +92,9 @@
             <form method="post" action="{{ route('admin.accounts.update', $accountRecord) }}" class="field-grid">
                 @csrf
                 <div class="field"><label>Stato</label><select name="status"><option value="active" @selected($accountRecord->status === 'active')>Attivo</option><option value="suspended" @selected($accountRecord->status === 'suspended')>Sospeso</option></select></div>
-                <div class="field"><label>Saldo massimo conto</label><input name="max_balance" type="number" min="0" value="{{ old('max_balance', $accountRecord->max_balance) }}" placeholder="Vuoto = nessun limite"><div class="table-muted">Tetto massimo positivo mostrato in dashboard come “Saldo massimo”. Quando il saldo raggiunge questo valore il conto entra in modalità commerciale limitata.</div></div>
-                <div class="field"><label>Limite singolo conto</label><input name="spending_limit" type="number" min="1" value="{{ old('spending_limit', $accountRecord->spending_limit) }}"></div>
-                <div class="field"><label>Limite giornaliero conto</label><input name="daily_outgoing_limit" type="number" min="1" value="{{ old('daily_outgoing_limit', $accountRecord->daily_outgoing_limit) }}"></div>
+                <div class="field"><label>Saldo massimo conto (KY)</label><input name="max_balance" type="number" min="0" step="0.01" value="{{ old('max_balance', ky_input($accountRecord->max_balance)) }}" placeholder="Vuoto = nessun limite"><div class="table-muted">Tetto massimo positivo mostrato in dashboard come “Saldo massimo”. Quando il saldo raggiunge questo valore il conto entra in modalità commerciale limitata.</div></div>
+                <div class="field"><label>Limite singolo conto (KY)</label><input name="spending_limit" type="number" min="0.01" step="0.01" value="{{ old('spending_limit', ky_input($accountRecord->spending_limit)) }}"></div>
+                <div class="field"><label>Limite giornaliero conto (KY)</label><input name="daily_outgoing_limit" type="number" min="0.01" step="0.01" value="{{ old('daily_outgoing_limit', ky_input($accountRecord->daily_outgoing_limit)) }}"></div>
                 <div class="field"><label>Saldo negativo conto</label><select name="allow_negative_balance"><option value="0" @selected((string) old('allow_negative_balance', $accountRecord->allow_negative_balance ? '1' : '0') === '0')>Non consentito</option><option value="1" @selected((string) old('allow_negative_balance', $accountRecord->allow_negative_balance ? '1' : '0') === '1')>Consentito</option></select><div class="table-muted">Questo flag abilita il conto all'uso del massimale. Il valore del massimale si configura sotto sul proprietario.</div></div>
                 <div class="form-actions"><button type="submit" class="cta">Salva impostazioni</button></div>
             </form>
@@ -140,12 +140,12 @@
                     @foreach ($accountRecord->ownerUser->roles as $role)
                         <input type="hidden" name="roles[]" value="{{ $role->id }}">
                     @endforeach
-                    <input type="hidden" name="daily_transaction_limit" value="{{ old('daily_transaction_limit', $accountRecord->ownerUser->daily_transaction_limit) }}">
-                    <input type="hidden" name="monthly_transaction_limit" value="{{ old('monthly_transaction_limit', $accountRecord->ownerUser->monthly_transaction_limit) }}">
-                    <input type="hidden" name="per_movement_limit" value="{{ old('per_movement_limit', $accountRecord->ownerUser->per_movement_limit) }}">
+                    <input type="hidden" name="daily_transaction_limit" value="{{ old('daily_transaction_limit', ky_input($accountRecord->ownerUser->daily_transaction_limit)) }}">
+                    <input type="hidden" name="monthly_transaction_limit" value="{{ old('monthly_transaction_limit', ky_input($accountRecord->ownerUser->monthly_transaction_limit)) }}">
+                    <input type="hidden" name="per_movement_limit" value="{{ old('per_movement_limit', ky_input($accountRecord->ownerUser->per_movement_limit)) }}">
 
-                    <div class="field"><label>Massimale / fido</label><input name="negative_balance_limit" type="number" min="0" value="{{ old('negative_balance_limit', $accountRecord->ownerUser->negative_balance_limit) }}"><div class="table-muted">`10000` consente un saldo minimo di `-10000` e rende il saldo disponibile pari a saldo attuale + 10000.</div></div>
-                    <div class="field"><label>Disponibilita commerciale</label><input name="circuit_capacity_limit" type="number" min="0" value="{{ old('circuit_capacity_limit', $accountRecord->ownerUser->circuit_capacity_limit) }}"><div class="table-muted">Valore di beni o servizi messi a disposizione nel circuito. Non aumenta il saldo disponibile.</div></div>
+                    <div class="field"><label>Massimale / fido (KY)</label><input name="negative_balance_limit" type="number" min="0" step="0.01" value="{{ old('negative_balance_limit', ky_input($accountRecord->ownerUser->negative_balance_limit)) }}"><div class="table-muted">`100,00` consente un saldo minimo di `-100,00 KY` e rende il saldo disponibile pari a saldo attuale + 100,00 KY.</div></div>
+                    <div class="field"><label>Disponibilita commerciale (KY)</label><input name="circuit_capacity_limit" type="number" min="0" step="0.01" value="{{ old('circuit_capacity_limit', ky_input($accountRecord->ownerUser->circuit_capacity_limit)) }}"><div class="table-muted">Valore di beni o servizi messi a disposizione nel circuito. Non aumenta il saldo disponibile.</div></div>
                     <div class="form-actions"><button type="submit" class="cta">Salva massimale e disponibilita commerciale</button></div>
                 </form>
             @else

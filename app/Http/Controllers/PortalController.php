@@ -619,9 +619,11 @@ class PortalController extends Controller
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount' => ['required', 'integer', 'min:1'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -630,7 +632,7 @@ class PortalController extends Controller
                 'initiated_by' => $currentUser->id,
                 'from_account_id' => $currentAccount->id,
                 'to_account_id' => (int) $validated['to_account_id'],
-                'amount' => (int) $validated['amount'],
+                'amount' => ky_to_cents($validated['amount']),
                 'description' => $validated['description'] ?? null,
                 'kind' => 'portal_payment',
                 'idempotency_key' => (string) Str::uuid(),
@@ -683,9 +685,11 @@ class PortalController extends Controller
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($this->canReceivePayments($request->user(), $currentAccount), 403);
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
             'from_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount' => ['required', 'integer', 'min:1'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -694,7 +698,7 @@ class PortalController extends Controller
                 'initiated_by' => $currentUser->id,
                 'from_account_id' => (int) $validated['from_account_id'],
                 'to_account_id' => $currentAccount->id,
-                'amount' => (int) $validated['amount'],
+                'amount' => ky_to_cents($validated['amount']),
                 'description' => $validated['description'] ?? null,
                 'kind' => 'portal_collection_request',
                 'idempotency_key' => (string) Str::uuid(),
@@ -837,9 +841,11 @@ class PortalController extends Controller
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
             'to_account_id'        => ['required', 'integer', 'exists:accounts,id'],
-            'amount'               => ['required', 'integer', 'min:1'],
+            'amount'               => ['required', 'numeric', 'min:0.01'],
             'description'          => ['nullable', 'string', 'max:255'],
             'original_transfer_id' => ['nullable', 'integer', 'exists:transfers,id'],
         ]);
@@ -848,7 +854,7 @@ class PortalController extends Controller
             $creditNote = $bookingService->issueCreditNote(
                 fromAccountId:      $currentAccount->id,
                 toAccountId:        (int) $validated['to_account_id'],
-                amount:             (int) $validated['amount'],
+                amount:             ky_to_cents($validated['amount']),
                 initiatedBy:        $currentUser->id,
                 description:        $validated['description'] ?? null,
                 originalTransferId: isset($validated['original_transfer_id']) ? (int) $validated['original_transfer_id'] : null,
@@ -879,7 +885,7 @@ class PortalController extends Controller
         }
 
         return redirect()->route('portal.movements')->with('portal_success',
-            'Nota di credito di ' . ky_format((int) $validated['amount']) . ' KY emessa correttamente.'
+            'Nota di credito di ' . ky_format($creditNote->amount) . ' KY emessa correttamente.'
         );
     }
 
@@ -925,15 +931,17 @@ class PortalController extends Controller
         abort_unless($transfer->to_account_id === $currentAccount->id, 403);
         abort_unless($transfer->status === 'booked', 403);
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
-            'amount'      => ['required', 'integer', 'min:1'],
+            'amount'      => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
         try {
             $refund = $bookingService->refundMerchant(
                 originalTransfer: $transfer,
-                refundAmount: (int) $validated['amount'],
+                refundAmount: ky_to_cents($validated['amount']),
                 initiatedBy: $currentUser->id,
                 description: $validated['description'] ?? null,
                 ipAddress: $request->ip(),
@@ -963,7 +971,7 @@ class PortalController extends Controller
         }
 
         return redirect()->route('portal.movements')->with('portal_success',
-            'Rimborso di ' . ky_format((int) $validated['amount']) . ' KY emesso correttamente.'
+            'Rimborso di ' . ky_format($refund->amount) . ' KY emesso correttamente.'
         );
     }
 
@@ -1327,14 +1335,18 @@ class PortalController extends Controller
             return back()->with('error', "Hai già una richiesta in attesa di valutazione.");
         }
 
+        $request->merge(['requested_amount' => str_replace(',', '.', (string) $request->input('requested_amount'))]);
+
         $validated = $request->validate([
-            'requested_amount' => ['required', 'integer', 'min:1', 'max:9999999'],
+            'requested_amount' => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'reason'           => ['nullable', 'string', 'max:1000'],
         ], [
             'requested_amount.required' => "Inserisci l'importo del fido richiesto.",
-            'requested_amount.min'      => "L'importo minimo è 1 KY.",
+            'requested_amount.min'      => "L'importo minimo è 0,01 KY.",
             'requested_amount.max'      => "L'importo massimo richiedibile è 9.999.999 KY.",
         ]);
+
+        $validated['requested_amount'] = ky_to_cents($validated['requested_amount']);
 
         $creditRequest = $currentAccount->creditLimitRequests()->create($validated);
 

@@ -51,7 +51,7 @@ class IncassoQrTest extends TestCase
 
         $response = $this->actingAs($user)
             ->post(route('portal.incasso-qr.store'), [
-                'amount'      => 500,
+                'amount'      => 5,   // 5 KY → 500 centesimi
                 'description' => 'Pranzo aziendale',
             ]);
 

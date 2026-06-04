@@ -65,8 +65,10 @@ class CodePaymentController extends Controller
                 ->with('portal_error', 'Il tuo conto non e\' attivo.');
         }
 
+        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
+
         $validated = $request->validate([
-            'amount'      => ['required', 'integer', 'min:1', 'max:9999999'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description' => ['nullable', 'string', 'max:200'],
         ]);
 
@@ -83,7 +85,7 @@ class CodePaymentController extends Controller
         PaymentRequest::create([
             'token'         => $code,
             'to_account_id' => $account->id,
-            'amount'        => (int) $validated['amount'],
+            'amount'        => ky_to_cents($validated['amount']),
             'description'   => $validated['description'] ?? null,
             'kind'          => 'code',
             'status'        => 'pending',

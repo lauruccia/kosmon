@@ -21,9 +21,11 @@ class SubAccountLimitRequestController extends Controller
         // Verifica che l'utente gestisca effettivamente questo sottoconto
         abort_unless($request->user()->canManageSubAccount($subaccount), 403);
 
+        $request->merge(['requested_amount' => str_replace(',', '.', (string) $request->input('requested_amount'))]);
+
         $validated = $request->validate([
             'type' => ['required', 'in:spending_limit_increase,daily_limit_increase,monthly_limit_increase,temporary_overdraft'],
-            'requested_amount' => ['required', 'integer', 'min:1'],
+            'requested_amount' => ['required', 'numeric', 'min:0.01'],
             'reason' => ['required', 'string', 'min:10', 'max:1000'],
         ]);
 
@@ -32,7 +34,7 @@ class SubAccountLimitRequestController extends Controller
                 subAccount:      $subaccount,
                 requestedBy:     $request->user(),
                 type:            $validated['type'],
-                requestedAmount: (int) $validated['requested_amount'],
+                requestedAmount: ky_to_cents($validated['requested_amount']),
                 reason:          $validated['reason'],
                 ipAddress:       $request->ip(),
             );

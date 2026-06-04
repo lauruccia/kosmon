@@ -167,7 +167,7 @@
       document.getElementById('state-keypad').style.display  = 'none';
       document.getElementById('state-preview').style.display = 'block';
       document.getElementById('prev-merchant').textContent   = d.merchant;
-      document.getElementById('prev-amount').textContent     = Number(d.amount).toLocaleString('it-IT');
+      document.getElementById('prev-amount').textContent     = (Number(d.amount) / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (d.description) document.getElementById('prev-desc').textContent = '"' + d.description + '"';
       document.getElementById('prev-expire').textContent = 'Scade tra ' + d.seconds_left + ' s';
 
@@ -199,7 +199,7 @@
 
       document.getElementById('state-preview').style.display = 'none';
       document.getElementById('state-success').style.display = 'block';
-      document.getElementById('succ-amount').textContent     = Number(d.amount).toLocaleString('it-IT') + ' KY';
+      document.getElementById('succ-amount').textContent     = (Number(d.amount) / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' KY';
       document.getElementById('succ-merchant').textContent   = 'A: ' + d.merchant;
 
     } catch(e) {
