@@ -185,10 +185,14 @@ $svc->issueCreditNote($fromAccountId, $toAccountId, $amount, $userId, $descripti
 |---|---|
 | `trade_payment` | Pagamento nel circuito |
 | `portal_payment` | Pagamento dal portale |
+| `portal_payment_request` | Pagamento via W3C Payment Request API |
 | `portal_collection_request` | Incasso richiesto |
 | `portal_refund` | Rimborso |
 | `portal_credit_note` | Nota di credito |
-| `portal_fee` | Commissione di transazione |
+| `portal_fee` | Commissione di transazione (collegato al transfer padre via `related_transfer_id`) |
+| `portal_cashback` | Cashback automatico — mai soggetto a commissione |
+| `portal_installment` | Rata piano rateale |
+| `portal_netting` | Compensazione (netting) |
 
 **Status trasfer:** `pending` → `booked` (o `rejected`)
 
@@ -225,11 +229,20 @@ ky_format(1234)   // → "12,34" (helper globale in app/helpers.php)
 
 ---
 
-## Helper globale
+## Helper globali (`app/helpers.php`)
 
 ```php
-ky_format(int|float $amount): string
-// Es: ky_format(6) → "6,00"  |  ky_format(1234567) → "12.345,67"
+ky_format(int|float|null $amount): string
+// Centesimi → stringa KY con 2 decimali (virgola italiana, punto migliaia)
+// Es: ky_format(6) → "0,06"  |  ky_format(80040) → "800,40"  |  ky_format(1234567) → "12.345,67"
+
+ky_to_cents(string|int|float|null $amount): int
+// Input utente in KY → centesimi interi (accetta sia virgola che punto)
+// Es: ky_to_cents("1,50") → 150  |  ky_to_cents("100") → 10000
+
+ky_input(int|float|null $cents): string
+// Centesimi → stringa con punto decimale per pre-popolare <input type="number">
+// Es: ky_input(10000) → "100.00"  |  ky_input(null) → ""
 ```
 
 ---

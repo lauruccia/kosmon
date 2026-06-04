@@ -27,6 +27,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
@@ -56,15 +57,20 @@ class PortalController extends Controller
         $effectiveUserLimits = $currentUser->effectiveTransferLimits();
         $maxSingle = $effectiveUserLimits['per_movement_limit'] ?? $currentAccount->spending_limit ?? 0;
 
-        $monthlyTrend = collect(range(5, 0))->map(function (int $offset) use ($currentAccount) {
-            $month = CarbonImmutable::now()->subMonths($offset);
-
-            return [
-                'label' => $month->locale('it')->translatedFormat('M'),
-                'income' => Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
-                'expense' => Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
-            ];
-        });
+        $monthlyTrend = Cache::remember(
+            "dashboard.monthly_trend.{$currentAccount->id}",
+            now()->addMinutes(10),
+            function () use ($currentAccount) {
+                return collect(range(5, 0))->map(function (int $offset) use ($currentAccount) {
+                    $month = CarbonImmutable::now()->subMonths($offset);
+                    return [
+                        'label'   => $month->locale('it')->translatedFormat('M'),
+                        'income'  => Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
+                        'expense' => Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
+                    ];
+                });
+            }
+        );
 
         // Richieste di pagamento in attesa che il conto corrente deve confermare o rifiutare
         $pendingIncomingRequests = Transfer::query()
@@ -104,20 +110,26 @@ class PortalController extends Controller
         }
 
 
-        // 30-day KPI con confronto mese precedente
-        $now = CarbonImmutable::now();
-        $income30  = Transfer::query()->where('to_account_id', $currentAccount->id)->where('status','booked')->where('booked_at','>=', $now->subDays(30))->sum('amount');
-        $expense30 = Transfer::query()->where('from_account_id', $currentAccount->id)->where('status','booked')->where('booked_at','>=', $now->subDays(30))->sum('amount');
-        $incomePrev  = Transfer::query()->where('to_account_id', $currentAccount->id)->where('status','booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount');
-        $expensePrev = Transfer::query()->where('from_account_id', $currentAccount->id)->where('status','booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount');
+        // 30-day KPI con confronto mese precedente — cache 5 minuti per account
+        [$income30, $expense30, $incomePrev, $expensePrev, $kyCardCount, $kyCardTotalKy] = Cache::remember(
+            "dashboard.kpi30.{$currentAccount->id}",
+            now()->addMinutes(5),
+            function () use ($currentAccount) {
+                $now = CarbonImmutable::now();
+                return [
+                    Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->where('booked_at', '>=', $now->subDays(30))->sum('amount'),
+                    Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->where('booked_at', '>=', $now->subDays(30))->sum('amount'),
+                    Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount'),
+                    Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount'),
+                    KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->count(),
+                    (int) KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->sum('ky_amount'),
+                ];
+            }
+        );
         $incomeTrend  = $incomePrev  > 0 ? round(($income30  - $incomePrev)  / $incomePrev  * 100) : null;
         $expenseTrend = $expensePrev > 0 ? round(($expense30 - $expensePrev) / $expensePrev * 100) : null;
 
         $activeCreditLimit = $currentAccount->activeCreditLimit();
-
-        // KyCard acquistate
-        $kyCardCount   = KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->count();
-        $kyCardTotalKy = (int) KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->sum('ky_amount');
 
         // Limiti del conto (utente + account)
         $limitMaxBalance   = $currentAccount->max_balance;

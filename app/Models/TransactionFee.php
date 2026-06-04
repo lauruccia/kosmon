@@ -19,6 +19,11 @@ class TransactionFee extends Model
 
     public static function calculate(string $kind, int $amount): int
     {
+        // Il cashback non è mai soggetto a commissione (evita loop di fee su fee)
+        if ($kind === 'portal_cashback' || $kind === 'portal_fee') {
+            return 0;
+        }
+
         $fee = static::where('operation_kind', $kind)->where('is_active', true)->first()
             ?? static::where('operation_kind', '*')->where('is_active', true)->first();
 
@@ -51,6 +56,7 @@ class TransactionFee extends Model
             'portal_netting'         => 'Compensazione (netting)',
             'portal_credit_note'     => 'Nota di credito',
             'api_payment'            => 'Pagamento API',
+            'portal_cashback'        => 'Cashback (non soggetto a commissione — escluso automaticamente)',
             '*'                      => 'Default (tutti i tipi non coperti)',
         ];
     }

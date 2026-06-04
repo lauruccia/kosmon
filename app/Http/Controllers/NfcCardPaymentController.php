@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\NfcCard;
 use App\Models\NfcCardAuthSession;
+use App\Notifications\NfcCardPinRequestNotification;
 use App\Services\TransferBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -100,7 +101,7 @@ class NfcCardPaymentController extends Controller
 
         $amountCents = ky_to_cents($data['amount']);
 
-        $card = NfcCard::with('company')->where('uuid', $data['card_uuid'])->firstOrFail();
+        $card = NfcCard::with('company.users')->where('uuid', $data['card_uuid'])->firstOrFail();
 
         if (! $card->isActive()) {
             return response()->json(['error' => 'Card non attiva.'], 403);
@@ -130,6 +131,12 @@ class NfcCardPaymentController extends Controller
             'status'               => 'pending',
             'expires_at'           => now()->addMinutes(3),
         ]);
+
+        // Notifica tutti gli utenti della company titolare della card
+        $merchant = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
+        $card->company->users->each(function ($user) use ($session, $merchant) {
+            $user->notify(new NfcCardPinRequestNotification($session, $merchant));
+        });
 
         return response()->json([
             'nonce'      => $session->nonce,

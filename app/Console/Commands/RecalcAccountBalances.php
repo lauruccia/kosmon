@@ -50,8 +50,11 @@ class RecalcAccountBalances extends Command
                 'diff'       => $diff,
             ];
 
-            if (! $dryRun) {
-                $account->update(['available_balance' => $calculated]);
+            if (! $dryRun && $diff !== 0) {
+                DB::transaction(function () use ($account, $calculated) {
+                    $fresh = Account::lockForUpdate()->findOrFail($account->id);
+                    $fresh->forceFill(['available_balance' => $calculated])->save();
+                });
             }
         }
 

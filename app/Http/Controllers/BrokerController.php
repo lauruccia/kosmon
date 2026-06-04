@@ -33,20 +33,39 @@ class BrokerController extends Controller
             $query->where('broker_user_id', $user->id);
         }
 
-        $clients = $query->orderBy('name')->get()->map(function (Company $company) {
-            $account = $company->accounts->first();
-            $recentTransfer = $account
-                ? Transfer::query()
-                    ->where(fn ($q) => $q->where('from_account_id', $account->id)->orWhere('to_account_id', $account->id))
-                    ->where('status', 'booked')
-                    ->latest('booked_at')
-                    ->first()
-                : null;
+        $companies = $query->orderBy('name')->get();
 
+        // Raccoglie tutti gli account IDs in un colpo solo per evitare N+1
+        $accountIds = $companies->flatMap(fn ($c) => $c->accounts->pluck('id'))->filter()->unique()->values();
+
+        // Una singola query per il trasferimento più recente per ogni account
+        $recentTransfers = Transfer::query()
+            ->whereIn('from_account_id', $accountIds)
+            ->orWhereIn('to_account_id', $accountIds)
+            ->where('status', 'booked')
+            ->latest('booked_at')
+            ->get()
+            ->groupBy(function (Transfer $t) {
+                // Indicizza per entrambi gli account così la lookup è O(1)
+                return [$t->from_account_id, $t->to_account_id];
+            });
+
+        // Mappa più semplice: per ogni account prende il primo transfer nel gruppo
+        $latestByAccount = collect();
+        foreach ($recentTransfers->flatten(1) as $transfer) {
+            foreach ([$transfer->from_account_id, $transfer->to_account_id] as $aid) {
+                if (! $latestByAccount->has($aid)) {
+                    $latestByAccount->put($aid, $transfer);
+                }
+            }
+        }
+
+        $clients = $companies->map(function (Company $company) use ($latestByAccount) {
+            $account = $company->accounts->first();
             return [
                 'company'        => $company,
                 'account'        => $account,
-                'recentTransfer' => $recentTransfer,
+                'recentTransfer' => $account ? $latestByAccount->get($account->id) : null,
             ];
         });
 
