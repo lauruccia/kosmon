@@ -62,55 +62,6 @@ use App\Http\Controllers\NfcCardPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-// ── TEST NFC PUSH TEMPORANEO ────────────────────────────────────────────────
-Route::get('/dev-nfc-push-test', function () {
-    abort_unless(app()->environment('local', 'production'), 403);
-    $email   = request('email', 'sitireggiocal@gmail.com');
-    $user    = \App\Models\User::where('email', $email)->with('company')->firstOrFail();
-    $company = $user->company;
-    if (! $company) return response()->json(['error' => 'Nessuna company']);
-
-    $card = \App\Models\NfcCard::where('company_id', $company->id)->where('status', 'active')->first();
-    if (! $card) return response()->json(['error' => 'Nessuna NFC card attiva']);
-
-    $session = \App\Models\NfcCardAuthSession::create([
-        'nfc_card_id'         => $card->id,
-        'merchant_company_id' => $company->id,
-        'amount'              => 100,
-        'description'         => 'Test push NFC',
-        'status'              => 'pending',
-        'expires_at'          => now()->addMinutes(5),
-    ]);
-
-    $signedUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute('nfc.card.authorize', now()->addMinutes(5), ['nonce' => $session->nonce]);
-    $subs      = \App\Models\PushSubscription::whereIn('user_id', $company->users->pluck('id'))->get();
-    $results   = [];
-
-    try {
-        $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => [
-            'subject'    => config('webpush.vapid.subject', 'mailto:noreply@kmoney.it'),
-            'publicKey'  => config('webpush.vapid.public_key'),
-            'privateKey' => config('webpush.vapid.private_key'),
-        ]]);
-        $payload = json_encode(['title' => 'Richiesta di pagamento', 'body' => $company->name . ' richiede 1,00 KY.', 'url' => $signedUrl, 'tag' => 'nfc-payment-request', 'icon' => '/assets/brand/icon-192.png']);
-        foreach ($subs as $sub) {
-            $subscription = \Minishlink\WebPush\Subscription::create([
-                'endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token, 'contentEncoding' => $sub->content_encoding ?? 'aesgcm',
-            ]);
-            $webPush->queueNotification($subscription, $payload);
-        }
-        foreach ($webPush->flush() as $report) {
-            $results[] = ['endpoint' => substr($report->getEndpoint(), 0, 50) . '...', 'success' => $report->isSuccess(), 'reason' => $report->isSuccess() ? 'ok' : $report->getReason()];
-            if ($report->isSubscriptionExpired()) \App\Models\PushSubscription::where('endpoint', $report->getEndpoint())->delete();
-        }
-    } catch (\Throwable $e) {
-        return response()->json(['error' => $e->getMessage()]);
-    }
-
-    return response()->json(['subscriptions' => count($subs), 'results' => $results]);
-});
-// ───────────────────────────────────────────────────────────────────────────
-
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
 Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
 
