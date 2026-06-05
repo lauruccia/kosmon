@@ -82,15 +82,32 @@ Route::get('/dev-nfc-push-test', function () {
         'expires_at'          => now()->addMinutes(5),
     ]);
 
-    $signedUrl   = \Illuminate\Support\Facades\URL::temporarySignedRoute('nfc.card.authorize', now()->addMinutes(5), ['nonce' => $session->nonce]);
-    $pushService = app(\App\Services\WebPushService::class);
+    $signedUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute('nfc.card.authorize', now()->addMinutes(5), ['nonce' => $session->nonce]);
+    $subs      = \App\Models\PushSubscription::whereIn('user_id', $company->users->pluck('id'))->get();
+    $results   = [];
 
-    $company->users->each(function ($u) use ($session, $company, $signedUrl, $pushService) {
-        $u->notify(new \App\Notifications\NfcCardPinRequestNotification($session, $company, $signedUrl));
-        $pushService->notifyUser($u, 'Richiesta di pagamento', $company->name . ' richiede ' . ky_format($session->amount) . ' KY.', ['url' => $signedUrl, 'tag' => 'nfc-payment-request']);
-    });
+    try {
+        $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => [
+            'subject'    => config('webpush.vapid.subject', 'mailto:noreply@kmoney.it'),
+            'publicKey'  => config('webpush.vapid.public_key'),
+            'privateKey' => config('webpush.vapid.private_key'),
+        ]]);
+        $payload = json_encode(['title' => 'Richiesta di pagamento', 'body' => $company->name . ' richiede 1,00 KY.', 'url' => $signedUrl, 'tag' => 'nfc-payment-request', 'icon' => '/assets/brand/icon-192.png']);
+        foreach ($subs as $sub) {
+            $subscription = \Minishlink\WebPush\Subscription::create([
+                'endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token, 'contentEncoding' => $sub->content_encoding ?? 'aesgcm',
+            ]);
+            $webPush->queueNotification($subscription, $payload);
+        }
+        foreach ($webPush->flush() as $report) {
+            $results[] = ['endpoint' => substr($report->getEndpoint(), 0, 50) . '...', 'success' => $report->isSuccess(), 'reason' => $report->isSuccess() ? 'ok' : $report->getReason()];
+            if ($report->isSubscriptionExpired()) \App\Models\PushSubscription::where('endpoint', $report->getEndpoint())->delete();
+        }
+    } catch (\Throwable $e) {
+        return response()->json(['error' => $e->getMessage()]);
+    }
 
-    return response()->json(['ok' => true, 'sent_to' => $email, 'amount' => '1,00 KY']);
+    return response()->json(['subscriptions' => count($subs), 'results' => $results]);
 });
 // ───────────────────────────────────────────────────────────────────────────
 
