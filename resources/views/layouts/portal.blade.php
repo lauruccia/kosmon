@@ -1712,14 +1712,17 @@
         /* Web Push — sottoscrizione automatica se l'utente ha gia' dato il permesso */
         window._kmPushInit = function (reg) {
             var pushEnabled = localStorage.getItem('km-push-enabled');
-            if (pushEnabled !== '1') return; // non chiedere fino a consenso esplicito
+            // Se il permesso è già granted (es. dopo reinstall PWA), sincronizziamo
+            // anche senza km-push-enabled=1 per recuperare subscription perse
+            var permissionGranted = ('Notification' in window) && Notification.permission === 'granted';
+            if (pushEnabled !== '1' && !permissionGranted) return;
 
             reg.pushManager.getSubscription().then(function (existing) {
                 if (existing) {
                     // Subscription già nel browser: sincronizza col DB per sicurezza
-                    // (il POST potrebbe essere fallito la prima volta)
                     _kmSaveSubscription(existing);
-                } else {
+                } else if (permissionGranted) {
+                    // Permesso concesso ma nessuna subscription: ne creiamo una nuova
                     _kmPushSubscribe(reg);
                 }
             });
