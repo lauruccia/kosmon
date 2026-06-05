@@ -1715,8 +1715,38 @@
             if (pushEnabled !== '1') return; // non chiedere fino a consenso esplicito
 
             reg.pushManager.getSubscription().then(function (existing) {
-                if (existing) return; // gia' iscritto
-                _kmPushSubscribe(reg);
+                if (existing) {
+                    // Subscription già nel browser: sincronizza col DB per sicurezza
+                    // (il POST potrebbe essere fallito la prima volta)
+                    _kmSaveSubscription(existing);
+                } else {
+                    _kmPushSubscribe(reg);
+                }
+            });
+        };
+
+        // Salva una subscription esistente nel DB (senza ricrearla)
+        window._kmSaveSubscription = function (sub) {
+            var key  = sub.getKey('p256dh');
+            var auth = sub.getKey('auth');
+            fetch('/push/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? ''
+                },
+                body: JSON.stringify({
+                    endpoint: sub.endpoint,
+                    keys: {
+                        p256dh: key  ? btoa(String.fromCharCode.apply(null, new Uint8Array(key)))  : '',
+                        auth:   auth ? btoa(String.fromCharCode.apply(null, new Uint8Array(auth))) : ''
+                    },
+                    contentEncoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0]
+                })
+            }).then(function (r) {
+                if (r.ok) console.log('[KMoney Push] Subscription sincronizzata col DB.');
+            }).catch(function (err) {
+                console.warn('[KMoney Push] Errore sync subscription:', err);
             });
         };
 
@@ -1731,29 +1761,8 @@
                     });
                 })
                 .then(function (sub) {
-                    var key  = sub.getKey('p256dh');
-                    var auth = sub.getKey('auth');
-                    return fetch('/push/subscribe', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? ''
-                        },
-                        body: JSON.stringify({
-                            endpoint: sub.endpoint,
-                            keys: {
-                                p256dh: key  ? btoa(String.fromCharCode.apply(null, new Uint8Array(key)))  : '',
-                                auth:   auth ? btoa(String.fromCharCode.apply(null, new Uint8Array(auth))) : ''
-                            },
-                            contentEncoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0]
-                        })
-                    });
-                })
-                .then(function (r) {
-                    if (r.ok) {
-                        localStorage.setItem('km-push-enabled', '1');
-                        console.log('[KMoney Push] Iscrizione completata.');
-                    }
+                    localStorage.setItem('km-push-enabled', '1');
+                    return _kmSaveSubscription(sub);
                 })
                 .catch(function (err) {
                     console.warn('[KMoney Push] Errore iscrizione:', err);
