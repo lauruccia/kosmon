@@ -55,7 +55,7 @@
         <div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Ricevi pagamenti e avvisi in tempo reale anche a browser chiuso.</div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;">
-        <button onclick="kmRequestPush(); document.getElementById('push-banner').style.display='none'; localStorage.setItem('km-push-dismissed','1');"
+        <button onclick="kmRequestPush(); document.getElementById('push-banner').style.display='none';"
                 style="padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
             Attiva
         </button>
@@ -67,14 +67,30 @@
 </div>
 <script>
 (function() {
-    var enabled = localStorage.getItem('km-push-enabled');
-    var banner  = document.getElementById('push-banner');
+    var banner = document.getElementById('push-banner');
     if (!banner) return;
-    if (enabled === '1') { banner.style.display = 'none'; return; }
     if (!('Notification' in window) || !('PushManager' in window)) { banner.style.display = 'none'; return; }
-    if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
-    // Mostra sempre sulla pagina notifiche, anche se in precedenza dismissed
-    banner.style.display = 'flex';
+    // Verifica se esiste davvero una subscription attiva (non fidarsi solo del localStorage)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(function(reg) {
+            reg.pushManager.getSubscription().then(function(sub) {
+                if (sub && Notification.permission === 'granted') {
+                    // Subscription attiva: aggiorna localStorage e nascondi banner
+                    localStorage.setItem('km-push-enabled', '1');
+                    banner.style.display = 'none';
+                } else {
+                    // Nessuna subscription reale: mostra il banner
+                    localStorage.removeItem('km-push-enabled');
+                    if (Notification.permission !== 'denied') {
+                        banner.style.display = 'flex';
+                    }
+                }
+            });
+        });
+    } else {
+        if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
+        banner.style.display = 'flex';
+    }
 })();
 </script>
 @endif
