@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\NfcCardAuthSession;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class NfcCardPinRequestNotification extends Notification implements ShouldQueue
@@ -20,7 +21,22 @@ class NfcCardPinRequestNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $merchantName = $this->merchant?->name ?? 'Un commerciante';
+        $amount       = ky_format($this->session->amount);
+
+        return (new MailMessage)
+            ->subject("Richiesta di pagamento: {$amount} KY da {$merchantName}")
+            ->greeting('Ciao!')
+            ->line("{$merchantName} ha richiesto un pagamento di **{$amount} KY** tramite la tua card NFC.")
+            ->line('Clicca il pulsante qui sotto per confermare o rifiutare il pagamento.')
+            ->action('Conferma pagamento', $this->signedUrl)
+            ->line('Il link è valido per 10 minuti. Se non hai richiesto questo pagamento, ignora questa email.')
+            ->salutation('Il team KMoney');
     }
 
     public function toArray(object $notifiable): array
