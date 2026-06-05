@@ -96,8 +96,25 @@
                     @error('recurrence_count')<div class="form-error">{{ $message }}</div>@enderror
                 </div>
 
-                <div id="rate-preview" style="font-size:13px;font-weight:600;display:none;padding:6px 10px;border-radius:6px;background:var(--primary-soft,#ede9fe);color:var(--primary);">
+                <div id="rate-preview" style="font-size:13px;font-weight:600;display:none;padding:6px 10px;border-radius:6px;background:var(--primary-soft,#ede9fe);color:var(--primary);margin-bottom:10px;">
                     <!-- aggiornato via JS -->
+                </div>
+
+                {{-- Tabella dettaglio rate --}}
+                <div id="rate-table" style="display:none;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--primary);margin-bottom:5px;">Piano rate</div>
+                    <div style="max-height:200px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead>
+                                <tr style="background:var(--primary-soft,#ede9fe);position:sticky;top:0;">
+                                    <th style="padding:5px 8px;text-align:left;font-weight:700;color:var(--primary);">#</th>
+                                    <th style="padding:5px 8px;text-align:left;font-weight:700;color:var(--primary);">Data</th>
+                                    <th style="padding:5px 8px;text-align:right;font-weight:700;color:var(--primary);">Importo (KY)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rate-table-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -131,33 +148,58 @@ function toggleRecurring(active) {
 }
 
 function updatePreview() {
-    const startVal = document.getElementById('scheduled_at').value;
-    const count    = parseInt(document.getElementById('recurrence_count').value) || 0;
-    const type     = document.getElementById('recurrence_type').value;
-    const preview  = document.getElementById('rate-preview');
+    const startVal  = document.getElementById('scheduled_at').value;
+    const count     = parseInt(document.getElementById('recurrence_count').value) || 0;
+    const type      = document.getElementById('recurrence_type').value;
+    const amountVal = parseFloat(document.getElementById('amount')?.value) || 0;
+    const preview   = document.getElementById('rate-preview');
+    const tableWrap = document.getElementById('rate-table');
+    const tbody     = document.getElementById('rate-table-body');
 
-    if (!startVal || count < 2) { preview.style.display = 'none'; return; }
+    if (!startVal || count < 2) {
+        preview.style.display = 'none';
+        tableWrap.style.display = 'none';
+        return;
+    }
     if (count > 60) {
         preview.textContent = 'Max 60 rate.';
         preview.style.color = 'var(--danger)';
         preview.style.background = 'var(--danger-soft,#fee2e2)';
         preview.style.display = 'block';
+        tableWrap.style.display = 'none';
         return;
     }
 
-    // Calcola data ultima rata per mostrare l'anteprima
+    // Riepilogo testuale
     let cur = new Date(startVal);
+    const dates = [new Date(cur)];
     for (let i = 1; i < count; i++) {
         cur = type === 'monthly'  ? addMonths(cur, 1)
             : type === 'weekly'   ? new Date(cur.getTime() + 7  * 86400000)
             :                       new Date(cur.getTime() + 14 * 86400000);
+        dates.push(new Date(cur));
     }
-    const lastDate = cur.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const lastDate = dates[dates.length - 1].toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const label = { monthly: 'mensili', weekly: 'settimanali', biweekly: 'bisettimanali' }[type] || '';
     preview.textContent   = `${count} rate ${label} — ultima il ${lastDate}`;
     preview.style.color   = 'var(--primary)';
     preview.style.background = 'var(--primary-soft,#ede9fe)';
     preview.style.display = 'block';
+
+    // Tabella dettaglio
+    tbody.innerHTML = '';
+    const amtFmt = (v) => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    dates.forEach((d, i) => {
+        const tr = document.createElement('tr');
+        tr.style.background = i % 2 === 0 ? '#faf5ff' : '#f3e8ff';
+        const dateStr = d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const amtStr  = amountVal > 0 ? amtFmt(amountVal) : '—';
+        tr.innerHTML = `<td style="padding:4px 8px;">${i+1}</td>`
+            + `<td style="padding:4px 8px;">${dateStr}</td>`
+            + `<td style="padding:4px 8px;text-align:right;font-weight:600;">${amtStr}</td>`;
+        tbody.appendChild(tr);
+    });
+    tableWrap.style.display = 'block';
 }
 
 function addMonths(date, n) {
@@ -169,7 +211,7 @@ function addMonths(date, n) {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('is_recurring').checked) toggleRecurring(true);
-    ['scheduled_at', 'recurrence_count', 'recurrence_type'].forEach(id =>
+    ['scheduled_at', 'recurrence_count', 'recurrence_type', 'amount'].forEach(id =>
         document.getElementById(id)?.addEventListener('input', updatePreview)
     );
 });

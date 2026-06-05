@@ -4,14 +4,10 @@ namespace App\Notifications;
 
 use App\Models\Account;
 use App\Models\Transfer;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class PaymentRequestedNotification extends Notification implements ShouldQueue
+class PaymentRequestedNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public readonly Transfer $transfer,
         public readonly Account  $fromAccount,

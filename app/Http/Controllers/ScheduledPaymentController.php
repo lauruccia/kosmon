@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\RecurringPaymentScheduled;
 use App\Models\Account;
 use App\Models\ScheduledPayment;
 use App\Models\User;
 use App\Services\ScheduledPaymentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
 class ScheduledPaymentController extends Controller
@@ -198,9 +200,34 @@ class ScheduledPaymentController extends Controller
             default    => 'mensili',
         };
 
+        // Email al pagante (chi ha creato il piano)
+        if ($currentUser->email) {
+            Mail::to($currentUser->email)->queue(new RecurringPaymentScheduled(
+                recipient:      $currentUser,
+                fromAccount:    $currentAccount,
+                toAccount:      $toAccount,
+                payments:       $payments,
+                recurrenceType: $data['recurrence_type'],
+                isPayer:        true,
+            ));
+        }
+
+        // Email al destinatario (chi riceverà i pagamenti)
+        $toUser = $toAccount->ownerUser ?? $toAccount->company?->users()->first();
+        if ($toUser && $toUser->email) {
+            Mail::to($toUser->email)->queue(new RecurringPaymentScheduled(
+                recipient:      $toUser,
+                fromAccount:    $currentAccount,
+                toAccount:      $toAccount,
+                payments:       $payments,
+                recurrenceType: $data['recurrence_type'],
+                isPayer:        false,
+            ));
+        }
+
         return redirect()
             ->route('portal.scheduled-payments.index')
-            ->with('portal_success', "Creati {$total} pagamenti ricorrenti {$label} a partire dal " . \Carbon\Carbon::parse($data['scheduled_at'])->format('d/m/Y') . '.');
+            ->with('portal_success', "Creati {$total} pagamenti ricorrenti {$label} a partire dal " . \Carbon\Carbon::parse($data['scheduled_at'])->format('d/m/Y') . '. Riepilogo inviato via email.');
     }
 
     // ── Retry ─────────────────────────────────────────────────────────────────

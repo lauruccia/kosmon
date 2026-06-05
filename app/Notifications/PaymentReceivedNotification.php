@@ -6,15 +6,11 @@ use App\Notifications\Concerns\RespectsNotificationPreferences;
 
 use App\Models\Account;
 use App\Models\Transfer;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class PaymentReceivedNotification extends Notification implements ShouldQueue
+class PaymentReceivedNotification extends Notification
 {
     use RespectsNotificationPreferences;
-
-    use Queueable;
 
     public function __construct(
         public readonly Transfer $transfer,

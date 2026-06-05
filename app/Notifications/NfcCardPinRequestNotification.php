@@ -4,15 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Company;
 use App\Models\NfcCardAuthSession;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class NfcCardPinRequestNotification extends Notification implements ShouldQueue
+class NfcCardPinRequestNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public readonly NfcCardAuthSession $session,
         public readonly ?Company           $merchant,
