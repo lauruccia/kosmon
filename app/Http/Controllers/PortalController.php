@@ -1424,7 +1424,7 @@ class PortalController extends Controller
             $runningBalance += ($dailyNet[$date] ?? 0);
             $result[] = [
                 'date'    => $date,
-                'balance' => $runningBalance,
+                'balance' => round($runningBalance / 100, 2),
             ];
         }
 
