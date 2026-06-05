@@ -63,19 +63,57 @@ use App\Http\Controllers\NfcCardPaymentController;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/dev-push', function () {
-    $user = \App\Models\User::where('email', 'sitireggiocal@gmail.com')->firstOrFail();
-    $subs = \App\Models\PushSubscription::where('user_id', $user->id)->get();
-    $results = [];
-    $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => ['subject' => config('webpush.vapid.subject'), 'publicKey' => config('webpush.vapid.public_key'), 'privateKey' => config('webpush.vapid.private_key')]]);
-    $payload = json_encode(['title' => '🔔 KMoney', 'body' => 'Notifica di test dal server!', 'url' => '/dashboard', 'tag' => 'test', 'icon' => '/assets/brand/icon-192.png']);
-    foreach ($subs as $sub) {
-        $webPush->queueNotification(\Minishlink\WebPush\Subscription::create(['endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token, 'contentEncoding' => $sub->content_encoding ?? 'aesgcm']), $payload);
+    $targets = [
+        'sitireggiocal@gmail.com',
+        'federico.drago1989@gmail.com',
+        'francescobrogna60@gmail.com',
+        's.pittelli@kosmos.it',
+    ];
+    $message = 'Sono Laura, voglio solo verificare di poter inviare notifiche via App KMoney';
+    $activateUrl = url('/notifiche');
+
+    $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => [
+        'subject'    => config('webpush.vapid.subject'),
+        'publicKey'  => config('webpush.vapid.public_key'),
+        'privateKey' => config('webpush.vapid.private_key'),
+    ]]);
+    $payload = json_encode(['title' => '🔔 KMoney', 'body' => $message, 'url' => '/dashboard', 'tag' => 'test-laura', 'icon' => '/assets/brand/icon-192.png']);
+
+    $report = [];
+    foreach ($targets as $email) {
+        $user = \App\Models\User::where('email', $email)->first();
+        if (!$user) { $report[$email] = ['status' => '❌ utente non trovato']; continue; }
+
+        $subs = \App\Models\PushSubscription::where('user_id', $user->id)->get();
+        if ($subs->isEmpty()) {
+            // Nessuna subscription: invia notifica DATABASE con link attivazione
+            $user->notifyNow(new \App\Notifications\BroadcastNotification([
+                'icon'  => '🔔',
+                'title' => 'Attiva le notifiche push',
+                'body'  => 'Laura ti ha inviato un messaggio. Attiva le notifiche push per riceverle sul telefono.',
+                'link'  => $activateUrl,
+            ]));
+            $report[$email] = ['status' => '⚠️ nessuna subscription push — notifica campanella inviata con link attivazione'];
+            continue;
+        }
+
+        $sent = 0;
+        foreach ($subs as $sub) {
+            $webPush->queueNotification(
+                \Minishlink\WebPush\Subscription::create(['endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token, 'contentEncoding' => $sub->content_encoding ?? 'aesgcm']),
+                $payload
+            );
+            $sent++;
+        }
+        $pushResults = [];
+        foreach ($webPush->flush() as $r) {
+            $pushResults[] = $r->isSuccess() ? '✅ ok' : ('❌ ' . $r->getReason());
+            if ($r->isSubscriptionExpired()) \App\Models\PushSubscription::where('endpoint', $r->getEndpoint())->delete();
+        }
+        $report[$email] = ['status' => "📱 push inviata ($sent sub)", 'results' => $pushResults];
     }
-    foreach ($webPush->flush() as $r) {
-        $results[] = ['ok' => $r->isSuccess(), 'reason' => $r->isSuccess() ? 'ok' : $r->getReason()];
-        if ($r->isSubscriptionExpired()) \App\Models\PushSubscription::where('endpoint', $r->getEndpoint())->delete();
-    }
-    return response()->json(['subs' => count($subs), 'results' => $results]);
+
+    return response()->json($report, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 });
 
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
