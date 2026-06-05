@@ -62,6 +62,22 @@ use App\Http\Controllers\NfcCardPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// ── TEST PUSH TEMPORANEO (rimuovere dopo il test) ───────────────────────────
+Route::get('/dev-push-test', function () {
+    abort_unless(app()->environment('local', 'production'), 403);
+    $email = request('email', 'sitireggiocal@gmail.com');
+    $user  = \App\Models\User::where('email', $email)->firstOrFail();
+    $subs  = \App\Models\PushSubscription::where('user_id', $user->id)->count();
+    app(\App\Services\WebPushService::class)->notifyUser(
+        $user,
+        '🔔 KMoney — Test push',
+        'La notifica push funziona! Questo messaggio è arrivato dal server.',
+        ['url' => '/dashboard', 'tag' => 'test-push']
+    );
+    return response()->json(['ok' => true, 'email' => $email, 'subscriptions' => $subs]);
+});
+// ───────────────────────────────────────────────────────────────────────────
+
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
 Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
 
