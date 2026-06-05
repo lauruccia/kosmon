@@ -76,6 +76,41 @@ Route::get('/dev-push-test', function () {
     );
     return response()->json(['ok' => true, 'email' => $email, 'subscriptions' => $subs]);
 });
+
+// Pagina diagnostica push per telefono
+Route::get('/dev-push-phone', function () {
+    abort_unless(app()->environment('local', 'production'), 403);
+    $csrfToken = csrf_token();
+    $vapidKey  = config('webpush.vapid.public_key');
+    return response("<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>KMoney Push Test</title></head><body style='font-family:sans-serif;padding:20px;max-width:500px'>
+<h2>🔔 Test Push Telefono</h2><div id='log' style='background:#f0f0f0;padding:10px;border-radius:8px;font-size:13px;white-space:pre-wrap'></div>
+<button onclick='runTest()' style='margin-top:16px;padding:12px 24px;background:#1a4fc9;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer'>Avvia Test</button>
+<script>
+var VAPID='$vapidKey', CSRF='$csrfToken';
+function log(msg){document.getElementById('log').textContent+=msg+'\\n';}
+function urlB64(b){var p='='.repeat((4-b.length%4)%4),s=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
+async function runTest(){
+  log('1. Permission: '+Notification.permission);
+  log('2. ServiceWorker: '+('serviceWorker' in navigator));
+  log('3. PushManager: '+('PushManager' in window));
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){log('❌ Non supportato');return;}
+  var perm=await Notification.requestPermission();
+  log('4. Permesso richiesto: '+perm);
+  if(perm!=='granted'){log('❌ Permesso negato');return;}
+  try{
+    var reg=await navigator.serviceWorker.ready;
+    log('5. SW pronto: '+reg.scope);
+    var existing=await reg.pushManager.getSubscription();
+    log('6. Subscription esistente: '+(existing?'SÌ':'NO'));
+    var sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(VAPID)});
+    log('7. Subscription endpoint: '+sub.endpoint.substring(0,50)+'...');
+    var key=sub.getKey('p256dh'),auth=sub.getKey('auth');
+    var r=await fetch('/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh:key?btoa(String.fromCharCode.apply(null,new Uint8Array(key))):'',auth:auth?btoa(String.fromCharCode.apply(null,new Uint8Array(auth))):''},contentEncoding:(PushManager.supportedContentEncodings||['aesgcm'])[0]})});
+    log('8. POST /push/subscribe: '+r.status+(r.ok?' ✅ SALVATA':' ❌ ERRORE'));
+  }catch(e){log('❌ Errore: '+e.message);}
+}
+</script></body></html>", 200, ['Content-Type' => 'text/html']);
+});
 // ───────────────────────────────────────────────────────────────────────────
 
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
