@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
@@ -126,6 +127,13 @@ class NfcCardPaymentController extends Controller
             return response()->json(['error' => 'Nessun conto attivo associato al tuo account.'], 403);
         }
 
+        // Annulla eventuali sessioni pending precedenti per la stessa card
+        // (evita notifiche duplicate/confuse se il merchant scansiona più volte)
+        NfcCardAuthSession::where('nfc_card_id', $card->id)
+            ->where('status', 'pending')
+            ->where('expires_at', '>', now())
+            ->update(['status' => 'cancelled']);
+
         // Crea sessione auth (scade in 10 minuti — tempo sufficiente per login se necessario)
         $session = NfcCardAuthSession::create([
             'nfc_card_id'          => $card->id,
@@ -238,15 +246,6 @@ class NfcCardPaymentController extends Controller
         $user = $request->user();
         abort_unless($user && $session->card->company_id === $user->company_id, 403);
 
-        $card = $session->card;
-
-        // Verifica limiti
-        [$ok, $reason] = $card->checkLimits($session->amount);
-        if (! $ok) {
-            $session->update(['status' => 'failed']);
-            return back()->with('portal_error', $reason);
-        }
-
         // Risolvi account cliente (titolare della card)
         $customerAccount = Account::where('company_id', $user->company_id)
             ->whereNull('parent_account_id')
@@ -260,35 +259,59 @@ class NfcCardPaymentController extends Controller
                 ->firstOrFail();
 
         try {
-            $transfer = $svc->book([
-                'from_account_id' => $customerAccount->id,
-                'to_account_id'   => $merchantAccount->id,
-                'amount'          => $session->amount,
-                'description'     => $session->description ?? 'Pagamento Card NFC',
-                'kind'            => 'nfc_card',
-                'idempotency_key' => 'nfc-card-' . $nonce,
-                'initiated_by'    => $user->id,
-                'ip_address'      => $request->ip(),
-            ]);
+            // Wrap in transazione con lock sulla card per evitare race condition
+            // tra checkLimits e recordSpent su pagamenti concorrenti.
+            $transfer = DB::transaction(function () use ($session, $customerAccount, $merchantAccount, $user, $nonce, $request, $svc) {
+                /** @var NfcCard $card */
+                $card = NfcCard::lockForUpdate()->findOrFail($session->nfc_card_id);
 
-            $session->update([
-                'status'        => 'authorized',
-                'transfer_uuid' => $transfer->uuid,
-            ]);
+                // Verifica limiti con lock acquisito
+                [$ok, $reason] = $card->checkLimits($session->amount);
+                if (! $ok) {
+                    $card->logs()->create(['event' => 'limit_exceeded', 'amount' => $session->amount, 'ip' => $request->ip()]);
+                    throw new \RuntimeException('__LIMIT__:' . $reason);
+                }
 
-            $card->recordSpent($session->amount);
-            $card->logs()->create([
-                'event'               => 'payment_ok',
-                'merchant_company_id' => $session->merchant_company_id,
-                'amount'              => $session->amount,
-                'ip'                  => $request->ip(),
-            ]);
+                $transfer = $svc->book([
+                    'from_account_id' => $customerAccount->id,
+                    'to_account_id'   => $merchantAccount->id,
+                    'amount'          => $session->amount,
+                    'description'     => $session->description ?? 'Pagamento Card NFC',
+                    'kind'            => 'nfc_card',
+                    'idempotency_key' => 'nfc-card-' . $nonce,
+                    'initiated_by'    => $user->id,
+                    'ip_address'      => $request->ip(),
+                ]);
+
+                $session->update([
+                    'status'        => 'authorized',
+                    'transfer_uuid' => $transfer->uuid,
+                ]);
+
+                $card->recordSpent($session->amount);
+                $card->logs()->create([
+                    'event'               => 'payment_ok',
+                    'merchant_company_id' => $session->merchant_company_id,
+                    'amount'              => $session->amount,
+                    'ip'                  => $request->ip(),
+                ]);
+
+                return $transfer;
+            });
 
         } catch (\Throwable $e) {
-            $session->update(['status' => 'failed']);
-            $card->logs()->create(['event' => 'payment_fail', 'notes' => $e->getMessage()]);
+            $errorMsg = $e->getMessage();
 
-            return back()->with('portal_error', 'Pagamento fallito: ' . $e->getMessage());
+            // Distingui errore limite (messaggio utente) da errore generico
+            if (str_starts_with($errorMsg, '__LIMIT__:')) {
+                $session->update(['status' => 'failed']);
+                return back()->with('portal_error', substr($errorMsg, 10));
+            }
+
+            $session->update(['status' => 'failed']);
+            $session->card->logs()->create(['event' => 'payment_fail', 'notes' => $errorMsg]);
+
+            return back()->with('portal_error', 'Pagamento fallito: ' . $errorMsg);
         }
 
         $merchantName = $session->merchant?->name
@@ -317,7 +340,9 @@ class NfcCardPaymentController extends Controller
             ->first();
 
         if ($owner) {
-            Auth::login($owner, remember: true);
+            // remember: false — autorizzare un pagamento non equivale a un login volontario;
+            // non vogliamo persistere un cookie "ricordami" sul dispositivo del cliente.
+            Auth::login($owner, remember: false);
         }
     }
 

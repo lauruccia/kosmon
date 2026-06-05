@@ -104,6 +104,11 @@ class NfcCard extends Model
             $attempts = $this->pin_attempts + 1;
             $update   = ['pin_attempts' => $attempts];
 
+            if ($attempts >= 3) {
+                // Blocca la card per 1 ora dopo 3 tentativi falliti
+                $update['pin_locked_until'] = now()->addHour();
+            }
+
             $this->update($update);
 
             $this->logs()->create(['event' => 'auth_fail']);

@@ -156,9 +156,11 @@ class TransferBookingService
             $toAccount->forceFill(['available_balance' => $creditBalanceAfter])->save();
 
             $pendingTransfer->forceFill([
-                'initiated_by' => $confirmer->id,
-                'status' => 'booked',
-                'booked_at' => $bookedAt,
+                // initiated_by rimane invariato: conserva chi ha CREATO la richiesta.
+                // confirmed_by registra chi l'ha CONFERMATA (colonna aggiunta con migration 2026_06_05_100000).
+                'confirmed_by' => $confirmer->id,
+                'status'       => 'booked',
+                'booked_at'    => $bookedAt,
             ])->save();
 
             LedgerEntry::create([
@@ -200,7 +202,7 @@ class TransferBookingService
                 ],
             ]);
 
-            return $pendingTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator']);
+            return $pendingTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'confirmer']);
         });
     }
 
@@ -370,9 +372,9 @@ class TransferBookingService
                 throw new RuntimeException('Solo i movimenti contabilizzati possono essere rimborsati.');
             }
 
-            $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment', 'portal_refund'];
+            $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment', 'portal_refund', 'nfc_card'];
             if (! in_array($original->kind, $refundableKinds, true)) {
-                throw new RuntimeException('Questo tipo di movimento non e rimborsabile dal portale.');
+                throw new RuntimeException('Questo tipo di movimento non è rimborsabile dal portale.');
             }
 
             // Sum of already booked refunds pointing to this transfer
@@ -569,6 +571,23 @@ class TransferBookingService
 
             // Notifica al titolare del conto padre
             $this->notifyParentOfSubAccountTransfer($transfer, $fromAccount, $parentAccount, $initiator);
+
+            // Applica commissione (addebitata sul conto padre, come per i trasferimenti normali)
+            $kind = $transfer->kind;
+            $fee  = \App\Models\TransactionFee::calculate($kind, $amount);
+            if ($fee > 0) {
+                $systemAccount = \App\Models\Account::systemAccount();
+                if ($systemAccount) {
+                    try {
+                        $this->bookFee($parentAccount, $systemAccount, $fee, $kind, $transfer);
+                    } catch (\Throwable) {
+                        // fee non bloccante
+                    }
+                }
+            }
+
+            // Applica eventuale cashback al conto padre (pagante reale)
+            app(\App\Services\CashbackService::class)->applyIfEligible($transfer);
 
             return $transfer;
         }
@@ -787,6 +806,12 @@ class TransferBookingService
             return;
         }
 
+        // NOTA sulla transazione annidata: questo metodo viene chiamato dall'interno di
+        // bookSettledTransfer() che è già dentro DB::transaction(). Laravel gestisce le
+        // transazioni annidate tramite savepoint (InnoDB), quindi:
+        //   - se bookFee() lancia eccezione → solo il savepoint interno viene annullato
+        //   - la transazione esterna (e il transfer principale) rimane valida
+        // Questo è il comportamento voluto: la fee è best-effort e non deve bloccare il pagamento.
         \DB::transaction(function () use ($fromAccount, $systemAccount, $fee, $kind, $parentTransfer, $idempotencyKey) {
             // Ricarica con lock per aggiornare i saldi in sicurezza
             $payer  = \App\Models\Account::lockForUpdate()->findOrFail($fromAccount->id);

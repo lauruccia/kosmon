@@ -486,7 +486,7 @@
             }
 
             document.getElementById('card-nfc-info').style.display = 'none';
-            statusEl.textContent   = '⏳ In attesa che il cliente autorizzi con PIN...';
+            statusEl.textContent   = '⏳ Notifica inviata. In attesa che il cliente autorizzi il pagamento...';
             statusEl.style.background = '#fef9c3';
             statusEl.style.color      = '#854d0e';
             statusEl.style.border     = '1px solid #fde68a';

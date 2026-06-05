@@ -16,6 +16,7 @@ class Transfer extends Model
         'uuid',
         'reference',
         'initiated_by',
+        'confirmed_by',
         'from_account_id',
         'to_account_id',
         'amount',
@@ -48,6 +49,12 @@ class Transfer extends Model
     public function initiator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'initiated_by');
+    }
+
+    /** Utente che ha confermato una richiesta di pagamento pending. */
+    public function confirmer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     public function fromAccount(): BelongsTo
