@@ -42,7 +42,8 @@ class SendWebPushAfterNotification
 
         $title = $data['title'] ?? 'KMoney';
         $body  = $data['body']  ?? '';
-        $url   = $data['link']  ?? '/dashboard';
+        // Preferisce signed_url (accesso diretto senza login, es. NFC card) se presente
+        $url   = $data['signed_url'] ?? $data['link'] ?? '/dashboard';
 
         // Rimuovi eventuali emoji dal titolo per compatibilita' con tutti i browser
         $title = preg_replace('/[\x{1F000}-\x{1FFFF}]/u', '', $title);

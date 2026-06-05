@@ -42,14 +42,17 @@ class NfcCardPinRequestNotification extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
-            'icon'  => '💳',
-            'title' => 'Richiesta di pagamento',
-            'body'  => sprintf(
+            'icon'       => '💳',
+            'title'      => 'Richiesta di pagamento',
+            'body'       => sprintf(
                 '%s richiede %s KY. Tocca per confermare.',
                 $this->merchant?->name ?? 'Un commerciante',
                 ky_format($this->session->amount),
             ),
-            'link'       => $this->signedUrl,
+            // link permanente: funziona sempre dalla campanella (sessione autenticata)
+            'link'       => route('portal.nfc-cards.index'),
+            // signed_url: usato dal listener web push per apertura diretta anche senza sessione
+            'signed_url' => $this->signedUrl,
             'expires_at' => $this->session->expires_at->toISOString(),
         ];
     }
