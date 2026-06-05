@@ -67,14 +67,43 @@ Route::get('/dev-push-test', function () {
     abort_unless(app()->environment('local', 'production'), 403);
     $email = request('email', 'sitireggiocal@gmail.com');
     $user  = \App\Models\User::where('email', $email)->firstOrFail();
-    $subs  = \App\Models\PushSubscription::where('user_id', $user->id)->count();
-    app(\App\Services\WebPushService::class)->notifyUser(
-        $user,
-        '🔔 KMoney — Test push',
-        'La notifica push funziona! Questo messaggio è arrivato dal server.',
-        ['url' => '/dashboard', 'tag' => 'test-push']
-    );
-    return response()->json(['ok' => true, 'email' => $email, 'subscriptions' => $subs]);
+    $subscriptions = \App\Models\PushSubscription::where('user_id', $user->id)->get();
+
+    $vapidAvailable = config('webpush.vapid.public_key') && config('webpush.vapid.private_key');
+    if (!$vapidAvailable) {
+        return response()->json(['error' => 'VAPID keys non configurate']);
+    }
+
+    $results = [];
+    try {
+        $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => [
+            'subject'    => config('webpush.vapid.subject', 'mailto:noreply@kmoney.it'),
+            'publicKey'  => config('webpush.vapid.public_key'),
+            'privateKey' => config('webpush.vapid.private_key'),
+        ]]);
+        $payload = json_encode(['title' => '🔔 KMoney Test', 'body' => 'Push funziona!', 'url' => '/dashboard', 'tag' => 'test-push']);
+        foreach ($subscriptions as $sub) {
+            $webPush->queueNotification(
+                \Minishlink\WebPush\Notification::create()->withPayload($payload),
+                \Minishlink\WebPush\Subscription::create(['endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token])
+            );
+        }
+        foreach ($webPush->flush() as $report) {
+            $results[] = [
+                'endpoint' => substr($report->getEndpoint(), 0, 60) . '...',
+                'success'  => $report->isSuccess(),
+                'expired'  => $report->isSubscriptionExpired(),
+                'reason'   => $report->isSuccess() ? 'ok' : $report->getReason(),
+            ];
+            if ($report->isSubscriptionExpired()) {
+                \App\Models\PushSubscription::where('endpoint', $report->getEndpoint())->delete();
+            }
+        }
+    } catch (\Throwable $e) {
+        return response()->json(['error' => $e->getMessage()]);
+    }
+
+    return response()->json(['subscriptions' => count($subscriptions), 'results' => $results]);
 });
 
 // Pagina diagnostica push per telefono
