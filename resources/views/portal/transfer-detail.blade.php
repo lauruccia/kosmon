@@ -21,6 +21,9 @@
         'portal_cashback'            => 'Cashback',
         'portal_installment'         => 'Rata piano rateale',
         'portal_netting'             => 'Compensazione (netting)',
+        'code'                       => 'Pagamento via codice',
+        'nfc_card'                   => 'Pagamento NFC',
+        'portal_scheduled'           => 'Pagamento programmato',
     ];
     $kindLabel = $kindLabels[$transfer->kind] ?? ucfirst(str_replace('_', ' ', $transfer->kind ?? ''));
 
@@ -120,14 +123,6 @@
                 <div style="font-size:11px;color:var(--ink-muted);margin-bottom:3px;">UUID</div>
                 <code style="font-size:11px;word-break:break-all;">{{ $transfer->uuid }}</code>
             </div>
-        </div>
-
-        {{-- DEBUG TEMP --}}
-        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;font-family:monospace;">
-            kind: <strong>{{ $transfer->kind }}</strong> |
-            status: <strong>{{ $transfer->status }}</strong> |
-            isOutgoing: <strong>{{ $isOutgoing ? 'true' : 'false' }}</strong> |
-            isRefundable: <strong>{{ $isRefundable ? 'true' : 'false' }}</strong>
         </div>
 
         {{-- Azioni --}}

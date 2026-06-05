@@ -925,7 +925,7 @@ class PortalController extends Controller
 
         $isOutgoing = in_array($transfer->from_account_id, $accountIds, true);
 
-        $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card'];
+        $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code'];
         $isRefundable = $transfer->status === 'booked'
             && ! $isOutgoing
             && in_array($transfer->kind, $refundableKinds, true);

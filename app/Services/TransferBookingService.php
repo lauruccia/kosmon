@@ -372,7 +372,7 @@ class TransferBookingService
                 throw new RuntimeException('Solo i movimenti contabilizzati possono essere rimborsati.');
             }
 
-            $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment', 'portal_refund', 'nfc_card'];
+            $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'portal_refund', 'nfc_card', 'code'];
             if (! in_array($original->kind, $refundableKinds, true)) {
                 throw new RuntimeException('Questo tipo di movimento non è rimborsabile dal portale.');
             }
