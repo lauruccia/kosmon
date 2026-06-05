@@ -274,10 +274,14 @@
             padding: 20px 14px;
             background: var(--grad-sidebar);
             border-right: 1px solid rgba(255,255,255,.05);
-            scrollbar-width: none;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,.18) transparent;
             transition: background .28s ease;
         }
-        .sidebar::-webkit-scrollbar { display: none; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 4px; }
+        .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.32); }
         .sidebar::before {
             content: "";
             position: absolute;

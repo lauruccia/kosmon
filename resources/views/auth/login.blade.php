@@ -125,21 +125,9 @@
 
                 {{-- ── Vista: lista account salvati (2+) ─────────────────────────────── --}}
                 <div id="view-accounts" style="display:none;">
-                    {{-- Passkey discoverable (nessun account pre-selezionato) --}}
-                    <button id="btn-biometric-discover" class="btn-biometric" type="button" style="margin-top:20px;">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
-                            <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
-                            <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
-                            <path d="M12 12v.01"/>
-                        </svg>
-                        Accedi con impronta / Passkey
-                    </button>
-                    <div id="biometric-msg-discover" class="biometric-msg"></div>
+                    <div class="sub" style="margin-top:12px;">Seleziona il tuo account per continuare.</div>
 
-                    <div class="divider" style="margin-top:20px;">account su questo dispositivo</div>
-
-                    <div id="saved-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-top:14px;"></div>
+                    <div id="saved-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-top:16px;"></div>
                     <div style="margin-top:10px;text-align:right;">
                         <button id="btn-altro-account" type="button" style="font-size:13px;color:#4d7386;background:none;border:none;cursor:pointer;font-weight:600;padding:0;">+ Usa un altro account</button>
                     </div>
@@ -468,11 +456,6 @@ async function doBiometricLogin(btnId, msgId, email) {
 document.getElementById('btn-biometric').addEventListener('click', () => {
     const email = document.getElementById('email-step2').value.trim() || null;
     doBiometricLogin('btn-biometric', 'biometric-msg', email);
-});
-
-// Passkey vista lista account (discoverable)
-document.getElementById('btn-biometric-discover').addEventListener('click', () => {
-    doBiometricLogin('btn-biometric-discover', 'biometric-msg-discover', null);
 });
 
 // Passkey vista account selezionato
