@@ -154,9 +154,23 @@ class NfcCardPaymentController extends Controller
 
         // Notifica tutti gli utenti della company titolare della card
         try {
-            $merchant = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
-            $card->company->users->each(function ($user) use ($session, $merchant, $signedUrl) {
+            $merchant     = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
+            $pushService  = app(\App\Services\WebPushService::class);
+            $pushTitle    = 'Richiesta di pagamento';
+            $pushBody     = sprintf('%s richiede %s KY. Tocca per confermare.',
+                $merchant?->name ?? 'Un commerciante',
+                ky_format($session->amount),
+            );
+
+            $card->company->users->each(function ($user) use ($session, $merchant, $signedUrl, $pushService, $pushTitle, $pushBody) {
+                // Notifica database + mail + broadcast (via coda)
                 $user->notify(new NfcCardPinRequestNotification($session, $merchant, $signedUrl));
+
+                // Push inviato direttamente dal contesto web (evita limitazioni CLI del cron)
+                $pushService->notifyUser($user, $pushTitle, $pushBody, [
+                    'url' => $signedUrl,
+                    'tag' => 'nfc-payment-request',
+                ]);
             });
         } catch (\Throwable $e) {
             \Log::warning('NFC card notification failed: ' . $e->getMessage());
