@@ -32,7 +32,7 @@ class StaticNfcController extends Controller
     {
         // Cerca l'account per numero KY (es. KYB1234567890ABC)
         $toAccount = Account::with(['company', 'ownerUser'])
-            ->where('account_number', $kyAccountNumber)
+            ->where('uuid', $kyAccountNumber)
             ->where('status', 'active')
             ->firstOrFail();
 
