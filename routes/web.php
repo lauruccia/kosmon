@@ -83,10 +83,14 @@ Route::get('/dev-push-test', function () {
         ]]);
         $payload = json_encode(['title' => '🔔 KMoney Test', 'body' => 'Push funziona!', 'url' => '/dashboard', 'tag' => 'test-push']);
         foreach ($subscriptions as $sub) {
-            $webPush->queueNotification(
-                new \Minishlink\WebPush\Notification($payload),
-                new \Minishlink\WebPush\Subscription($sub->endpoint, $sub->public_key, $sub->auth_token)
-            );
+            $subscription = \Minishlink\WebPush\Subscription::create([
+                'endpoint'        => $sub->endpoint,
+                'publicKey'       => $sub->public_key,
+                'authToken'       => $sub->auth_token,
+                'contentEncoding' => $sub->content_encoding ?? 'aesgcm',
+            ]);
+
+            $webPush->queueNotification($subscription, $payload);
         }
         foreach ($webPush->flush() as $report) {
             $results[] = [
