@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
             'is_active'           => true,
             'is_super_admin'      => true,
         ]);
-        $superAdmin->forceFill(['email_verified_at' => now()])->save();
+        $superAdmin->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $superAdmin->roles()->sync([$superAdminRole->id]);
 
         // 5 aziende
@@ -60,7 +60,7 @@ class DatabaseSeeder extends Seeder
             'is_active'           => true,
             'is_super_admin'      => false,
         ]);
-        $viewer->forceFill(['email_verified_at' => now()])->save();
+        $viewer->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $viewer->roles()->sync([$viewerRole->id]);
 
         // Membro privato + sottoconto
@@ -74,7 +74,7 @@ class DatabaseSeeder extends Seeder
             'is_active'           => true,
             'is_super_admin'      => false,
         ]);
-        $privateOwner->forceFill(['email_verified_at' => now()])->save();
+        $privateOwner->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $privateOwner->roles()->sync([$privateMemberRole->id]);
 
         $privateAccount = Account::create([
@@ -118,7 +118,7 @@ class DatabaseSeeder extends Seeder
             'is_active'           => true,
             'is_super_admin'      => false,
         ]);
-        $delegate->forceFill(['email_verified_at' => now()])->save();
+        $delegate->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $delegate->roles()->sync([$delegateRole->id]);
 
         // Storico trasferimenti
@@ -180,7 +180,7 @@ class DatabaseSeeder extends Seeder
             'is_active'           => true,
             'is_super_admin'      => false,
         ]);
-        $user->forceFill(['email_verified_at' => now()])->save();
+        $user->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $user->roles()->sync([$role->id]);
 
         $account = Account::create([
@@ -418,7 +418,4 @@ class DatabaseSeeder extends Seeder
                 'contact_info'       => $item['company']['company']->email,
                 'expires_at'         => now()->addMonths(6),
                 'views_count'        => rand(5, 80),
-            ]);
-        }
-    }
-}
+   

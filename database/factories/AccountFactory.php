@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Account;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Account>
@@ -15,9 +16,14 @@ class AccountFactory extends Factory
 
     public function definition(): array
     {
+        $ownerType = 'company';
+        $prefix    = 'KYB';
+        $uuid      = $prefix . Str::upper(Str::random(13));
+
         return [
+            'uuid'                  => $uuid,
             'company_id'            => Company::factory(),
-            'owner_type'            => 'company',
+            'owner_type'            => $ownerType,
             'type'                  => 'primary',
             'currency_code'         => 'KY',
             'status'                => 'active',

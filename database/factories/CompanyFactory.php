@@ -18,6 +18,7 @@ class CompanyFactory extends Factory
         $name = fake()->company();
 
         return [
+            'uuid'         => (string) Str::uuid(),
             'name'         => $name,
             'slug'         => Str::slug($name) . '-' . Str::lower(Str::random(4)),
             'email'        => fake()->companyEmail(),
