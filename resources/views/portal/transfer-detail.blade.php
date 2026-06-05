@@ -110,10 +110,10 @@
                 <div style="font-size:14px;">{{ $transfer->description }}</div>
             </div>
             @endif
-            @if($transfer->initiatedByUser)
+            @if($transfer->initiator)
             <div style="background:var(--bg);border-radius:10px;padding:12px 14px;">
                 <div style="font-size:11px;color:var(--ink-muted);margin-bottom:3px;">Eseguito da</div>
-                <div style="font-size:13px;font-weight:600;">{{ $transfer->initiatedByUser->name }}</div>
+                <div style="font-size:13px;font-weight:600;">{{ $transfer->initiator->name }}</div>
             </div>
             @endif
             <div style="background:var(--bg);border-radius:10px;padding:12px 14px;">

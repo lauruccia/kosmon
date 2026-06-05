@@ -921,7 +921,7 @@ class PortalController extends Controller
             403
         );
 
-        $transfer->load(['fromAccount.company', 'toAccount.company', 'initiatedByUser', 'relatedTransfer']);
+        $transfer->load(['fromAccount.company', 'toAccount.company', 'initiator', 'relatedTransfer']);
 
         $isOutgoing = in_array($transfer->from_account_id, $accountIds, true);
 
