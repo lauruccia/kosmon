@@ -902,6 +902,69 @@ class PortalController extends Controller
         );
     }
 
+    public function transferDetail(Request $request, Transfer $transfer): View|RedirectResponse
+    {
+        if ($redirect = $this->redirectBackofficeUser($request->user())) {
+            return $redirect;
+        }
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
+
+        // L'utente deve essere parte del movimento (mittente o destinatario)
+        $accountIds = $currentAccount->isSubAccount()
+            ? [$currentAccount->id]
+            : $currentAccount->childAccounts()->pluck('id')->prepend($currentAccount->id)->all();
+
+        abort_unless(
+            in_array($transfer->from_account_id, $accountIds, true) ||
+            in_array($transfer->to_account_id, $accountIds, true),
+            403
+        );
+
+        $transfer->load(['fromAccount.company', 'toAccount.company', 'initiatedByUser', 'relatedTransfer']);
+
+        $isOutgoing = in_array($transfer->from_account_id, $accountIds, true);
+
+        $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment'];
+        $isRefundable = $transfer->status === 'booked'
+            && ! $isOutgoing
+            && in_array($transfer->kind, $refundableKinds, true);
+
+        $alreadyRefunded = 0;
+        $maxRefundable   = 0;
+        if ($isRefundable) {
+            $alreadyRefunded = (int) Transfer::query()
+                ->where('reversed_transfer_id', $transfer->id)
+                ->where('status', 'booked')
+                ->sum('amount');
+            $maxRefundable = (int) $transfer->amount - $alreadyRefunded;
+            if ($maxRefundable <= 0) {
+                $isRefundable = false;
+            }
+        }
+
+        // Storico rimborsi collegati a questo movimento
+        $relatedRefunds = Transfer::query()
+            ->where('reversed_transfer_id', $transfer->id)
+            ->where('status', 'booked')
+            ->with(['fromAccount.company', 'toAccount.company'])
+            ->orderByDesc('booked_at')
+            ->get();
+
+        return view('portal.transfer-detail', [
+            'pageTitle'       => 'Dettaglio movimento',
+            'activeNav'       => 'movimenti',
+            'currentAccount'  => $currentAccount,
+            'currentUser'     => $currentUser,
+            'transfer'        => $transfer,
+            'isOutgoing'      => $isOutgoing,
+            'isRefundable'    => $isRefundable,
+            'alreadyRefunded' => $alreadyRefunded,
+            'maxRefundable'   => $maxRefundable,
+            'relatedRefunds'  => $relatedRefunds,
+        ]);
+    }
+
     public function refundForm(Request $request, Transfer $transfer): View|RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {

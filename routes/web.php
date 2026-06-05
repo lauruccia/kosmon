@@ -367,6 +367,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/movimenti/export-csv', [PortalController::class, 'exportMovementsCsv'])->name('portal.movements.export-csv');
     Route::get('/movimenti/{uuid}/ricevuta', [ReceiptController::class, 'download'])->name('portal.receipt.download');
     Route::get('/prima-nota/export', [PortalController::class, 'exportPrimaNota'])->name('portal.prima-nota.export');
+    Route::get('/movimenti/{transfer}', [PortalController::class, 'transferDetail'])->name('portal.movements.show');
     Route::get('/movimenti/{transfer}/rimborso', [PortalController::class, 'refundForm'])->name('portal.refund.form');
     Route::post('/movimenti/{transfer}/rimborso', [PortalController::class, 'refundSubmit'])->name('portal.refund.submit');
     Route::get('/nota-di-credito', [PortalController::class, 'creditNoteForm'])->name('portal.credit-note.form');

@@ -319,6 +319,12 @@
 
                         {{-- Azioni --}}
                         <td style="white-space:nowrap;text-align:right;padding-right:14px;">
+                            <a href="{{ route('portal.movements.show', $transfer) }}"
+                               class="cta secondary"
+                               style="font-size:11px;padding:4px 9px;min-height:26px;display:inline-flex;align-items:center;gap:4px;text-decoration:none;"
+                               title="Dettaglio movimento">
+                                🔍
+                            </a>
                             @if ($isPendingRequestToConfirm)
                                 <form method="post" action="{{ route('portal.receive.requests.confirm', $transfer) }}" style="display:inline-flex;gap:6px;align-items:center;">
                                     @csrf
