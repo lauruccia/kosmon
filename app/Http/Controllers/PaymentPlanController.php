@@ -225,7 +225,7 @@ class PaymentPlanController extends Controller
         }
 
         return redirect()
-            ->route('portal.payment-plans.index')
+            ->route('portal.payment-plans.show', $paymentPlan)
             ->with('portal_success', 'Piano rateale rifiutato. Il proponente e\' stato notificato.');
     }
 
@@ -238,7 +238,7 @@ class PaymentPlanController extends Controller
         );
 
         abort_unless($paymentPlan->from_account_id === $currentAccount->id || $request->user()->is_super_admin, 403);
-        abort_unless($paymentPlan->status === 'active', 422);
+        abort_unless(in_array($paymentPlan->status, ['pending_approval', 'active'], true), 422);
 
         $this->service->cancel($paymentPlan, $currentUser->id, $request->ip());
 

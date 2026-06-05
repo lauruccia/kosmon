@@ -27,7 +27,7 @@ class RequireStepUp
         $verifiedAt = $request->session()->get('step_up_verified_at');
 
         $isValid = $verifiedAt
-            && now()->diffInMinutes($verifiedAt) < self::STEP_UP_WINDOW_MINUTES;
+            && now()->diffInMinutes(\Carbon\Carbon::createFromTimestamp($verifiedAt)) < self::STEP_UP_WINDOW_MINUTES;
 
         if (! $isValid) {
             // Salva l'URL di destinazione per il redirect post-verifica

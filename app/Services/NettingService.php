@@ -338,7 +338,7 @@ class NettingService
         int   $fromAccountId,
     ): \Illuminate\Database\Eloquent\Collection {
         if (empty($ids)) {
-            return collect();
+            return Transfer::whereIn('id', [])->get();
         }
 
         $transfers = Transfer::whereIn('id', $ids)
