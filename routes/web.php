@@ -67,7 +67,6 @@ Route::get('/dev-push', function () {
         'sitireggiocal@gmail.com',
         'federico.drago1989@gmail.com',
         'francescobrogna60@gmail.com',
-        's.pittelli@kosmos.it',
     ];
     $message = 'Sono Laura, voglio solo verificare di poter inviare notifiche via App KMoney';
     $activateUrl = url('/notifiche');
