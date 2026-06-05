@@ -59,9 +59,17 @@ use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
+use App\Http\Controllers\StaticNfcController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+
+// -- Card NFC statica esercente (es. ristorante) — URL programmato nel tag --
+// Il cliente avvicina il telefono → browser apre questa pagina pubblica →
+// se non loggato viene mandato al login (con intended URL) → poi paga.
+Route::get('/paga/{kyAccountNumber}', [StaticNfcController::class, 'pay'])
+    ->name('nfc.static.pay')
+    ->where('kyAccountNumber', 'KY[BP]?[A-Z0-9]{13,14}');
 
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
 Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
