@@ -62,6 +62,22 @@ use App\Http\Controllers\NfcCardPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+Route::get('/dev-push', function () {
+    $user = \App\Models\User::where('email', 'sitireggiocal@gmail.com')->firstOrFail();
+    $subs = \App\Models\PushSubscription::where('user_id', $user->id)->get();
+    $results = [];
+    $webPush = new \Minishlink\WebPush\WebPush(['VAPID' => ['subject' => config('webpush.vapid.subject'), 'publicKey' => config('webpush.vapid.public_key'), 'privateKey' => config('webpush.vapid.private_key')]]);
+    $payload = json_encode(['title' => '🔔 KMoney', 'body' => 'Notifica di test dal server!', 'url' => '/dashboard', 'tag' => 'test', 'icon' => '/assets/brand/icon-192.png']);
+    foreach ($subs as $sub) {
+        $webPush->queueNotification(\Minishlink\WebPush\Subscription::create(['endpoint' => $sub->endpoint, 'publicKey' => $sub->public_key, 'authToken' => $sub->auth_token, 'contentEncoding' => $sub->content_encoding ?? 'aesgcm']), $payload);
+    }
+    foreach ($webPush->flush() as $r) {
+        $results[] = ['ok' => $r->isSuccess(), 'reason' => $r->isSuccess() ? 'ok' : $r->getReason()];
+        if ($r->isSubscriptionExpired()) \App\Models\PushSubscription::where('endpoint', $r->getEndpoint())->delete();
+    }
+    return response()->json(['subs' => count($subs), 'results' => $results]);
+});
+
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
 Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
 
