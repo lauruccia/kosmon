@@ -2,7 +2,7 @@
 
 @section('content')
 
-    <div class="portal-grid" style="max-width:860px;">
+    <div class="portal-grid" style="max-width:100%;">
         <div class="stack">
             {{-- Card stato principale --}}
             <section class="card card-pad" id="nfc-status-card">
