@@ -122,6 +122,14 @@
             </div>
         </div>
 
+        {{-- DEBUG TEMP --}}
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;font-family:monospace;">
+            kind: <strong>{{ $transfer->kind }}</strong> |
+            status: <strong>{{ $transfer->status }}</strong> |
+            isOutgoing: <strong>{{ $isOutgoing ? 'true' : 'false' }}</strong> |
+            isRefundable: <strong>{{ $isRefundable ? 'true' : 'false' }}</strong>
+        </div>
+
         {{-- Azioni --}}
         <div style="display:flex;flex-wrap:wrap;gap:10px;padding-top:16px;border-top:1px solid var(--line);">
             @if($transfer->status === 'booked')
