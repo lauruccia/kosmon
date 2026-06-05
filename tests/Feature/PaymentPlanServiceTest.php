@@ -11,6 +11,7 @@ use App\Models\PaymentPlanInstallment;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Services\PaymentPlanService;
+use App\Services\ScheduledPaymentService;
 use App\Services\TransferBookingService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,7 +27,9 @@ class PaymentPlanServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new PaymentPlanService(new TransferBookingService());
+        $bookingService = app(TransferBookingService::class);
+        $scheduledService = app(ScheduledPaymentService::class);
+        $this->service = new PaymentPlanService($bookingService, $scheduledService);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -43,7 +46,7 @@ class PaymentPlanServiceTest extends TestCase
             'role'       => 'company-manager',
         ]);
 
-        return [$company, $account, $user];
+        return [$company, $account, $user, $user]; // index 3 = user alias for backward compat
     }
 
     private function makePlan(

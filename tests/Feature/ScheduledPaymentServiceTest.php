@@ -25,14 +25,19 @@ class ScheduledPaymentServiceTest extends TestCase
 
     private function makeAccount(int $balance = 100000): array
     {
-        $user = User::factory()->create(['email_verified_at' => now()]);
         $company = Company::factory()->create(['kyc_status' => 'approved']);
+        $user = User::factory()->create([
+            'email_verified_at'  => now(),
+            'company_id'         => $company->id,
+            'role'               => 'company-manager',
+            'account_holder_type' => 'company',
+        ]);
         $account = Account::factory()->create([
-            'company_id'    => $company->id,
-            'owner_user_id' => $user->id,
-            'status'        => 'active',
-            'currency_code' => 'KY',
-            'balance'       => $balance,
+            'company_id'        => $company->id,
+            'owner_user_id'     => $user->id,
+            'status'            => 'active',
+            'currency_code'     => 'KY',
+            'available_balance' => $balance,
         ]);
         return [$user, $account];
     }

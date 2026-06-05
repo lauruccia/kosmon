@@ -23,7 +23,7 @@ class NfcPaymentControllerTest extends TestCase
             'owner_user_id' => $user->id,
             'status'      => 'active',
             'currency_code' => 'KY',
-            'balance'     => 50000,
+            'available_balance' => 50000,
         ]);
         $user->update(['two_factor_confirmed_at' => null]);
         return $user;

@@ -265,6 +265,7 @@ class ApiV1Test extends TestCase
         [$user,, $company] = $this->makePortalUser();
 
         $response = $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.api-tokens.store'), [
                 'name'       => 'My integration',
                 'abilities'  => ['read'],
@@ -283,6 +284,7 @@ class ApiV1Test extends TestCase
         [, $rawToken, $tokenModel] = $this->makeApiTokenForCompany($company, ['abilities' => ['read']]);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->delete(route('portal.api-tokens.destroy', $tokenModel))
             ->assertRedirect(route('portal.api-tokens.index'));
 
@@ -382,8 +384,14 @@ class ApiV1Test extends TestCase
             'is_active'           => true,
             'is_super_admin'      => false,
             'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
         ]);
 
         return [$user, $account, $company];
+    }
+
+    private function stepUp(): array
+    {
+        return ['step_up_verified_at' => now()->timestamp];
     }
 }

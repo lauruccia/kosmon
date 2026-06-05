@@ -188,7 +188,7 @@ class TwoFactorTest extends TestCase
         $user   = $this->makeEnabledUser($secret);
 
         $response = $this->actingAs($user)
-            ->withSession(['two_factor_verified' => true])
+            ->withSession(['two_factor_verified' => true, 'step_up_verified_at' => now()->timestamp])
             ->post(route('portal.2fa.disable'), ['password' => 'secret123']);
 
         $response->assertRedirect(route('portal.security'));
@@ -206,7 +206,7 @@ class TwoFactorTest extends TestCase
         $user   = $this->makeEnabledUser($secret);
 
         $response = $this->actingAs($user)
-            ->withSession(['two_factor_verified' => true])
+            ->withSession(['two_factor_verified' => true, 'step_up_verified_at' => now()->timestamp])
             ->post(route('portal.2fa.disable'), ['password' => 'wrongpassword']);
 
         $response->assertSessionHasErrors('password');
@@ -226,7 +226,7 @@ class TwoFactorTest extends TestCase
         $user      = $this->makeEnabledUser($secret, $oldCodes);
 
         $response = $this->actingAs($user)
-            ->withSession(['two_factor_verified' => true])
+            ->withSession(['two_factor_verified' => true, 'step_up_verified_at' => now()->timestamp])
             ->post(route('portal.2fa.regenerate-codes'), ['password' => 'secret123']);
 
         $response->assertRedirect(route('portal.2fa.recovery-codes'));

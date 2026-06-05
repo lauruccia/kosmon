@@ -24,7 +24,7 @@ class CardControllerTest extends TestCase
             'owner_user_id' => $user->id,
             'status'        => 'active',
             'currency_code' => 'KY',
-            'balance'       => $balance,
+            'available_balance' => $balance,
         ]);
         return $user;
     }

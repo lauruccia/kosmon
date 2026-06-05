@@ -86,21 +86,26 @@ class SubaccountLifecycleTest extends TestCase
     private function makeOwnerAndSubaccount(bool $withDelegate = false): array
     {
         $company = Company::create([
-            'name' => 'Lifecycle SRL',
-            'slug' => 'lifecycle-srl',
-            'status' => 'active',
+            'name'          => 'Lifecycle SRL',
+            'slug'          => 'lifecycle-srl',
+            'status'        => 'active',
+            'kyc_status'    => 'approved',
             'currency_code' => 'KY',
+            'sector'        => 'informatica',
+            'description'   => 'Test azienda',
         ]);
 
         $owner = User::create([
-            'company_id' => $company->id,
+            'company_id'          => $company->id,
             'account_holder_type' => 'company',
-            'name' => 'Owner User',
-            'email' => 'owner@example.test',
-            'password' => 'secret123',
-            'role' => 'company-manager',
-            'is_active' => true,
-            'is_super_admin' => false,
+            'name'                => 'Owner User',
+            'email'               => 'owner@example.test',
+            'password'            => 'secret123',
+            'role'                => 'company-manager',
+            'is_active'           => true,
+            'is_super_admin'      => false,
+            'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
         ]);
         $ownerRole = Role::query()->where('slug', 'company-manager')->first();
         if ($ownerRole) {
@@ -141,15 +146,17 @@ class SubaccountLifecycleTest extends TestCase
 
         if ($withDelegate) {
             $delegate = User::create([
-                'company_id' => $company->id,
+                'company_id'          => $company->id,
                 'account_holder_type' => 'company',
-                'managed_account_id' => $subaccount->id,
-                'name' => 'Delegate User',
-                'email' => 'delegate@example.test',
-                'password' => 'secret123',
-                'role' => 'delegate-member',
-                'is_active' => true,
-                'is_super_admin' => false,
+                'managed_account_id'  => $subaccount->id,
+                'name'                => 'Delegate User',
+                'email'               => 'delegate@example.test',
+                'password'            => 'secret123',
+                'role'                => 'delegate-member',
+                'is_active'           => true,
+                'is_super_admin'      => false,
+                'email_verified_at'   => now(),
+                'contract_signed_at'  => now(),
             ]);
             $delegateRole = Role::query()->where('slug', 'delegate-member')->first();
             if ($delegateRole) {

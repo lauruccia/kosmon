@@ -116,16 +116,17 @@ class ListingAnnouncementControllerTest extends TestCase
 
     public function test_admin_can_update_listing_status(): void
     {
-        $admin        = $this->makeAdmin();
-        [, $company] = $this->makeCompanyUser();
+        $admin             = $this->makeAdmin();
+        [$user, $company] = $this->makeCompanyUser();
 
         $listing = Listing::create([
-            'company_id'  => $company->id,
-            'title'       => 'Test Listing',
-            'description' => 'Una descrizione del prodotto',
-            'price_ky'    => 1000,
-            'category'    => 'informatica',
-            'status'      => 'draft',
+            'company_id'         => $company->id,
+            'created_by_user_id' => $user->id,
+            'title'              => 'Test Listing',
+            'description'        => 'Una descrizione del prodotto',
+            'price_ky'           => 1000,
+            'category'           => 'informatica',
+            'status'             => 'draft',
         ]);
 
         $this->actingAs($admin)
@@ -194,16 +195,17 @@ class ListingAnnouncementControllerTest extends TestCase
 
     public function test_admin_can_update_announcement_status(): void
     {
-        $admin        = $this->makeAdmin();
-        [, $company] = $this->makeCompanyUser();
+        $admin             = $this->makeAdmin();
+        [$user, $company] = $this->makeCompanyUser();
 
         $announcement = Announcement::create([
-            'company_id' => $company->id,
-            'title'      => 'Annuncio Test',
-            'body'       => 'Corpo annuncio di test per la piattaforma KMoney.',
-            'type'       => 'offer',
-            'sector'     => 'informatica',
-            'status'     => 'draft',
+            'company_id'         => $company->id,
+            'created_by_user_id' => $user->id,
+            'title'              => 'Annuncio Test',
+            'body'               => 'Corpo annuncio di test per la piattaforma KMoney.',
+            'type'               => 'offer',
+            'sector'             => 'informatica',
+            'status'             => 'draft',
         ]);
 
         $this->actingAs($admin)

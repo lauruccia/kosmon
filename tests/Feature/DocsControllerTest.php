@@ -24,7 +24,7 @@ class DocsControllerTest extends TestCase
             'owner_user_id' => $user->id,
             'status'        => 'active',
             'currency_code' => 'KY',
-            'balance'       => 10000,
+            'available_balance' => 10000,
         ]);
         return $user;
     }

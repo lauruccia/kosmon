@@ -129,6 +129,6 @@ class BeneficiaryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('portal.beneficiaries.search', ['q' => 'Bene']))
             ->assertOk()
-            ->assertJsonStructure([['id', 'label']]);
+            ->assertJsonStructure([['id', 'display_name']]);
     }
 }

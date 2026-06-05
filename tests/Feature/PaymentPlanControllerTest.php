@@ -256,14 +256,17 @@ class PaymentPlanControllerTest extends TestCase
             'is_active'           => true,
             'is_super_admin'      => false,
             'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
         ]);
 
         $account = Account::create([
             'owner_user_id'     => $user->id,
             'owner_type'        => 'private',
-            'type'              => 'member',
+            'type'              => 'primary',
             'status'            => $accountStatus,
+            'currency_code'     => 'KY',
             'available_balance' => 50000,
+            'pending_balance'   => 0,
         ]);
 
         return [$user, $account];
@@ -276,9 +279,14 @@ class PaymentPlanControllerTest extends TestCase
      */
     private function makePendingPlan(Account $fromAccount, Account $toAccount, string $initiatorRole): PaymentPlan
     {
+        // initiator_role=debtor => from is the debtor (proposer); initiator_role=creditor => to is the creditor (proposer)
+        $initiatorAccountId = $initiatorRole === 'creditor' ? $toAccount->id : $fromAccount->id;
+        $initiatorUserId    = Account::find($initiatorAccountId)?->owner_user_id;
+
         $plan = PaymentPlan::create([
             'from_account_id'    => $fromAccount->id,
             'to_account_id'      => $toAccount->id,
+            'initiated_by'       => $initiatorUserId,
             'total_amount'       => 3000,
             'installments_count' => 3,
             'frequency'          => 'monthly',

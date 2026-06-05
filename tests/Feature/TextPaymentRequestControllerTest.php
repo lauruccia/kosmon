@@ -270,9 +270,11 @@ class TextPaymentRequestControllerTest extends TestCase
             'password'            => 'secret123',
             'account_holder_type' => 'company',
             'company_id'          => $company->id,
+            'role'                => 'owner',
             'is_active'           => true,
             'is_super_admin'      => false,
             'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
         ]);
 
         $account = Account::create([

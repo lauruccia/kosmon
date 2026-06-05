@@ -42,7 +42,8 @@ class NettingServiceTest extends TestCase
     {
         return User::factory()->create([
             'company_id' => $account->company_id,
-            'role'       => 'company-manager',
+            'role'               => 'company-manager',
+            'contract_signed_at' => now(),
         ]);
     }
 

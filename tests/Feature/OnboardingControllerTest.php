@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Company;
+use App\Models\KycDocument;
+use App\Models\Sector;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -79,6 +81,9 @@ class OnboardingControllerTest extends TestCase
     {
         [$user, $company] = $this->makeNewCompanyUser();
 
+        // Sector must exist in DB for Rule::in() to pass
+        Sector::create(['name' => 'informatica', 'is_active' => true]);
+
         $this->actingAs($user)
             ->post(route('onboarding.step1.save'), [
                 'sector'      => 'informatica',
@@ -111,6 +116,18 @@ class OnboardingControllerTest extends TestCase
         $company->update([
             'sector'      => 'informatica',
             'description' => 'Test',
+        ]);
+
+        // step3 controller checks kycDocuments()->count() > 0
+        KycDocument::create([
+            'company_id'          => $company->id,
+            'uploaded_by_user_id' => $user->id,
+            'type'                => 'visura',
+            'file_path'           => 'kyc/test.pdf',
+            'original_name'       => 'test.pdf',
+            'mime_type'           => 'application/pdf',
+            'file_size'           => 1024,
+            'status'              => 'pending',
         ]);
 
         $this->actingAs($user)

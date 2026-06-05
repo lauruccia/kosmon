@@ -18,6 +18,7 @@ class TwoFactorControllerTest extends TestCase
         $user = User::factory()->create([
             'email_verified_at'       => now(),
             'two_factor_confirmed_at' => null,
+            'contract_signed_at'     => now(),
             'two_factor_secret'       => null,
         ]);
         $company = Company::factory()->create(['kyc_status' => 'approved']);
@@ -26,7 +27,7 @@ class TwoFactorControllerTest extends TestCase
             'owner_user_id' => $user->id,
             'status'        => 'active',
             'currency_code' => 'KY',
-            'balance'       => 10000,
+            'available_balance' => 10000,
         ]);
 
         if ($with2fa) {
@@ -101,7 +102,7 @@ class TwoFactorControllerTest extends TestCase
         $user = $this->makeUser(with2fa: true);
 
         $response = $this->actingAs($user)
-            ->withSession(['two_factor_verified' => true])
+            ->withSession(['two_factor_verified' => true, 'step_up_verified_at' => now()->timestamp])
             ->post(route('portal.2fa.disable'), ['password' => 'password']);
 
         $response->assertRedirect(route('portal.security'));
@@ -115,7 +116,7 @@ class TwoFactorControllerTest extends TestCase
         $user = $this->makeUser(with2fa: true);
 
         $response = $this->actingAs($user)
-            ->withSession(['two_factor_verified' => true])
+            ->withSession(['two_factor_verified' => true, 'step_up_verified_at' => now()->timestamp])
             ->post(route('portal.2fa.disable'), ['password' => 'wrong-password']);
 
         $response->assertSessionHasErrors('password');

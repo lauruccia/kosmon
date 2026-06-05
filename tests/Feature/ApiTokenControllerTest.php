@@ -15,19 +15,26 @@ class ApiTokenControllerTest extends TestCase
 
     private function makeUser(): array
     {
+        $company = Company::factory()->create(['kyc_status' => 'approved']);
         $user = User::factory()->create([
+            'company_id'              => $company->id,
             'email_verified_at'       => now(),
             'two_factor_confirmed_at' => null,
+            'contract_signed_at'      => now(),
         ]);
-        $company = Company::factory()->create(['kyc_status' => 'approved']);
         $account = Account::factory()->create([
-            'company_id'    => $company->id,
-            'owner_user_id' => $user->id,
-            'status'        => 'active',
-            'currency_code' => 'KY',
-            'balance'       => 10000,
+            'company_id'        => $company->id,
+            'owner_user_id'     => $user->id,
+            'status'            => 'active',
+            'currency_code'     => 'KY',
+            'available_balance' => 10000,
         ]);
         return [$user, $company, $account];
+    }
+
+    private function stepUp(): array
+    {
+        return ['step_up_verified_at' => now()->timestamp];
     }
 
     /** GET /api-tokens — index lista token */
@@ -55,7 +62,7 @@ class ApiTokenControllerTest extends TestCase
     {
         [$user, $company] = $this->makeUser();
 
-        $response = $this->actingAs($user)->post(route('portal.api-tokens.store'), [
+        $response = $this->actingAs($user)->withSession($this->stepUp())->post(route('portal.api-tokens.store'), [
             'name'       => 'Test Token',
             'abilities'  => ['read'],
         ]);
@@ -72,7 +79,7 @@ class ApiTokenControllerTest extends TestCase
     {
         [$user, $company] = $this->makeUser();
 
-        $response = $this->actingAs($user)->post(route('portal.api-tokens.store'), [
+        $response = $this->actingAs($user)->withSession($this->stepUp())->post(route('portal.api-tokens.store'), [
             'name'       => 'Write Token',
             'abilities'  => ['read', 'write'],
         ]);
@@ -85,7 +92,7 @@ class ApiTokenControllerTest extends TestCase
     public function test_store_requires_name(): void
     {
         [$user] = $this->makeUser();
-        $response = $this->actingAs($user)->post(route('portal.api-tokens.store'), [
+        $response = $this->actingAs($user)->withSession($this->stepUp())->post(route('portal.api-tokens.store'), [
             'abilities' => ['read'],
         ]);
         $response->assertSessionHasErrors('name');
@@ -95,7 +102,7 @@ class ApiTokenControllerTest extends TestCase
     public function test_store_requires_abilities(): void
     {
         [$user] = $this->makeUser();
-        $response = $this->actingAs($user)->post(route('portal.api-tokens.store'), [
+        $response = $this->actingAs($user)->withSession($this->stepUp())->post(route('portal.api-tokens.store'), [
             'name' => 'No Abilities Token',
         ]);
         $response->assertSessionHasErrors('abilities');
@@ -128,7 +135,7 @@ class ApiTokenControllerTest extends TestCase
         [$user, $company] = $this->makeUser();
         $token = ApiToken::factory()->create(['company_id' => $company->id, 'created_by' => $user->id]);
 
-        $response = $this->actingAs($user)->delete(route('portal.api-tokens.destroy', $token));
+        $response = $this->actingAs($user)->withSession($this->stepUp())->delete(route('portal.api-tokens.destroy', $token));
         $response->assertRedirect(route('portal.api-tokens.index'));
         $this->assertDatabaseMissing('api_tokens', ['id' => $token->id]);
     }
@@ -140,7 +147,7 @@ class ApiTokenControllerTest extends TestCase
         [$other, $otherCompany] = $this->makeUser();
         $token = ApiToken::factory()->create(['company_id' => $otherCompany->id, 'created_by' => $other->id]);
 
-        $response = $this->actingAs($user)->delete(route('portal.api-tokens.destroy', $token));
+        $response = $this->actingAs($user)->withSession($this->stepUp())->delete(route('portal.api-tokens.destroy', $token));
         $response->assertForbidden();
     }
 }
