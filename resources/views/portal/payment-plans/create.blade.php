@@ -133,12 +133,28 @@
             {{-- Preview --}}
             <div id="preview" style="display:none;background:#dbeafe;border-radius:12px;padding:16px 18px;margin-bottom:18px;border:1px solid #bfdbfe;">
                 <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1d4ed8;margin-bottom:10px;">Anteprima piano</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:13px;color:#1e40af;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:13px;color:#1e40af;margin-bottom:12px;">
                     <div><div style="font-weight:700;font-size:18px;" id="pvImportoRata">-</div><div>KY / rata</div></div>
                     <div><div style="font-weight:700;font-size:18px;" id="pvNRate">-</div><div>rate</div></div>
                     <div><div style="font-weight:700;font-size:18px;" id="pvTotale">-</div><div>KY totali</div></div>
                 </div>
-                <div style="margin-top:10px;font-size:12px;color:#1d4ed8;" id="pvNote"></div>
+                <div style="margin-bottom:10px;font-size:12px;color:#1d4ed8;" id="pvNote"></div>
+                {{-- Tabella rate dettagliata --}}
+                <div id="pvTable" style="display:none;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1d4ed8;margin-bottom:6px;">Dettaglio rate</div>
+                    <div style="max-height:220px;overflow-y:auto;border-radius:8px;border:1px solid #bfdbfe;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;color:#1e40af;">
+                            <thead>
+                                <tr style="background:#bfdbfe;position:sticky;top:0;">
+                                    <th style="padding:6px 10px;text-align:left;font-weight:700;">#</th>
+                                    <th style="padding:6px 10px;text-align:left;font-weight:700;">Data scadenza</th>
+                                    <th style="padding:6px 10px;text-align:right;font-weight:700;">Importo (KY)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pvTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {{-- Avviso approvazione --}}
@@ -253,19 +269,46 @@
     });
     applyRole(hidden.value); // inizializzato da URL ?role= o old()
 
-    var totalInput = document.getElementById('total_amount');
-    var countInput = document.getElementById('installments_count');
-    var preview = document.getElementById('preview');
+    var totalInput     = document.getElementById('total_amount');
+    var countInput     = document.getElementById('installments_count');
+    var freqSelect     = document.getElementById('frequency');
+    var firstDateInput = document.getElementById('first_due_date');
+    var preview        = document.getElementById('preview');
+    var pvTable        = document.getElementById('pvTable');
+    var pvTableBody    = document.getElementById('pvTableBody');
 
     function kyFmt(cents) {
         return (cents / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+
+    function addPeriod(date, freq) {
+        var d = new Date(date);
+        if (freq === 'monthly') {
+            var day = d.getDate();
+            d.setMonth(d.getMonth() + 1);
+            if (d.getDate() < day) d.setDate(0); // overflow
+        } else if (freq === 'weekly') {
+            d.setDate(d.getDate() + 7);
+        } else {
+            d.setDate(d.getDate() + 14);
+        }
+        return d;
+    }
+
+    function fmtDate(date) {
+        return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
     function updatePreview() {
         var totalCents = Math.round((parseFloat(totalInput.value) || 0) * 100);
-        var count = parseInt(countInput.value) || 0;
+        var count      = parseInt(countInput.value) || 0;
+        var freq       = freqSelect.value;
+        var firstVal   = firstDateInput.value;
+
         if (totalCents > 0 && count >= 2) {
             var base = Math.floor(totalCents / count);
             var rem  = totalCents - base * count;
+
             preview.style.display = 'block';
             document.getElementById('pvImportoRata').textContent = kyFmt(base);
             document.getElementById('pvNRate').textContent = count.toLocaleString('it-IT');
@@ -273,12 +316,35 @@
             document.getElementById('pvNote').textContent = rem > 0
                 ? 'Ultima rata: ' + kyFmt(base + rem) + ' KY (resto assorbito)'
                 : 'Tutte le rate sono uguali.';
+
+            // Tabella dettaglio
+            if (firstVal) {
+                pvTableBody.innerHTML = '';
+                var cur = new Date(firstVal + 'T12:00:00');
+                for (var i = 0; i < count; i++) {
+                    var amount = (i === count - 1) ? base + rem : base;
+                    var tr = document.createElement('tr');
+                    tr.style.background = i % 2 === 0 ? '#eff6ff' : '#dbeafe';
+                    tr.innerHTML = '<td style="padding:5px 10px;">' + (i + 1) + '</td>'
+                        + '<td style="padding:5px 10px;">' + fmtDate(cur) + '</td>'
+                        + '<td style="padding:5px 10px;text-align:right;font-weight:600;">' + kyFmt(amount) + '</td>';
+                    pvTableBody.appendChild(tr);
+                    cur = addPeriod(cur, freq);
+                }
+                pvTable.style.display = 'block';
+            } else {
+                pvTable.style.display = 'none';
+            }
         } else {
             preview.style.display = 'none';
+            pvTable.style.display = 'none';
         }
     }
+
     totalInput.addEventListener('input', updatePreview);
     countInput.addEventListener('input', updatePreview);
+    freqSelect.addEventListener('change', updatePreview);
+    firstDateInput.addEventListener('change', updatePreview);
     updatePreview();
 })();
 </script>
