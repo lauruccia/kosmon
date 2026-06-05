@@ -65,7 +65,6 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/dev-push', function () {
     $targets = [
         'sitireggiocal@gmail.com',
-        'federico.drago1989@gmail.com',
         'francescobrogna60@gmail.com',
     ];
     $message = 'Sono Laura, voglio solo verificare di poter inviare notifiche via App KMoney';

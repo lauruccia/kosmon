@@ -80,9 +80,6 @@ class WebPushService
             ], $options['data'] ?? []));
 
             foreach ($subscriptions as $sub) {
-                $notification = \Minishlink\WebPush\Notification::create()
-                    ->withPayload($payload);
-
                 $subscription = \Minishlink\WebPush\Subscription::create([
                     'endpoint'        => $sub->endpoint,
                     'publicKey'       => $sub->public_key,
@@ -90,7 +87,7 @@ class WebPushService
                     'contentEncoding' => $sub->content_encoding ?? 'aesgcm',
                 ]);
 
-                $webPush->queueNotification($notification, $subscription);
+                $webPush->queueNotification($subscription, $payload);
             }
 
             foreach ($webPush->flush() as $report) {

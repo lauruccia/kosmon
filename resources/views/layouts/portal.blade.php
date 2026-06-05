@@ -1700,7 +1700,7 @@
                         console.log('[KMoney SW] Registrato:', reg.scope);
                         // Inizializza push dopo che il SW e' pronto
                         if ('PushManager' in window) {
-                            reg.ready.then(function (readyReg) {
+                            navigator.serviceWorker.ready.then(function (readyReg) {
                                 window._kmPushInit(readyReg);
                             });
                         }
