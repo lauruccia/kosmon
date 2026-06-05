@@ -166,13 +166,13 @@ class ScheduledPaymentController extends Controller
         $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
 
         $data = $request->validate([
-            'to_account_id'       => ['required', 'integer', 'exists:accounts,id'],
-            'amount'              => ['required', 'numeric', 'min:0.01', 'max:9999999'],
+            'to_account_id'    => ['required', 'integer', 'exists:accounts,id'],
+            'amount'           => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             // max 480 per lasciare spazio al suffisso " (rata XX di XX)" aggiunto dal service
-            'description'         => ['required', 'string', 'min:3', 'max:480'],
-            'scheduled_at'        => ['required', 'date', 'after:now'],
-            'recurrence_type'     => ['required', 'in:monthly,weekly,biweekly'],
-            'recurrence_end_date' => ['required', 'date', 'after:scheduled_at'],
+            'description'      => ['required', 'string', 'min:3', 'max:480'],
+            'scheduled_at'     => ['required', 'date', 'after:now'],
+            'recurrence_type'  => ['required', 'in:monthly,weekly,biweekly'],
+            'recurrence_count' => ['required', 'integer', 'min:2', 'max:60'],
         ]);
 
         abort_if((int) $data['to_account_id'] === $currentAccount->id, 422, 'Non puoi programmare un pagamento a te stesso.');
@@ -187,7 +187,7 @@ class ScheduledPaymentController extends Controller
             description:    $data['description'],
             firstDate:      new \DateTime($data['scheduled_at']),
             recurrenceType: $data['recurrence_type'],
-            endDate:        \Carbon\Carbon::parse($data['recurrence_end_date'])->endOfDay(),
+            count:          (int) $data['recurrence_count'],
             createdBy:      $currentUser,
         );
 

@@ -52,17 +52,17 @@ class ScheduledPaymentService
         string $description,
         \DateTimeInterface $firstDate,
         string $recurrenceType,
-        \DateTimeInterface $endDate,
+        int $count,
         User $createdBy,
     ): array {
+        abort_if($count < 2,  422, 'Il numero di rate deve essere almeno 2.');
+        abort_if($count > 60, 422, 'Non è possibile creare più di 60 rate ricorrenti in una volta.');
+
         $dates = $this->computeRecurrenceDates(
             Carbon::instance($firstDate),
             $recurrenceType,
-            Carbon::instance($endDate),
+            $count,
         );
-
-        abort_if(count($dates) === 0, 422, 'Le date selezionate non producono alcuna rata.');
-        abort_if(count($dates) > 60, 422, 'Non è possibile creare più di 60 rate ricorrenti in una volta.');
 
         $group   = (string) Str::uuid();
         $total   = count($dates);
@@ -91,16 +91,16 @@ class ScheduledPaymentService
     }
 
     /**
-     * Calcola le date di esecuzione in base alla frequenza e alla data fine.
+     * Calcola le date di esecuzione in base alla frequenza e al numero di rate.
      *
      * @return Carbon[]
      */
-    private function computeRecurrenceDates(Carbon $first, string $type, Carbon $end): array
+    private function computeRecurrenceDates(Carbon $first, string $type, int $count): array
     {
         $dates   = [];
         $current = $first->copy();
 
-        while ($current->lte($end)) {
+        for ($i = 0; $i < $count; $i++) {
             $dates[] = $current->copy();
 
             $current = match ($type) {

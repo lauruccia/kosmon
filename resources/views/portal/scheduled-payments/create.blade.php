@@ -87,11 +87,13 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom:10px;">
-                    <label class="form-label">Data ultima rata *</label>
-                    <input type="date" name="recurrence_end_date" id="recurrence_end_date"
-                           value="{{ old('recurrence_end_date') }}"
-                           class="form-control">
-                    @error('recurrence_end_date')<div class="form-error">{{ $message }}</div>@enderror
+                    <label class="form-label">Numero di rate *</label>
+                    <input type="number" name="recurrence_count" id="recurrence_count"
+                           value="{{ old('recurrence_count', 3) }}"
+                           min="2" max="60" step="1"
+                           class="form-control" style="max-width:120px;">
+                    <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">Min 2, max 60</div>
+                    @error('recurrence_count')<div class="form-error">{{ $message }}</div>@enderror
                 </div>
 
                 <div id="rate-preview" style="font-size:13px;font-weight:600;display:none;padding:6px 10px;border-radius:6px;background:var(--primary-soft,#ede9fe);color:var(--primary);">
@@ -112,8 +114,8 @@ function toggleRecurring(active) {
     const fields    = document.getElementById('recurrence-fields');
     const dateLabel = document.getElementById('date-label');
     const dateHint  = document.getElementById('date-hint');
-    const endDate   = document.getElementById('recurrence_end_date');
-    const recType   = document.getElementById('recurrence_type');
+    const countInput = document.getElementById('recurrence_count');
+    const recType    = document.getElementById('recurrence_type');
 
     fields.style.display = active ? 'block' : 'none';
 
@@ -122,7 +124,7 @@ function toggleRecurring(active) {
         ? 'Data e ora della prima rata.'
         : 'Minimo 5 minuti nel futuro.';
 
-    endDate.required = active;
+    countInput.required = active;
     recType.required = active;
 
     if (active) updatePreview();
@@ -130,30 +132,31 @@ function toggleRecurring(active) {
 
 function updatePreview() {
     const startVal = document.getElementById('scheduled_at').value;
-    const endVal   = document.getElementById('recurrence_end_date').value;
+    const count    = parseInt(document.getElementById('recurrence_count').value) || 0;
     const type     = document.getElementById('recurrence_type').value;
     const preview  = document.getElementById('rate-preview');
 
-    if (!startVal || !endVal) { preview.style.display = 'none'; return; }
+    if (!startVal || count < 2) { preview.style.display = 'none'; return; }
+    if (count > 60) {
+        preview.textContent = 'Max 60 rate.';
+        preview.style.color = 'var(--danger)';
+        preview.style.background = 'var(--danger-soft,#fee2e2)';
+        preview.style.display = 'block';
+        return;
+    }
 
-    const start = new Date(startVal);
-    const end   = new Date(endVal + 'T23:59:59');
-    if (start >= end) { preview.style.display = 'none'; return; }
-
-    let count = 0, cur = new Date(start);
-    while (cur <= end && count < 61) {
-        count++;
+    // Calcola data ultima rata per mostrare l'anteprima
+    let cur = new Date(startVal);
+    for (let i = 1; i < count; i++) {
         cur = type === 'monthly'  ? addMonths(cur, 1)
             : type === 'weekly'   ? new Date(cur.getTime() + 7  * 86400000)
             :                       new Date(cur.getTime() + 14 * 86400000);
     }
-
-    if (count === 0) { preview.style.display = 'none'; return; }
-
+    const lastDate = cur.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const label = { monthly: 'mensili', weekly: 'settimanali', biweekly: 'bisettimanali' }[type] || '';
-    preview.textContent   = count <= 60 ? `${count} rate ${label}` : 'Max 60 rate — riduci l\'intervallo.';
-    preview.style.color   = count > 60 ? 'var(--danger)' : 'var(--primary)';
-    preview.style.background = count > 60 ? 'var(--danger-soft,#fee2e2)' : 'var(--primary-soft,#ede9fe)';
+    preview.textContent   = `${count} rate ${label} — ultima il ${lastDate}`;
+    preview.style.color   = 'var(--primary)';
+    preview.style.background = 'var(--primary-soft,#ede9fe)';
     preview.style.display = 'block';
 }
 
@@ -166,8 +169,8 @@ function addMonths(date, n) {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('is_recurring').checked) toggleRecurring(true);
-    ['scheduled_at', 'recurrence_end_date', 'recurrence_type'].forEach(id =>
-        document.getElementById(id)?.addEventListener('change', updatePreview)
+    ['scheduled_at', 'recurrence_count', 'recurrence_type'].forEach(id =>
+        document.getElementById(id)?.addEventListener('input', updatePreview)
     );
 });
 </script>
