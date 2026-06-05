@@ -21,7 +21,11 @@
         .biometric-msg{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;display:none}
         .biometric-msg.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
         .biometric-msg.err{background:var(--rose);color:#7a4250;border:1px solid #fecdd3}
-        /* Mobile: panel prima, brand nascosta / compatta */
+        /* Account chip */
+        .account-chip{margin-top:20px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:#f7fafb;}
+        .account-chip-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .account-chip-btn{font-size:13px;color:#4d7386;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:600;padding:6px 10px;white-space:nowrap;}
+        /* Mobile */
         @media (max-width:900px){
             body{background:var(--navy)}
             .wrap{padding:0;align-items:stretch}
@@ -55,38 +59,71 @@
                 <div class="eyebrow">Accesso</div>
                 <h2>Login</h2>
 
-                {{-- ── Vista: nessun account salvato / campo email manuale ────────── --}}
-                <div id="view-default">
-                    <button id="btn-biometric" class="btn-biometric" type="button" style="margin-top:20px;">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
-                            <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
-                            <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
-                            <path d="M12 12v.01"/>
-                        </svg>
-                        Accedi con impronta / Passkey
-                    </button>
-                    <div id="biometric-msg" class="biometric-msg"></div>
+                {{-- ── Vista: nessun account salvato — step 1 email / step 2 auth ─────── --}}
+                <div id="view-default" style="display:none;">
 
-                    <div class="divider">oppure con password</div>
-                    <div class="sub" style="margin-top:4px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
                     @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
-                    <form method="post" action="{{ route('login.attempt') }}">
-                        @csrf
-                        <div class="field" id="field-email"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="username webauthn"></div>
-                        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required></div>
-                        <div style="text-align:right;margin-top:8px;">
-                            <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
+                    {{-- Step 1: solo il campo email --}}
+                    <div id="step1">
+                        <div class="sub" style="margin-top:8px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
+                        <div class="field">
+                            <label for="email">Email</label>
+                            <input id="email" type="email" value="{{ old('email') }}" required autocomplete="username webauthn">
                         </div>
-                        <div class="cta-row">
-                            <button class="cta" type="submit">Accedi al conto</button>
+                        <div class="cta-row" style="margin-top:14px;">
+                            <button id="btn-continua" class="cta" type="button" style="flex:1;">Continua</button>
                             <a class="ghost" href="{{ route('register') }}">Apri un conto KMoney</a>
                         </div>
-                    </form>
+                    </div>
+
+                    {{-- Step 2: chip email + passkey + password (nascosto finché non confermata email) --}}
+                    <div id="step2" style="display:none;">
+                        {{-- Chip email confermata --}}
+                        <div class="account-chip">
+                            <div class="account-chip-avatar">
+                                <span id="step2-initial" style="color:#fff;font-weight:700;font-size:17px;"></span>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div id="step2-email-label" style="font-size:15px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                                <div style="font-size:12px;color:var(--muted);margin-top:1px;">Il tuo account</div>
+                            </div>
+                            <button id="btn-cambia-email" class="account-chip-btn" type="button">Cambia</button>
+                        </div>
+
+                        {{-- Passkey --}}
+                        <button id="btn-biometric" class="btn-biometric" type="button" style="margin-top:14px;">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                                <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                                <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                                <path d="M12 12v.01"/>
+                            </svg>
+                            Accedi con impronta / Passkey
+                        </button>
+                        <div id="biometric-msg" class="biometric-msg"></div>
+
+                        <div class="divider">oppure con password</div>
+
+                        <form method="post" action="{{ route('login.attempt') }}">
+                            @csrf
+                            <input type="hidden" id="email-step2" name="email">
+                            <div class="field">
+                                <label for="password">Password</label>
+                                <input id="password" name="password" type="password" required autocomplete="current-password">
+                            </div>
+                            <div style="text-align:right;margin-top:8px;">
+                                <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
+                            </div>
+                            <div class="cta-row">
+                                <button class="cta" type="submit" style="flex:1;">Accedi al conto</button>
+                                <a class="ghost" href="{{ route('register') }}">Apri un conto KMoney</a>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
-                {{-- ── Vista: lista account salvati ─────────────────────────────────── --}}
+                {{-- ── Vista: lista account salvati (2+) ─────────────────────────────── --}}
                 <div id="view-accounts" style="display:none;">
                     {{-- Passkey discoverable (nessun account pre-selezionato) --}}
                     <button id="btn-biometric-discover" class="btn-biometric" type="button" style="margin-top:20px;">
@@ -111,15 +148,15 @@
                 {{-- ── Vista: account selezionato → passkey + password ──────────────── --}}
                 <div id="view-selected" style="display:none;">
                     {{-- Chip account selezionato --}}
-                    <div style="margin-top:20px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:#f7fafb;">
-                        <div id="sel-avatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <div class="account-chip">
+                        <div class="account-chip-avatar">
                             <span id="sel-initial" style="color:#fff;font-weight:700;font-size:17px;"></span>
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div id="sel-email" style="font-size:15px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
                             <div style="font-size:12px;color:var(--muted);margin-top:1px;">Account selezionato</div>
                         </div>
-                        <button id="btn-cambia-account" type="button" style="font-size:13px;color:#4d7386;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:600;padding:6px 10px;white-space:nowrap;">Cambia</button>
+                        <button id="btn-cambia-account" class="account-chip-btn" type="button">Cambia</button>
                     </div>
 
                     {{-- Passkey contestuale all'account --}}
@@ -151,6 +188,7 @@
                         <a class="ghost" href="{{ route('register') }}" style="font-size:14px;">Apri un nuovo conto KMoney</a>
                     </div>
                 </div>
+
                 <p style="margin:12px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
                     Prima volta con impronta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
                 </p>
@@ -176,7 +214,7 @@ function escapeHtml(str) {
 }
 
 // ── Gestione viste ─────────────────────────────────────────────────────────────
-// 3 viste: 'default' (no account salvati / nuovo account), 'accounts' (lista), 'selected' (account scelto)
+// 3 viste: 'default', 'accounts', 'selected'
 function showView(name) {
     ['default','accounts','selected'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
@@ -200,30 +238,68 @@ function removeAccount(email) {
     renderSavedAccounts();
 }
 
+// ── Step email (view-default) ─────────────────────────────────────────────────
+function confirmEmail(email) {
+    email = (email || '').trim();
+    if (!email || !email.includes('@')) {
+        document.getElementById('email').focus();
+        return;
+    }
+    document.getElementById('step2-initial').textContent = email[0].toUpperCase();
+    document.getElementById('step2-email-label').textContent = email;
+    document.getElementById('email-step2').value = email;
+    document.getElementById('password').value = '';
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = '';
+    clearMsg('biometric-msg');
+    setTimeout(() => document.getElementById('password').focus(), 80);
+}
+
+document.getElementById('btn-continua').addEventListener('click', () => {
+    confirmEmail(document.getElementById('email').value);
+});
+document.getElementById('email').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmEmail(this.value); }
+});
+document.getElementById('btn-cambia-email').addEventListener('click', () => {
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').style.display = 'none';
+    setTimeout(() => document.getElementById('email').focus(), 40);
+});
+
 // ── Seleziona account → vista 'selected' ──────────────────────────────────────
 let selectedEmail = null;
 function selectAccount(email) {
     selectedEmail = email;
-    // Popola il chip
     document.getElementById('sel-initial').textContent = email[0].toUpperCase();
     document.getElementById('sel-email').textContent   = email;
     document.getElementById('email-sel').value         = email;
     document.getElementById('password-sel').value      = '';
     showView('selected');
-    // Focus sul campo password dopo breve delay (animazione)
     setTimeout(() => document.getElementById('password-sel').focus(), 80);
 }
 
 // ── Renderizza lista account ───────────────────────────────────────────────────
 function renderSavedAccounts() {
-    const list   = getSavedAccounts();
-    const listEl = document.getElementById('saved-accounts-list');
+    const list = getSavedAccounts();
 
+    // 0 account: mostra il form email manuale
     if (list.length === 0) {
         showView('default');
+        // Se c'è un'email da un tentativo precedente (old input), avanza subito allo step 2
+        const oldEmail = document.getElementById('email').value.trim();
+        if (oldEmail) confirmEmail(oldEmail);
         return;
     }
 
+    // 1 account: vai direttamente alla vista selezionata (senza mostrare la lista)
+    if (list.length === 1) {
+        selectAccount(list[0]);
+        return;
+    }
+
+    // 2+ account: mostra la lista
+    const listEl = document.getElementById('saved-accounts-list');
     listEl.innerHTML = '';
     list.forEach(email => {
         const row = document.createElement('div');
@@ -245,7 +321,6 @@ function renderSavedAccounts() {
         listEl.appendChild(row);
     });
 
-    // Event delegation
     listEl.onclick = function (e) {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -261,20 +336,36 @@ function renderSavedAccounts() {
 document.getElementById('btn-altro-account').addEventListener('click', function () {
     selectedEmail = null;
     showView('default');
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').style.display = 'none';
     document.getElementById('email').value = '';
     document.getElementById('email').focus();
 });
 
-// "Cambia account" → torna alla lista
+// "Cambia account" → torna alla lista (o a step1 se c'era solo 1 account)
 document.getElementById('btn-cambia-account').addEventListener('click', function () {
     selectedEmail = null;
-    renderSavedAccounts();   // ricalcola per sicurezza
+    const list = getSavedAccounts();
+    if (list.length <= 1) {
+        // Con 0 o 1 account, torna a step1 del view-default
+        showView('default');
+        document.getElementById('step1').style.display = '';
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('email').value = list[0] || '';
+        document.getElementById('email').focus();
+    } else {
+        renderSavedAccounts();
+    }
 });
 
 // Salva email al submit dei form password
 document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', function () {
-        const e = (document.getElementById('email-sel').value || document.getElementById('email').value || '').trim();
+        const e = (
+            document.getElementById('email-sel').value ||
+            document.getElementById('email-step2').value ||
+            ''
+        ).trim();
         if (e) saveAccount(e);
     });
 });
@@ -315,7 +406,7 @@ async function verifyAssertion(assertion) {
     return data;
 }
 
-// ── Messaggio UI (per id specifico) ───────────────────────────────────────────
+// ── Messaggio UI ───────────────────────────────────────────────────────────────
 function showMsg(elId, text, type) {
     const el = document.getElementById(elId);
     el.textContent = text;
@@ -346,7 +437,7 @@ async function startConditionalPasskey() {
 }
 startConditionalPasskey();
 
-// ── Helper: esegui login biometrico con un bottone specifico ──────────────────
+// ── Helper: esegui login biometrico ───────────────────────────────────────────
 const FINGERPRINT_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg>`;
 
 async function doBiometricLogin(btnId, msgId, email) {
@@ -373,18 +464,18 @@ async function doBiometricLogin(btnId, msgId, email) {
     }
 }
 
-// Bottone passkey vista default (campo email visibile)
+// Passkey step2 (view-default con email confermata)
 document.getElementById('btn-biometric').addEventListener('click', () => {
-    const email = document.getElementById('email').value.trim() || null;
+    const email = document.getElementById('email-step2').value.trim() || null;
     doBiometricLogin('btn-biometric', 'biometric-msg', email);
 });
 
-// Bottone passkey vista lista account (discoverable, nessun account pre-selezionato)
+// Passkey vista lista account (discoverable)
 document.getElementById('btn-biometric-discover').addEventListener('click', () => {
     doBiometricLogin('btn-biometric-discover', 'biometric-msg-discover', null);
 });
 
-// Bottone passkey vista account selezionato (contestuale)
+// Passkey vista account selezionato
 document.getElementById('btn-biometric-sel').addEventListener('click', () => {
     doBiometricLogin('btn-biometric-sel', 'biometric-msg-sel', selectedEmail);
 });
