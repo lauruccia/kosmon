@@ -19,32 +19,24 @@
                             <div style="color:var(--ink-muted);font-size:14px;margin-top:4px;">{{ $pr->description }}</div>
                         @endif
 
-                        <div style="margin:20px auto 0;max-width:300px;">
-                            <div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px;">
-                                Cliente <strong>con smartphone</strong> (senza card fisica)
-                            </div>
+                        {{-- Countdown --}}
+                        <div style="margin-top:6px;font-size:12px;color:var(--ink-muted);">
+                            Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);">5:00</span>
+                        </div>
+                        {{-- Progress bar scadenza --}}
+                        <div style="margin-top:8px;height:4px;background:var(--surface-soft);border-radius:2px;overflow:hidden;max-width:300px;margin-left:auto;margin-right:auto;">
+                            <div id="timer-bar" style="height:100%;background:var(--primary);transition:width .5s linear;width:100%;"></div>
+                        </div>
 
+                        <div style="margin:20px auto 0;max-width:300px;">
                             {{-- Barra NFC status --}}
                             <div id="nfc-status-bar" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;">
                                 Inizializzazione NFC...
                             </div>
 
                             <button type="button" id="nfc-start-button" class="cta" style="margin-top:10px;width:100%;font-size:13px;padding:9px 14px;display:none;">
-                                Attiva NFC &mdash; cliente con smartphone
+                                Attiva NFC
                             </button>
-                            <div style="font-size:11px;color:var(--danger);margin-top:6px;line-height:1.4;">
-                                &#9888; Solo per smartphone. Se il cliente ha una <strong>card NFC fisica</strong>, NON usare questo pulsante: usa &laquo;Richiedi pagamento CARD NFC&raquo; qui sotto.
-                            </div>
-
-                            {{-- Countdown --}}
-                            <div style="margin-top:14px;font-size:12px;color:var(--ink-muted);">
-                                Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);">5:00</span>
-                            </div>
-
-                            {{-- Progress bar scadenza --}}
-                            <div style="margin-top:8px;height:4px;background:var(--surface-soft);border-radius:2px;overflow:hidden;">
-                                <div id="timer-bar" style="height:100%;background:var(--primary);transition:width .5s linear;width:100%;"></div>
-                            </div>
                         </div>
                     </div>
 
@@ -74,9 +66,6 @@
                     <div style="text-align:center;">
                         <div id="card-nfc-status" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;margin-bottom:10px;display:none;">
                             Inizializzazione...
-                        </div>
-                        <div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px;">
-                            Cliente <strong>con card NFC fisica</strong>
                         </div>
                         <button type="button" id="card-nfc-btn" class="cta" style="width:100%;font-size:13px;padding:10px;" onclick="startCardScan()">
                             &#128179; Richiedi pagamento CARD NFC
