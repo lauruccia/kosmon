@@ -237,7 +237,7 @@
                             }
                         }
                         $isPendingRequestToConfirm = $transfer->status === 'pending' && $isOutgoing && $transfer->kind === 'portal_collection_request';
-                        $refundableKinds = ['portal_payment', 'portal_collection_request', 'trade_payment'];
+                        $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card'];
                         $isRefundable = $transfer->status === 'booked'
                             && ! $isOutgoing
                             && in_array($transfer->kind, $refundableKinds, true);
