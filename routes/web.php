@@ -87,12 +87,10 @@ Route::get('/dev-push', function () {
         $subs = \App\Models\PushSubscription::where('user_id', $user->id)->get();
         if ($subs->isEmpty()) {
             // Nessuna subscription: invia notifica DATABASE con link attivazione
-            $user->notifyNow(new \App\Notifications\BroadcastNotification([
-                'icon'  => '🔔',
-                'title' => 'Attiva le notifiche push',
-                'body'  => 'Laura ti ha inviato un messaggio. Attiva le notifiche push per riceverle sul telefono.',
-                'link'  => $activateUrl,
-            ]));
+            $user->notifyNow(new \App\Notifications\BroadcastNotification(
+                'Attiva le notifiche push',
+                'Laura ti ha inviato un messaggio. Vai su /notifiche e clicca "Attiva" per ricevere notifiche push.',
+            ));
             $report[$email] = ['status' => '⚠️ nessuna subscription push — notifica campanella inviata con link attivazione'];
             continue;
         }
