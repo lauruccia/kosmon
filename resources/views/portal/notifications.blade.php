@@ -49,7 +49,7 @@
 
 {{-- Banner attivazione notifiche push --}}
 @if(config('webpush.vapid.public_key'))
-<div id="push-banner" style="display:none;background:var(--primary-soft,#eef3fc);border:1px solid #bfcfee;border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+<div id="push-banner" style="display:none;background:var(--primary-soft,#eef3fc);border:1px solid #bfcfee;border-radius:12px;padding:14px 18px;margin-bottom:20px;align-items:center;gap:14px;flex-wrap:wrap;">
     <div style="flex:1;min-width:200px;">
         <strong style="font-size:14px;color:var(--primary);">Attiva le notifiche push</strong>
         <div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Ricevi pagamenti e avvisi in tempo reale anche a browser chiuso.</div>
@@ -59,7 +59,7 @@
                 style="padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
             Attiva
         </button>
-        <button onclick="document.getElementById('push-banner').style.display='none'; localStorage.setItem('km-push-dismissed','1');"
+        <button onclick="document.getElementById('push-banner').style.display='none';"
                 style="padding:8px 12px;background:none;color:var(--ink-muted);border:1px solid var(--line);border-radius:8px;font-size:13px;cursor:pointer;">
             Non ora
         </button>
@@ -67,14 +67,14 @@
 </div>
 <script>
 (function() {
-    var dismissed = localStorage.getItem('km-push-dismissed');
-    var enabled   = localStorage.getItem('km-push-enabled');
-    var banner    = document.getElementById('push-banner');
+    var enabled = localStorage.getItem('km-push-enabled');
+    var banner  = document.getElementById('push-banner');
     if (!banner) return;
-    if (dismissed === '1' || enabled === '1') { banner.style.display = 'none'; return; }
+    if (enabled === '1') { banner.style.display = 'none'; return; }
     if (!('Notification' in window) || !('PushManager' in window)) { banner.style.display = 'none'; return; }
     if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
-    if (Notification.permission !== 'denied') { banner.style.display = 'flex'; }
+    // Mostra sempre sulla pagina notifiche, anche se in precedenza dismissed
+    banner.style.display = 'flex';
 })();
 </script>
 @endif

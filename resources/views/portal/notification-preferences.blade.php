@@ -59,5 +59,46 @@
             <a href="{{ route('portal.dashboard') }}" class="cta secondary">Annulla</a>
         </div>
     </form>
+
+    @if(config('webpush.vapid.public_key'))
+    <section class="card" style="margin-top:28px;padding:18px 20px;">
+        <div class="card-title" style="margin-bottom:6px;">Notifiche push browser</div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
+            Ricevi avvisi di pagamento in tempo reale anche a schermo bloccato.
+        </p>
+        <div id="push-status-msg" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>
+        <button id="push-enable-btn" onclick="kmRequestPush()" class="cta" style="display:none;">
+            Attiva notifiche push
+        </button>
+        <button id="push-disable-btn" onclick="kmDisablePush()" class="cta secondary" style="display:none;">
+            Disattiva notifiche push
+        </button>
+        <div id="push-denied-msg" style="display:none;font-size:13px;color:var(--danger,#c0392b);">
+            Hai bloccato le notifiche nel browser. Per attivarle vai nelle impostazioni del browser e riabilita i permessi per questo sito.
+        </div>
+    </section>
+    <script>
+    (function() {
+        var btn     = document.getElementById('push-enable-btn');
+        var disBtn  = document.getElementById('push-disable-btn');
+        var denied  = document.getElementById('push-denied-msg');
+        var msg     = document.getElementById('push-status-msg');
+        if (!('Notification' in window) || !('PushManager' in window)) {
+            if (msg) msg.textContent = 'Il tuo browser non supporta le notifiche push.';
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            if (denied) denied.style.display = 'block';
+            return;
+        }
+        if (Notification.permission === 'granted' && localStorage.getItem('km-push-enabled') === '1') {
+            if (disBtn) disBtn.style.display = 'inline-flex';
+            if (msg) msg.textContent = 'Le notifiche push sono attive.';
+        } else {
+            if (btn) btn.style.display = 'inline-flex';
+        }
+    })();
+    </script>
+    @endif
 </div>
 @endsection
