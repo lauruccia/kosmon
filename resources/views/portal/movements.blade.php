@@ -74,48 +74,50 @@
         {{-- Barra filtri --}}
         <form method="GET" action="{{ route('portal.movements') }}" id="filters-form" style="margin:16px 0 4px;">
 
-            {{-- Scorciatoie trimestri --}}
-            @php
-                $currentYear = now()->year;
-                $quarters = [
-                    'Q1' => [$currentYear.'-01-01', $currentYear.'-03-31'],
-                    'Q2' => [$currentYear.'-04-01', $currentYear.'-06-30'],
-                    'Q3' => [$currentYear.'-07-01', $currentYear.'-09-30'],
-                    'Q4' => [$currentYear.'-10-01', $currentYear.'-12-31'],
-                ];
-                $activeQuarter = null;
-                foreach ($quarters as $label => [$qFrom, $qTo]) {
-                    if ($filters['from'] === $qFrom && $filters['to'] === $qTo) {
-                        $activeQuarter = $label;
-                    }
-                }
-            @endphp
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-                <span style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">{{ $currentYear }}:</span>
-                @foreach($quarters as $label => [$qFrom, $qTo])
-                    <a href="{{ route('portal.movements', array_merge(request()->except(['from','to','page']), ['from'=>$qFrom,'to'=>$qTo])) }}"
-                       style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid {{ $activeQuarter === $label ? 'var(--primary)' : 'var(--line)' }};background:{{ $activeQuarter === $label ? 'var(--primary)' : 'var(--surface-soft)' }};color:{{ $activeQuarter === $label ? '#fff' : 'var(--ink-muted)' }};transition:all .12s;">
-                        {{ $label }}
-                    </a>
-                @endforeach
-                <a href="{{ route('portal.movements', array_merge(request()->except(['from','to','page']), ['from'=>$currentYear.'-01-01','to'=>$currentYear.'-12-31'])) }}"
-                   style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid {{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? 'var(--primary)' : 'var(--line)' }};background:{{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? 'var(--primary)' : 'var(--surface-soft)' }};color:{{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? '#fff' : 'var(--ink-muted)' }};transition:all .12s;">
-                    Anno intero
-                </a>
-            </div>
-
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+
+                {{-- Periodo preimpostato (stile bancario) --}}
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Periodo</label>
+                    <select id="period-preset"
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:170px;">
+                        <option value="">— Personalizzato —</option>
+                        <optgroup label="Giorni">
+                            <option value="last7">Ultimi 7 giorni</option>
+                            <option value="last30">Ultimi 30 giorni</option>
+                            <option value="last90">Ultimi 90 giorni</option>
+                            <option value="last365">Ultimi 365 giorni</option>
+                        </optgroup>
+                        <optgroup label="Mese">
+                            <option value="cur_month">Mese corrente</option>
+                            <option value="prev_month">Mese precedente</option>
+                        </optgroup>
+                        <optgroup label="Trimestre">
+                            <option value="cur_quarter">Trimestre corrente</option>
+                            <option value="prev_quarter">Trimestre precedente</option>
+                        </optgroup>
+                        <optgroup label="Anno">
+                            <option value="cur_year">Anno corrente</option>
+                            <option value="prev_year">Anno precedente</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div style="display:flex;align-items:flex-end;gap:4px;color:var(--ink-muted);font-size:12px;padding-bottom:8px;">—</div>
+
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Da</label>
-                    <input type="date" name="from" value="{{ $filters['from'] }}"
+                    <input type="date" id="filter-from" name="from" value="{{ $filters['from'] }}"
+                        max="{{ date('Y-m-d') }}"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;"
-                        onchange="document.getElementById('filters-form').submit()">
+                        onchange="document.getElementById('period-preset').value='';document.getElementById('filters-form').submit()">
                 </div>
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">A</label>
-                    <input type="date" name="to" value="{{ $filters['to'] }}"
+                    <input type="date" id="filter-to" name="to" value="{{ $filters['to'] }}"
+                        max="{{ date('Y-m-d') }}"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;"
-                        onchange="document.getElementById('filters-form').submit()">
+                        onchange="document.getElementById('period-preset').value='';document.getElementById('filters-form').submit()">
                 </div>
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Direzione</label>
@@ -354,5 +356,102 @@
             </div>
         @endif
     </section>
+
+@push('scripts')
+<script>
+(function () {
+    const preset  = document.getElementById('period-preset');
+    const fromEl  = document.getElementById('filter-from');
+    const toEl    = document.getElementById('filter-to');
+    const form    = document.getElementById('filters-form');
+    const today   = new Date();
+
+    function fmt(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    }
+
+    function addDays(d, n) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    }
+
+    function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d)   { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+    function quarter(d)      { return Math.floor(d.getMonth() / 3); }
+
+    function computeRange(value) {
+        const t = today;
+        switch (value) {
+            case 'last7':
+                return { from: fmt(addDays(t, -6)),   to: fmt(t) };
+            case 'last30':
+                return { from: fmt(addDays(t, -29)),  to: fmt(t) };
+            case 'last90':
+                return { from: fmt(addDays(t, -89)),  to: fmt(t) };
+            case 'last365':
+                return { from: fmt(addDays(t, -364)), to: fmt(t) };
+            case 'cur_month':
+                return { from: fmt(startOfMonth(t)),  to: fmt(t) };
+            case 'prev_month': {
+                const pm = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+                return { from: fmt(pm), to: fmt(endOfMonth(pm)) };
+            }
+            case 'cur_quarter': {
+                const q = quarter(t);
+                return { from: fmt(new Date(t.getFullYear(), q * 3, 1)), to: fmt(t) };
+            }
+            case 'prev_quarter': {
+                const pq = quarter(t) - 1;
+                const yr = pq < 0 ? t.getFullYear() - 1 : t.getFullYear();
+                const qn = ((pq % 4) + 4) % 4;
+                const qs = new Date(yr, qn * 3, 1);
+                const qe = endOfMonth(new Date(yr, qn * 3 + 2, 1));
+                return { from: fmt(qs), to: fmt(qe) };
+            }
+            case 'cur_year':
+                return { from: fmt(new Date(t.getFullYear(), 0, 1)), to: fmt(t) };
+            case 'prev_year':
+                return {
+                    from: fmt(new Date(t.getFullYear() - 1, 0, 1)),
+                    to:   fmt(new Date(t.getFullYear() - 1, 11, 31))
+                };
+            default:
+                return null;
+        }
+    }
+
+    preset.addEventListener('change', function () {
+        const range = computeRange(this.value);
+        if (!range) return;
+        fromEl.value = range.from;
+        toEl.value   = range.to;
+        form.submit();
+    });
+
+    // Rileva il preset attivo al caricamento della pagina
+    (function detectActivePreset() {
+        const curFrom = fromEl.value;
+        const curTo   = toEl.value;
+        if (!curFrom && !curTo) return;
+        const candidates = [
+            'last7','last30','last90','last365',
+            'cur_month','prev_month',
+            'cur_quarter','prev_quarter',
+            'cur_year','prev_year',
+        ];
+        for (const v of candidates) {
+            const r = computeRange(v);
+            if (r && r.from === curFrom && r.to === curTo) {
+                preset.value = v;
+                return;
+            }
+        }
+    })();
+})();
+</script>
+@endpush
+
 @endsection
                                                                                                         
