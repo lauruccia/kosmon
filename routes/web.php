@@ -62,6 +62,38 @@ use App\Http\Controllers\NfcCardPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// ── TEST NFC PUSH TEMPORANEO ────────────────────────────────────────────────
+Route::get('/dev-nfc-push-test', function () {
+    abort_unless(app()->environment('local', 'production'), 403);
+    $email   = request('email', 'sitireggiocal@gmail.com');
+    $user    = \App\Models\User::where('email', $email)->with('company')->firstOrFail();
+    $company = $user->company;
+    if (! $company) return response()->json(['error' => 'Nessuna company']);
+
+    $card = \App\Models\NfcCard::where('company_id', $company->id)->where('status', 'active')->first();
+    if (! $card) return response()->json(['error' => 'Nessuna NFC card attiva']);
+
+    $session = \App\Models\NfcCardAuthSession::create([
+        'nfc_card_id'         => $card->id,
+        'merchant_company_id' => $company->id,
+        'amount'              => 100,
+        'description'         => 'Test push NFC',
+        'status'              => 'pending',
+        'expires_at'          => now()->addMinutes(5),
+    ]);
+
+    $signedUrl   = \Illuminate\Support\Facades\URL::temporarySignedRoute('nfc.card.authorize', now()->addMinutes(5), ['nonce' => $session->nonce]);
+    $pushService = app(\App\Services\WebPushService::class);
+
+    $company->users->each(function ($u) use ($session, $company, $signedUrl, $pushService) {
+        $u->notify(new \App\Notifications\NfcCardPinRequestNotification($session, $company, $signedUrl));
+        $pushService->notifyUser($u, 'Richiesta di pagamento', $company->name . ' richiede ' . ky_format($session->amount) . ' KY.', ['url' => $signedUrl, 'tag' => 'nfc-payment-request']);
+    });
+
+    return response()->json(['ok' => true, 'sent_to' => $email, 'amount' => '1,00 KY']);
+});
+// ───────────────────────────────────────────────────────────────────────────
+
 // -- Landing NFC card (apertura URL dal chip) ----------------------------
 Route::get('/nfc/{uuid}', [NfcCardPaymentController::class, 'scanLanding'])->name('nfc.card.scan-landing');
 
