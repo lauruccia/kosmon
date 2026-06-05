@@ -55,47 +55,102 @@
                 <div class="eyebrow">Accesso</div>
                 <h2>Login</h2>
 
-                {{-- ── Accesso con impronta — in cima su mobile ──────────────────── --}}
-                <button id="btn-biometric" class="btn-biometric" type="button" style="margin-top:20px;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/>
-                        <path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
-                        <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/>
-                        <path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
-                        <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/>
-                        <path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
-                        <path d="M12 12v.01"/>
-                    </svg>
-                    Accedi con impronta / Passkey
-                </button>
-                <div id="biometric-msg" class="biometric-msg"></div>
+                {{-- ── Vista: nessun account salvato / campo email manuale ────────── --}}
+                <div id="view-default">
+                    <button id="btn-biometric" class="btn-biometric" type="button" style="margin-top:20px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                            <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                            <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                            <path d="M12 12v.01"/>
+                        </svg>
+                        Accedi con impronta / Passkey
+                    </button>
+                    <div id="biometric-msg" class="biometric-msg"></div>
 
-                <div class="divider">oppure con password</div>
+                    <div class="divider">oppure con password</div>
+                    <div class="sub" style="margin-top:4px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
+                    @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
-                <div class="sub" style="margin-top:4px;">Entra con il tuo profilo KMoney o apri un nuovo conto.</div>
-                @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
+                    <form method="post" action="{{ route('login.attempt') }}">
+                        @csrf
+                        <div class="field" id="field-email"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="username webauthn"></div>
+                        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required></div>
+                        <div style="text-align:right;margin-top:8px;">
+                            <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
+                        </div>
+                        <div class="cta-row">
+                            <button class="cta" type="submit">Accedi al conto</button>
+                            <a class="ghost" href="{{ route('register') }}">Apri un conto KMoney</a>
+                        </div>
+                    </form>
+                </div>
 
-                {{-- Account salvati su questo dispositivo --}}
-                <div id="saved-accounts" style="display:none;margin-top:20px;">
-                    <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Account su questo dispositivo</div>
-                    <div id="saved-accounts-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                {{-- ── Vista: lista account salvati ─────────────────────────────────── --}}
+                <div id="view-accounts" style="display:none;">
+                    {{-- Passkey discoverable (nessun account pre-selezionato) --}}
+                    <button id="btn-biometric-discover" class="btn-biometric" type="button" style="margin-top:20px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                            <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                            <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                            <path d="M12 12v.01"/>
+                        </svg>
+                        Accedi con impronta / Passkey
+                    </button>
+                    <div id="biometric-msg-discover" class="biometric-msg"></div>
+
+                    <div class="divider" style="margin-top:20px;">account su questo dispositivo</div>
+
+                    <div id="saved-accounts-list" style="display:flex;flex-direction:column;gap:8px;margin-top:14px;"></div>
                     <div style="margin-top:10px;text-align:right;">
                         <button id="btn-altro-account" type="button" style="font-size:13px;color:#4d7386;background:none;border:none;cursor:pointer;font-weight:600;padding:0;">+ Usa un altro account</button>
                     </div>
                 </div>
 
-                <form method="post" action="{{ route('login.attempt') }}">
-                    @csrf
-                    <div class="field" id="field-email"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ old('email') }}" required autocomplete="username webauthn"></div>
-                    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required></div>
-                    <div style="text-align:right;margin-top:8px;">
-                        <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
+                {{-- ── Vista: account selezionato → passkey + password ──────────────── --}}
+                <div id="view-selected" style="display:none;">
+                    {{-- Chip account selezionato --}}
+                    <div style="margin-top:20px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:#f7fafb;">
+                        <div id="sel-avatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <span id="sel-initial" style="color:#fff;font-weight:700;font-size:17px;"></span>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div id="sel-email" style="font-size:15px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:1px;">Account selezionato</div>
+                        </div>
+                        <button id="btn-cambia-account" type="button" style="font-size:13px;color:#4d7386;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:600;padding:6px 10px;white-space:nowrap;">Cambia</button>
                     </div>
-                    <div class="cta-row">
-                        <button class="cta" type="submit">Accedi al conto</button>
-                        <a class="ghost" href="{{ route('register') }}">Apri un conto KMoney</a>
+
+                    {{-- Passkey contestuale all'account --}}
+                    <button id="btn-biometric-sel" class="btn-biometric" type="button" style="margin-top:14px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/>
+                            <path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/>
+                            <path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/>
+                            <path d="M12 12v.01"/>
+                        </svg>
+                        Accedi con impronta / Passkey
+                    </button>
+                    <div id="biometric-msg-sel" class="biometric-msg"></div>
+
+                    <div class="divider">oppure con password</div>
+
+                    <form method="post" action="{{ route('login.attempt') }}">
+                        @csrf
+                        <input type="hidden" id="email-sel" name="email">
+                        <div class="field"><label for="password-sel">Password</label><input id="password-sel" name="password" type="password" required autocomplete="current-password"></div>
+                        <div style="text-align:right;margin-top:8px;">
+                            <a href="{{ route('password.request') }}" style="font-size:13px;color:#4d7386;text-decoration:none;font-weight:600;">Password dimenticata?</a>
+                        </div>
+                        <div class="cta-row">
+                            <button class="cta" type="submit" style="flex:1;">Accedi al conto</button>
+                        </div>
+                    </form>
+                    <div style="margin-top:10px;text-align:center;">
+                        <a class="ghost" href="{{ route('register') }}" style="font-size:14px;">Apri un nuovo conto KMoney</a>
                     </div>
-                </form>
+                </div>
                 <p style="margin:12px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.5;">
                     Prima volta con impronta? Accedi con password, poi vai su <strong>Portale&nbsp;→&nbsp;Sicurezza</strong>.
                 </p>
@@ -110,153 +165,139 @@ function b64urlToBuffer(b64url) {
     const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=');
     return Uint8Array.from(atob(padded), c => c.charCodeAt(0)).buffer;
 }
-
 function bufferToB64url(buf) {
     const bytes = new Uint8Array(buf);
     let bin = '';
     bytes.forEach(b => bin += String.fromCharCode(b));
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
-
-// ── Messaggio UI ───────────────────────────────────────────────────────────────
-function showMsg(text, type) {
-    const el = document.getElementById('biometric-msg');
-    el.textContent = text;
-    el.className = 'biometric-msg ' + type;
-    el.style.display = 'block';
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function clearMsg() {
-    const el = document.getElementById('biometric-msg');
-    el.style.display = 'none';
+// ── Gestione viste ─────────────────────────────────────────────────────────────
+// 3 viste: 'default' (no account salvati / nuovo account), 'accounts' (lista), 'selected' (account scelto)
+function showView(name) {
+    ['default','accounts','selected'].forEach(v => {
+        document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
+    });
 }
 
 // ── Account salvati su questo dispositivo ─────────────────────────────────────
 const ACCOUNTS_KEY = 'kmoney_saved_accounts';
-
 function getSavedAccounts() {
     try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]'); } catch { return []; }
 }
-
 function saveAccount(email) {
     if (!email) return;
     const list = getSavedAccounts().filter(e => e !== email);
-    list.unshift(email);          // metti in cima
+    list.unshift(email);
     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list.slice(0, 10)));
 }
-
 function removeAccount(email) {
     const list = getSavedAccounts().filter(e => e !== email);
     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list));
     renderSavedAccounts();
 }
 
-// Email selezionata esplicitamente dall'utente (null = nessuna selezione)
+// ── Seleziona account → vista 'selected' ──────────────────────────────────────
 let selectedEmail = null;
-
 function selectAccount(email) {
     selectedEmail = email;
-    document.getElementById('email').value = email;
-    document.getElementById('password').value = '';
-    document.getElementById('saved-accounts').style.display = 'none';
-    document.getElementById('field-email').style.display = '';
-    document.getElementById('password').focus();
+    // Popola il chip
+    document.getElementById('sel-initial').textContent = email[0].toUpperCase();
+    document.getElementById('sel-email').textContent   = email;
+    document.getElementById('email-sel').value         = email;
+    document.getElementById('password-sel').value      = '';
+    showView('selected');
+    // Focus sul campo password dopo breve delay (animazione)
+    setTimeout(() => document.getElementById('password-sel').focus(), 80);
 }
 
+// ── Renderizza lista account ───────────────────────────────────────────────────
 function renderSavedAccounts() {
-    const list = getSavedAccounts();
-    const container = document.getElementById('saved-accounts');
-    const listEl    = document.getElementById('saved-accounts-list');
+    const list   = getSavedAccounts();
+    const listEl = document.getElementById('saved-accounts-list');
 
     if (list.length === 0) {
-        container.style.display = 'none';
-        document.getElementById('field-email').style.display = '';
+        showView('default');
         return;
     }
 
-    // Usa data-email invece di onclick inline: JSON.stringify produce virgolette doppie
-    // che rompono l'attributo HTML onclick="..." e impediscono il click.
-    listEl.innerHTML = list.map(email => `
-        <div style="display:flex;align-items:center;gap:10px;">
-            <button type="button"
-                data-action="select" data-email="${escapeHtml(email)}"
-                style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;text-align:left;font-family:inherit;">
+    listEl.innerHTML = '';
+    list.forEach(email => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+        row.innerHTML = `
+            <button type="button" data-action="select" data-email="${escapeHtml(email)}"
+                style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#f7fafb;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s,background .15s;">
                 <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d7386,#718b5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none;">
-                    <span style="color:#fff;font-weight:700;font-size:15px;">${escapeHtml(email[0].toUpperCase())}</span>
+                    <span style="color:#fff;font-weight:700;font-size:15px;pointer-events:none;">${escapeHtml(email[0].toUpperCase())}</span>
                 </div>
                 <div style="flex:1;min-width:0;pointer-events:none;">
                     <div style="font-size:14px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(email)}</div>
                     <div style="font-size:12px;color:var(--muted);margin-top:1px;">Tocca per continuare</div>
                 </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;pointer-events:none;"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
-            <button type="button"
-                data-action="remove" data-email="${escapeHtml(email)}"
-                style="flex-shrink:0;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;padding:8px 10px;color:var(--muted);font-size:18px;line-height:1;"
-                title="Rimuovi">&times;</button>
-        </div>
-    `).join('');
-
-    // Event listener unico tramite delegazione — nessun onclick inline
-    listEl.addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const email = btn.dataset.email;
-        if (btn.dataset.action === 'select') selectAccount(email);
-        if (btn.dataset.action === 'remove') removeAccount(email);
+            <button type="button" data-action="remove" data-email="${escapeHtml(email)}"
+                style="flex-shrink:0;background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;padding:8px 10px;color:var(--muted);font-size:18px;line-height:1;" title="Rimuovi">&times;</button>`;
+        listEl.appendChild(row);
     });
 
-    container.style.display = 'block';
-    document.getElementById('field-email').style.display = 'none';
-    // Non pre-impostare email.value: l'utente deve scegliere esplicitamente
-    selectedEmail = null;
+    // Event delegation
+    listEl.onclick = function (e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'select') selectAccount(btn.dataset.email);
+        if (btn.dataset.action === 'remove') removeAccount(btn.dataset.email);
+    };
+
+    showView('accounts');
 }
 
-function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// "Usa un altro account" mostra il campo email vuoto
+// ── Navigazione ───────────────────────────────────────────────────────────────
+// "Usa un altro account" → vista default con campo email
 document.getElementById('btn-altro-account').addEventListener('click', function () {
-    document.getElementById('saved-accounts').style.display = 'none';
-    document.getElementById('field-email').style.display = '';
+    selectedEmail = null;
+    showView('default');
     document.getElementById('email').value = '';
     document.getElementById('email').focus();
 });
 
-// Inizializza all'avvio
-renderSavedAccounts();
-
-// Salva email al submit del form password
-document.querySelector('form').addEventListener('submit', function () {
-    const e = document.getElementById('email').value.trim();
-    if (e) saveAccount(e);
+// "Cambia account" → torna alla lista
+document.getElementById('btn-cambia-account').addEventListener('click', function () {
+    selectedEmail = null;
+    renderSavedAccounts();   // ricalcola per sicurezza
 });
+
+// Salva email al submit dei form password
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function () {
+        const e = (document.getElementById('email-sel').value || document.getElementById('email').value || '').trim();
+        if (e) saveAccount(e);
+    });
+});
+
+// Inizializza
+renderSavedAccounts();
 
 // ── Shared: ottieni opzioni + verifica assertion ───────────────────────────────
 async function getLoginOptions(email) {
     const res = await fetch('{{ route("webauthn.login.options") }}', {
         method:  'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept':       'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-        },
+        headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content },
         body: JSON.stringify(email ? { email } : {}),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Errore opzioni');
     data.challenge = b64urlToBuffer(data.challenge);
-    if (data.allowCredentials) {
-        data.allowCredentials = data.allowCredentials.map(c => ({ ...c, id: b64urlToBuffer(c.id) }));
-    }
+    if (data.allowCredentials) data.allowCredentials = data.allowCredentials.map(c => ({ ...c, id: b64urlToBuffer(c.id) }));
     return data;
 }
-
 async function verifyAssertion(assertion) {
     const payload = {
-        id:    assertion.id,
-        rawId: bufferToB64url(assertion.rawId),
-        type:  assertion.type,
+        id: assertion.id, rawId: bufferToB64url(assertion.rawId), type: assertion.type,
         response: {
             clientDataJSON:    bufferToB64url(assertion.response.clientDataJSON),
             authenticatorData: bufferToB64url(assertion.response.authenticatorData),
@@ -266,11 +307,7 @@ async function verifyAssertion(assertion) {
     };
     const res = await fetch('{{ route("webauthn.login.verify") }}', {
         method:  'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept':       'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-        },
+        headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content },
         body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -278,85 +315,78 @@ async function verifyAssertion(assertion) {
     return data;
 }
 
-// ── Conditional UI (Passkey Autofill) — avviata in background al caricamento ──
-// Mostra le passkey disponibili come suggerimento nell'autocomplete del campo email.
-// Permette di scegliere tra più account senza dover digitare l'email.
-let conditionalAbortController = null;
+// ── Messaggio UI (per id specifico) ───────────────────────────────────────────
+function showMsg(elId, text, type) {
+    const el = document.getElementById(elId);
+    el.textContent = text;
+    el.className = 'biometric-msg ' + type;
+    el.style.display = 'block';
+}
+function clearMsg(elId) {
+    const el = document.getElementById(elId);
+    if (el) el.style.display = 'none';
+}
 
+// ── Conditional UI (Passkey Autofill) ─────────────────────────────────────────
+let conditionalAbortController = null;
 async function startConditionalPasskey() {
     if (!window.PublicKeyCredential || !PublicKeyCredential.isConditionalMediationAvailable) return;
     const supported = await PublicKeyCredential.isConditionalMediationAvailable();
     if (!supported) return;
-
     try {
         conditionalAbortController = new AbortController();
-        const optData = await getLoginOptions(null);  // discoverable, nessuna email
-
-        const assertion = await navigator.credentials.get({
-            publicKey: optData,
-            mediation: 'conditional',            // si integra nell'autocomplete del campo email
-            signal:    conditionalAbortController.signal,
-        });
-
+        const optData = await getLoginOptions(null);
+        const assertion = await navigator.credentials.get({ publicKey: optData, mediation: 'conditional', signal: conditionalAbortController.signal });
         const verData = await verifyAssertion(assertion);
-        showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
+        showMsg('biometric-msg', 'Accesso riuscito! Reindirizzamento…', 'ok');
         window.location.href = verData.redirect;
-
     } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.warn('Conditional passkey error:', err.message);
-        }
+        if (err.name !== 'AbortError') console.warn('Conditional passkey error:', err.message);
     }
 }
-
 startConditionalPasskey();
 
-// ── Login con impronta — bottone manuale ──────────────────────────────────────
-document.getElementById('btn-biometric').addEventListener('click', async () => {
-    clearMsg();
+// ── Helper: esegui login biometrico con un bottone specifico ──────────────────
+const FINGERPRINT_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg>`;
 
-    // Se la lista account è visibile e nessuno è stato selezionato, avvisa
-    if (document.getElementById('saved-accounts').style.display !== 'none' && !selectedEmail) {
-        showMsg('Seleziona prima un account dalla lista.', 'err');
-        return;
-    }
-
-    // Interrompi il conditional flow in corso prima di avviarne uno modale
-    if (conditionalAbortController) {
-        conditionalAbortController.abort();
-        conditionalAbortController = null;
-    }
-
-    // Usa l'email selezionata esplicitamente, oppure quella nel campo visibile
-    const email = selectedEmail || document.getElementById('email').value.trim() || null;
-    const btn   = document.getElementById('btn-biometric');
-    btn.disabled    = true;
-    btn.textContent = 'In attesa del dispositivo…';
-
+async function doBiometricLogin(btnId, msgId, email) {
+    clearMsg(msgId);
+    if (conditionalAbortController) { conditionalAbortController.abort(); conditionalAbortController = null; }
+    const btn = document.getElementById(btnId);
+    btn.disabled = true; btn.textContent = 'In attesa del dispositivo…';
     try {
-        const optData   = await getLoginOptions(email);
+        const optData   = await getLoginOptions(email || null);
         const assertion = await navigator.credentials.get({ publicKey: optData });
         const verData   = await verifyAssertion(assertion);
-
-        showMsg('Accesso riuscito! Reindirizzamento…', 'ok');
+        showMsg(msgId, 'Accesso riuscito! Reindirizzamento…', 'ok');
         if (email) saveAccount(email);
         window.location.href = verData.redirect;
-
     } catch (err) {
-        if (err.name === 'NotAllowedError') {
-            showMsg('Autenticazione annullata o non riuscita.', 'err');
-        } else if (err.name === 'NotSupportedError') {
-            showMsg("Il tuo dispositivo non supporta l'autenticazione biometrica.", 'err');
-        } else if (err.message && err.message.includes('impronta')) {
-            showMsg('Questo account non ha una passkey registrata. Usa la password.', 'err');
-        } else {
-            showMsg('Errore: ' + err.message, 'err');
-        }
+        if      (err.name === 'NotAllowedError')   showMsg(msgId, 'Autenticazione annullata o non riuscita.', 'err');
+        else if (err.name === 'NotSupportedError') showMsg(msgId, "Il tuo dispositivo non supporta l'autenticazione biometrica.", 'err');
+        else if (err.message?.includes('impronta'))showMsg(msgId, 'Questo account non ha una passkey registrata. Usa la password.', 'err');
+        else                                        showMsg(msgId, 'Errore: ' + err.message, 'err');
         startConditionalPasskey();
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 5.5 4.1 4.2 7.1"/><path d="M3.5 12c0-1.4.3-2.7.8-3.9"/><path d="M12 22c3.5 0 6.5-2.1 7.8-5.1"/><path d="M20.5 12c0 1.4-.3 2.7-.8 3.9"/><path d="M12 8a4 4 0 0 1 4 4c0 1-.2 2-.7 2.8"/><path d="M8.5 15.2A4 4 0 0 1 8 12a4 4 0 0 1 4-4"/><path d="M12 12v.01"/></svg> Accedi con impronta`;
+        btn.innerHTML = FINGERPRINT_SVG + ' Accedi con impronta / Passkey';
     }
+}
+
+// Bottone passkey vista default (campo email visibile)
+document.getElementById('btn-biometric').addEventListener('click', () => {
+    const email = document.getElementById('email').value.trim() || null;
+    doBiometricLogin('btn-biometric', 'biometric-msg', email);
+});
+
+// Bottone passkey vista lista account (discoverable, nessun account pre-selezionato)
+document.getElementById('btn-biometric-discover').addEventListener('click', () => {
+    doBiometricLogin('btn-biometric-discover', 'biometric-msg-discover', null);
+});
+
+// Bottone passkey vista account selezionato (contestuale)
+document.getElementById('btn-biometric-sel').addEventListener('click', () => {
+    doBiometricLogin('btn-biometric-sel', 'biometric-msg-sel', selectedEmail);
 });
 
 // ── Toggle visibilità password ────────────────────────────────────────────────
