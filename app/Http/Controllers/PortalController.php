@@ -572,6 +572,7 @@ class PortalController extends Controller
             'trade_payment', 'portal_payment', 'portal_collection_request',
             'portal_installment', 'portal_netting', 'portal_refund',
             'portal_credit_note', 'portal_qr_payment',
+            'portal_cashback', 'portal_fee',
         ];
         $validDirections = ['in', 'out'];
         $validStatuses   = ['booked', 'pending', 'cancelled'];

@@ -73,6 +73,37 @@
 
         {{-- Barra filtri --}}
         <form method="GET" action="{{ route('portal.movements') }}" id="filters-form" style="margin:16px 0 4px;">
+
+            {{-- Scorciatoie trimestri --}}
+            @php
+                $currentYear = now()->year;
+                $quarters = [
+                    'Q1' => [$currentYear.'-01-01', $currentYear.'-03-31'],
+                    'Q2' => [$currentYear.'-04-01', $currentYear.'-06-30'],
+                    'Q3' => [$currentYear.'-07-01', $currentYear.'-09-30'],
+                    'Q4' => [$currentYear.'-10-01', $currentYear.'-12-31'],
+                ];
+                $activeQuarter = null;
+                foreach ($quarters as $label => [$qFrom, $qTo]) {
+                    if ($filters['from'] === $qFrom && $filters['to'] === $qTo) {
+                        $activeQuarter = $label;
+                    }
+                }
+            @endphp
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">{{ $currentYear }}:</span>
+                @foreach($quarters as $label => [$qFrom, $qTo])
+                    <a href="{{ route('portal.movements', array_merge(request()->except(['from','to','page']), ['from'=>$qFrom,'to'=>$qTo])) }}"
+                       style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid {{ $activeQuarter === $label ? 'var(--primary)' : 'var(--line)' }};background:{{ $activeQuarter === $label ? 'var(--primary)' : 'var(--surface-soft)' }};color:{{ $activeQuarter === $label ? '#fff' : 'var(--ink-muted)' }};transition:all .12s;">
+                        {{ $label }}
+                    </a>
+                @endforeach
+                <a href="{{ route('portal.movements', array_merge(request()->except(['from','to','page']), ['from'=>$currentYear.'-01-01','to'=>$currentYear.'-12-31'])) }}"
+                   style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid {{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? 'var(--primary)' : 'var(--line)' }};background:{{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? 'var(--primary)' : 'var(--surface-soft)' }};color:{{ (!$activeQuarter && $filters['from'] === $currentYear.'-01-01' && $filters['to'] === $currentYear.'-12-31') ? '#fff' : 'var(--ink-muted)' }};transition:all .12s;">
+                    Anno intero
+                </a>
+            </div>
+
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Da</label>
@@ -117,6 +148,9 @@
                         <option value="portal_credit_note" {{ $filters['kind'] === 'portal_credit_note' ? 'selected' : '' }}>Nota credito</option>
                         <option value="portal_qr_payment" {{ $filters['kind'] === 'portal_qr_payment' ? 'selected' : '' }}>QR Payment</option>
                         <option value="portal_cashback" {{ $filters['kind'] === 'portal_cashback' ? 'selected' : '' }}>Cashback</option>
+                        <optgroup label="— Operazioni admin —">
+                            <option value="portal_fee" {{ $filters['kind'] === 'portal_fee' ? 'selected' : '' }}>Commissione</option>
+                        </optgroup>
                     </select>
                 </div>
                 {{-- Filtro sottoconto (solo per titolari con sottoconti) --}}

@@ -208,51 +208,83 @@ class NfcCard extends Model
     // ─── Numero seriale ──────────────────────────────────────────────────────
 
     /**
-     * Genera un numero seriale univoco nel formato KMY-YYYY-XXXXXX-C
+     * Genera un numero seriale univoco nel formato credit-card: XXXX-XXXX-XXXX-XXXX
      *
      * Struttura:
-     *   KMY        = prefisso fisso KosMopaY
-     *   YYYY       = anno di emissione (4 cifre)
-     *   XXXXXX     = 6 caratteri alfanumerici maiuscoli casuali
-     *   C          = check character (modulo 36 della somma dei valori ASCII)
+     *   Blocco 1-3  (12 car.)  = caratteri alfanumerici maiuscoli casuali
+     *   Blocco 4    (4 car.)   = primi 4 char dell'HMAC-SHA256(blocco1+blocco2+blocco3, secret)
+     *                            convertiti in base36 uppercase → garantisce autenticità
      *
-     * Esempio: KMY-2026-A3F9K2-M
+     * Esempio: A3F9-K2M8-X7P1-3KQZ
      *
-     * Regex di validazione: /^KMY-\d{4}-[A-Z0-9]{6}-[A-Z0-9]$/
+     * Regex di validazione: /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/
+     *
+     * La verifica (isValidSerial) controlla il blocco 4 con la stessa chiave HMAC
+     * usata in generazione, rendendo impossibile creare numeri validi senza la chiave.
      */
     public static function generateSerial(): string
     {
         $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $year  = now()->year;
 
         do {
-            $random = '';
-            for ($i = 0; $i < 6; $i++) {
-                $random .= $chars[random_int(0, 35)];
+            // Genera 12 caratteri casuali (blocchi 1-2-3)
+            $body = '';
+            for ($i = 0; $i < 12; $i++) {
+                $body .= $chars[random_int(0, 35)];
             }
 
-            // Check character: somma valori ASCII dei 6 chars, modulo 36
-            $sum   = array_sum(array_map('ord', str_split($random)));
-            $check = $chars[$sum % 36];
+            // Blocco 4: HMAC-SHA256 del corpo con la chiave segreta, in base36 uppercase
+            $check = static::computeSerialCheck($body);
 
-            $serial = "KMY-{$year}-{$random}-{$check}";
+            $serial = implode('-', [
+                substr($body, 0, 4),
+                substr($body, 4, 4),
+                substr($body, 8, 4),
+                $check,
+            ]);
 
         } while (static::where('serial_number', $serial)->exists());
 
         return $serial;
     }
 
-    /** Valida il formato di un numero seriale. */
+    /**
+     * Valida il formato e l'autenticità di un numero seriale.
+     *
+     * Controlla:
+     *   1. Formato regex 4×4
+     *   2. Blocco 4 corrisponde all'HMAC atteso (carta emessa da noi)
+     */
     public static function isValidSerial(string $serial): bool
     {
-        if (! preg_match('/^KMY-\d{4}-([A-Z0-9]{6})-([A-Z0-9])$/', $serial, $m)) {
+        if (! preg_match('/^([A-Z0-9]{4})-([A-Z0-9]{4})-([A-Z0-9]{4})-([A-Z0-9]{4})$/', $serial, $m)) {
             return false;
         }
 
-        $chars    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $sum      = array_sum(array_map('ord', str_split($m[1])));
-        $expected = $chars[$sum % 36];
+        $body     = $m[1] . $m[2] . $m[3];
+        $expected = static::computeSerialCheck($body);
 
-        return $m[2] === $expected;
+        return hash_equals($expected, $m[4]);
+    }
+
+    /**
+     * Calcola il blocco di verifica (4 char) dal corpo del seriale.
+     *
+     * Algoritmo:
+     *   HMAC-SHA256(body, nfc_card_secret) → hex
+     *   Converti i primi 8 nibble in intero → base36 uppercase, zero-padded a 4 char
+     *
+     * Il risultato è sempre 4 caratteri [A-Z0-9].
+     */
+    private static function computeSerialCheck(string $body): string
+    {
+        $secret = config('app.nfc_card_secret', config('app.key'));
+        $hmac   = hash_hmac('sha256', $body, $secret);
+
+        // Prendi i primi 8 hex char (32 bit) → intero → base36 uppercase, padded a 4
+        $num  = hexdec(substr($hmac, 0, 8)) % (36 ** 4); // 0 … 1.679.615
+        $b36  = strtoupper(base_convert((string) $num, 10, 36));
+
+        return str_pad($b36, 4, '0', STR_PAD_LEFT);
     }
 }
