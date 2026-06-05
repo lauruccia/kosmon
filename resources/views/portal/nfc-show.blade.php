@@ -2,86 +2,81 @@
 
 @section('content')
 
-    <div class="portal-grid" style="max-width:600px;">
+    <div class="portal-grid" style="max-width:860px;">
         <div class="stack">
             {{-- Card stato principale --}}
             <section class="card card-pad" id="nfc-status-card">
 
                 {{-- Stato: in attesa --}}
                 <div id="state-pending">
-                    <div style="text-align:center;padding:10px 0 20px;">
-                        {{-- Animazione NFC --}}
-                        <div id="nfc-icon" style="font-size:64px;margin-bottom:12px;animation:nfcPulse 1.6s ease-in-out infinite;">&#128246;</div>
-                        <div style="font-size:32px;font-weight:800;color:var(--ink);">
+
+                    {{-- Header: importo + countdown --}}
+                    <div style="text-align:center;padding:10px 0 18px;border-bottom:1px solid var(--line);">
+                        <div id="nfc-icon" style="font-size:56px;margin-bottom:8px;animation:nfcPulse 1.6s ease-in-out infinite;">&#128246;</div>
+                        <div style="font-size:34px;font-weight:800;color:var(--ink);">
                             {{ ky_format($pr->amount) }} KY
                         </div>
                         @if($pr->description)
                             <div style="color:var(--ink-muted);font-size:14px;margin-top:4px;">{{ $pr->description }}</div>
                         @endif
-
-                        {{-- Countdown --}}
-                        <div style="margin-top:6px;font-size:12px;color:var(--ink-muted);">
+                        <div style="margin-top:10px;font-size:12px;color:var(--ink-muted);">
                             Scade tra <span id="countdown" style="font-weight:700;color:var(--ink);">5:00</span>
                         </div>
-                        {{-- Progress bar scadenza --}}
-                        <div style="margin-top:8px;height:4px;background:var(--surface-soft);border-radius:2px;overflow:hidden;max-width:300px;margin-left:auto;margin-right:auto;">
+                        <div style="margin-top:6px;height:4px;background:var(--surface-soft);border-radius:2px;overflow:hidden;max-width:260px;margin-left:auto;margin-right:auto;">
                             <div id="timer-bar" style="height:100%;background:var(--primary);transition:width .5s linear;width:100%;"></div>
                         </div>
+                    </div>
 
-                        <div style="margin:20px auto 0;max-width:300px;">
-                            {{-- Barra NFC status --}}
-                            <div id="nfc-status-bar" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;">
-                                Inizializzazione NFC...
+                    {{-- Grid a due colonne --}}
+                    <div class="nfc-cols">
+
+                        {{-- Colonna sinistra: QR + NFC smartphone --}}
+                        <div class="nfc-col-left">
+                            {{-- QR --}}
+                            <div style="text-align:center;">
+                                <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">Scansiona il QR</div>
+                                <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border:1px solid var(--line);border-radius:12px;"></div>
+                                <div style="font-size:11px;color:var(--ink-muted);margin-top:8px;">Il cliente inquadra con la fotocamera</div>
                             </div>
 
-                            <button type="button" id="nfc-start-button" class="cta" style="margin-top:10px;width:100%;font-size:13px;padding:9px 14px;display:none;">
-                                Attiva NFC
+                            {{-- NFC smartphone --}}
+                            <div style="margin-top:16px;">
+                                <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Oppure avvicina smartphone</div>
+                                <div id="nfc-status-bar" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;">
+                                    Inizializzazione NFC...
+                                </div>
+                                <button type="button" id="nfc-start-button" class="cta" style="margin-top:8px;width:100%;font-size:13px;padding:9px 14px;display:none;">
+                                    Attiva NFC
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Divisore verticale (solo desktop) --}}
+                        <div class="nfc-divider"></div>
+
+                        {{-- Colonna destra: Card NFC fisica (azione principale) --}}
+                        <div class="nfc-col-right">
+                            <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">Card NFC fisica</div>
+                            <div id="card-nfc-status" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;margin-bottom:10px;display:none;">
+                                Inizializzazione...
+                            </div>
+                            <button type="button" id="card-nfc-btn" class="cta" style="width:100%;font-size:14px;padding:14px 10px;" onclick="startCardScan()">
+                                &#128179; Richiedi pagamento CARD NFC
                             </button>
+                            <div id="card-nfc-info" style="display:none;margin-top:12px;padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;text-align:left;">
+                                <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">Card riconosciuta</div>
+                                <div id="card-owner-name" style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;"></div>
+                                <div id="card-owner-label" style="font-size:11px;color:var(--ink-muted);margin-bottom:14px;"></div>
+                                <button type="button" class="cta" style="width:100%;font-size:13px;" onclick="sendCardRequest()">
+                                    Invia richiesta di pagamento
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {{-- Separatore QR --}}
-                    <div style="display:flex;align-items:center;gap:12px;margin:20px 0;">
-                        <div style="flex:1;height:1px;background:var(--line);"></div>
-                        <span style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;">oppure scansiona il QR</span>
-                        <div style="flex:1;height:1px;background:var(--line);"></div>
-                    </div>
-
-                    {{-- QR fallback --}}
-                    <div style="text-align:center;">
-                        <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border:1px solid var(--line);border-radius:12px;"></div>
-                        <div style="font-size:11px;color:var(--ink-muted);margin-top:8px;">
-                            Il cliente inquadra il QR con la fotocamera
-                        </div>
-                    </div>
-
-                    {{-- Separatore CARD NFC --}}
-                    <div style="display:flex;align-items:center;gap:12px;margin:20px 0 12px;">
-                        <div style="flex:1;height:1px;background:var(--line);"></div>
-                        <span style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;">oppure card nfc fisica</span>
-                        <div style="flex:1;height:1px;background:var(--line);"></div>
-                    </div>
-
-                    {{-- CARD NFC fisica --}}
-                    <div style="text-align:center;">
-                        <div id="card-nfc-status" style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink-muted);text-align:center;margin-bottom:10px;display:none;">
-                            Inizializzazione...
-                        </div>
-                        <button type="button" id="card-nfc-btn" class="cta" style="width:100%;font-size:13px;padding:10px;" onclick="startCardScan()">
-                            &#128179; Richiedi pagamento CARD NFC
-                        </button>
-                        <div id="card-nfc-info" style="display:none;margin-top:12px;padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;text-align:left;">
-                            <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">Card riconosciuta</div>
-                            <div id="card-owner-name" style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;"></div>
-                            <div id="card-owner-label" style="font-size:11px;color:var(--ink-muted);margin-bottom:14px;"></div>
-                            <button type="button" class="cta" style="width:100%;font-size:13px;" onclick="sendCardRequest()">
-                                Invia richiesta di pagamento
-                            </button>
-                        </div>
-                    </div>
+                    </div>{{-- /nfc-cols --}}
 
                     {{-- Azioni --}}
-                    <div style="display:flex;gap:10px;margin-top:24px;justify-content:center;">
+                    <div style="display:flex;gap:10px;margin-top:20px;justify-content:center;border-top:1px solid var(--line);padding-top:16px;">
                         <form method="POST" action="{{ route('portal.incasso-nfc.cancel', $pr->token) }}">
                             @csrf
                             <button type="submit" class="cta secondary" style="font-size:13px;padding:8px 18px;">
@@ -123,6 +118,25 @@
         @keyframes nfcPulse {
             0%, 100% { transform: scale(1); opacity: 1; }
             50%       { transform: scale(1.12); opacity: .7; }
+        }
+
+        /* Layout a due colonne per desktop */
+        .nfc-cols {
+            display: flex;
+            gap: 0;
+            margin-top: 20px;
+            align-items: flex-start;
+        }
+        .nfc-col-left  { flex: 1; padding-right: 24px; }
+        .nfc-col-right { flex: 1; padding-left: 24px; }
+        .nfc-divider   { width: 1px; background: var(--line); align-self: stretch; flex-shrink: 0; }
+
+        /* Mobile: impila verticalmente */
+        @media (max-width: 600px) {
+            .nfc-cols      { flex-direction: column; gap: 20px; }
+            .nfc-col-left  { padding-right: 0; }
+            .nfc-col-right { padding-left: 0; border-top: 1px solid var(--line); padding-top: 20px; }
+            .nfc-divider   { display: none; }
         }
     </style>
 
