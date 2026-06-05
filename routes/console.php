@@ -26,3 +26,10 @@ Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-mo
 
 // Controlla gli avvisi saldo ogni ora
 Schedule::job(new CheckBalanceAlerts())->hourly()->name('check-balance-alerts')->withoutOverlapping();
+
+// Processa la coda ogni minuto (compatibile con hosting shared senza supervisor)
+Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=60')
+    ->everyMinute()
+    ->name('queue-worker')
+    ->withoutOverlapping(2)
+    ->appendOutputTo(storage_path('logs/queue-worker.log'));
