@@ -108,6 +108,21 @@ class TransferController extends Controller
             return response()->json(['error' => 'No active account for this company'], 422);
         }
 
+        // Scope check sul destinatario: deve essere attivo, non di sistema, non se stessi
+        $toAccount = Account::find((int) $data['to_account_id']);
+
+        if (! $toAccount || $toAccount->status !== 'active') {
+            return response()->json(['error' => 'Destination account not found or not active'], 422);
+        }
+
+        if ($toAccount->is_system_account) {
+            return response()->json(['error' => 'Cannot transfer to system account'], 403);
+        }
+
+        if ($toAccount->id === $fromAccount->id) {
+            return response()->json(['error' => 'Cannot transfer to your own account'], 422);
+        }
+
         $initiator = $fromAccount->ownerUser ?? $fromAccount->company?->users()->first();
         if (! $initiator) {
             return response()->json(['error' => 'No user associated with this account'], 422);
@@ -117,7 +132,7 @@ class TransferController extends Controller
             $transfer = $this->booking->book([
                 'initiated_by'    => $initiator->id,
                 'from_account_id' => $fromAccount->id,
-                'to_account_id'   => (int) $data['to_account_id'],
+                'to_account_id'   => $toAccount->id,
                 'amount'          => (int) $data['amount'],
                 'description'     => $data['description'] ?? 'Pagamento API',
                 'kind'            => 'api_payment',

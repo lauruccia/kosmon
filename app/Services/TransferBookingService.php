@@ -26,6 +26,7 @@ class TransferBookingService
 
         $this->assertTransferPayload($amount, $fromAccountId, $toAccountId, $initiatedBy, $idempotencyKey);
 
+        try {
         return DB::transaction(function () use ($attributes, $amount, $fromAccountId, $toAccountId, $initiatedBy, $idempotencyKey, $ipAddress) {
             $existingTransfer = Transfer::query()
                 ->where('idempotency_key', $idempotencyKey)
@@ -57,6 +58,13 @@ class TransferBookingService
                 idempotencyKey: $idempotencyKey,
             );
         });
+        } catch (RuntimeException $e) {
+            // Logga ogni tentativo di trasferimento fallito (saldo insufficiente,
+            // limiti superati, account sospeso, ecc.) in AuditLog, FUORI dalla
+            // transazione fallita così il log viene sempre persistito.
+            $this->recordRejectedAttempt($attributes, $e->getMessage());
+            throw $e;
+        }
     }
 
     public function requestPayment(array $attributes): Transfer

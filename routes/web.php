@@ -151,19 +151,11 @@ Route::get('/health', function () {
         $checks['queue_failed_recent'] = 'unknown';
     }
 
-    // Versione app e ambiente
-    $meta = [
-        'app_env'   => app()->environment(),
-        'app_debug' => config('app.debug') ? 'true' : 'false',
-        'php'       => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . '.' . PHP_RELEASE_VERSION,
-    ];
-
     $status = $overallOk ? 'ok' : 'degraded';
     return response()->json([
         'status'    => $status,
         'timestamp' => now()->toIso8601String(),
         'checks'    => $checks,
-        'meta'      => $meta,
     ], $overallOk ? 200 : 503);
 })->name('health');
 

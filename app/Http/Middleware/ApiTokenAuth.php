@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\ApiToken;
+use App\Notifications\ApiTokenNewIpNotification;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -36,7 +37,21 @@ class ApiTokenAuth
             return response()->json(['error' => 'Insufficient permissions'], 403);
         }
 
-        $token->update(['last_used_at' => now()]);
+        $currentIp  = $request->ip();
+        $previousIp = $token->last_used_ip;
+
+        $token->update([
+            'last_used_at' => now(),
+            'last_used_ip' => $currentIp,
+        ]);
+
+        // Notifica se l'IP cambia rispetto all'ultima chiamata nota
+        if ($previousIp && $previousIp !== $currentIp) {
+            $creator = $token->creator ?? $token->company?->users()->where('role', 'owner')->first();
+            if ($creator) {
+                $creator->notify(new ApiTokenNewIpNotification($token, $currentIp, $previousIp));
+            }
+        }
 
         $request->attributes->set('api_token', $token);
         $request->attributes->set('api_company', $token->company);

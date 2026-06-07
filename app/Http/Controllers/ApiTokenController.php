@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\ApiToken;
 use App\Models\User;
+use App\Notifications\ApiTokenRevokedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -81,10 +82,17 @@ class ApiTokenController extends Controller
 
     public function destroy(Request $request, ApiToken $apiToken): RedirectResponse
     {
-        [, $company] = $this->resolveContext($request->user());
+        [, $company, $user] = $this->resolveContext($request->user());
         abort_unless($apiToken->company_id === $company->id, 403);
 
+        // Clona i dati prima della delete per la notifica
+        $tokenForNotification = clone $apiToken;
+
         $apiToken->delete();
+
+        // Notifica all'utente che ha creato il token (o all'owner del company)
+        $recipient = $tokenForNotification->creator ?? $user;
+        $recipient->notify(new ApiTokenRevokedNotification($tokenForNotification, $request->ip()));
 
         return redirect()
             ->route('portal.api-tokens.index')

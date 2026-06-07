@@ -11,7 +11,7 @@ class ApiToken extends Model
     protected $fillable = [
         'uuid', 'company_id', 'created_by', 'name',
         'token_hash', 'token_prefix', 'abilities',
-        'last_used_at', 'expires_at',
+        'last_used_at', 'last_used_ip', 'expires_at',
     ];
 
     protected $casts = [

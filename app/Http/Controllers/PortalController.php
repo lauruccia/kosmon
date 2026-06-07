@@ -706,6 +706,12 @@ class PortalController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // Verifica che il conto debitore esista, sia attivo e non sia di sistema
+        $fromAccount = Account::findOrFail((int) $validated['from_account_id']);
+        abort_unless($fromAccount->status === 'active', 422, 'Il conto selezionato non è attivo. Impossibile inviare la richiesta.');
+        abort_if($fromAccount->is_system_account, 422, 'Destinatario non valido.');
+        abort_if($fromAccount->id === $currentAccount->id, 422, 'Non puoi inviare una richiesta di pagamento a te stesso.');
+
         try {
             $transfer = $bookingService->requestPayment([
                 'initiated_by' => $currentUser->id,

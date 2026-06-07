@@ -127,11 +127,14 @@ class NfcCardPaymentController extends Controller
             return response()->json(['error' => 'Nessun conto attivo associato al tuo account.'], 403);
         }
 
-        // Annulla eventuali sessioni pending precedenti per la stessa card
-        // (evita notifiche duplicate/confuse se il merchant scansiona più volte)
-        NfcCardAuthSession::where('nfc_card_id', $card->id)
-            ->where('status', 'pending')
+        // Annulla sessioni pending per la stessa card O per lo stesso merchant
+        // (evita notifiche duplicate/push parallele per lo stesso operatore)
+        NfcCardAuthSession::where('status', 'pending')
             ->where('expires_at', '>', now())
+            ->where(function ($q) use ($card, $merchantAccount) {
+                $q->where('nfc_card_id', $card->id)
+                  ->orWhere('merchant_account_id', $merchantAccount->id);
+            })
             ->update(['status' => 'cancelled']);
 
         // Crea sessione auth (scade in 10 minuti — tempo sufficiente per login se necessario)
