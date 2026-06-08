@@ -779,7 +779,7 @@ class AdminController extends Controller
         $defaultLimitFields = [
             'default_circuit_capacity_limit', 'default_negative_balance_limit',
             'default_daily_transaction_limit', 'default_monthly_transaction_limit',
-            'default_per_movement_limit',
+            'default_per_movement_limit', 'payment_confirm_totp_threshold',
         ];
         foreach ($defaultLimitFields as $field) {
             if ($request->filled($field)) {
@@ -788,12 +788,21 @@ class AdminController extends Controller
         }
 
         $validated = $request->validate([
-            'default_circuit_capacity_limit' => ['nullable', 'numeric', 'min:0'],
-            'default_negative_balance_limit' => ['nullable', 'numeric', 'min:0'],
-            'default_daily_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_circuit_capacity_limit'    => ['nullable', 'numeric', 'min:0'],
+            'default_negative_balance_limit'    => ['nullable', 'numeric', 'min:0'],
+            'default_daily_transaction_limit'   => ['nullable', 'numeric', 'min:0'],
             'default_monthly_transaction_limit' => ['nullable', 'numeric', 'min:0'],
-            'default_per_movement_limit' => ['nullable', 'numeric', 'min:0'],
+            'default_per_movement_limit'        => ['nullable', 'numeric', 'min:0'],
+            'payment_confirm_totp_threshold'    => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        // Separa il campo TOTP threshold (non è un limite utente, va salvato direttamente)
+        $totpThreshold = array_key_exists('payment_confirm_totp_threshold', $validated)
+            ? ($validated['payment_confirm_totp_threshold'] === null || $validated['payment_confirm_totp_threshold'] === ''
+                ? null
+                : ky_to_cents($validated['payment_confirm_totp_threshold']))
+            : null;
+        unset($validated['payment_confirm_totp_threshold']);
 
         $validated = collect($validated)
             ->map(fn ($value) => $value === null || $value === '' ? null : ky_to_cents($value))
@@ -818,7 +827,7 @@ class AdminController extends Controller
                     }
                 });
 
-            $defaults->forceFill($validated)->save();
+            $defaults->forceFill(array_merge($validated, ['payment_confirm_totp_threshold' => $totpThreshold]))->save();
         });
 
         return back()->with('portal_success', 'Limiti di default aggiornati correttamente.');

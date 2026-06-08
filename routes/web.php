@@ -405,6 +405,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
 
     Route::get('/paga', [PortalController::class, 'payForm'])->name('portal.pay.form');
     Route::post('/paga', [PortalController::class, 'paySubmit'])->name('portal.pay.submit')->middleware('throttle:payments');
+    Route::get('/paga/conferma', [PortalController::class, 'payConfirmShow'])->name('portal.pay.confirm');
+    Route::post('/paga/conferma', [PortalController::class, 'payExecute'])->name('portal.pay.execute')->middleware('throttle:payments');
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
 
     Route::get('/incassa', [PortalController::class, 'receiveForm'])->name('portal.receive.form');

@@ -26,6 +26,7 @@ class SystemSetting extends Model
         'default_daily_transaction_limit',
         'default_monthly_transaction_limit',
         'default_per_movement_limit',
+        'payment_confirm_totp_threshold',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -179,6 +180,7 @@ HTML;
                 'default_daily_transaction_limit'   => null,
                 'default_monthly_transaction_limit' => null,
                 'default_per_movement_limit'        => null,
+                'payment_confirm_totp_threshold'    => null,
             ]
         );
     }
@@ -186,11 +188,12 @@ HTML;
     public function defaultsMap(): array
     {
         return [
-            'circuit_capacity_limit'    => $this->default_circuit_capacity_limit,
-            'negative_balance_limit'    => $this->default_negative_balance_limit,
-            'daily_transaction_limit'   => $this->default_daily_transaction_limit,
-            'monthly_transaction_limit' => $this->default_monthly_transaction_limit,
-            'per_movement_limit'        => $this->default_per_movement_limit,
+            'circuit_capacity_limit'         => $this->default_circuit_capacity_limit,
+            'negative_balance_limit'         => $this->default_negative_balance_limit,
+            'daily_transaction_limit'        => $this->default_daily_transaction_limit,
+            'monthly_transaction_limit'      => $this->default_monthly_transaction_limit,
+            'per_movement_limit'             => $this->default_per_movement_limit,
+            'payment_confirm_totp_threshold' => $this->payment_confirm_totp_threshold,
         ];
     }
 }

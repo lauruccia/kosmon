@@ -86,6 +86,11 @@
                         <label>Limite mensile (KY)</label>
                         <input type="number" min="0" step="0.01" name="default_monthly_transaction_limit" value="{{ old('default_monthly_transaction_limit', ky_input($defaultTransferLimits['monthly_transaction_limit'])) }}">
                     </div>
+                    <div class="field" style="grid-column:1/-1;">
+                        <label>Soglia conferma identità (TOTP/step-up) per pagamento diretto (KY)</label>
+                        <input type="number" min="0" step="0.01" name="payment_confirm_totp_threshold" value="{{ old('payment_confirm_totp_threshold', ky_input($defaultTransferLimits['payment_confirm_totp_threshold'])) }}">
+                        <small style="color:var(--text-muted);">Se compilato, i pagamenti diretti sopra questa soglia richiedono una verifica identità aggiuntiva prima di essere eseguiti. Lasciare vuoto per disabilitare.</small>
+                    </div>
                 </div>
                 <div class="form-actions" style="justify-content:flex-start;margin-top:6px;">
                     <button type="submit" class="cta">Salva default</button>

@@ -623,7 +623,10 @@ class PortalController extends Controller
         ]);
     }
 
-    public function paySubmit(Request $request, TransferBookingService $bookingService): RedirectResponse
+    /**
+     * Step 1 — valida il form e reindirizza alla schermata di conferma.
+     */
+    public function paySubmit(Request $request): RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {
             return $redirect;
@@ -636,24 +639,116 @@ class PortalController extends Controller
 
         $validated = $request->validate([
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'amount'        => ['required', 'numeric', 'min:0.01'],
+            'description'   => ['nullable', 'string', 'max:255'],
         ]);
+
+        $toAccount = Account::find((int) $validated['to_account_id']);
+
+        // Memorizza i dati del pagamento in sessione (idempotency key inclusa)
+        $request->session()->put('pay_preview', [
+            'from_account_id' => $currentAccount->id,
+            'to_account_id'   => (int) $validated['to_account_id'],
+            'to_account_name' => $toAccount?->display_name,
+            'amount_cents'    => ky_to_cents($validated['amount']),
+            'description'     => $validated['description'] ?? null,
+            'initiated_by'    => $currentUser->id,
+            'idempotency_key' => (string) Str::uuid(),
+            'company_id'      => $this->requestedCompanyId($request),
+        ]);
+
+        return redirect()->route('portal.pay.confirm');
+    }
+
+    /**
+     * Step 2 — mostra la schermata di riepilogo e conferma.
+     */
+    public function payConfirmShow(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->redirectBackofficeUser($request->user())) {
+            return $redirect;
+        }
+
+        $preview = $request->session()->get('pay_preview');
+        if (! $preview) {
+            return redirect()->route('portal.pay.form')->with('portal_error', 'Sessione scaduta. Compila nuovamente il pagamento.');
+        }
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $preview['company_id'] ?? null);
+        abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
+
+        $toAccount = Account::find($preview['to_account_id']);
+
+        $settings = \App\Models\SystemSetting::userLimitDefaults();
+        $totpThreshold = $settings->payment_confirm_totp_threshold;
+
+        $needsStepUp = false;
+        if ($totpThreshold !== null && $preview['amount_cents'] >= (int) $totpThreshold) {
+            $verifiedAt = $request->session()->get('step_up_verified_at');
+            $isStepUpValid = $verifiedAt
+                && now()->diffInMinutes(\Carbon\Carbon::createFromTimestamp($verifiedAt)) < \App\Http\Middleware\RequireStepUp::STEP_UP_WINDOW_MINUTES;
+            $needsStepUp = ! $isStepUpValid;
+        }
+
+        return view('portal.pay-confirm', [
+            'pageTitle'      => 'Conferma pagamento',
+            'currentAccount' => $currentAccount,
+            'currentUser'    => $currentUser,
+            'toAccount'      => $toAccount,
+            'preview'        => $preview,
+            'needsStepUp'    => $needsStepUp,
+            'activeNav'      => 'conto',
+        ]);
+    }
+
+    /**
+     * Step 3 — esegue il trasferimento dopo la conferma.
+     */
+    public function payExecute(Request $request, TransferBookingService $bookingService): RedirectResponse
+    {
+        if ($redirect = $this->redirectBackofficeUser($request->user())) {
+            return $redirect;
+        }
+
+        $preview = $request->session()->get('pay_preview');
+        if (! $preview) {
+            return redirect()->route('portal.pay.form')->with('portal_error', 'Sessione scaduta. Compila nuovamente il pagamento.');
+        }
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $preview['company_id'] ?? null);
+        abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
+
+        // Verifica step-up per importi sopra soglia
+        $settings = \App\Models\SystemSetting::userLimitDefaults();
+        $totpThreshold = $settings->payment_confirm_totp_threshold;
+        if ($totpThreshold !== null && $preview['amount_cents'] >= (int) $totpThreshold) {
+            $verifiedAt = $request->session()->get('step_up_verified_at');
+            $isStepUpValid = $verifiedAt
+                && now()->diffInMinutes(\Carbon\Carbon::createFromTimestamp($verifiedAt)) < \App\Http\Middleware\RequireStepUp::STEP_UP_WINDOW_MINUTES;
+            if (! $isStepUpValid) {
+                $request->session()->put('step_up_return_url', route('portal.pay.confirm'));
+                return redirect()->route('portal.step-up.show')
+                    ->with('step_up_reason', 'Per importi elevati devi confermare la tua identità prima di procedere.');
+            }
+        }
 
         try {
             $transfer = $bookingService->book([
-                'initiated_by' => $currentUser->id,
+                'initiated_by'    => $currentUser->id,
                 'from_account_id' => $currentAccount->id,
-                'to_account_id' => (int) $validated['to_account_id'],
-                'amount' => ky_to_cents($validated['amount']),
-                'description' => $validated['description'] ?? null,
-                'kind' => 'portal_payment',
-                'idempotency_key' => (string) Str::uuid(),
-                'ip_address' => $request->ip(),
+                'to_account_id'   => $preview['to_account_id'],
+                'amount'          => $preview['amount_cents'],
+                'description'     => $preview['description'] ?? null,
+                'kind'            => 'portal_payment',
+                'idempotency_key' => $preview['idempotency_key'],
+                'ip_address'      => $request->ip(),
             ]);
         } catch (\RuntimeException $exception) {
-            return back()->withInput()->with('portal_error', $exception->getMessage());
+            return redirect()->route('portal.pay.form')->withInput()->with('portal_error', $exception->getMessage());
         }
+
+        // Rimuove la sessione di preview ora che il pagamento è eseguito
+        $request->session()->forget('pay_preview');
 
         // Notifica al destinatario (email + in-app)
         $toAccount = $transfer->toAccount;
