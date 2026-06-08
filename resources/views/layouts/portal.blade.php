@@ -261,14 +261,15 @@
         /* ── APP SHELL ──────────────────────────────────────────────── */
         .app-shell {
             min-height: 100vh;
-            display: grid;
-            grid-template-columns: 272px minmax(0, 1fr);
+            display: block;
         }
 
         /* ── SIDEBAR ────────────────────────────────────────────────── */
         .sidebar {
-            position: sticky;
+            position: fixed;
             top: 0;
+            left: 0;
+            width: 272px;
             height: 100vh;
             overflow-y: auto;
             padding: 20px 14px;
@@ -406,8 +407,10 @@
 
         /* ── CONTENT SHELL ──────────────────────────────────────────── */
         .content-shell {
+            margin-left: 272px;
             padding: 14px; background: var(--bg);
             transition: background .28s ease;
+            min-height: 100vh;
         }
 
         /* ── TOPBAR ─────────────────────────────────────────────────── */
@@ -993,21 +996,20 @@
             transition: opacity .28s;
         }
 
+        /* ── DESKTOP: sidebar visibile, z-index basso ───────────────── */
+        @media (min-width: 1281px) {
+            .sidebar { z-index: 100; transform: none !important; }
+        }
+
+        /* ── TABLET / MOBILE ≤1280px: sidebar hamburger overlay ──── */
         @media (max-width: 1280px) {
-            /* Hamburger overlay — sidebar non entra mai nel flusso del documento */
-            .app-shell { display: block; }
             .sidebar {
-                position: fixed !important;
-                top: 0; left: 0;
-                width: 280px !important;
-                height: 100vh !important;
-                overflow-y: auto !important;
                 z-index: 1000;
-                padding: 20px 14px !important;
                 transform: translateX(-100%);
                 transition: transform .28s cubic-bezier(.4,0,.2,1);
             }
             .sidebar.is-open { transform: translateX(0) !important; }
+            .content-shell { margin-left: 0 !important; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
