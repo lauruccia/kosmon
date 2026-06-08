@@ -472,15 +472,17 @@
         </div>
         @if(!$currentAccount->isSubAccount())
         <div class="bank-hero__actions">
+            @if($currentAccount->company)
             <form method="POST" action="{{ route('portal.payments.toggle-pause') }}" style="display:inline;">
                 @csrf
-                @php $isPaused = $currentAccount->company?->isPaymentsPaused(); @endphp
+                @php $isPaused = $currentAccount->company->isPaymentsPaused(); @endphp
                 <button type="submit" class="cta"
                     style="{{ $isPaused ? 'background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);' : '' }}"
                     title="{{ $isPaused ? 'Riattiva pagamenti automatici' : 'Sospendi pagamenti automatici' }}">
                     {{ $isPaused ? '▶ Riattiva auto' : '⏸ Pausa auto' }}
                 </button>
             </form>
+            @endif
         </div>
         @endif
     </div>
