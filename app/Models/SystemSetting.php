@@ -27,6 +27,7 @@ class SystemSetting extends Model
         'default_monthly_transaction_limit',
         'default_per_movement_limit',
         'payment_confirm_totp_threshold',
+        'payment_pin_threshold',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -181,6 +182,7 @@ HTML;
                 'default_monthly_transaction_limit' => null,
                 'default_per_movement_limit'        => null,
                 'payment_confirm_totp_threshold'    => null,
+                'payment_pin_threshold'             => null,
             ]
         );
     }

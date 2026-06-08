@@ -48,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_change_expires_at',
         'email_change_cancel_token',
         'tutorial_shown_at',
+        'payment_pin_hash',
     ];
 
     protected $hidden = [

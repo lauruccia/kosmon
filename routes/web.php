@@ -60,6 +60,7 @@ use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
 use App\Http\Controllers\StaticNfcController;
+use App\Http\Controllers\SendPaymentController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -407,6 +408,14 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/compensazione/{nettingProposal}/accetta', [NettingController::class, 'accept'])->name('portal.netting.accept');
     Route::post('/compensazione/{nettingProposal}/rifiuta', [NettingController::class, 'reject'])->name('portal.netting.reject');
 
+
+    // ── Flusso invio mobile-first ─────────────────────────────────────────────
+    Route::get('/invia', [SendPaymentController::class, 'show'])->name('portal.invia');
+    Route::get('/invia/cerca', [SendPaymentController::class, 'search'])->name('portal.invia.cerca');
+    Route::post('/invia/esegui', [SendPaymentController::class, 'execute'])->name('portal.invia.esegui')->middleware('throttle:payments');
+    Route::get('/invia/ricevuta/{uuid}', [SendPaymentController::class, 'receipt'])->name('portal.invia.ricevuta');
+    Route::post('/invia/pin/imposta', [SendPaymentController::class, 'setPin'])->name('portal.invia.pin.imposta');
+    Route::post('/invia/pin/rimuovi', [SendPaymentController::class, 'removePin'])->name('portal.invia.pin.rimuovi');
 
     Route::get('/pagamenti', [PortalController::class, 'paymentsHub'])->name('portal.pagamenti-hub');
     Route::get('/paga', [PortalController::class, 'payForm'])->name('portal.pay.form');

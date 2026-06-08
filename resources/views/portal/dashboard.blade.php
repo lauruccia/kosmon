@@ -402,7 +402,7 @@
             <span class="bank-hero__name">{{ $currentAccount->owner_label }}</span>
         </div>
         <div class="bank-hero__actions">
-            <a class="cta" href="{{ route('portal.pay.form') }}">Paga</a>
+            <a class="cta" href="{{ route('portal.invia') }}" style="font-weight:800;">➡️ Invia</a>
             <a class="cta" href="{{ route('portal.receive.form') }}">Incassa</a>
             @if(!$currentAccount->isSubAccount())
             <form method="POST" action="{{ route('portal.payments.toggle-pause') }}" style="display:inline;">
