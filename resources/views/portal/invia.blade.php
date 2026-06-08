@@ -213,6 +213,35 @@
 .confirm-value { font-size: 14px; font-weight: 600; color: var(--ink); text-align: right; max-width: 60%; }
 .confirm-amount { font-size: 28px; font-weight: 900; color: var(--primary); }
 
+/* ── Recipient verify card ────────────────────────────────── */
+.recipient-verify-card {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface-soft); border: 2px solid var(--primary);
+    border-radius: 16px; padding: 16px 18px; margin-bottom: 16px;
+}
+.rvc-avatar {
+    width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary), #6366f1);
+    color: #fff; font-size: 22px; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+}
+.rvc-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
+.rvc-info { flex: 1; min-width: 0; }
+.rvc-name { font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rvc-number { font-size: 12px; color: var(--ink-muted); margin-top: 2px; font-family: monospace; letter-spacing: .04em; }
+.rvc-badge { font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-light); border-radius: 6px; padding: 2px 8px; display: inline-block; margin-top: 4px; }
+
+/* ── Alert primo pagamento ───────────────────────────────── */
+.first-payment-alert {
+    display: none; align-items: flex-start; gap: 12px;
+    background: #fffbeb; border: 1px solid #fbbf24;
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    font-size: 13px; color: #92400e;
+}
+.first-payment-alert.visible { display: flex; }
+.first-payment-alert strong { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 2px; color: #78350f; }
+
 /* ── PIN step ────────────────────────────────────────────── */
 .pin-dots {
     display: flex; gap: 16px; justify-content: center; margin: 24px 0 20px;
@@ -410,6 +439,27 @@
 
     {{-- ═══ STEP 3 — Conferma ══════════════════════════════════════════════ --}}
     <div class="wiz-step" id="step3">
+
+        {{-- Card verifica destinatario ─────────────────────────────────────── --}}
+        <div class="recipient-verify-card" id="recipientVerifyCard">
+            <div class="rvc-avatar" id="rvcAvatar">?</div>
+            <div class="rvc-info">
+                <div class="rvc-name" id="rvcName">—</div>
+                <div class="rvc-number" id="rvcNumber"></div>
+                <span class="rvc-badge" id="rvcType"></span>
+            </div>
+            <div style="color:var(--success);font-size:24px;" title="Destinatario verificato">✓</div>
+        </div>
+
+        {{-- Alert primo pagamento ───────────────────────────────────────────── --}}
+        <div class="first-payment-alert" id="firstPaymentAlert">
+            <div style="font-size:20px;flex-shrink:0;">⚠️</div>
+            <div>
+                <strong>Primo pagamento a questo utente</strong>
+                Stai inviando KY a questo destinatario per la prima volta. Verifica che il numero conto sia corretto prima di confermare.
+            </div>
+        </div>
+
         <div class="wiz-panel">
             <div class="wiz-eyebrow">Passo 3 di {{ ($hasPin && $pinThreshold !== null) ? 4 : 3 }}</div>
             <h2 class="wiz-title">Riepilogo</h2>
@@ -420,7 +470,7 @@
             </div>
             <div class="confirm-row">
                 <span class="confirm-label">Numero conto</span>
-                <span class="confirm-value" id="confirmNumber">—</span>
+                <span class="confirm-value" id="confirmNumber" style="font-family:monospace;font-size:12px;letter-spacing:.04em;">—</span>
             </div>
             <div class="confirm-row">
                 <span class="confirm-label">Importo</span>
@@ -515,12 +565,13 @@
         pinDigits:       [],
     };
 
-    const PIN_STEPS      = {{ ($hasPin && $pinThreshold !== null) ? 'true' : 'false' }};
-    const PIN_THRESHOLD  = {{ $pinThreshold ?? 'null' }};
-    const HAS_PIN        = {{ $hasPin ? 'true' : 'false' }};
-    const TOTAL_STEPS    = PIN_STEPS ? 4 : 3;
-    const SEARCH_URL     = '{{ route("portal.invia.cerca") }}';
-    const CSRF           = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+    const PIN_STEPS           = {{ ($hasPin && $pinThreshold !== null) ? 'true' : 'false' }};
+    const PIN_THRESHOLD       = {{ $pinThreshold ?? 'null' }};
+    const HAS_PIN             = {{ $hasPin ? 'true' : 'false' }};
+    const TOTAL_STEPS         = PIN_STEPS ? 4 : 3;
+    const SEARCH_URL          = '{{ route("portal.invia.cerca") }}';
+    const RECIPIENT_INFO_BASE = '{{ url("/invia/destinatario") }}';
+    const CSRF                = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
     // ── Step navigation ─────────────────────────────────────────────────────
     window.goTo = function(n) {
@@ -537,7 +588,7 @@
             else if (i === n) dot.classList.add('active');
         }
 
-        if (n === 3) fillConfirm();
+        if (n === 3) { fillConfirm(); loadRecipientInfo(); }
     };
 
     // ── Step 1 — Recipient ───────────────────────────────────────────────────
@@ -697,6 +748,55 @@
         } else {
             descRow.style.display = 'none';
         }
+    }
+
+    // ── Recipient verify card ─────────────────────────────────────────────────
+    // Chiama /invia/destinatario/{id} e popola la card con nome, numero KY,
+    // tipo di conto e flag "primo pagamento".
+    function loadRecipientInfo() {
+        if (!state.recipientId) return;
+
+        // Popola immediatamente con i dati già noti (senza attendere la fetch)
+        const initial = (state.recipientName || '?').charAt(0).toUpperCase();
+        document.getElementById('rvcAvatar').innerHTML = initial;
+        document.getElementById('rvcName').textContent   = state.recipientName;
+        document.getElementById('rvcNumber').textContent = state.recipientNumber;
+        document.getElementById('rvcType').textContent   = '';
+        document.getElementById('firstPaymentAlert').classList.remove('visible');
+
+        fetch(RECIPIENT_INFO_BASE + '/' + state.recipientId, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': CSRF,
+            }
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data) return;
+
+            // Avatar: logo URL o iniziale
+            const avatarEl = document.getElementById('rvcAvatar');
+            if (data.logo_url) {
+                avatarEl.innerHTML = `<img src="${escHtml(data.logo_url)}" alt="${escHtml(data.name)}">`;
+            } else {
+                avatarEl.textContent = (data.name || '?').charAt(0).toUpperCase();
+            }
+
+            document.getElementById('rvcName').textContent   = data.name;
+            document.getElementById('rvcNumber').textContent = data.number;
+
+            const typeLabel = data.type === 'private' ? '👤 Conto privato' : '🏢 Conto aziendale';
+            document.getElementById('rvcType').textContent   = typeLabel;
+
+            // Alert primo pagamento
+            if (data.is_first) {
+                document.getElementById('firstPaymentAlert').classList.add('visible');
+            } else {
+                document.getElementById('firstPaymentAlert').classList.remove('visible');
+            }
+        })
+        .catch(() => { /* silent — la card di base è già popolata */ });
     }
 
     window.handleConfirm = function () {

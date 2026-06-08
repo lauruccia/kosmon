@@ -56,7 +56,12 @@
                     <span class="eyebrow">Anagrafica</span>
                     <h3 class="section-title">Profilo conto</h3>
                 </div>
-                <span class="pill {{ $accountRecord->status === 'active' ? 'success' : 'warn' }}">{{ $accountRecord->status === 'active' ? 'Attivo' : 'Sospeso' }}</span>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <span class="pill {{ $accountRecord->status === 'active' ? 'success' : 'warn' }}">{{ $accountRecord->status === 'active' ? 'Attivo' : 'Sospeso' }}</span>
+                    @if($accountRecord->isTemporarilyLocked())
+                        <span class="pill danger" title="Bloccato automaticamente per attività anomala">🔒 Bloccato anti-frode fino {{ $accountRecord->locked_until->format('d/m H:i') }}</span>
+                    @endif
+                </div>
             </div>
 
             <div class="info-grid">
@@ -94,10 +99,21 @@
                 <div class="field"><label>Stato</label><select name="status"><option value="active" @selected($accountRecord->status === 'active')>Attivo</option><option value="suspended" @selected($accountRecord->status === 'suspended')>Sospeso</option></select></div>
                 <div class="field"><label>Saldo massimo conto (KY)</label><input name="max_balance" type="number" min="0" step="0.01" value="{{ old('max_balance', ky_input($accountRecord->max_balance)) }}" placeholder="Vuoto = nessun limite"><div class="table-muted">Tetto massimo positivo mostrato in dashboard come “Saldo massimo”. Quando il saldo raggiunge questo valore il conto entra in modalità commerciale limitata.</div></div>
                 <div class="field"><label>Limite singolo conto (KY)</label><input name="spending_limit" type="number" min="0.01" step="0.01" value="{{ old('spending_limit', ky_input($accountRecord->spending_limit)) }}"></div>
-                <div class="field"><label>Limite giornaliero conto (KY)</label><input name="daily_outgoing_limit" type="number" min="0.01" step="0.01" value="{{ old('daily_outgoing_limit', ky_input($accountRecord->daily_outgoing_limit)) }}"></div>
+                <div class="field"><label>Limite giornaliero conto (KY)</label><input name="daily_outgoing_limit" type="number" min="0.01" step="0.01" value="{{ old('daily_outgoing_limit', ky_input($accountRecord->daily_outgoing_limit)) }}"><div class="table-muted">Default 500 KY per i nuovi conti. Lasciare vuoto per rimuovere il limite.</div></div>
                 <div class="field"><label>Saldo negativo conto</label><select name="allow_negative_balance"><option value="0" @selected((string) old('allow_negative_balance', $accountRecord->allow_negative_balance ? '1' : '0') === '0')>Non consentito</option><option value="1" @selected((string) old('allow_negative_balance', $accountRecord->allow_negative_balance ? '1' : '0') === '1')>Consentito</option></select><div class="table-muted">Questo flag abilita il conto all'uso del massimale. Il valore del massimale si configura sotto sul proprietario.</div></div>
                 <div class="form-actions"><button type="submit" class="cta">Salva impostazioni</button></div>
             </form>
+
+            @if($accountRecord->isTemporarilyLocked())
+            <div style="margin-top:20px;padding:16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;">
+                <strong style="color:#dc2626;">🔒 Conto bloccato automaticamente</strong>
+                <p style="margin:6px 0 12px;font-size:13px;color:#6b7280;">Il conto è stato bloccato in automatico per attività anomala (troppi tentativi falliti). Il blocco scade alle <strong>{{ $accountRecord->locked_until->format('H:i') }} del {{ $accountRecord->locked_until->format('d/m/Y') }}</strong>.</p>
+                <form method="post" action="{{ route('admin.accounts.unlock', $accountRecord) }}">
+                    @csrf
+                    <button type="submit" class="cta" style="background:#dc2626;" onclick="return confirm('Sbloccare il conto? L\'utente potrà effettuare pagamenti immediatamente.')">Sblocca manualmente</button>
+                </form>
+            </div>
+            @endif
         </article>
     </section>
 

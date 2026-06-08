@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentSent;
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\SavedBeneficiary;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
@@ -73,6 +74,44 @@ class SendPaymentController extends PortalController
             'pinThreshold'       => $pinThreshold,
             'hasPin'             => $hasPin,
             'activeNav'          => 'conto',
+        ]);
+    }
+
+    // ── GET /invia/destinatario/{id} (AJAX) ──────────────────────────────────
+    // Restituisce dettagli destinatario + flag "primo pagamento"
+
+    public function recipientInfo(Request $request, int $accountId): JsonResponse
+    {
+        abort_unless($request->expectsJson() || $request->ajax(), 400);
+
+        [$currentAccount] = $this->resolveCurrentContext(
+            $request->user(),
+            $this->requestedCompanyId($request)
+        );
+
+        $recipient = Account::with(['company', 'ownerUser'])
+            ->where('status', 'active')
+            ->findOrFail($accountId);
+
+        $isFirst = ! Transfer::where('from_account_id', $currentAccount->id)
+            ->where('to_account_id', $recipient->id)
+            ->where('status', 'booked')
+            ->exists();
+
+        $logoUrl = null;
+        if ($recipient->owner_type === 'company') {
+            $logoUrl = $recipient->company?->logo_url ?? null;
+        } else {
+            $logoUrl = $recipient->ownerUser?->avatar_url ?? null;
+        }
+
+        return response()->json([
+            'id'       => $recipient->id,
+            'name'     => $recipient->display_name,
+            'number'   => $recipient->ky_account_number ?? $recipient->account_number,
+            'type'     => $recipient->owner_type ?? 'company',
+            'logo_url' => $logoUrl,
+            'is_first' => $isFirst,
         ]);
     }
 
@@ -153,9 +192,35 @@ class SendPaymentController extends PortalController
 
         if ($hasPin && $pinThreshold !== null && $amountCents >= (int) $pinThreshold) {
             if (empty($validated['pin_hash'])) {
+                AuditLog::create([
+                    'actor_user_id'  => $currentUser->id,
+                    'event'          => 'transfer.rejected',
+                    'auditable_type' => \App\Models\Transfer::class,
+                    'auditable_id'   => null,
+                    'ip_address'     => $request->ip(),
+                    'context'        => [
+                        'reason'          => 'pin_missing',
+                        'from_account_id' => $currentAccount->id,
+                        'to_account_id'   => (int) $validated['to_account_id'],
+                        'amount'          => $amountCents,
+                    ],
+                ]);
                 return back()->with('portal_error', 'Inserisci il PIN di pagamento per confermare questa transazione.');
             }
             if (!hash_equals($currentUser->payment_pin_hash, $validated['pin_hash'])) {
+                AuditLog::create([
+                    'actor_user_id'  => $currentUser->id,
+                    'event'          => 'transfer.rejected',
+                    'auditable_type' => \App\Models\Transfer::class,
+                    'auditable_id'   => null,
+                    'ip_address'     => $request->ip(),
+                    'context'        => [
+                        'reason'          => 'pin_wrong',
+                        'from_account_id' => $currentAccount->id,
+                        'to_account_id'   => (int) $validated['to_account_id'],
+                        'amount'          => $amountCents,
+                    ],
+                ]);
                 return back()->with('portal_error', 'PIN di pagamento errato. Riprova.');
             }
         }

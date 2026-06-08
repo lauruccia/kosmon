@@ -875,6 +875,24 @@ class AdminController extends Controller
         return back()->with('portal_success', 'Conto aggiornato correttamente.');
     }
 
+    public function unlockAccount(Request $request, Account $account): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'accounts.manage');
+
+        $account->forceFill(['locked_until' => null])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.account.unlocked',
+            'auditable_type' => Account::class,
+            'auditable_id'   => $account->id,
+            'ip_address'     => $request->ip(),
+            'context'        => ['reason' => 'admin_manual_unlock'],
+        ]);
+
+        return back()->with('portal_success', 'Conto sbloccato correttamente.');
+    }
+
     public function refundTransfer(Request $request, Transfer $transfer, TransferBookingService $bookingService): RedirectResponse
     {
         abort_unless($this->supportsTransferRefunds(), 409, 'Aggiorna il database per abilitare refund e storni amministrativi.');

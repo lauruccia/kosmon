@@ -26,6 +26,10 @@ class TransferBookingService
 
         $this->assertTransferPayload($amount, $fromAccountId, $toAccountId, $initiatedBy, $idempotencyKey);
 
+        // ── Controllo blocco temporaneo anti-frode ────────────────────────────
+        // (eseguito FUORI dalla transazione per non sprecare lock)
+        $this->assertNotAnomalousActivity($fromAccountId, $initiatedBy, $ipAddress, $attributes);
+
         try {
         return DB::transaction(function () use ($attributes, $amount, $fromAccountId, $toAccountId, $initiatedBy, $idempotencyKey, $ipAddress) {
             $existingTransfer = Transfer::query()
@@ -473,6 +477,72 @@ class TransferBookingService
 
             return $refundTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'reversedTransfer']);
         });
+    }
+
+    /**
+     * Verifica che non ci siano segnali di attività anomala:
+     *  1. Account bloccato temporaneamente (locked_until nel futuro)
+     *  2. Più di 3 tentativi falliti negli ultimi 5 minuti → blocco automatico 30 min
+     */
+    private function assertNotAnomalousActivity(
+        int $fromAccountId,
+        int $initiatedBy,
+        ?string $ipAddress,
+        array $attributes,
+    ): void {
+        // 1. Verifica blocco temporaneo
+        $account = \App\Models\Account::find($fromAccountId);
+        if ($account && $account->isTemporarilyLocked()) {
+            $until = $account->locked_until->format('H:i');
+            AuditLog::create([
+                'actor_user_id'  => $initiatedBy ?: null,
+                'event'          => 'transfer.blocked',
+                'auditable_type' => \App\Models\Account::class,
+                'auditable_id'   => $fromAccountId,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'reason'         => 'account_locked',
+                    'locked_until'   => $account->locked_until->toIso8601String(),
+                    'from_account_id'=> $fromAccountId,
+                    'amount'         => $attributes['amount'] ?? null,
+                ],
+            ]);
+            throw new RuntimeException(
+                "Il conto è temporaneamente bloccato per sicurezza fino alle {$until}. Contatta l'assistenza se ritieni sia un errore."
+            );
+        }
+
+        // 2. Conta i tentativi falliti recenti
+        $recentFailures = AuditLog::where('actor_user_id', $initiatedBy)
+            ->where('event', 'transfer.rejected')
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->count();
+
+        if ($recentFailures >= 3) {
+            // Blocca il conto per 30 minuti
+            if ($account) {
+                $account->lockTemporarily(30);
+            }
+
+            AuditLog::create([
+                'actor_user_id'  => $initiatedBy ?: null,
+                'event'          => 'account.auto_locked',
+                'auditable_type' => \App\Models\Account::class,
+                'auditable_id'   => $fromAccountId,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'reason'          => 'too_many_failures',
+                    'failures_count'  => $recentFailures,
+                    'window_minutes'  => 5,
+                    'locked_minutes'  => 30,
+                    'from_account_id' => $fromAccountId,
+                ],
+            ]);
+
+            throw new RuntimeException(
+                'Troppi tentativi falliti in poco tempo. Il conto è stato bloccato temporaneamente per 30 minuti. Contatta l\'assistenza se hai bisogno di sblocco immediato.'
+            );
+        }
     }
 
     public function recordRejectedAttempt(array $attributes, string $reason): void

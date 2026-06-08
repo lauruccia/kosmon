@@ -412,6 +412,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // ── Flusso invio mobile-first ─────────────────────────────────────────────
     Route::get('/invia', [SendPaymentController::class, 'show'])->name('portal.invia');
     Route::get('/invia/cerca', [SendPaymentController::class, 'search'])->name('portal.invia.cerca');
+    Route::get('/invia/destinatario/{accountId}', [SendPaymentController::class, 'recipientInfo'])->name('portal.invia.destinatario');
     Route::post('/invia/esegui', [SendPaymentController::class, 'execute'])->name('portal.invia.esegui')->middleware('throttle:payments');
     Route::get('/invia/ricevuta/{uuid}', [SendPaymentController::class, 'receipt'])->name('portal.invia.ricevuta');
     Route::post('/invia/pin/imposta', [SendPaymentController::class, 'setPin'])->name('portal.invia.pin.imposta');
@@ -621,6 +622,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/accounts', [AdminController::class, 'accounts'])->name('admin.accounts.index');
     Route::get('/admin/accounts/{account}', [AdminController::class, 'showAccount'])->name('admin.accounts.show');
     Route::post('/admin/accounts/{account}', [AdminController::class, 'updateAccount'])->name('admin.accounts.update');
+    Route::post('/admin/accounts/{account}/sblocca', [AdminController::class, 'unlockAccount'])->name('admin.accounts.unlock');
     Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement');
 
     // Emissione KY sovrana (solo super admin)

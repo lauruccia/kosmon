@@ -34,11 +34,13 @@ class Account extends Model
         'spending_limit',
         'daily_outgoing_limit',
         'monthly_outgoing_limit',
+        'locked_until',
     ];
 
     protected $casts = [
         'allow_negative_balance' => 'boolean',
         'is_system_account'      => 'boolean',
+        'locked_until'           => 'datetime',
     ];
 
     protected static function booted(): void
@@ -47,7 +49,30 @@ class Account extends Model
             if (! static::hasKyAccountNumber($account->uuid)) {
                 $account->uuid = static::generateKyAccountNumber($account->owner_type ?? 'company');
             }
+
+            // Limite giornaliero di default 500 KY per i conti non-sistema
+            if (! $account->is_system_account && $account->daily_outgoing_limit === null) {
+                $account->daily_outgoing_limit = 50000;
+            }
         });
+    }
+
+    // ── Blocco temporaneo anti-frode ─────────────────────────────────────────
+
+    /**
+     * L'account è attualmente bloccato per attività anomala?
+     */
+    public function isTemporarilyLocked(): bool
+    {
+        return $this->locked_until !== null && $this->locked_until->isFuture();
+    }
+
+    /**
+     * Blocca l'account per $minutes minuti.
+     */
+    public function lockTemporarily(int $minutes = 30): void
+    {
+        $this->forceFill(['locked_until' => now()->addMinutes($minutes)])->save();
     }
 
     public static function hasKyAccountNumber(?string $value): bool
