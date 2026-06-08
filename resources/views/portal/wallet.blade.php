@@ -163,7 +163,7 @@
         </div>
         <div>
           <div class="wallet-method-title">NFC tap-to-pay</div>
-          <div class="wallet-method-sub">Avvicina i telefoni</div>
+          <div class="wallet-method-sub">Usa la Card NFC fisica</div>
         </div>
         <div class="wallet-method-arrow">&#8250;</div>
       </a>
@@ -182,20 +182,6 @@
         <div class="wallet-method-arrow">&#8250;</div>
       </a>
 
-      <a href="{{ route('portal.paga-sonic.form') }}" class="wallet-method-btn">
-        <div class="wallet-method-icon" style="background:#8b5cf6;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18V5l12-2v13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="6" cy="18" r="3" stroke="white" stroke-width="2"/>
-            <circle cx="18" cy="16" r="3" stroke="white" stroke-width="2"/>
-          </svg>
-        </div>
-        <div>
-          <div class="wallet-method-title">Paga Sonic</div>
-          <div class="wallet-method-sub">Pagamento via ultrasuoni</div>
-        </div>
-        <div class="wallet-method-arrow">&#8250;</div>
-      </a>
 
     </div>
   </section>
@@ -219,12 +205,7 @@
         <a href="{{ route('portal.incasso-nfc.form') }}" class="wallet-receive-btn">
           <div style="font-size:28px;margin-bottom:6px;">&#128246;</div>
           <div style="font-weight:700;font-size:13px;">NFC</div>
-          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Tap fisico</div>
-        </a>
-        <a href="{{ route('portal.incasso-sonic.form') }}" class="wallet-receive-btn">
-          <div style="font-size:28px;margin-bottom:6px;">&#127908;</div>
-          <div style="font-weight:700;font-size:13px;">Sonic</div>
-          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Ultrasuoni</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Card fisica</div>
         </a>
       </div>
     </section>
