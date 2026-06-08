@@ -16,6 +16,7 @@ class NfcCard extends Model
         'limit_per_transaction', 'limit_daily', 'limit_monthly',
         'daily_spent', 'monthly_spent', 'daily_reset_date', 'monthly_reset_month',
         'nfc_payload', 'notes',
+        'tracking_code', 'shipping_carrier', 'shipped_at',
         'issued_at', 'delivered_at', 'activated_at', 'blocked_at', 'revoked_at', 'last_used_at',
     ];
 
@@ -27,6 +28,7 @@ class NfcCard extends Model
         'blocked_at'       => 'datetime',
         'revoked_at'       => 'datetime',
         'last_used_at'     => 'datetime',
+        'shipped_at'       => 'datetime',
         'daily_reset_date' => 'date',
     ];
 

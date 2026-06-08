@@ -47,6 +47,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_change_token',
         'email_change_expires_at',
         'email_change_cancel_token',
+        'tutorial_shown_at',
     ];
 
     protected $hidden = [
@@ -67,6 +68,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'contract_signed_at'      => 'datetime',
             'contract_otp_expires_at'  => 'datetime',
             'contract_postponed_at'   => 'datetime',
+            'tutorial_shown_at'       => 'datetime',
 
             'two_factor_recovery_codes' => 'array',
         ];

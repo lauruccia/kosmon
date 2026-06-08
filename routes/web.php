@@ -408,11 +408,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/compensazione/{nettingProposal}/rifiuta', [NettingController::class, 'reject'])->name('portal.netting.reject');
 
 
+    Route::get('/pagamenti', [PortalController::class, 'paymentsHub'])->name('portal.pagamenti-hub');
     Route::get('/paga', [PortalController::class, 'payForm'])->name('portal.pay.form');
     Route::post('/paga', [PortalController::class, 'paySubmit'])->name('portal.pay.submit')->middleware('throttle:payments');
     Route::get('/paga/conferma', [PortalController::class, 'payConfirmShow'])->name('portal.pay.confirm');
     Route::post('/paga/conferma', [PortalController::class, 'payExecute'])->name('portal.pay.execute')->middleware('throttle:payments');
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
+    Route::post('/tutorial/dismiss', [PortalController::class, 'dismissTutorial'])->name('portal.tutorial.dismiss');
 
     Route::get('/incassa', [PortalController::class, 'receiveForm'])->name('portal.receive.form');
     Route::post('/incassa', [PortalController::class, 'receiveSubmit'])->name('portal.receive.submit')->middleware('throttle:payments');
@@ -563,8 +565,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index');
     Route::get('/admin/nfc-cards/create', [AdminNfcCardController::class, 'create'])->name('admin.nfc-cards.create');
     Route::post('/admin/nfc-cards', [AdminNfcCardController::class, 'store'])->name('admin.nfc-cards.store');
+    Route::get('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkCreate'])->name('admin.nfc-cards.bulk-create');
+    Route::post('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkStore'])->name('admin.nfc-cards.bulk-store');
     Route::get('/admin/nfc-cards/{nfcCard}', [AdminNfcCardController::class, 'show'])->name('admin.nfc-cards.show');
     Route::post('/admin/nfc-cards/{nfcCard}/mark-issued', [AdminNfcCardController::class, 'markIssued'])->name('admin.nfc-cards.mark-issued');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-shipped', [AdminNfcCardController::class, 'markShipped'])->name('admin.nfc-cards.mark-shipped');
     Route::post('/admin/nfc-cards/{nfcCard}/mark-delivered', [AdminNfcCardController::class, 'markDelivered'])->name('admin.nfc-cards.mark-delivered');
     Route::post('/admin/nfc-cards/{nfcCard}/revoke', [AdminNfcCardController::class, 'revoke'])->name('admin.nfc-cards.revoke');
 

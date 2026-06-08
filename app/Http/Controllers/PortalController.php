@@ -587,6 +587,41 @@ class PortalController extends Controller
         ];
     }
 
+    public function paymentsHub(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->redirectBackofficeUser($request->user())) {
+            return $redirect;
+        }
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
+
+        // Ultimi 8 destinatari unici (escluso conto sistema e sé stessi)
+        $recentRecipients = Transfer::where('from_account_id', $currentAccount->id)
+            ->where('status', 'booked')
+            ->with('toAccount')
+            ->orderByDesc('booked_at')
+            ->get()
+            ->pluck('toAccount')
+            ->filter(fn($a) => $a && !$a->is_system_account && $a->id !== $currentAccount->id)
+            ->unique('id')
+            ->take(8)
+            ->values();
+
+        $pendingCount = Transfer::where('to_account_id', $currentAccount->id)
+            ->where('status', 'pending')
+            ->count();
+
+        return view('portal.pagamenti-hub', [
+            'pageTitle'        => 'Invia & Ricevi',
+            'currentAccount'   => $currentAccount,
+            'currentUser'      => $currentUser,
+            'currentBalance'   => $currentAccount->available_balance,
+            'recentRecipients' => $recentRecipients,
+            'pendingCount'     => $pendingCount,
+            'activeNav'        => 'pagamenti',
+        ]);
+    }
+
     public function payForm(Request $request): View|RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {
@@ -596,12 +631,29 @@ class PortalController extends Controller
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
         abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
 
+        // Destinatari pre-selezionato via query string (dalla hub)
+        $preselectedToId = (int) $request->query('to', 0);
+
+        // Ultimi 6 destinatari per i chip rapidi
+        $recentRecipients = Transfer::where('from_account_id', $currentAccount->id)
+            ->where('status', 'booked')
+            ->with('toAccount')
+            ->orderByDesc('booked_at')
+            ->get()
+            ->pluck('toAccount')
+            ->filter(fn($a) => $a && !$a->is_system_account && $a->id !== $currentAccount->id)
+            ->unique('id')
+            ->take(6)
+            ->values();
+
         return view('portal.pay', [
-            'pageTitle' => 'Effettua un pagamento',
-            'currentAccount' => $currentAccount,
-            'currentUser' => $currentUser,
+            'pageTitle'        => 'Effettua un pagamento',
+            'currentAccount'   => $currentAccount,
+            'currentUser'      => $currentUser,
             'counterpartyAccounts' => $this->counterpartyAccounts($currentAccount),
-            'activeNav' => 'conto',
+            'recentRecipients' => $recentRecipients,
+            'preselectedToId'  => $preselectedToId,
+            'activeNav'        => 'conto',
         ]);
     }
 
@@ -1357,6 +1409,13 @@ class PortalController extends Controller
     private function canReceivePayments(User $viewer, Account $currentAccount): bool
     {
         return $currentAccount->status === 'active' && $viewer->canReceiveIntoAccount($currentAccount);
+    }
+
+    /** Segna il tutorial come visualizzato per l'utente corrente. */
+    public function dismissTutorial(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->user()->forceFill(['tutorial_shown_at' => now()])->save();
+        return response()->json(['ok' => true]);
     }
 
     private function counterpartyAccounts(Account $currentAccount): Collection

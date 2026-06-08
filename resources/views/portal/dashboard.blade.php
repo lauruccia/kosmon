@@ -2,6 +2,174 @@
 
 @section('content')
 
+{{-- ── Tutorial wizard prima transazione ───────────────────────────────────── --}}
+@php
+    $showTutorial = auth()->check()
+        && is_null(auth()->user()->tutorial_shown_at)
+        && auth()->user()->contract_signed_at;
+@endphp
+@if($showTutorial)
+<div id="tutorial-overlay" style="
+    position:fixed;inset:0;z-index:10000;
+    background:rgba(0,0,0,.65);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;padding:16px;">
+<div id="tutorial-modal" style="
+    background:#fff;border-radius:20px;max-width:520px;width:100%;
+    box-shadow:0 24px 80px rgba(0,0,0,.3);overflow:hidden;">
+
+    {{-- Progress bar --}}
+    <div style="height:4px;background:#e5e7eb;">
+        <div id="tut-progress" style="height:100%;background:linear-gradient(90deg,#0f52c4,#6366f1);width:25%;transition:width .4s ease;border-radius:99px;"></div>
+    </div>
+
+    {{-- Steps --}}
+    <div id="tut-steps">
+
+        {{-- Step 1: Benvenuto --}}
+        <div class="tut-step" data-step="1" style="padding:32px 32px 24px;">
+            <div style="font-size:52px;text-align:center;margin-bottom:16px;">🎉</div>
+            <h2 style="font-size:22px;font-weight:900;text-align:center;margin:0 0 10px;color:#0f172a;">Benvenuto nel circuito KMoney!</h2>
+            <p style="font-size:14px;color:#4b5563;text-align:center;line-height:1.7;margin:0 0 24px;">
+                Il tuo conto è attivo e pronto all'uso. In meno di un minuto ti mostro come fare il tuo primo pagamento.
+            </p>
+            <div style="background:#f0f6ff;border-radius:12px;padding:16px 18px;margin-bottom:24px;">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1d4ed8;margin-bottom:10px;">Cosa puoi fare con KMoney</div>
+                <div style="display:grid;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#0f172a;">
+                        <span style="width:28px;height:28px;border-radius:7px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➡️</span>
+                        Pagare fornitori e partner del circuito
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#0f172a;">
+                        <span style="width:28px;height:28px;border-radius:7px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">📥</span>
+                        Incassare da clienti tramite QR, NFC, link
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#0f172a;">
+                        <span style="width:28px;height:28px;border-radius:7px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🔄</span>
+                        Rateizzare, programmare e compensare pagamenti
+                    </div>
+                </div>
+            </div>
+            <button onclick="tutNext()" class="cta" style="width:100%;justify-content:center;font-size:15px;padding:13px;">Inizia il tour →</button>
+        </div>
+
+        {{-- Step 2: Come inviare --}}
+        <div class="tut-step" data-step="2" style="padding:32px 32px 24px;display:none;">
+            <div style="font-size:48px;text-align:center;margin-bottom:14px;">➡️</div>
+            <h2 style="font-size:20px;font-weight:900;text-align:center;margin:0 0 8px;color:#0f172a;">Inviare KMoney è semplice</h2>
+            <p style="font-size:14px;color:#4b5563;text-align:center;margin:0 0 20px;line-height:1.6;">Hai più modi per pagare — scegli quello più adatto alla situazione.</p>
+            <div style="display:grid;gap:10px;margin-bottom:24px;">
+                <div style="border:1.5px solid #e5e7eb;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:24px;flex-shrink:0;">📱</span>
+                    <div>
+                        <div style="font-weight:700;font-size:13.5px;margin-bottom:2px;">Pagamento diretto</div>
+                        <div style="font-size:12px;color:#6b7280;">Cerca l'azienda nella rubrica e inserisci l'importo. Conferma in 2 click.</div>
+                    </div>
+                </div>
+                <div style="border:1.5px solid #e5e7eb;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:24px;flex-shrink:0;">📷</span>
+                    <div>
+                        <div style="font-weight:700;font-size:13.5px;margin-bottom:2px;">Scansiona QR</div>
+                        <div style="font-size:12px;color:#6b7280;">Il merchant mostra un QR — tu scansioni e paghi in un tap.</div>
+                    </div>
+                </div>
+                <div style="border:1.5px solid #e5e7eb;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:24px;flex-shrink:0;">📡</span>
+                    <div>
+                        <div style="font-weight:700;font-size:13.5px;margin-bottom:2px;">Tap NFC</div>
+                        <div style="font-size:12px;color:#6b7280;">Avvicina la tua carta NFC al POS. Nessun PIN sotto la soglia.</div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="tutBack()" class="cta secondary" style="flex:1;justify-content:center;">← Indietro</button>
+                <button onclick="tutNext()" class="cta" style="flex:2;justify-content:center;">Come incasso? →</button>
+            </div>
+        </div>
+
+        {{-- Step 3: Come incassare --}}
+        <div class="tut-step" data-step="3" style="padding:32px 32px 24px;display:none;">
+            <div style="font-size:48px;text-align:center;margin-bottom:14px;">📥</div>
+            <h2 style="font-size:20px;font-weight:900;text-align:center;margin:0 0 8px;color:#0f172a;">Ricevere KMoney</h2>
+            <p style="font-size:14px;color:#4b5563;text-align:center;margin:0 0 20px;line-height:1.6;">Condividi il tuo QR personale o genera un link da mandare via WhatsApp.</p>
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:16px 18px;margin-bottom:16px;">
+                <div style="font-weight:700;font-size:13px;color:#15803d;margin-bottom:8px;">💡 Trucco rapido</div>
+                <div style="font-size:13px;color:#166534;line-height:1.6;">
+                    Nel tuo <strong>Wallet</strong> trovi il tuo QR personale statico: stampalo, appendilo alla cassa e i clienti potranno pagarti senza che tu faccia nulla.
+                </div>
+            </div>
+            <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">
+                <strong>Nessun importo fisso?</strong> Usa il link permanente (valido fino a 90 giorni) e il pagante sceglie l'importo.
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="tutBack()" class="cta secondary" style="flex:1;justify-content:center;">← Indietro</button>
+                <button onclick="tutNext()" class="cta" style="flex:2;justify-content:center;">Quasi finito →</button>
+            </div>
+        </div>
+
+        {{-- Step 4: Inizia --}}
+        <div class="tut-step" data-step="4" style="padding:32px 32px 28px;display:none;">
+            <div style="font-size:52px;text-align:center;margin-bottom:16px;">🚀</div>
+            <h2 style="font-size:22px;font-weight:900;text-align:center;margin:0 0 10px;color:#0f172a;">Sei pronto!</h2>
+            <p style="font-size:14px;color:#4b5563;text-align:center;line-height:1.7;margin:0 0 24px;">
+                Dove vuoi iniziare?
+            </p>
+            <div style="display:grid;gap:10px;margin-bottom:24px;">
+                <a href="{{ route('portal.pagamenti-hub') }}" onclick="tutDismiss()"
+                   class="cta" style="justify-content:center;font-size:14px;padding:13px;text-align:center;">
+                    💸 Vai all'hub Pagamenti
+                </a>
+                <a href="{{ route('portal.wallet') }}" onclick="tutDismiss()"
+                   class="cta secondary" style="justify-content:center;font-size:14px;padding:13px;text-align:center;">
+                    👛 Vai al mio Wallet
+                </a>
+            </div>
+            <button onclick="tutDismiss()" style="width:100%;background:none;border:none;color:#9ca3af;font-size:12.5px;cursor:pointer;padding:4px;">
+                Ho capito, vado al dashboard
+            </button>
+        </div>
+
+    </div>{{-- /tut-steps --}}
+</div>{{-- /tutorial-modal --}}
+</div>{{-- /tutorial-overlay --}}
+
+@push('scripts')
+<script>
+(function() {
+    var total = 4;
+    var current = 1;
+
+    function showStep(n) {
+        document.querySelectorAll('.tut-step').forEach(function(el) {
+            el.style.display = el.dataset.step == n ? 'block' : 'none';
+        });
+        document.getElementById('tut-progress').style.width = (n / total * 100) + '%';
+        current = n;
+    }
+
+    window.tutNext = function() { if (current < total) showStep(current + 1); };
+    window.tutBack = function() { if (current > 1)  showStep(current - 1); };
+    window.tutDismiss = function() {
+        fetch('{{ route('portal.tutorial.dismiss') }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+        });
+        var overlay = document.getElementById('tutorial-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity .3s';
+            setTimeout(function() { overlay.remove(); }, 300);
+        }
+    };
+
+    // Chiudi cliccando fuori dalla modal
+    document.getElementById('tutorial-overlay').addEventListener('click', function(e) {
+        if (e.target === this) tutDismiss();
+    });
+})();
+</script>
+@endpush
+@endif
+
 {{-- Banner contratto da firmare (utenti esistenti che possono posticipare) --}}
 @if(auth()->user() && !auth()->user()->contract_signed_at && session('success') !== 'Contratto firmato con successo. Benvenuto nel circuito KMoney!')
 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -749,6 +917,92 @@ function loadBalanceChart(days) {
 }
 
 document.addEventListener('DOMContentLoaded', function() { loadBalanceChart(7); });
+</script>
+
+{{-- ── Real-time balance via Reverb ───────────────────────────── --}}
+@push('scripts')
+<script>
+(function() {
+    var userId = {{ auth()->id() }};
+
+    // Toast di notifica in tempo reale
+    function showPaymentToast(data) {
+        var toast = document.createElement('div');
+        toast.style.cssText = [
+            'position:fixed;bottom:24px;right:24px;z-index:9999',
+            'background:#0f172a;color:#fff;border-radius:14px',
+            'padding:14px 18px;display:flex;align-items:center;gap:12px',
+            'box-shadow:0 8px 32px rgba(0,0,0,.35)',
+            'font-size:14px;max-width:340px',
+            'transform:translateY(20px);opacity:0',
+            'transition:transform .3s ease,opacity .3s ease',
+        ].join(';');
+        toast.innerHTML =
+            '<span style="font-size:24px;flex-shrink:0;">💸</span>' +
+            '<div>' +
+                '<div style="font-weight:800;margin-bottom:3px;">Pagamento ricevuto!</div>' +
+                '<div style="opacity:.8;font-size:13px;">+' + (data.amount_formatted || '?') + ' KY da <strong>' + (data.from_name || '?') + '</strong></div>' +
+            '</div>' +
+            '<button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0;">✕</button>';
+        document.body.appendChild(toast);
+        // Animazione in
+        requestAnimationFrame(function() {
+            toast.style.transform = 'translateY(0)';
+            toast.style.opacity   = '1';
+        });
+        // Auto-remove dopo 7s
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(20px)';
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 7000);
+    }
+
+    // Aggiorna il saldo visualizzato nella hero card
+    function updateBalanceDisplay(newBalanceCents) {
+        // Formatta in italiano con 2 decimali
+        var formatted = (newBalanceCents / 100).toLocaleString('it-IT', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+        // Aggiorna .bkpi__value che contiene il saldo effettivo (il primo nella griglia)
+        var balanceValues = document.querySelectorAll('.bkpi__value');
+        if (balanceValues.length > 0) {
+            var el = balanceValues[0];
+            // Preserva il tag currency
+            var currency = el.querySelector('.bkpi__currency');
+            var prefix   = newBalanceCents >= 0 ? '+' : '';
+            el.innerHTML = prefix + formatted + (currency ? currency.outerHTML : '<span class="bkpi__currency">KY</span>');
+            // Flash visivo verde
+            el.closest('.bkpi').style.background = 'rgba(22,163,74,.25)';
+            setTimeout(function() { el.closest('.bkpi').style.background = ''; }, 1500);
+        }
+    }
+
+    // Collega Echo quando disponibile
+    function connectEcho() {
+        if (!window.Echo) return;
+        window.Echo.private('App.Models.User.' + userId)
+            .notification(function(notification) {
+                if (notification.type === 'payment_received' ||
+                    (notification.type && notification.type.includes('PaymentReceived'))) {
+                    showPaymentToast(notification);
+                    if (notification.new_balance !== undefined) {
+                        updateBalanceDisplay(notification.new_balance);
+                    }
+                }
+            });
+    }
+
+    // Echo potrebbe non essere ancora pronto al DOMContentLoaded
+    if (window.Echo) {
+        connectEcho();
+    } else {
+        window.addEventListener('echo-ready', connectEcho);
+        // Fallback: riprova dopo 3s
+        setTimeout(function() { if (window.Echo && !window._kymEchoConnected) connectEcho(); }, 3000);
+    }
+})();
 </script>
 @endpush
 

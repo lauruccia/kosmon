@@ -76,6 +76,47 @@
       <div id="wallet-status" style="font-size:12px;margin-top:8px;color:var(--ink-muted);display:none;"></div>
     </section>
 
+    {{-- ── QR Personale Statico ────────────────────────────── --}}
+    @php
+      $kyNumber = $account->ky_account_number ?? $account->account_number ?? '';
+      $qrPayUrl = $kyNumber ? route('portal.pay.qr', $kyNumber) : '';
+      $whatsappText = urlencode('Pagami in KMoney: ' . $qrPayUrl);
+    @endphp
+    @if($kyNumber)
+    <section class="card card-pad" style="padding:20px;text-align:center;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-muted);margin-bottom:14px;">Il mio codice QR</div>
+
+      {{-- QR generato lato client via API --}}
+      <div id="personal-qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:14px;border:2px solid var(--line);margin-bottom:12px;">
+        <img id="personal-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data={{ urlencode($qrPayUrl) }}"
+             alt="QR personale KMoney" width="160" height="160" style="display:block;border-radius:8px;">
+      </div>
+
+      <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;">{{ $account->display_name }}</div>
+      <div style="font-size:11.5px;color:var(--ink-muted);font-family:monospace;margin-bottom:14px;">{{ $kyNumber }}</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;line-height:1.5;">
+        Mostra questo QR a chiunque voglia inviarti KMoney.<br>Nessun importo prefissato — scansionano e decidono.
+      </div>
+
+      <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
+        <a href="https://wa.me/?text={{ $whatsappText }}" target="_blank" rel="noopener"
+           class="cta" style="background:#25d366;border-color:#25d366;font-size:12px;padding:8px 16px;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 2.05C6.495 2.05 2 6.545 2 12.1c0 1.748.457 3.393 1.254 4.827L2 22l5.234-1.237A9.987 9.987 0 0 0 12.05 22c5.555 0 10.05-4.495 10.05-10.05S17.605 2.05 12.05 2.05zm0 18.396a8.35 8.35 0 0 1-4.264-1.167l-.305-.18-3.106.734.776-3.007-.199-.317a8.356 8.356 0 0 1-1.298-4.46c0-4.614 3.752-8.366 8.366-8.366 4.614 0 8.366 3.752 8.366 8.366 0 4.614-3.752 8.397-8.366 8.397z"/></svg>
+          WhatsApp
+        </a>
+        <button type="button" onclick="copyKyLink()" class="cta secondary" style="font-size:12px;padding:8px 16px;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copia link
+        </button>
+        <a href="{{ $qrPayUrl }}" download="qr-kmoney-{{ $kyNumber }}.png" class="cta secondary"
+           style="font-size:12px;padding:8px 16px;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Scarica QR
+        </a>
+      </div>
+    </section>
+    @endif
+
   </div>
 
   {{-- ══ COLONNA 2 — Pagare ════════════════════════════════════ --}}
@@ -421,6 +462,26 @@
   btn.addEventListener('click', tryInstall);
   initBtn();
 })();
+</script>
+
+<script>
+function copyKyLink() {
+    var url = '{{ $qrPayUrl ?? '' }}';
+    if (!url) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function() {
+            var btn = document.querySelector('[onclick="copyKyLink()"]');
+            if (btn) { var orig = btn.innerHTML; btn.textContent = '✓ Copiato!'; setTimeout(function() { btn.innerHTML = orig; }, 2000); }
+        });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+}
 </script>
 
 @endsection

@@ -88,6 +88,47 @@
         </section>
         @endif
 
+        {{-- Tracking spedizione --}}
+        @if(in_array($card->status, ['issued', 'pending', 'delivered']) && !in_array($card->status, ['revoked', 'active']))
+        <section class="card card-pad">
+            <div style="font-size:13px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">📦 Spedizione</div>
+
+            @if($card->shipped_at)
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#166534;">
+                <div style="font-weight:700;margin-bottom:4px;">✅ Spedita il {{ $card->shipped_at->format('d/m/Y H:i') }}</div>
+                @if($card->tracking_code)
+                <div>Tracking: <strong style="font-family:monospace;">{{ $card->tracking_code }}</strong>
+                    @if($card->shipping_carrier) · {{ $card->shipping_carrier }} @endif
+                </div>
+                @endif
+            </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.nfc-cards.mark-shipped', $card) }}">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                    <div class="field" style="margin:0;">
+                        <label style="font-size:12px;font-weight:700;margin-bottom:4px;display:block;">Codice tracking <span style="color:#dc2626;">*</span></label>
+                        <input type="text" name="tracking_code" placeholder="Es. BRT123456789IT"
+                            value="{{ $card->tracking_code }}" required style="font-size:13px;">
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label style="font-size:12px;font-weight:700;margin-bottom:4px;display:block;">Corriere</label>
+                        <select name="shipping_carrier" style="font-size:13px;">
+                            <option value="">— Seleziona —</option>
+                            @foreach(['BRT','GLS','SDA','Poste Italiane','DHL','Nexive','Bartolini','TNT','FedEx'] as $carrier)
+                            <option value="{{ $carrier }}" @selected($card->shipping_carrier === $carrier)>{{ $carrier }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="cta secondary" style="width:100%;font-size:13px;">
+                    📦 {{ $card->shipped_at ? 'Aggiorna tracking' : 'Segna come spedita' }}
+                </button>
+            </form>
+        </section>
+        @endif
+
         {{-- Info card --}}
         <section class="card card-pad">
             <div style="font-size:13px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">Dettagli card</div>
@@ -96,9 +137,18 @@
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Seriale</dt><dd>{{ $card->serial_number ?? '—' }}</dd></div>
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Emessa da</dt><dd>{{ $card->issuer->name ?? '—' }}</dd></div>
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Creata il</dt><dd>{{ $card->created_at->format('d/m/Y H:i') }}</dd></div>
+                <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Spedita il</dt><dd>{{ $card->shipped_at?->format('d/m/Y') ?? '—' }}</dd></div>
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Consegnata</dt><dd>{{ $card->delivered_at?->format('d/m/Y') ?? '—' }}</dd></div>
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Attivata</dt><dd>{{ $card->activated_at?->format('d/m/Y') ?? '—' }}</dd></div>
                 <div><dt style="color:var(--ink-muted);margin-bottom:2px;">Ultimo uso</dt><dd>{{ $card->last_used_at?->diffForHumans() ?? 'Mai' }}</dd></div>
+                @if($card->tracking_code)
+                <div style="grid-column:1/-1;">
+                    <dt style="color:var(--ink-muted);margin-bottom:2px;">Tracking</dt>
+                    <dd><strong style="font-family:monospace;">{{ $card->tracking_code }}</strong>
+                        @if($card->shipping_carrier) · {{ $card->shipping_carrier }} @endif
+                    </dd>
+                </div>
+                @endif
                 @if($card->notes)
                 <div style="grid-column:1/-1;"><dt style="color:var(--ink-muted);margin-bottom:2px;">Note</dt><dd>{{ $card->notes }}</dd></div>
                 @endif

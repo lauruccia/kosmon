@@ -8,10 +8,34 @@
             <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin:0;">Card NFC Fisiche</h1>
             <p style="font-size:13px;color:var(--ink-muted);margin:4px 0 0;">Emissione, consegna e revoca card per i clienti.</p>
         </div>
-        <a href="{{ route('admin.nfc-cards.create') }}" class="cta" style="font-size:13px;padding:9px 18px;">
-            &#43; Emetti nuova card
-        </a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="{{ route('admin.nfc-cards.create') }}" class="cta secondary" style="font-size:13px;padding:9px 18px;">
+                &#43; Card singola
+            </a>
+            <a href="{{ route('admin.nfc-cards.bulk-create') }}" class="cta" style="font-size:13px;padding:9px 18px;">
+                &#43; Emissione bulk
+            </a>
+        </div>
     </div>
+
+    {{-- Stats rapide --}}
+    @if(isset($stats))
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;">
+        @foreach([
+            ['label'=>'Totali',    'value'=>$stats['total'],     'color'=>'#6b7280'],
+            ['label'=>'Pending',   'value'=>$stats['pending'],   'color'=>'#d97706'],
+            ['label'=>'Emesse',    'value'=>$stats['issued'],    'color'=>'#2563eb'],
+            ['label'=>'Spedite',   'value'=>$stats['shipped'],   'color'=>'#7c3aed'],
+            ['label'=>'Consegnate','value'=>$stats['delivered'], 'color'=>'#0891b2'],
+            ['label'=>'Attive',    'value'=>$stats['active'],    'color'=>'#16a34a'],
+        ] as $s)
+        <div style="background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;">
+            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:{{ $s['color'] }};margin-bottom:4px;">{{ $s['label'] }}</div>
+            <div style="font-size:22px;font-weight:900;color:{{ $s['color'] }};">{{ $s['value'] }}</div>
+        </div>
+        @endforeach
+    </div>
+    @endif
 
     {{-- Filtri --}}
     <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;">
