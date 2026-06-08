@@ -938,17 +938,6 @@
         .data-table thead th { padding: 6px 10px !important; }
 
         /* ── RESPONSIVE ─────────────────────────────────────────────── */
-        @media (max-width: 1280px) {
-            /* La sidebar rimane a sinistra — solo più stretta */
-            .app-shell { grid-template-columns: 230px minmax(0, 1fr); }
-            .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 1060px) {
-            /* Sidebar ancora più compatta su schermi medio-piccoli */
-            .app-shell { grid-template-columns: 200px minmax(0, 1fr); }
-            .brand-copy strong { font-size: 16px; }
-            .sidebar-link { font-size: 13px; }
-        }
         @media (max-width: 980px) {
             .portal-grid, .summary-grid, .delegate-grid, .admin-grid, .grid-cards,
             .spotlight-grid, .catalog-grid, .stats-grid, .hero-strip, .entity-grid,
@@ -1004,7 +993,8 @@
             transition: opacity .28s;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1280px) {
+            /* Hamburger overlay — sidebar non entra mai nel flusso del documento */
             .app-shell { display: block; }
             .sidebar {
                 position: fixed !important;
@@ -1105,7 +1095,7 @@
         .mobile-tab--qr:active .mobile-tab-qr-inner { transform: scale(.94); }
 
         /* ── MOBILE APP EXPERIENCE ──────────────────────────────────── */
-        @media (max-width: 768px) {
+        @media (max-width: 1280px) {
             /* Global touch polish */
             a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
             * { -webkit-font-smoothing: antialiased; }
