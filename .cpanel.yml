@@ -1,31 +1,8 @@
 ---
 deployment:
   tasks:
-    - export COMPOSER_HOME="${HOME}/.composer"
-    - export DEPLOY_LOG="/home2/kosmopay/kosmon/storage/logs/cpanel-deploy.log"
-    - mkdir -p /home2/kosmopay/kosmon/storage/logs /home2/kosmopay/kosmon/bootstrap/cache
-    - echo "=== cPanel deploy started $(date) ===" > ${DEPLOY_LOG}
-
-    # Rileva automaticamente il path di PHP
-    - export PHP_BIN=$(which php 2>/dev/null || which php8.3 2>/dev/null || which php8.2 2>/dev/null || which php8.1 2>/dev/null || echo "php")
-    - echo "PHP path: ${PHP_BIN} ($(${PHP_BIN} -r 'echo PHP_VERSION;' 2>/dev/null))" >> ${DEPLOY_LOG}
-
-    # Rileva automaticamente il path di Composer
-    - export COMPOSER_BIN=$(which composer 2>/dev/null || ls /usr/local/cpanel/3rdparty/bin/composer 2>/dev/null && echo "/usr/local/cpanel/3rdparty/bin/composer" || (test -f ${HOME}/composer.phar && echo "${PHP_BIN} ${HOME}/composer.phar") || echo "composer")
-    - echo "Composer path: ${COMPOSER_BIN}" >> ${DEPLOY_LOG}
-
-    # Composer install
-    - cd /home2/kosmopay/kosmon && ${COMPOSER_BIN} install --no-dev --optimize-autoloader --no-interaction >> ${DEPLOY_LOG} 2>&1
-
-    # Laravel commands
-    - cd /home2/kosmopay/kosmon && ${PHP_BIN} artisan migrate --force >> ${DEPLOY_LOG} 2>&1
-    - cd /home2/kosmopay/kosmon && ${PHP_BIN} artisan config:cache >> ${DEPLOY_LOG} 2>&1
-    - cd /home2/kosmopay/kosmon && ${PHP_BIN} artisan route:cache >> ${DEPLOY_LOG} 2>&1
-    - cd /home2/kosmopay/kosmon && ${PHP_BIN} artisan view:cache >> ${DEPLOY_LOG} 2>&1
-    - cd /home2/kosmopay/kosmon && ${PHP_BIN} artisan storage:link >> ${DEPLOY_LOG} 2>&1
-
-    # Copia build assets in public_html
-    - rsync -a --delete /home2/kosmopay/kosmon/public/build/ /home2/kosmopay/public_html/build/ >> ${DEPLOY_LOG} 2>&1
-    - ln -sfn /home2/kosmopay/kosmon/storage/app/public /home2/kosmopay/public_html/storage >> ${DEPLOY_LOG} 2>&1
-
-    - echo "=== cPanel deploy finished $(date) ===" >> ${DEPLOY_LOG}
+    - export DEPLOYPATH=/home2/kosmopay/kosmon
+    - /usr/bin/php $DEPLOYPATH/artisan view:clear
+    - /usr/bin/php $DEPLOYPATH/artisan cache:clear
+    - /usr/bin/php $DEPLOYPATH/artisan config:clear
+    - /usr/bin/php $DEPLOYPATH/artisan route:clear
