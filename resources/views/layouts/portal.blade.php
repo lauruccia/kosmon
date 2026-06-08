@@ -263,14 +263,16 @@
         /* ── APP SHELL ──────────────────────────────────────────────── */
         .app-shell {
             min-height: 100vh;
-            display: block;
+            display: flex;
+            align-items: stretch;
         }
 
         /* ── SIDEBAR ────────────────────────────────────────────────── */
         .sidebar {
-            position: fixed;
+            position: sticky;
             top: 0;
-            left: 0;
+            flex-shrink: 0;
+            align-self: flex-start;
             width: 272px;
             height: 100vh;
             overflow-y: auto;
@@ -409,11 +411,12 @@
 
         /* ── CONTENT SHELL ──────────────────────────────────────────── */
         .content-shell {
-            margin-left: 272px;
-            padding: 14px; background: var(--bg);
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 14px;
+            background: var(--bg);
             transition: background .28s ease;
             min-height: 100vh;
-            width: calc(100% - 272px);
             box-sizing: border-box;
             overflow-x: hidden;
         }
@@ -1009,12 +1012,14 @@
         /* ── TABLET / MOBILE ≤1280px: sidebar hamburger overlay ──── */
         @media (max-width: 1280px) {
             .sidebar {
+                position: fixed;
+                top: 0; left: 0;
                 z-index: 1000;
                 transform: translateX(-100%);
                 transition: transform .28s cubic-bezier(.4,0,.2,1);
             }
             .sidebar.is-open { transform: translateX(0) !important; }
-            .content-shell { margin-left: 0 !important; width: 100% !important; }
+            .content-shell { width: 100% !important; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
@@ -1504,8 +1509,8 @@
                     <div class="company-switch">
                         <div class="sidebar-avatar" style="width:36px;height:36px;border-radius:10px;font-size:13px;">{{ $companyInitials }}</div>
                         <div>
-                            <strong>{{ $companyName }}</strong>
                             <small>{{ $profileLabel }}</small>
+                            <strong>{{ $companyName }}</strong>
                         </div>
                     </div>
                     @endif
