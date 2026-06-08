@@ -939,9 +939,8 @@
 
         /* ── RESPONSIVE ─────────────────────────────────────────────── */
         @media (max-width: 1280px) {
-            .app-shell { grid-template-columns: 1fr; }
-            .sidebar { position: relative; height: auto; overflow-y: visible; }
-            .sidebar::before, .sidebar::after { display: none; }
+            .app-shell { grid-template-columns: 236px minmax(0, 1fr); }
+            .sidebar { padding: 16px 10px; }
             .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 980px) {
