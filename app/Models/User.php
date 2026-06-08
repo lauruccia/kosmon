@@ -43,6 +43,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'contract_otp',
         'contract_otp_expires_at',
         'contract_postponed_at',
+        'pending_email',
+        'email_change_token',
+        'email_change_expires_at',
+        'email_change_cancel_token',
     ];
 
     protected $hidden = [

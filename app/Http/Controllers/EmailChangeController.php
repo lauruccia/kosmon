@@ -6,6 +6,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class EmailChangeController extends Controller
@@ -32,6 +33,7 @@ class EmailChangeController extends Controller
             ->orderBy('id')
             ->first();
     }
+
     public function show(Request $request): View
     {
         return view('portal.email-change', [
@@ -46,8 +48,8 @@ class EmailChangeController extends Controller
     public function request(Request $request): RedirectResponse
     {
         $request->validate([
-            'new_email'       => ['required', 'email', 'max:255', 'unique:users,email'],
-            'current_password'=> ['required', 'string'],
+            'new_email'        => ['required', 'email', 'max:255', 'unique:users,email'],
+            'current_password' => ['required', 'string'],
         ]);
 
         $user = $request->user();
@@ -60,28 +62,46 @@ class EmailChangeController extends Controller
             return back()->withErrors(['new_email' => 'La nuova email coincide con quella attuale.'])->withInput();
         }
 
-        $token   = strtoupper(substr(md5(uniqid('', true)), 0, 8));
-        $expires = now()->addMinutes(30);
+        $token       = strtoupper(substr(md5(uniqid('', true)), 0, 8));
+        $cancelToken = Str::random(64);
+        $expires     = now()->addMinutes(30);
+        $oldEmail    = $user->email;
 
         $user->update([
-            'pending_email'          => $request->new_email,
-            'email_change_token'     => $token,
-            'email_change_expires_at'=> $expires,
+            'pending_email'             => $request->new_email,
+            'email_change_token'        => $token,
+            'email_change_expires_at'   => $expires,
+            'email_change_cancel_token' => $cancelToken,
         ]);
 
-        // Invia codice al nuovo indirizzo
+        // OTP al nuovo indirizzo
         try {
             Mail::raw(
-                "Il tuo codice di verifica per il cambio email KMoney:\n\n{$token}\n\nIl codice scade tra 30 minuti. Se non hai richiesto questo cambio, ignora questa email.",
+                "Il tuo codice di verifica per il cambio email KMoney:\n\n{$token}\n\nIl codice scade tra 30 minuti.",
                 function ($m) use ($request, $token) {
                     $m->to($request->new_email)
                       ->subject('[KMoney] Codice verifica cambio email: ' . $token);
                 }
             );
-        } catch (\Throwable) { /* silenzioso in dev */ }
+        } catch (\Throwable) {}
+
+        // Link di revoca alla vecchia email
+        $cancelUrl = route('email-change.cancel-by-token', ['token' => $cancelToken]);
+        $body = "E' stata richiesta la modifica dell'email del tuo account KMoney" .
+                " al nuovo indirizzo: {$request->new_email}\n\n" .
+                "Se sei stato tu, non devi fare nulla.\n\n" .
+                "Se NON hai autorizzato questa modifica, annullala entro 30 minuti:\n\n" .
+                $cancelUrl . "\n\n" .
+                "In alternativa, accedi al portale e vai su Impostazioni -> Cambia email.";
+        try {
+            Mail::raw($body, function ($m) use ($oldEmail) {
+                $m->to($oldEmail)
+                  ->subject('[KMoney] Richiesta cambio email - verifica se sei stato tu');
+            });
+        } catch (\Throwable) {}
 
         return redirect()->route('portal.email-change.verify-form')
-            ->with('info', 'Abbiamo inviato un codice a ' . $request->new_email . '. Inseriscilo per confermare.');
+            ->with('info', 'Abbiamo inviato un codice a ' . $request->new_email . '. Inseriscilo per confermare. Hai ricevuto anche un\'email su ' . $oldEmail . ' per annullare se non eri stato tu.');
     }
 
     public function verifyForm(Request $request): View
@@ -103,31 +123,35 @@ class EmailChangeController extends Controller
         $user = $request->user();
 
         if (! $user->pending_email) {
-            return redirect()->route('portal.email-change')->withErrors(['token' => 'Nessuna richiesta di cambio email in attesa.']);
+            return redirect()->route('portal.email-change')
+                ->withErrors(['token' => 'Nessuna richiesta di cambio email in attesa.']);
         }
 
         if (now()->gt($user->email_change_expires_at)) {
-            $user->update(['pending_email' => null, 'email_change_token' => null, 'email_change_expires_at' => null]);
-            return redirect()->route('portal.email-change')->withErrors(['token' => 'Il codice e\' scaduto. Riprova.']);
-        }
-
-        if (strtoupper($request->token) !== strtoupper($user->email_change_token)) {
-            return back()->withErrors(['token' => 'Codice non valido.']);
+            $user->update([
+                'pending_email'             => null,
+                'email_change_token'        => null,
+                'email_change_expires_at'   => null,
+                'email_change_cancel_token' => null,
+            ]);
+            return redirect()->route('portal.email-change')
+                ->withErrors(['token' => 'Il codice e\' scaduto. Riprova.']);
         }
 
         $oldEmail = $user->email;
         $user->update([
-            'email'                   => $user->pending_email,
-            'pending_email'           => null,
-            'email_change_token'      => null,
-            'email_change_expires_at' => null,
-            'email_verified_at'       => now(),
+            'email'                     => $user->pending_email,
+            'pending_email'             => null,
+            'email_change_token'        => null,
+            'email_change_expires_at'   => null,
+            'email_change_cancel_token' => null,
+            'email_verified_at'         => now(),
         ]);
 
-        // Notifica vecchio indirizzo
         try {
             Mail::raw(
-                "L'indirizzo email del tuo account KMoney e' stato aggiornato a {$user->email}.\nSe non hai autorizzato questa modifica, contatta immediatamente il supporto.",
+                "L'indirizzo email del tuo account KMoney e' stato aggiornato a {$user->email}.\n" .
+                "Se non hai autorizzato questa modifica, contatta immediatamente il supporto.",
                 function ($m) use ($oldEmail) {
                     $m->to($oldEmail)->subject('[KMoney] Email aggiornata');
                 }
@@ -141,11 +165,48 @@ class EmailChangeController extends Controller
     public function cancel(Request $request): RedirectResponse
     {
         $request->user()->update([
-            'pending_email'           => null,
-            'email_change_token'      => null,
-            'email_change_expires_at' => null,
+            'pending_email'             => null,
+            'email_change_token'        => null,
+            'email_change_expires_at'   => null,
+            'email_change_cancel_token' => null,
         ]);
 
         return redirect()->route('portal.email-change')->with('info', 'Richiesta di cambio email annullata.');
+    }
+
+    /**
+     * Revoca il cambio email via link unauthenticated inviato alla vecchia email.
+     */
+    public function cancelByToken(string $token): RedirectResponse
+    {
+        $user = \App\Models\User::where('email_change_cancel_token', $token)
+            ->whereNotNull('pending_email')
+            ->first();
+
+        if (! $user) {
+            return redirect()->route('login')
+                ->with('error', 'Il link di annullamento non e\' valido o e\' gia\' stato usato.');
+        }
+
+        if ($user->email_change_expires_at && now()->gt($user->email_change_expires_at)) {
+            $user->update([
+                'pending_email'             => null,
+                'email_change_token'        => null,
+                'email_change_expires_at'   => null,
+                'email_change_cancel_token' => null,
+            ]);
+            return redirect()->route('login')
+                ->with('info', 'La richiesta era gia\' scaduta. Nessuna modifica applicata.');
+        }
+
+        $user->update([
+            'pending_email'             => null,
+            'email_change_token'        => null,
+            'email_change_expires_at'   => null,
+            'email_change_cancel_token' => null,
+        ]);
+
+        return redirect()->route('login')
+            ->with('success', 'Cambio email annullato. Il tuo indirizzo rimane invariato.');
     }
 }

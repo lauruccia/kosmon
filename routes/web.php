@@ -271,6 +271,11 @@ Route::middleware('auth')->prefix('benvenuto')->name('onboarding.')->group(funct
 // Stripe webhook — MUST be outside auth middleware
 Route::post('/stripe/webhook', [KyCardController::class, 'stripeWebhook'])->name('stripe.webhook');
 
+// ─── Cambio email — revoca pubblica (nessuna auth richiesta) ────────────────
+Route::get('/email-change/cancel/{token}', [\App\Http\Controllers\EmailChangeController::class, 'cancelByToken'])
+    ->name('email-change.cancel-by-token')
+    ->middleware('throttle:10,1');
+
 // ─── Sottoconti — inviti pubblici (nessuna auth richiesta) ──────────────────
 Route::get('/invito-sottoconto/{token}', [SubAccountInvitationController::class, 'show'])->name('subaccount.invitation.show');
 Route::get('/invito-sottoconto/{token}/registra', [SubAccountInvitationController::class, 'showRegister'])->name('subaccount.invitation.register');
