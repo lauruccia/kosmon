@@ -939,10 +939,15 @@
 
         /* ── RESPONSIVE ─────────────────────────────────────────────── */
         @media (max-width: 1280px) {
-            .app-shell { grid-template-columns: 1fr; }
-            .sidebar { position: relative; height: auto; overflow-y: visible; }
-            .sidebar::before, .sidebar::after { display: none; }
+            /* La sidebar rimane a sinistra — solo più stretta */
+            .app-shell { grid-template-columns: 230px minmax(0, 1fr); }
             .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 1060px) {
+            /* Sidebar ancora più compatta su schermi medio-piccoli */
+            .app-shell { grid-template-columns: 200px minmax(0, 1fr); }
+            .brand-copy strong { font-size: 16px; }
+            .sidebar-link { font-size: 13px; }
         }
         @media (max-width: 980px) {
             .portal-grid, .summary-grid, .delegate-grid, .admin-grid, .grid-cards,
