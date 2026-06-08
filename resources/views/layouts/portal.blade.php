@@ -1211,6 +1211,7 @@
                             @if(auth()->user()?->is_super_admin)
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}"><span class="nav-icon">&#128202;</span><span>Analytics</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'circuito' ? 'active' : '' }}" href="{{ route('admin.circuito') }}"><span class="nav-icon">&#128280;</span><span>Circuito KY</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'branding' ? 'active' : '' }}" href="{{ route('admin.branding') }}"><span class="nav-icon">&#127912;</span><span>Brand</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-nfc-cards' ? 'active' : '' }}" href="{{ route('admin.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Card NFC</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhook-deliveries' ? 'active' : '' }}" href="{{ route('admin.webhook-deliveries') }}">WD Log Webhook</a>

@@ -622,6 +622,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/audit', [AdminController::class, 'auditLog'])->name('admin.audit');
     Route::get('/admin/audit/export-csv', [AdminController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');
     Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
+    Route::get('/admin/circuito', [AdminController::class, 'circuito'])->name('admin.circuito');
     Route::get('/admin/branding', [AdminController::class, 'branding'])->name('admin.branding');
 Route::get('/admin/contratto',   [AdminController::class, 'contractSettings'])->name('admin.contract-settings');
 Route::patch('/admin/contratto', [AdminController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update');
