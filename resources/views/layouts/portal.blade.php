@@ -142,7 +142,7 @@
 
         /* ── RESET ─────────────────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; }
-        html { background: var(--bg); }
+        html { background: var(--bg); overflow-x: hidden; }
         body {
             margin: 0;
             font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
@@ -151,6 +151,8 @@
             color: var(--ink);
             background: var(--bg);
             transition: background .28s ease, color .28s ease;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
         a { color: inherit; text-decoration: none; }
         button, input, select, textarea { font: inherit; }
