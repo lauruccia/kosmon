@@ -68,6 +68,11 @@ class PaymentHandlerController extends Controller
             return response()->json(['error' => 'Richiesta non trovata.'], 404);
         }
 
+        // Verifica che il conto destinatario (merchant) sia ancora attivo.
+        if ($pr->toAccount === null || $pr->toAccount->status !== 'active') {
+            return response()->json(['error' => 'Il conto del destinatario non è più attivo.'], 422);
+        }
+
         if ($pr->isExpired()) {
             return response()->json(['error' => 'La richiesta e\' scaduta.'], 422);
         }

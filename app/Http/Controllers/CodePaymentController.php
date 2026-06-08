@@ -206,6 +206,9 @@ class CodePaymentController extends Controller
         if ($pr->to_account_id === $account->id) {
             return response()->json(['error' => 'Non puoi pagare te stesso.'], 422);
         }
+        if ($pr->toAccount === null || $pr->toAccount->status !== 'active') {
+            return response()->json(['error' => 'Il conto del destinatario non è più attivo.'], 422);
+        }
         if ($account->available_balance < $pr->amount) {
             return response()->json([
                 'error' => 'Saldo insufficiente (' . $account->available_balance . ' KY disponibili).',

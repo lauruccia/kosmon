@@ -81,10 +81,16 @@ class TextPaymentRequestController extends Controller
             'due_date'      => ['nullable', 'date', 'after:today'],
         ]);
 
+        // Verifica che il conto mittente (creditore) sia attivo.
+        // resolveCurrentContext() filtra per 'active' nei rami aziendali/personali,
+        // ma il ramo managed_account_id non applica tale filtro: difendiamoci qui.
+        abort_unless($currentAccount->status === 'active', 403, 'Il tuo conto non è attivo. Impossibile inviare richieste di pagamento.');
+
         abort_if((int) $data['to_account_id'] === $currentAccount->id, 422, 'Non puoi inviare una richiesta a te stesso.');
 
         $toAccount = Account::findOrFail($data['to_account_id']);
-        abort_unless($toAccount->status === 'active', 422, 'Il conto destinatario non e\' attivo.');
+        abort_unless($toAccount->status === 'active', 422, 'Il conto destinatario non è attivo.');
+        abort_if($toAccount->is_system_account, 422, 'Destinatario non valido.');
 
         $req = TextPaymentRequest::create([
             'from_account_id' => $currentAccount->id,

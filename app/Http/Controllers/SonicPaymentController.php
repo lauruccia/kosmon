@@ -231,6 +231,10 @@ class SonicPaymentController extends Controller
             return response()->json(['error' => 'Non puoi pagare te stesso.'], 422);
         }
 
+        if ($pr->toAccount === null || $pr->toAccount->status !== 'active') {
+            return response()->json(['error' => 'Il conto del destinatario non è più attivo.'], 422);
+        }
+
         // Se balance insufficiente, rispondi prima del transfer
         if ($account->available_balance < $pr->amount) {
             return response()->json([

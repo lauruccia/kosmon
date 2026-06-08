@@ -77,6 +77,13 @@ class PaymentRequestController extends Controller
             ->where('token', $token)
             ->firstOrFail();
 
+        // Verifica che il conto destinatario (merchant) sia ancora attivo al momento
+        // del pagamento. Potrebbe essere stato sospeso dopo la creazione del QR.
+        if ($pr->toAccount === null || $pr->toAccount->status !== 'active') {
+            return redirect()->route('portal.dashboard')
+                ->with('portal_error', 'Il conto del destinatario non è più attivo. Pagamento annullato.');
+        }
+
         // Validazioni stato
         if ($pr->isPaid()) {
             return redirect()->route('portal.dashboard')
