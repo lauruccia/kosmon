@@ -411,6 +411,9 @@
             padding: 14px; background: var(--bg);
             transition: background .28s ease;
             min-height: 100vh;
+            width: calc(100% - 272px);
+            box-sizing: border-box;
+            overflow-x: hidden;
         }
 
         /* ── TOPBAR ─────────────────────────────────────────────────── */
@@ -1009,7 +1012,7 @@
                 transition: transform .28s cubic-bezier(.4,0,.2,1);
             }
             .sidebar.is-open { transform: translateX(0) !important; }
-            .content-shell { margin-left: 0 !important; }
+            .content-shell { margin-left: 0 !important; width: 100% !important; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
