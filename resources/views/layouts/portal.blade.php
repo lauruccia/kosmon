@@ -142,7 +142,7 @@
 
         /* ── RESET ─────────────────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; }
-        html { background: var(--bg); overflow-x: hidden; }
+        html { background: var(--bg); }
         body {
             margin: 0;
             font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
@@ -151,8 +151,6 @@
             color: var(--ink);
             background: var(--bg);
             transition: background .28s ease, color .28s ease;
-            overflow-x: hidden;
-            max-width: 100vw;
         }
         a { color: inherit; text-decoration: none; }
         button, input, select, textarea { font: inherit; }
@@ -263,17 +261,14 @@
         /* ── APP SHELL ──────────────────────────────────────────────── */
         .app-shell {
             min-height: 100vh;
-            display: flex;
-            align-items: stretch;
+            display: grid;
+            grid-template-columns: 272px minmax(0, 1fr);
         }
 
         /* ── SIDEBAR ────────────────────────────────────────────────── */
         .sidebar {
             position: sticky;
             top: 0;
-            flex-shrink: 0;
-            align-self: flex-start;
-            width: 272px;
             height: 100vh;
             overflow-y: auto;
             padding: 20px 14px;
@@ -411,14 +406,8 @@
 
         /* ── CONTENT SHELL ──────────────────────────────────────────── */
         .content-shell {
-            flex: 1 1 0;
-            min-width: 0;
-            padding: 14px;
-            background: var(--bg);
+            padding: 14px; background: var(--bg);
             transition: background .28s ease;
-            min-height: 100vh;
-            box-sizing: border-box;
-            overflow-x: hidden;
         }
 
         /* ── TOPBAR ─────────────────────────────────────────────────── */
@@ -949,6 +938,12 @@
         .data-table thead th { padding: 6px 10px !important; }
 
         /* ── RESPONSIVE ─────────────────────────────────────────────── */
+        @media (max-width: 1280px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .sidebar { position: relative; height: auto; overflow-y: visible; }
+            .sidebar::before, .sidebar::after { display: none; }
+            .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
         @media (max-width: 980px) {
             .portal-grid, .summary-grid, .delegate-grid, .admin-grid, .grid-cards,
             .spotlight-grid, .catalog-grid, .stats-grid, .hero-strip, .entity-grid,
@@ -1004,22 +999,20 @@
             transition: opacity .28s;
         }
 
-        /* ── DESKTOP: sidebar visibile, z-index basso ───────────────── */
-        @media (min-width: 1281px) {
-            .sidebar { z-index: 100; transform: none !important; }
-        }
-
-        /* ── TABLET / MOBILE ≤1280px: sidebar hamburger overlay ──── */
-        @media (max-width: 1280px) {
+        @media (max-width: 768px) {
+            .app-shell { display: block; }
             .sidebar {
-                position: fixed;
+                position: fixed !important;
                 top: 0; left: 0;
+                width: 280px !important;
+                height: 100vh !important;
+                overflow-y: auto !important;
                 z-index: 1000;
+                padding: 20px 14px !important;
                 transform: translateX(-100%);
                 transition: transform .28s cubic-bezier(.4,0,.2,1);
             }
             .sidebar.is-open { transform: translateX(0) !important; }
-            .content-shell { width: 100% !important; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
@@ -1107,7 +1100,7 @@
         .mobile-tab--qr:active .mobile-tab-qr-inner { transform: scale(.94); }
 
         /* ── MOBILE APP EXPERIENCE ──────────────────────────────────── */
-        @media (max-width: 1280px) {
+        @media (max-width: 768px) {
             /* Global touch polish */
             a, button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
             * { -webkit-font-smoothing: antialiased; }
