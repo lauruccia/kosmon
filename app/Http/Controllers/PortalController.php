@@ -1670,6 +1670,8 @@ class PortalController extends Controller
         abort_unless($currentUser->is($rootAccount->ownerUser), 403);
 
         $company = $rootAccount->company;
+        abort_unless($company !== null, 403);
+
         if ($company->payments_paused_at) {
             $company->update(['payments_paused_at' => null]);
             $msg = 'Pagamenti automatici ripristinati.';
