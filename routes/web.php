@@ -424,6 +424,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/paga/conferma', [PortalController::class, 'payConfirmShow'])->name('portal.pay.confirm');
     Route::post('/paga/conferma', [PortalController::class, 'payExecute'])->name('portal.pay.execute')->middleware('throttle:payments');
     Route::post('/pagamenti/pausa', [PortalController::class, 'togglePaymentsPause'])->name('portal.payments.toggle-pause');
+    Route::get('/pagamenti/pausa', fn() => redirect()->route('portal.dashboard'));
     Route::post('/tutorial/dismiss', [PortalController::class, 'dismissTutorial'])->name('portal.tutorial.dismiss');
 
     Route::get('/incassa', [PortalController::class, 'receiveForm'])->name('portal.receive.form');
