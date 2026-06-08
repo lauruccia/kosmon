@@ -503,8 +503,20 @@
             font-size: 13.5px; font-weight: 600;
             background: var(--surface-soft); border: 1px solid var(--line); color: var(--ink-soft);
         }
-        .notice.success { background: var(--success-soft); color: var(--success); border-color: rgba(6,95,70,.2); }
-        .notice.error   { background: var(--danger-soft);  color: var(--danger);  border-color: rgba(159,18,57,.2); }
+        .notice.success {
+            background: var(--success-soft); color: var(--success);
+            border-color: rgba(6,95,70,.2);
+            animation: noticeSlideIn .35s cubic-bezier(.22,1,.36,1) both;
+        }
+        .notice.error {
+            background: var(--danger-soft); color: var(--danger);
+            border-color: rgba(159,18,57,.2);
+            animation: noticeSlideIn .35s cubic-bezier(.22,1,.36,1) both;
+        }
+        @keyframes noticeSlideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
 
         /* ── PAGE INTRO ─────────────────────────────────────────────── */
         /* ── PAGE INTRO ─────────────────────────────────────────────── */
@@ -1063,6 +1075,29 @@
             background: var(--primary);
             border-radius: 0 0 3px 3px;
         }
+        /* QR tab centrale — stile CTA prominente */
+        .mobile-tab--qr {
+            flex: 0 0 72px;
+            position: relative;
+            margin: -10px 4px 0;
+        }
+        .mobile-tab--qr .mobile-tab-qr-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(15,82,196,.45);
+            margin: 0 auto;
+        }
+        .mobile-tab--qr .mobile-tab-qr-inner svg { width: 22px; height: 22px; }
+        .mobile-tab--qr .mobile-tab-label { color: var(--primary); margin-top: 2px; font-size: 9px; }
+        .mobile-tab--qr:active .mobile-tab-qr-inner { transform: scale(.94); }
 
         /* ── MOBILE APP EXPERIENCE ──────────────────────────────────── */
         @media (max-width: 768px) {
@@ -1871,30 +1906,39 @@
     @if (!$isBackoffice)
     <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
         <div class="mobile-bottom-nav-inner">
+            {{-- Dashboard --}}
             <a href="{{ route('portal.dashboard') }}"
                class="mobile-tab {{ ($activeNav ?? '') === 'conto' ? 'active' : '' }}">
-                <span class="mobile-tab-icon">🏠</span>
-                <span class="mobile-tab-label">Conto</span>
+                <span class="mobile-tab-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <span class="mobile-tab-label">Dashboard</span>
             </a>
+            {{-- Movimenti --}}
             <a href="{{ route('portal.movements') }}"
                class="mobile-tab {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}">
-                <span class="mobile-tab-icon">📊</span>
+                <span class="mobile-tab-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </span>
                 <span class="mobile-tab-label">Movimenti</span>
             </a>
-            <a href="{{ route('portal.wallet') }}"
-               class="mobile-tab {{ ($activeNav ?? '') === 'wallet' ? 'active' : '' }}">
-                <span class="mobile-tab-icon">💳</span>
-                <span class="mobile-tab-label">Wallet</span>
+            {{-- QR — pulsante centrale CTA --}}
+            <a href="{{ route('portal.incasso-qr.form') }}"
+               class="mobile-tab mobile-tab--qr {{ ($activeNav ?? '') === 'qr' ? 'active' : '' }}"
+               aria-label="QR Ricevi KY">
+                <span class="mobile-tab-qr-inner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/><line x1="14" y1="20" x2="20" y2="20"/><line x1="20" y1="14" x2="20" y2="17"/></svg>
+                </span>
+                <span class="mobile-tab-label">QR</span>
             </a>
-            <a href="{{ route('portal.requests') }}"
-               class="mobile-tab {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}">
-                <span class="mobile-tab-icon">📋</span>
-                <span class="mobile-tab-label">Richieste</span>
+            {{-- Profilo --}}
+            <a href="{{ route('portal.profile.edit') }}"
+               class="mobile-tab {{ ($activeNav ?? '') === 'profilo' ? 'active' : '' }}">
+                <span class="mobile-tab-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <span class="mobile-tab-label">Profilo</span>
             </a>
-            <button type="button" class="mobile-tab" onclick="toggleSidebar()" aria-label="Menu completo">
-                <span class="mobile-tab-icon">☰</span>
-                <span class="mobile-tab-label">Menu</span>
-            </button>
         </div>
     </nav>
     @endif

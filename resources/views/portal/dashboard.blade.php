@@ -191,7 +191,7 @@
 .bank-hero {
     background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0f52c4 100%);
     border-radius: var(--radius, 12px);
-    padding: 24px 28px 20px;
+    padding: 28px 28px 24px;
     margin-bottom: 16px;
     color: #fff;
     display: block;
@@ -202,9 +202,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 22px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
 }
 .bank-hero__type {
     display: block;
@@ -216,27 +216,97 @@
 }
 .bank-hero__name {
     display: block;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 800;
     letter-spacing: -.02em;
 }
-.bank-hero__actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.bank-hero__actions .cta {
-    background: rgba(255,255,255,.15);
-    border: 1px solid rgba(255,255,255,.25);
+/* ── Saldo centrale grande ── */
+.bank-hero__balance-center {
+    text-align: center;
+    padding: 8px 0 20px;
+}
+.bank-hero__balance-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    opacity: .55;
+    margin-bottom: 6px;
+}
+.bank-hero__balance-amount {
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
     color: #fff;
+    transition: color .4s ease;
+}
+.bank-hero__balance-amount.flash-up {
+    color: #4ade80;
+}
+.bank-hero__balance-currency {
+    font-size: 20px;
+    font-weight: 700;
+    opacity: .75;
+    margin-left: 4px;
+    vertical-align: super;
+}
+.bank-hero__available {
     font-size: 13px;
-    min-height: 38px;
-    padding: 0 16px;
+    opacity: .65;
+    margin-top: 6px;
+}
+/* ── 2 pulsanti grandi ── */
+.bank-hero__cta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+}
+.bank-hero__cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 10px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform .12s, opacity .15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.bank-hero__cta-btn:active { transform: scale(.97); }
+.bank-hero__cta-btn--send {
+    background: #fff;
+    color: #0f172a;
+}
+.bank-hero__cta-btn--send:hover { background: #f0f4ff; }
+.bank-hero__cta-btn--receive {
+    background: rgba(255,255,255,.18);
+    border: 1.5px solid rgba(255,255,255,.35);
+    color: #fff;
+}
+.bank-hero__cta-btn--receive:hover { background: rgba(255,255,255,.26); }
+/* ── pause/actions row ── */
+.bank-hero__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.bank-hero__actions .cta {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    font-size: 12px;
+    min-height: 32px;
+    padding: 0 12px;
     border-radius: 8px;
     -webkit-tap-highlight-color: transparent;
 }
-.bank-hero__actions .cta:hover { background: rgba(255,255,255,.25); }
+.bank-hero__actions .cta:hover { background: rgba(255,255,255,.22); }
 @media (max-width: 480px) {
-    .bank-hero { padding: 16px 16px 14px; }
-    .bank-hero__header { margin-bottom: 14px; flex-direction: column; align-items: flex-start; gap: 10px; }
-    .bank-hero__actions { width: 100%; }
-    .bank-hero__actions .cta { flex: 1; min-width: 0; text-align: center; font-size: 12px; padding: 0 10px; }
+    .bank-hero { padding: 20px 16px 18px; }
+    .bank-hero__balance-amount { font-size: 42px; }
+    .bank-hero__cta-btn { font-size: 14px; padding: 13px 8px; }
     .bank-kpi-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -396,36 +466,67 @@
 ══════════════════════════════════════════════════ --}}
 <div class="bank-hero">
 
+    {{-- Riga nome + azioni secondarie --}}
     <div class="bank-hero__header">
         <div>
             <span class="bank-hero__type">{{ $currentAccount->owner_type === 'private' ? 'Conto Personale' : 'Conto Aziendale' }}</span>
             <span class="bank-hero__name">{{ $currentAccount->owner_label }}</span>
         </div>
+        @if(!$currentAccount->isSubAccount())
         <div class="bank-hero__actions">
-            <a class="cta" href="{{ route('portal.invia') }}" style="font-weight:800;">➡️ Invia</a>
-            <a class="cta" href="{{ route('portal.receive.form') }}">Incassa</a>
-            @if(!$currentAccount->isSubAccount())
             <form method="POST" action="{{ route('portal.payments.toggle-pause') }}" style="display:inline;">
                 @csrf
                 @php $isPaused = $currentAccount->company?->isPaymentsPaused(); @endphp
                 <button type="submit" class="cta"
-                    style="{{ $isPaused ? 'background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);' : 'background:rgba(255,255,255,.15);' }}"
+                    style="{{ $isPaused ? 'background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);' : '' }}"
                     title="{{ $isPaused ? 'Riattiva pagamenti automatici' : 'Sospendi pagamenti automatici' }}">
                     {{ $isPaused ? '▶ Riattiva auto' : '⏸ Pausa auto' }}
                 </button>
             </form>
-            @endif
-        </div>
-        @if(!$currentAccount->isSubAccount() && $currentAccount->company?->isPaymentsPaused())
-        <div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;color:#dc2626;display:flex;align-items:center;gap:8px;">
-            <strong>⏸ Pagamenti automatici sospesi</strong> — Rate e pagamenti programmati non vengono elaborati.
         </div>
         @endif
     </div>
 
-    <div class="bank-kpi-grid">
+    @if(!$currentAccount->isSubAccount() && $currentAccount->company?->isPaymentsPaused())
+    <div style="background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#fca5a5;display:flex;align-items:center;gap:8px;">
+        <strong>⏸ Pagamenti automatici sospesi</strong> — Rate e pagamenti programmati non vengono elaborati.
+    </div>
+    @endif
 
-        {{-- SALDO --}}
+    {{-- Saldo principale — grande e centrato --}}
+    <div class="bank-hero__balance-center">
+        <div class="bank-hero__balance-label">Saldo disponibile</div>
+        <div class="bank-hero__balance-amount" id="hero-balance">
+            {{ $availableBalance >= 0 ? '' : '-' }}{{ ky_format(abs($availableBalance)) }}<span class="bank-hero__balance-currency">KY</span>
+        </div>
+        @if($massimale > 0)
+        <div class="bank-hero__available">
+            Saldo effettivo {{ $currentBalance >= 0 ? '+' : '' }}{{ ky_format($currentBalance) }} KY
+            · Fido {{ ky_format($massimale) }} KY
+        </div>
+        @else
+        <div class="bank-hero__available">
+            {{ $currentBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo' }}
+        </div>
+        @endif
+    </div>
+
+    {{-- 2 pulsanti principali --}}
+    <div class="bank-hero__cta-row">
+        <a href="{{ route('portal.invia') }}" class="bank-hero__cta-btn bank-hero__cta-btn--send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Invia KY
+        </a>
+        <a href="{{ route('portal.receive.form') }}" class="bank-hero__cta-btn bank-hero__cta-btn--receive">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+            Ricevi KY
+        </a>
+    </div>
+
+    {{-- KPI grid secondaria --}}
+    <div class="bank-kpi-grid" style="margin-top:16px;">
+
+        {{-- SALDO EFFETTIVO --}}
         <div class="bkpi">
             <div class="bkpi__icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -472,14 +573,20 @@
             </div>
         </div>
 
-        {{-- TOTALE SPENDIBILE --}}
+        {{-- ENTRATE 30gg --}}
         <div class="bkpi bkpi--primary">
             <div class="bkpi__icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </div>
-            <div class="bkpi__label">Totale spendibile</div>
-            <div class="bkpi__value">{{ ky_format($availableBalance) }}<span class="bkpi__currency">KY</span></div>
-            <div class="bkpi__note">@if($massimale > 0) Saldo + fido residuo @else Saldo disponibile @endif</div>
+            <div class="bkpi__label">Entrate 30 gg</div>
+            <div class="bkpi__value">+{{ ky_format($income30) }}<span class="bkpi__currency">KY</span></div>
+            <div class="bkpi__note">
+                @if($incomeTrend !== null)
+                    {{ $incomeTrend >= 0 ? '▲' : '▼' }} {{ abs($incomeTrend) }}% vs mese prec.
+                @else
+                    Primo periodo
+                @endif
+            </div>
         </div>
 
     </div>
@@ -562,50 +669,53 @@
     </div>
 </section>
 
-{{-- Richieste in attesa --}}
+{{-- ══════════════════════════════════════════════════
+     SEZIONE "DA FARE" — Richieste in attesa
+══════════════════════════════════════════════════ --}}
 @if($pendingIncomingRequests->isNotEmpty())
-<div class="card" style="padding:0;overflow:hidden;border:2px solid #f59e0b;border-radius:var(--radius);margin-bottom:18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;background:#fef3c7;border-bottom:1px solid #fde68a;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">🔔</span>
-            <div>
-                <div style="font-weight:700;font-size:14px;color:#92400e;">{{ $pendingIncomingRequests->count() }} {{ $pendingIncomingRequests->count() === 1 ? 'richiesta in attesa' : 'richieste in attesa' }}</div>
-                <div style="font-size:12px;color:#a16207;">Conferma o rifiuta prima di procedere</div>
+<div style="margin-bottom:18px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#f59e0b;border-radius:6px;font-size:11px;">🔔</span>
+        <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);">Da fare</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:#ef4444;color:#fff;border-radius:999px;font-size:11px;font-weight:800;">{{ $pendingIncomingRequests->count() }}</span>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;border:2px solid #fbbf24;border-radius:var(--radius);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(90deg,#fffbeb,#fef3c7);border-bottom:1px solid #fde68a;">
+            <div style="font-weight:700;font-size:14px;color:#92400e;">
+                {{ $pendingIncomingRequests->count() }} {{ $pendingIncomingRequests->count() === 1 ? 'richiesta in attesa della tua conferma' : 'richieste in attesa della tua conferma' }}
+            </div>
+            <a href="{{ route('portal.requests') }}" style="font-size:12px;font-weight:700;color:#92400e;white-space:nowrap;text-decoration:underline;">Vedi tutte →</a>
+        </div>
+        @foreach($pendingIncomingRequests->take(3) as $req)
+        @php $requester = $req->toAccount; @endphp
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);">
+            <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:13px;">
+                    {{ $requester?->display_name ?? 'Azienda' }} ti chiede <strong style="color:#0f52c4;">{{ ky_format($req->amount) }} KY</strong>
+                </div>
+                @if($req->description)
+                <div style="font-size:12px;color:var(--ink-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">{{ $req->description }}</div>
+                @endif
+                <div style="font-size:11px;color:var(--ink-muted);">{{ $req->created_at->diffForHumans() }}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <form method="POST" action="{{ route('portal.receive.requests.confirm', $req) }}" style="display:inline;">
+                    @csrf
+                    <button type="submit" class="cta" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Confermi il pagamento di {{ ky_format($req->amount) }} KY?')">✓ Conferma</button>
+                </form>
+                <form method="POST" action="{{ route('portal.receive.requests.reject', $req) }}" style="display:inline;">
+                    @csrf
+                    <button type="submit" class="cta secondary" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Rifiuti questa richiesta?')">Rifiuta</button>
+                </form>
             </div>
         </div>
-        <a href="{{ route('portal.requests') }}" style="font-size:12px;font-weight:700;color:#92400e;text-decoration:underline;white-space:nowrap;">Vedi tutte →</a>
-    </div>
-    @foreach($pendingIncomingRequests->take(3) as $req)
-    @php
-        $requester = $req->toAccount;
-    @endphp
-    <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);">
-        <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:13px;">
-                {{ $requester?->display_name ?? 'Azienda' }} ti chiede <strong style="color:#0f52c4;">{{ ky_format($req->amount) }} KY</strong>
-            </div>
-            @if($req->description)
-            <div style="font-size:12px;color:var(--ink-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">{{ $req->description }}</div>
-            @endif
-            <div style="font-size:11px;color:var(--ink-muted);">{{ $req->created_at->diffForHumans() }}</div>
+        @endforeach
+        @if($pendingIncomingRequests->count() > 3)
+        <div style="padding:10px 16px;font-size:12px;color:var(--ink-muted);text-align:center;">
+            e altre {{ $pendingIncomingRequests->count() - 3 }} — <a href="{{ route('portal.requests') }}" style="color:var(--primary);">vedi tutte</a>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-            <form method="POST" action="{{ route('portal.receive.requests.confirm', $req) }}" style="display:inline;">
-                @csrf
-                <button type="submit" class="cta" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Confermi il pagamento di {{ ky_format($req->amount) }} KY?')">Conferma</button>
-            </form>
-            <form method="POST" action="{{ route('portal.receive.requests.reject', $req) }}" style="display:inline;">
-                @csrf
-                <button type="submit" class="cta secondary" style="min-height:30px;font-size:12px;padding:0 12px;" onclick="return confirm('Rifiuti questa richiesta?')">Rifiuta</button>
-            </form>
-        </div>
+        @endif
     </div>
-    @endforeach
-    @if($pendingIncomingRequests->count() > 3)
-    <div style="padding:10px 16px;font-size:12px;color:var(--ink-muted);text-align:center;">
-        e altre {{ $pendingIncomingRequests->count() - 3 }} — <a href="{{ route('portal.requests') }}" style="color:var(--primary);">vedi tutte</a>
-    </div>
-    @endif
 </div>
 @endif
 
@@ -652,7 +762,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
                 <div>
                     <div class="k-tag" style="margin-bottom:4px;">Pulse</div>
-                <div class="card-title">Flussi ultimi 6 mesi</div>
+                <div class="card-title">Flussi ultimi 3 mesi</div>
                 </div>
                 <div style="display:flex;gap:14px;font-size:11.5px;color:var(--ink-soft);">
                     <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:#16a34a;display:inline-block;"></span>Entrate</span>
@@ -958,22 +1068,27 @@ document.addEventListener('DOMContentLoaded', function() { loadBalanceChart(7); 
         }, 7000);
     }
 
-    // Aggiorna il saldo visualizzato nella hero card
+    // Aggiorna il saldo visualizzato nel balance hero grande
     function updateBalanceDisplay(newBalanceCents) {
-        // Formatta in italiano con 2 decimali
         var formatted = (newBalanceCents / 100).toLocaleString('it-IT', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
-        // Aggiorna .bkpi__value che contiene il saldo effettivo (il primo nella griglia)
+        // Hero balance grande (#hero-balance)
+        var heroEl = document.getElementById('hero-balance');
+        if (heroEl) {
+            heroEl.innerHTML = (newBalanceCents < 0 ? '-' : '') + formatted +
+                '<span class="bank-hero__balance-currency">KY</span>';
+            heroEl.classList.add('flash-up');
+            setTimeout(function() { heroEl.classList.remove('flash-up'); }, 1200);
+        }
+        // Aggiorna anche la KPI effettivo (primo .bkpi__value)
         var balanceValues = document.querySelectorAll('.bkpi__value');
         if (balanceValues.length > 0) {
             var el = balanceValues[0];
-            // Preserva il tag currency
             var currency = el.querySelector('.bkpi__currency');
-            var prefix   = newBalanceCents >= 0 ? '+' : '';
+            var prefix = newBalanceCents >= 0 ? '+' : '';
             el.innerHTML = prefix + formatted + (currency ? currency.outerHTML : '<span class="bkpi__currency">KY</span>');
-            // Flash visivo verde
             el.closest('.bkpi').style.background = 'rgba(22,163,74,.25)';
             setTimeout(function() { el.closest('.bkpi').style.background = ''; }, 1500);
         }

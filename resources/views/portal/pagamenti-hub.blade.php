@@ -212,7 +212,7 @@
 
     <a href="{{ route('portal.receive.form') }}" class="hub-card hub-card--primary">
         <div class="hub-card__icon">📥</div>
-        <div class="hub-card__title">Richiedi pagamento</div>
+        <div class="hub-card__title">Richiedi KY</div>
         <div class="hub-card__desc">Seleziona un'azienda e richiedi un importo. Ricevi conferma in tempo reale.</div>
         <span class="hub-card__badge hub-card__badge--white">⚡ Request</span>
     </a>

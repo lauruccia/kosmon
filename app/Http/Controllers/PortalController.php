@@ -61,7 +61,7 @@ class PortalController extends Controller
             "dashboard.monthly_trend.{$currentAccount->id}",
             now()->addMinutes(10),
             function () use ($currentAccount) {
-                return collect(range(5, 0))->map(function (int $offset) use ($currentAccount) {
+                return collect(range(2, 0))->map(function (int $offset) use ($currentAccount) {
                     $month = CarbonImmutable::now()->subMonths($offset);
                     return [
                         'label'   => $month->locale('it')->translatedFormat('M'),
@@ -833,7 +833,10 @@ class PortalController extends Controller
             )
         );
 
-        return redirect()->route('portal.dashboard')->with('portal_success', 'Pagamento registrato correttamente in KY.');
+        $recipientName = $toAccount?->display_name ?? 'destinatario';
+        $amountFormatted = ky_format($transfer->amount);
+        $bookedAt = $transfer->booked_at?->setTimezone('Europe/Rome')->format('d/m/Y \a\l\l\e H:i') ?? now()->format('d/m/Y \a\l\l\e H:i');
+        return redirect()->route('portal.dashboard')->with('portal_success', "✓ {$amountFormatted} KY inviati a {$recipientName} — {$bookedAt}");
     }
 
     public function receiveSubmit(Request $request, TransferBookingService $bookingService): RedirectResponse
@@ -894,7 +897,9 @@ class PortalController extends Controller
             ));
         }
 
-        return redirect()->route('portal.movements')->with('portal_success', 'Richiesta di pagamento inviata. Il conto selezionato deve confermare il pagamento.');
+        $reqAmountFormatted = ky_format($transfer->amount);
+        $reqToName = $fromAccount->display_name ?? 'il conto selezionato';
+        return redirect()->route('portal.movements')->with('portal_success', "📤 Richiesta di {$reqAmountFormatted} KY inviata a {$reqToName} — in attesa di conferma.");
     }
 
     public function confirmReceiveRequest(Request $request, Transfer $transfer, TransferBookingService $bookingService): RedirectResponse
@@ -932,7 +937,10 @@ class PortalController extends Controller
             ));
         }
 
-        return redirect()->route('portal.movements')->with('portal_success', 'Richiesta di pagamento confermata correttamente.');
+        $confirmedAmount = ky_format($confirmedTransfer->amount);
+        $confirmedTo = $confirmedTransfer->toAccount?->display_name ?? 'il richiedente';
+        $confirmedAt = $confirmedTransfer->booked_at?->setTimezone('Europe/Rome')->format('d/m/Y \a\l\l\e H:i') ?? now()->format('d/m/Y \a\l\l\e H:i');
+        return redirect()->route('portal.movements')->with('portal_success', "✓ {$confirmedAmount} KY inviati a {$confirmedTo} — {$confirmedAt}");
     }
 
     public function rejectReceiveRequest(Request $request, Transfer $transfer, TransferBookingService $bookingService): RedirectResponse
@@ -971,7 +979,7 @@ class PortalController extends Controller
             ));
         }
 
-        return redirect()->route('portal.movements')->with('portal_success', 'Richiesta di pagamento rifiutata.');
+        return redirect()->route('portal.movements')->with('portal_success', 'Richiesta rifiutata.');
     }
 
     public function creditNoteForm(Request $request, ?Transfer $transfer = null): View|RedirectResponse
