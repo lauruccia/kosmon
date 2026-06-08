@@ -132,7 +132,6 @@
 </div>{{-- /tutorial-modal --}}
 </div>{{-- /tutorial-overlay --}}
 
-@push('scripts')
 <script>
 (function() {
     var total = 4;
@@ -167,7 +166,6 @@
     });
 })();
 </script>
-@endpush
 @endif
 
 {{-- Banner contratto da firmare (utenti esistenti che possono posticipare) --}}
@@ -929,7 +927,6 @@
     </div>
 </div>
 
-@push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 var balanceChartInstance = null;
@@ -1030,7 +1027,6 @@ document.addEventListener('DOMContentLoaded', function() { loadBalanceChart(7); 
 </script>
 
 {{-- ── Real-time balance via Reverb ───────────────────────────── --}}
-@push('scripts')
 <script>
 (function() {
     var userId = {{ auth()->id() }};
@@ -1119,6 +1115,5 @@ document.addEventListener('DOMContentLoaded', function() { loadBalanceChart(7); 
     }
 })();
 </script>
-@endpush
 
 @endsection

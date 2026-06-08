@@ -998,6 +998,23 @@
             transition: opacity .28s;
         }
 
+        @media (min-width: 769px) {
+            .app-shell {
+                display: grid !important;
+                grid-template-columns: 272px minmax(0, 1fr) !important;
+                align-items: start;
+            }
+            .app-shell > .sidebar {
+                grid-column: 1;
+                grid-row: 1;
+            }
+            .app-shell > .content-shell {
+                grid-column: 2;
+                grid-row: 1;
+                min-width: 0;
+            }
+        }
+
         @media (max-width: 768px) {
             .app-shell { display: block; }
             .sidebar {
