@@ -24,6 +24,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'email_verified_at',
         'phone',
+        'city',
+        'bio',
+        'avatar_path',
         'fiscal_code',
         'password',
         'role',
@@ -409,6 +412,4 @@ class User extends Authenticatable implements MustVerifyEmail
     /** Invia la notifica di verifica email in italiano con il layout brandizzato. */
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new \App\Notifications\VerifyEmailNotification());
-    }
-}
+        $this->notify(new \

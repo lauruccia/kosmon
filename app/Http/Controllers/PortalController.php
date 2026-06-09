@@ -276,7 +276,58 @@ class PortalController extends Controller
             ->with('success', 'Profilo aggiornato con successo.');
     }
 
-        public function showCompany(Request $request, Company $company): View|RedirectResponse
+    public function editPersonalProfile(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        [$currentAccount] = $this->resolveCurrentContext($user, $this->requestedCompanyId($request));
+
+        abort_unless($currentAccount->owner_type === 'private', 403);
+
+        return view('portal.personal-profile-edit', [
+            'pageTitle'      => 'Il mio profilo',
+            'currentAccount' => $currentAccount,
+            'currentUser'    => $user,
+            'activeNav'      => 'profilo',
+        ]);
+    }
+
+    public function updatePersonalProfile(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        [$currentAccount] = $this->resolveCurrentContext($user, $this->requestedCompanyId($request));
+
+        abort_unless($currentAccount->owner_type === 'private', 403);
+
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'city'          => ['nullable', 'string', 'max:100'],
+            'bio'           => ['nullable', 'string', 'max:500'],
+            'avatar'        => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
+            'remove_avatar' => ['nullable', 'boolean'],
+        ]);
+
+        if ($request->boolean('remove_avatar')) {
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+            $validated['avatar_path'] = null;
+        } elseif ($request->hasFile('avatar')) {
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+            $validated['avatar_path'] = $request->file('avatar')->store('avatars/' . $user->id, 'public');
+        }
+
+        unset($validated['avatar'], $validated['remove_avatar']);
+
+        $user->fill($validated)->save();
+
+        return redirect()->route('portal.personal-profile.edit')
+            ->with('success', 'Profilo aggiornato con successo.');
+    }
+
+    public function showCompany(Request $request, Company $company): View|RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {
             return $redirect;
@@ -1630,57 +1681,3 @@ class PortalController extends Controller
         $dailyNet = [];
         foreach ($allTransfers as $t) {
             $day = $t->booked_at->toDateString();
-            $dailyNet[$day] = ($dailyNet[$day] ?? 0)
-                + ($t->to_account_id === $currentAccount->id ? (int)$t->amount : -(int)$t->amount);
-        }
-
-        // Ricostruiamo saldo giorno per giorno a ritroso partendo dal saldo attuale
-        $dates   = [];
-        $cursor  = $now->toDateString();
-        $balance = (int)$currentBalance;
-        $result  = [];
-
-        for ($i = 0; $i < $days; $i++) {
-            $day = $now->subDays($i)->toDateString();
-            $dates[] = $day;
-        }
-        $dates = array_reverse($dates); // dal piu vecchio al piu recente
-
-        // Calcola saldo per ogni giorno avanzando dalla data piu lontana
-        // Prima: saldo iniziale = saldo attuale - somma di tutti i net dal $start ad oggi
-        $totalNet = array_sum($dailyNet);
-        $startBalance = (int)$currentBalance - $totalNet;
-
-        $runningBalance = $startBalance;
-        foreach ($dates as $date) {
-            $runningBalance += ($dailyNet[$date] ?? 0);
-            $result[] = [
-                'date'    => $date,
-                'balance' => round($runningBalance / 100, 2),
-            ];
-        }
-
-        return response()->json($result);
-    }
-
-    public function togglePaymentsPause(Request $request): \Illuminate\Http\RedirectResponse
-    {
-        [$currentAccount, $currentUser, $rootAccount] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
-
-        abort_unless($currentUser->is($rootAccount->ownerUser), 403);
-
-        $company = $rootAccount->company;
-        abort_unless($company !== null, 403);
-
-        if ($company->payments_paused_at) {
-            $company->update(['payments_paused_at' => null]);
-            $msg = 'Pagamenti automatici ripristinati.';
-        } else {
-            $company->update(['payments_paused_at' => now()]);
-            $msg = 'Pagamenti automatici sospesi. I pagamenti programmati e le rate non verranno elaborati finche non riattivi.';
-        }
-
-        return redirect()->route('portal.dashboard')->with('info', $msg);
-    }
-
-}

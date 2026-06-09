@@ -1398,6 +1398,11 @@
                         @endif
                     </a>
                     @endif
+                    @if(!$isBackoffice && ($currentAccount ?? null)?->owner_type === 'private')
+                    <a class="sidebar-link {{ ($activeNav ?? '') === 'profilo' ? 'active' : '' }}" href="{{ route('portal.personal-profile.edit') }}" style="margin-bottom:2px;">
+                        <span class="nav-icon">👤</span><span>Il mio profilo</span>
+                    </a>
+                    @endif
                     @if($mv('security'))
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'security' ? 'active' : '' }}" href="{{ route('portal.security') }}" style="margin-bottom:6px;">
                         <span class="nav-icon">2F</span><span>Sicurezza</span>
@@ -1948,7 +1953,7 @@
                 <span class="mobile-tab-label">QR</span>
             </a>
             {{-- Profilo --}}
-            <a href="{{ (!$isBackoffice && ($currentAccount ?? null)?->owner_type !== 'private') ? route('portal.profile.edit') : route('portal.security') }}"
+            <a href="{{ (!$isBackoffice && ($currentAccount ?? null)?->owner_type !== 'private') ? route('portal.profile.edit') : route('portal.personal-profile.edit') }}"
                class="mobile-tab {{ ($activeNav ?? '') === 'profilo' ? 'active' : '' }}">
                 <span class="mobile-tab-icon">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -2020,12 +2025,4 @@
     <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;text-align:center;">
         <p style="margin:0;font-size:11px;color:rgba(255,255,255,.38);">
             &copy; {{ date('Y') }} KMoney &mdash;
-            <a href="{{ route('legal.privacy') }}" style="color:rgba(255,255,255,.5);">Privacy</a> &middot;
-            <a href="{{ route('legal.terms') }}" style="color:rgba(255,255,255,.5);">Termini</a> &middot;
-            <a href="{{ route('legal.contract') }}" style="color:rgba(255,255,255,.5);">Contratto</a> &middot;
-            <a href="{{ route('legal.limits') }}" style="color:rgba(255,255,255,.5);">Limiti</a> &middot;
-            <a href="{{ route('legal.aml-kyc') }}" style="color:rgba(255,255,255,.5);">AML/KYC</a> &middot;
-            <a href="{{ route('legal.complaints') }}" style="color:rgba(255,255,255,.5);">Reclami</a>
-        </p>
-    </footer>
-</body>
+            <a href="{{ route('legal.privacy') }}" style="color:rgba(255,255,255,.5);">Privac
