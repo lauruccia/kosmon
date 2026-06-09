@@ -5,7 +5,7 @@
 /* ── KPI grid ── */
 .req-kpi-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-bottom: 18px;
 }
@@ -84,6 +84,7 @@
 .req-history-item-date { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
 
 @media (max-width: 640px) {
+    .req-kpi-grid { grid-template-columns: 1fr 1fr; }
     .req-history-grid { grid-template-columns: 1fr; }
     .req-kpi-actions { flex-direction: column; }
 }
@@ -249,7 +250,11 @@
                         <span class="eyebrow">Storico ricevute</span>
                         <h3 class="section-title" style="font-size:14px;">Chiuse</h3>
                     </div>
-                    <span style="font-size:18px;">📋</span>
+                    @if($confirmedReceivedTotal > 30)
+                        <a href="{{ route('portal.movimenti') }}" style="font-size:12px;color:var(--primary);font-weight:600;white-space:nowrap;">Vedi tutti ({{ $confirmedReceivedTotal }}) →</a>
+                    @else
+                        <span style="font-size:18px;">📋</span>
+                    @endif
                 </div>
                 <div class="req-history-list">
                     @foreach($confirmedReceived->merge($rejectedReceived)->sortByDesc('created_at') as $transfer)
@@ -317,6 +322,9 @@
                         <span class="eyebrow">Storico inviate</span>
                         <h3 class="section-title" style="font-size:14px;">Chiuse</h3>
                     </div>
+                    @if($confirmedSentTotal > 30)
+                        <a href="{{ route('portal.movimenti') }}" style="font-size:12px;color:var(--primary);font-weight:600;white-space:nowrap;">Vedi tutti ({{ $confirmedSentTotal }}) →</a>
+                    @endif
                 </div>
                 <div class="req-history-list">
                     @foreach($confirmedSent->merge($rejectedSent)->sortByDesc('created_at') as $transfer)

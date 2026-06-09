@@ -1287,13 +1287,16 @@ class PortalController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $pendingReceived  = $receivedRequests->where('status', 'pending');
-        $confirmedReceived = $receivedRequests->where('status', 'booked');
-        $rejectedReceived = $receivedRequests->where('status', 'rejected');
+        $pendingReceived   = $receivedRequests->where('status', 'pending');
+        $confirmedReceived = $receivedRequests->where('status', 'booked')->take(30);
+        $rejectedReceived  = $receivedRequests->where('status', 'rejected')->take(30);
 
         $pendingSent   = $sentRequests->where('status', 'pending');
-        $confirmedSent = $sentRequests->where('status', 'booked');
-        $rejectedSent  = $sentRequests->where('status', 'rejected');
+        $confirmedSent = $sentRequests->where('status', 'booked')->take(30);
+        $rejectedSent  = $sentRequests->where('status', 'rejected')->take(30);
+
+        $confirmedReceivedTotal = $receivedRequests->where('status', 'booked')->count();
+        $confirmedSentTotal     = $sentRequests->where('status', 'booked')->count();
 
         // ── Richieste formali (TextPaymentRequest) ────────────────────────────
         $formalReceived = TextPaymentRequest::query()
@@ -1309,19 +1312,21 @@ class PortalController extends Controller
             ->get();
 
         return view('portal.payment-requests', [
-            'pageTitle'         => 'Richieste',
-            'activeNav'         => 'richieste',
-            'currentAccount'    => $currentAccount,
-            'currentUser'       => $currentUser,
-            'pendingReceived'   => $pendingReceived,
-            'confirmedReceived' => $confirmedReceived,
-            'rejectedReceived'  => $rejectedReceived,
-            'pendingSent'       => $pendingSent,
-            'confirmedSent'     => $confirmedSent,
-            'rejectedSent'      => $rejectedSent,
-            'formalReceived'    => $formalReceived,
-            'formalSent'        => $formalSent,
-            'activeTab'         => request('tab', 'incasso'),
+            'pageTitle'              => 'Richieste',
+            'activeNav'              => 'richieste',
+            'currentAccount'         => $currentAccount,
+            'currentUser'            => $currentUser,
+            'pendingReceived'        => $pendingReceived,
+            'confirmedReceived'      => $confirmedReceived,
+            'rejectedReceived'       => $rejectedReceived,
+            'pendingSent'            => $pendingSent,
+            'confirmedSent'          => $confirmedSent,
+            'rejectedSent'           => $rejectedSent,
+            'confirmedReceivedTotal' => $confirmedReceivedTotal,
+            'confirmedSentTotal'     => $confirmedSentTotal,
+            'formalReceived'         => $formalReceived,
+            'formalSent'             => $formalSent,
+            'activeTab'              => request('tab', 'incasso'),
         ]);
     }
 
