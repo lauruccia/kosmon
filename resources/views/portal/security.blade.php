@@ -251,6 +251,95 @@
     </section>
     @endif
 
+    {{-- ── PIN di pagamento ──────────────────────────────────────────────────── --}}
+    @php $pinThreshold = \App\Models\SystemSetting::userLimitDefaults()->payment_pin_threshold; @endphp
+    @if($pinThreshold !== null)
+    <section class="card card-pad" style="margin-top:20px;" id="pin-section">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:{{ auth()->user()->payment_pin_hash ? 'var(--success-soft)' : 'var(--surface-soft)' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{ auth()->user()->payment_pin_hash ? '#065f46' : 'var(--ink-muted)' }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4"/>
+                    <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                </svg>
+            </div>
+            <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink);">PIN di pagamento</div>
+                <div style="font-size:13px;color:{{ auth()->user()->payment_pin_hash ? 'var(--success)' : 'var(--ink-muted)' }};font-weight:600;margin-top:2px;">
+                    {{ auth()->user()->payment_pin_hash ? 'Configurato' : 'Non configurato' }}
+                </div>
+            </div>
+        </div>
+
+        <p style="font-size:14px;color:var(--ink-soft);margin-bottom:20px;">
+            Il PIN protegge i pagamenti superiori a <strong>{{ ky_format($pinThreshold) }} KY</strong>.
+            Sotto questa soglia i pagamenti vengono confermati direttamente, senza richiesta di PIN.
+        </p>
+
+        {{-- Form imposta / cambia PIN --}}
+        <details id="pin-set-details" style="border:1px solid var(--line);border-radius:10px;margin-bottom:12px;" {{ $errors->has('pin_hash') ? 'open' : '' }}>
+            <summary style="padding:12px 16px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;user-select:none;">
+                <span>{{ auth()->user()->payment_pin_hash ? '🔄 Cambia PIN' : '➕ Imposta PIN' }}</span>
+            </summary>
+            <div style="padding:16px;border-top:1px solid var(--line);">
+                <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">Inserisci un PIN di 6 cifre. Verrà richiesto per confermare i pagamenti sopra soglia.</p>
+
+                {{-- Numpad PIN --}}
+                <div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px;" id="set-pin-dots">
+                    @for($i = 0; $i < 6; $i++)
+                    <div id="set-dot-{{ $i }}" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--surface-soft);transition:background .15s,border-color .15s;"></div>
+                    @endfor
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:220px;margin:0 auto 16px;" id="set-numpad">
+                    @foreach([1,2,3,4,5,6,7,8,9,'','0','⌫'] as $k)
+                        @if($k === '')
+                            <div></div>
+                        @elseif($k === '⌫')
+                            <button type="button" onclick="setPinBack()"
+                                style="padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;font-size:18px;cursor:pointer;color:var(--ink);">⌫</button>
+                        @else
+                            <button type="button" onclick="setPinPress('{{ $k }}')"
+                                style="padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;font-size:18px;font-weight:600;cursor:pointer;color:var(--ink);">{{ $k }}</button>
+                        @endif
+                    @endforeach
+                </div>
+
+                <form method="POST" action="{{ route('portal.invia.pin.imposta') }}" id="set-pin-form">
+                    @csrf
+                    <input type="hidden" id="set_pin_hash" name="pin_hash">
+                    @error('pin_hash')
+                        <div style="color:var(--danger);font-size:13px;margin-bottom:10px;">{{ $message }}</div>
+                    @enderror
+                    <button type="submit" id="set-pin-submit-btn" disabled
+                        style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;opacity:.5;transition:opacity .2s;">
+                        Salva PIN
+                    </button>
+                </form>
+            </div>
+        </details>
+
+        {{-- Rimuovi PIN (solo se configurato) --}}
+        @if(auth()->user()->payment_pin_hash)
+        <details style="border:1px solid #fecdd3;border-radius:10px;">
+            <summary style="padding:12px 16px;font-size:14px;font-weight:600;color:var(--danger);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;user-select:none;">
+                <span>🗑 Rimuovi PIN</span>
+            </summary>
+            <div style="padding:16px;border-top:1px solid #fecdd3;">
+                <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">Rimuovendo il PIN, i pagamenti sopra soglia non richiederanno più conferma aggiuntiva.</p>
+                <form method="POST" action="{{ route('portal.invia.pin.rimuovi') }}" onsubmit="return confirm('Sei sicuro di voler rimuovere il PIN di pagamento?')">
+                    @csrf
+                    <button type="submit"
+                        style="padding:10px 20px;background:var(--danger-soft);color:var(--danger);border:1px solid #fecdd3;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                        Rimuovi PIN
+                    </button>
+                </form>
+            </div>
+        </details>
+        @endif
+    </section>
+    @endif
+
 </div>
 
 @endsection
@@ -434,6 +523,53 @@
             btn.textContent = '+ Aggiungi dispositivo';
         }
     });
+
+
+    // ── PIN di pagamento ────────────────────────────────────────────────────────
+    (function () {
+        const setPinDigits = [];
+
+        function updateSetPinDots() {
+            for (let i = 0; i < 6; i++) {
+                const dot = document.getElementById('set-dot-' + i);
+                if (!dot) return;
+                dot.style.background     = i < setPinDigits.length ? 'var(--primary)' : 'var(--surface-soft)';
+                dot.style.borderColor    = i < setPinDigits.length ? 'var(--primary)' : 'var(--line)';
+            }
+            const submitBtn = document.getElementById('set-pin-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = setPinDigits.length < 6;
+                submitBtn.style.opacity = setPinDigits.length >= 6 ? '1' : '.5';
+            }
+        }
+
+        window.setPinPress = function (digit) {
+            if (setPinDigits.length >= 6) return;
+            setPinDigits.push(digit);
+            updateSetPinDots();
+        };
+
+        window.setPinBack = function () {
+            if (!setPinDigits.length) return;
+            setPinDigits.pop();
+            updateSetPinDots();
+        };
+
+        const setPinForm = document.getElementById('set-pin-form');
+        if (setPinForm) {
+            setPinForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                if (setPinDigits.length < 6) return;
+                const pinStr  = setPinDigits.join('');
+                const encoder = new TextEncoder();
+                const data    = encoder.encode(pinStr);
+                const hash    = await crypto.subtle.digest('SHA-256', data);
+                const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+                document.getElementById('set_pin_hash').value = hashHex;
+                this.submit();
+            });
+        }
+    })();
 
     // Carica la lista all'avvio
     loadCredentials();

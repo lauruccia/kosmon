@@ -91,6 +91,11 @@
                         <input type="number" min="0" step="0.01" name="payment_confirm_totp_threshold" value="{{ old('payment_confirm_totp_threshold', ky_input($defaultTransferLimits['payment_confirm_totp_threshold'])) }}">
                         <small style="color:var(--text-muted);">Se compilato, i pagamenti diretti sopra questa soglia richiedono una verifica identità aggiuntiva prima di essere eseguiti. Lasciare vuoto per disabilitare.</small>
                     </div>
+                    <div class="field" style="grid-column:1/-1;">
+                        <label>Soglia PIN di pagamento (KY)</label>
+                        <input type="number" min="0" step="0.01" name="payment_pin_threshold" value="{{ old('payment_pin_threshold', ky_input($defaultTransferLimits['payment_pin_threshold'] ?? null)) }}">
+                        <small style="color:var(--text-muted);">Importo sotto cui non viene richiesto il PIN di pagamento. Es. 10 = sotto 10,00 KY nessun PIN. Lasciare vuoto per disabilitare completamente il PIN per tutti gli utenti.</small>
+                    </div>
                 </div>
                 <div class="form-actions" style="justify-content:flex-start;margin-top:6px;">
                     <button type="submit" class="cta">Salva default</button>

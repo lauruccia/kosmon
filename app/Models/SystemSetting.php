@@ -196,6 +196,7 @@ HTML;
             'monthly_transaction_limit'      => $this->default_monthly_transaction_limit,
             'per_movement_limit'             => $this->default_per_movement_limit,
             'payment_confirm_totp_threshold' => $this->payment_confirm_totp_threshold,
+            'payment_pin_threshold'          => $this->payment_pin_threshold,
         ];
     }
 }
