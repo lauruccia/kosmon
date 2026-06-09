@@ -97,6 +97,96 @@
     <div class="alert-banner error">{{ session('portal_error') }}</div>
 @endif
 
+{{-- ══ AZIONI RICHIESTE (sopra i KPI, solo se presenti) ══ --}}
+@if($pendingReceived->isNotEmpty())
+<section class="card light-card" style="margin-bottom:18px;border-left:4px solid #f59e0b;">
+    <div class="section-head" style="margin-bottom:14px;">
+        <div>
+            <span class="eyebrow" style="color:#f59e0b;">Azione richiesta</span>
+            <h3 class="section-title">In attesa della tua risposta</h3>
+        </div>
+        <span style="font-size:22px;">📥</span>
+    </div>
+    <div style="display:grid;gap:12px;">
+        @foreach($pendingReceived as $transfer)
+        @php
+            $requester     = $transfer->toAccount;
+            $requesterName = $requester?->display_name ?? '—';
+            $ago           = $transfer->created_at?->diffForHumans() ?? '';
+        @endphp
+        <div class="req-pending-item req-pending-item--incasso">
+            <div class="req-pending-meta">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $requesterName }}</div>
+                    <div class="table-muted" style="font-size:12px;">{{ $requester?->account_number }}</div>
+                    <div class="table-muted" style="font-size:11.5px;">{{ $ago }}</div>
+                    @if($transfer->description)
+                        <div style="font-size:12.5px;color:var(--ink-soft);font-style:italic;margin-top:4px;">"{{ $transfer->description }}"</div>
+                    @endif
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div class="req-pending-amount">{{ ky_format($transfer->amount) }} KY</div>
+                    <div class="table-muted" style="font-size:11px;margin-top:2px;">{{ $transfer->reference ?? substr($transfer->id, 0, 8) }}</div>
+                </div>
+            </div>
+            <div class="req-pending-actions">
+                <form method="POST" action="{{ route('portal.receive.requests.confirm', $transfer) }}" style="flex:1;display:contents;">
+                    @csrf
+                    <button type="submit" class="cta"
+                        onclick="return confirm('Confermi il pagamento di {{ ky_format($transfer->amount) }} KY a {{ $requesterName }}?')">
+                        ✓ Conferma
+                    </button>
+                </form>
+                <form method="POST" action="{{ route('portal.receive.requests.reject', $transfer) }}" style="flex:1;display:contents;">
+                    @csrf
+                    <button type="submit" class="cta secondary">✕ Rifiuta</button>
+                </form>
+            </div>
+        </div>
+        @endforeach
+    </div>
+</section>
+@endif
+
+@php $formalPendingListTop = $formalReceived->filter->isActionable(); @endphp
+@if($formalPendingListTop->isNotEmpty())
+<section class="card light-card" style="margin-bottom:18px;border-left:4px solid #e11d48;">
+    <div class="section-head" style="margin-bottom:14px;">
+        <div>
+            <span class="eyebrow" style="color:#e11d48;">Azione richiesta</span>
+            <h3 class="section-title">Richieste formali da approvare</h3>
+        </div>
+        <span style="font-size:22px;">📄</span>
+    </div>
+    <div style="display:grid;gap:12px;">
+        @foreach($formalPendingListTop as $req)
+        @php $senderName = $req->fromAccount?->company?->name ?? $req->fromAccount?->display_name ?? '—'; @endphp
+        <div class="req-pending-item req-pending-item--formale">
+            <div class="req-pending-meta">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $senderName }}</div>
+                    <div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">{{ $req->causale }}</div>
+                    @if($req->due_date)
+                        <div style="font-size:12px;margin-top:3px;color:{{ $req->due_date->isPast() ? '#dc2626' : 'var(--ink-muted)' }};font-weight:{{ $req->due_date->isPast() ? '700' : '400' }};">
+                            Scadenza: {{ $req->due_date->format('d/m/Y') }}
+                        </div>
+                    @endif
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div class="req-pending-amount">{{ $req->formattedAmount() }}</div>
+                </div>
+            </div>
+            <div class="req-pending-actions">
+                <a href="{{ route('portal.text-requests.show', $req) }}" class="cta" style="flex:1;text-align:center;padding:13px 10px;font-size:15px;">
+                    Approva / Rifiuta
+                </a>
+            </div>
+        </div>
+        @endforeach
+    </div>
+</section>
+@endif
+
 {{-- KPI 2×2 --}}
 <div class="req-kpi-grid">
     <article class="stat-card" style="border-left:4px solid #f59e0b;">
@@ -146,59 +236,6 @@
 
 {{-- ══ TAB INCASSO ══ --}}
 <div id="tab-incasso">
-
-    {{-- Pending: azione richiesta --}}
-    @if($pendingReceived->isNotEmpty())
-    <section class="card light-card" style="margin-bottom:18px;border-left:4px solid #f59e0b;">
-        <div class="section-head" style="margin-bottom:14px;">
-            <div>
-                <span class="eyebrow" style="color:#f59e0b;">Azione richiesta</span>
-                <h3 class="section-title">In attesa della tua risposta</h3>
-            </div>
-            <span style="font-size:22px;">📥</span>
-        </div>
-        <div style="display:grid;gap:12px;">
-            @foreach($pendingReceived as $transfer)
-            @php
-                $requester     = $transfer->toAccount;
-                $requesterName = $requester?->display_name ?? '—';
-                $ago           = $transfer->created_at?->diffForHumans() ?? '';
-            @endphp
-            <div class="req-pending-item req-pending-item--incasso">
-                {{-- Info richiedente + importo --}}
-                <div class="req-pending-meta">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $requesterName }}</div>
-                        <div class="table-muted" style="font-size:12px;">{{ $requester?->account_number }}</div>
-                        <div class="table-muted" style="font-size:11.5px;">{{ $ago }}</div>
-                        @if($transfer->description)
-                            <div style="font-size:12.5px;color:var(--ink-soft);font-style:italic;margin-top:4px;">"{{ $transfer->description }}"</div>
-                        @endif
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;">
-                        <div class="req-pending-amount">{{ ky_format($transfer->amount) }} KY</div>
-                        <div class="table-muted" style="font-size:11px;margin-top:2px;">{{ $transfer->reference ?? substr($transfer->id, 0, 8) }}</div>
-                    </div>
-                </div>
-                {{-- Bottoni full-width --}}
-                <div class="req-pending-actions">
-                    <form method="POST" action="{{ route('portal.receive.requests.confirm', $transfer) }}" style="flex:1;display:contents;">
-                        @csrf
-                        <button type="submit" class="cta"
-                            onclick="return confirm('Confermi il pagamento di {{ ky_format($transfer->amount) }} KY a {{ $requesterName }}?')">
-                            ✓ Conferma
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ route('portal.receive.requests.reject', $transfer) }}" style="flex:1;display:contents;">
-                        @csrf
-                        <button type="submit" class="cta secondary">✕ Rifiuta</button>
-                    </form>
-                </div>
-            </div>
-            @endforeach
-        </div>
-    </section>
-    @endif
 
     {{-- Storico: 2 col desktop, 1 col mobile --}}
     <div class="req-history-grid">
@@ -320,46 +357,6 @@
 
 {{-- ══ TAB FORMALI ══ --}}
 <div id="tab-formali" style="display:none;">
-
-    {{-- Pending formali --}}
-    @php $formalPendingList = $formalReceived->filter->isActionable(); @endphp
-    @if($formalPendingList->isNotEmpty())
-    <section class="card light-card" style="margin-bottom:18px;border-left:4px solid #e11d48;">
-        <div class="section-head" style="margin-bottom:14px;">
-            <div>
-                <span class="eyebrow" style="color:#e11d48;">Azione richiesta</span>
-                <h3 class="section-title">Da approvare</h3>
-            </div>
-            <span style="font-size:22px;">📄</span>
-        </div>
-        <div style="display:grid;gap:12px;">
-            @foreach($formalPendingList as $req)
-            @php $senderName = $req->fromAccount?->company?->name ?? $req->fromAccount?->display_name ?? '—'; @endphp
-            <div class="req-pending-item req-pending-item--formale">
-                <div class="req-pending-meta">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $senderName }}</div>
-                        <div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">{{ $req->causale }}</div>
-                        @if($req->due_date)
-                            <div style="font-size:12px;margin-top:3px;color:{{ $req->due_date->isPast() ? '#dc2626' : 'var(--ink-muted)' }};font-weight:{{ $req->due_date->isPast() ? '700' : '400' }};">
-                                Scadenza: {{ $req->due_date->format('d/m/Y') }}
-                            </div>
-                        @endif
-                    </div>
-                    <div style="text-align:right;flex-shrink:0;">
-                        <div class="req-pending-amount">{{ $req->formattedAmount() }}</div>
-                    </div>
-                </div>
-                <div class="req-pending-actions">
-                    <a href="{{ route('portal.text-requests.show', $req) }}" class="cta" style="flex:1;text-align:center;padding:13px 10px;font-size:15px;">
-                        Approva / Rifiuta
-                    </a>
-                </div>
-            </div>
-            @endforeach
-        </div>
-    </section>
-    @endif
 
     {{-- Storico formali --}}
     <div class="req-history-grid">
