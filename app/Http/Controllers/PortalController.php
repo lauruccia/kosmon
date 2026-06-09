@@ -1681,3 +1681,57 @@ class PortalController extends Controller
         $dailyNet = [];
         foreach ($allTransfers as $t) {
             $day = $t->booked_at->toDateString();
+            $dailyNet[$day] = ($dailyNet[$day] ?? 0)
+                + ($t->to_account_id === $currentAccount->id ? (int)$t->amount : -(int)$t->amount);
+        }
+
+        // Ricostruiamo saldo giorno per giorno a ritroso partendo dal saldo attuale
+        $dates   = [];
+        $cursor  = $now->toDateString();
+        $balance = (int)$currentBalance;
+        $result  = [];
+
+        for ($i = 0; $i < $days; $i++) {
+            $day = $now->subDays($i)->toDateString();
+            $dates[] = $day;
+        }
+        $dates = array_reverse($dates); // dal piu vecchio al piu recente
+
+        // Calcola saldo per ogni giorno avanzando dalla data piu lontana
+        // Prima: saldo iniziale = saldo attuale - somma di tutti i net dal $start ad oggi
+        $totalNet = array_sum($dailyNet);
+        $startBalance = (int)$currentBalance - $totalNet;
+
+        $runningBalance = $startBalance;
+        foreach ($dates as $date) {
+            $runningBalance += ($dailyNet[$date] ?? 0);
+            $result[] = [
+                'date'    => $date,
+                'balance' => round($runningBalance / 100, 2),
+            ];
+        }
+
+        return response()->json($result);
+    }
+
+    public function togglePaymentsPause(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        [$currentAccount, $currentUser, $rootAccount] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
+
+        abort_unless($currentUser->is($rootAccount->ownerUser), 403);
+
+        $company = $rootAccount->company;
+        abort_unless($company !== null, 403);
+
+        if ($company->payments_paused_at) {
+            $company->update(['payments_paused_at' => null]);
+            $msg = 'Pagamenti automatici ripristinati.';
+        } else {
+            $company->update(['payments_paused_at' => now()]);
+            $msg = 'Pagamenti automatici sospesi. I pagamenti programmati e le rate non verranno elaborati finche non riattivi.';
+        }
+
+        return redirect()->route('portal.dashboard')->with('info', $msg);
+    }
+
+}

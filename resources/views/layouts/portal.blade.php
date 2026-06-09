@@ -2025,4 +2025,12 @@
     <footer style="background:var(--navy-deep,#06152a);border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;text-align:center;">
         <p style="margin:0;font-size:11px;color:rgba(255,255,255,.38);">
             &copy; {{ date('Y') }} KMoney &mdash;
-            <a href="{{ route('legal.privacy') }}" style="color:rgba(255,255,255,.5);">Privac
+            <a href="{{ route('legal.privacy') }}" style="color:rgba(255,255,255,.5);">Privacy</a> &middot;
+            <a href="{{ route('legal.terms') }}" style="color:rgba(255,255,255,.5);">Termini</a> &middot;
+            <a href="{{ route('legal.contract') }}" style="color:rgba(255,255,255,.5);">Contratto</a> &middot;
+            <a href="{{ route('legal.limits') }}" style="color:rgba(255,255,255,.5);">Limiti</a> &middot;
+            <a href="{{ route('legal.aml-kyc') }}" style="color:rgba(255,255,255,.5);">AML/KYC</a> &middot;
+            <a href="{{ route('legal.complaints') }}" style="color:rgba(255,255,255,.5);">Reclami</a>
+        </p>
+    </footer>
+</body>

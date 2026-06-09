@@ -760,4 +760,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::get('/nfc-cards/{uuid}', [NfcCardController::class, 'show'])->name('portal.nfc-cards.show');
     Route::get('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activateForm'])->name('portal.nfc-cards.activate');
     Route::post('/nfc-cards/{uuid}/attiva', [NfcCardController::class, 'activate'])->name('portal.nfc-cards.activate.post');
-    Route::post('/nfc-cards/{uuid}/limiti', [NfcCardController::class, 'updateLimits'])->name('portal.
+    Route::post('/nfc-cards/{uuid}/limiti', [NfcCardController::class, 'updateLimits'])->name('portal.nfc-cards.limits');
+    Route::post('/nfc-cards/{uuid}/blocca', [NfcCardController::class, 'block'])->name('portal.nfc-cards.block');
+    Route::post('/nfc-cards/{uuid}/sblocca', [NfcCardController::class, 'unblock'])->name('portal.nfc-cards.unblock');
+
+});

@@ -300,4 +300,3 @@ class PaymentPinTest extends TestCase
             ->assertSessionHas('portal_error');
     }
 }
-                                                                                     
