@@ -29,7 +29,7 @@ class PaymentRequestedNotification extends Notification
                 $this->toAccount->display_name,
                 ky_format($this->transfer->amount),
             ),
-            'link'  => route('portal.movements'),
+            'link'  => route('portal.requests'),
         ];
     }
 }
