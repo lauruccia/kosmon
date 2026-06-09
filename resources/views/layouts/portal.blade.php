@@ -1381,7 +1381,7 @@
                             <span>{{ $authUser?->email }}</span>
                         </div>
                     </div>
-                    @if(!$isBackoffice && $mv('profile'))
+                    @if(!$isBackoffice && $mv('profile') && ($currentAccount ?? null)?->owner_type !== 'private')
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'profile' ? 'active' : '' }}" href="{{ route('portal.profile.edit') }}" style="margin-bottom:2px;">
                         <span class="nav-icon">PF</span><span>Profilo azienda</span>
                         @php
@@ -2024,8 +2024,4 @@
             <a href="{{ route('legal.terms') }}" style="color:rgba(255,255,255,.5);">Termini</a> &middot;
             <a href="{{ route('legal.contract') }}" style="color:rgba(255,255,255,.5);">Contratto</a> &middot;
             <a href="{{ route('legal.limits') }}" style="color:rgba(255,255,255,.5);">Limiti</a> &middot;
-            <a href="{{ route('legal.aml-kyc') }}" style="color:rgba(255,255,255,.5);">AML/KYC</a> &middot;
-            <a href="{{ route('legal.complaints') }}" style="color:rgba(255,255,255,.5);">Reclami</a>
-        </p>
-    </footer>
-</body>
+            <a href="{{ route('legal.aml-kyc') }}" style="color:rgba(255,255,255,.5);">
