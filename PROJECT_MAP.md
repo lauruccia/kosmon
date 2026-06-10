@@ -66,8 +66,8 @@ Una per evento: pagamenti, rate, netting, cashback, KY Card, fido, contratto OTP
 
 ## resources/views/
 
-- `layouts/portal.blade.php` — layout principale (nav, sidebar); `layouts/legal.blade.php`
-- `portal/` — ~70 viste: dashboard, wallet, movements, pay/invia/receive, incasso-qr, scanner, sonic/, code/, nfc-*, payment-links, payment-plans/, scheduled-payments/, netting/, text-requests/, ky-card*, shop*, announcements*, api-tokens/, webhooks/, security, kyc, contract-*, statement, beneficiaries/, balance-alerts, notification-preferences, sottoconti
+- `layouts/portal.blade.php` — layout principale (nav, sidebar accordion a 6 gruppi: Panoramica/Paga/Incassa/Carte&Conto/Circuito/Strumenti); `layouts/legal.blade.php`
+- `portal/` — ~73 viste: dashboard, wallet, movements, pay/invia/receive, incasso-qr, scanner, sonic/, code/, nfc-*, payment-links, payment-plans/, scheduled-payments/, netting/, text-requests/, ky-card*, shop*, announcements*, api-tokens/, webhooks/, security, kyc, contract-*, statement, beneficiaries/, balance-alerts, notification-preferences, sottoconti, **merchant-kit**, **referral**, **merchant-report**
 - `admin/`, `broker/`, `auth/`, `emails/`, `home.blade.php`
 
 ## Altro

@@ -50,8 +50,11 @@ class SendPaymentController extends PortalController
 
         // Ultimi destinatari (non ancora salvati come beneficiari)
         $savedIds = $savedBeneficiaries->pluck('beneficiary_account_id')->toArray();
+        // Escludi kind interni (fee, cashback, credit note, rimborso) per evitare
+        // che compaiano conti sistema nella lista rapida destinatari.
         $recentRecipients = Transfer::where('from_account_id', $currentAccount->id)
             ->where('status', 'booked')
+            ->whereNotIn('kind', ['portal_fee', 'portal_cashback', 'portal_credit_note', 'portal_refund'])
             ->with('toAccount')
             ->orderByDesc('booked_at')
             ->get()
@@ -136,6 +139,7 @@ class SendPaymentController extends PortalController
         $results = Account::query()
             ->with(['company', 'ownerUser'])
             ->where('status', 'active')
+            ->where('is_system_account', false)
             ->whereKeyNot($currentAccount->id)
             ->where(function ($query) use ($q) {
                 $query->whereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
@@ -190,6 +194,30 @@ class SendPaymentController extends PortalController
         $settings     = SystemSetting::userLimitDefaults();
         $pinThreshold = $settings->payment_pin_threshold;
         $hasPin       = !is_null($currentUser->payment_pin_hash);
+
+        // Se la soglia è configurata e l'importo la supera:
+        // - utente SENZA PIN → blocca e chiedi di impostarlo
+        // - utente CON PIN   → verifica PIN inserito
+        if ($pinThreshold !== null && $amountCents >= (int) $pinThreshold && ! $hasPin) {
+            AuditLog::create([
+                'actor_user_id'  => $currentUser->id,
+                'event'          => 'transfer.rejected',
+                'auditable_type' => \App\Models\Transfer::class,
+                'auditable_id'   => null,
+                'ip_address'     => $request->ip(),
+                'context'        => [
+                    'reason'          => 'pin_not_set',
+                    'from_account_id' => $currentAccount->id,
+                    'to_account_id'   => (int) $validated['to_account_id'],
+                    'amount'          => $amountCents,
+                ],
+            ]);
+            return back()->withInput()->with(
+                'portal_warning',
+                'Per inviare importi superiori a ' . ky_format((int) $pinThreshold) . ' KY devi prima impostare un PIN di pagamento. '
+                . 'Vai in <a href="' . route('portal.profilo') . '" class="underline">Profilo → Sicurezza</a> per configurarlo.'
+            );
+        }
 
         if ($hasPin && $pinThreshold !== null && $amountCents >= (int) $pinThreshold) {
             if (empty($validated['pin'])) {

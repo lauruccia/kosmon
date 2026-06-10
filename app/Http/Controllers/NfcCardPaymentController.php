@@ -239,7 +239,17 @@ class NfcCardPaymentController extends Controller
             return redirect()->guest(route('login'));
         }
 
-        abort_unless($session->card->company_id === $user->company_id, 403);
+        // Verifica che l'utente loggato sia il titolare della card:
+        // per conti business (company_id) o per conti privati (owner_user_id)
+        $cardOwnerAccount = Account::where(function ($q) use ($session) {
+            $q->where('company_id', $session->card->company_id)
+              ->orWhere('owner_user_id', $session->card->company_id); // fallback privati
+        })->whereNull('parent_account_id')->first();
+
+        $userOwnsCard = ($session->card->company_id && $session->card->company_id === $user->company_id)
+            || ($cardOwnerAccount && $cardOwnerAccount->owner_user_id === $user->id);
+
+        abort_unless($userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
 
         return view('portal.nfc-cards.authorize', [
             'pageTitle' => 'Conferma pagamento',
@@ -261,7 +271,11 @@ class NfcCardPaymentController extends Controller
         abort_unless($session->isPending(), 403, 'Sessione non valida o scaduta.');
 
         $user = $request->user();
-        abort_unless($user && $session->card->company_id === $user->company_id, 403);
+        // Stesso check del GET: titolare card per KYB (company_id) o KYP (owner_user_id)
+        $userOwnsCard = ($session->card->company_id && $session->card->company_id === $user->company_id)
+            || (Account::where('owner_user_id', $user->id)->whereNull('parent_account_id')->exists()
+                && $session->card->company_id === null);
+        abort_unless($user && $userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
 
         $validated = $request->validate([
             'pin' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],

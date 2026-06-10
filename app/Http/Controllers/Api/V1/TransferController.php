@@ -129,7 +129,12 @@ class TransferController extends Controller
             return response()->json(['error' => 'Cannot transfer to your own account'], 422);
         }
 
-        $initiator = $fromAccount->ownerUser ?? $fromAccount->company?->users()->first();
+        // Preferisce il creatore del token come initiator (audit trail corretto).
+        // Fallback: owner dell'account, poi primo utente della company per id (deterministico).
+        $initiator = $token->creator
+            ?? $fromAccount->ownerUser
+            ?? $fromAccount->company?->users()->orderBy('id')->first();
+
         if (! $initiator) {
             return response()->json(['error' => 'No user associated with this account'], 422);
         }

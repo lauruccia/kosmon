@@ -77,7 +77,12 @@ class Account extends Model
 
     public static function hasKyAccountNumber(?string $value): bool
     {
-        return is_string($value) && preg_match('/^KY[A-Z0-9]{14}$/', $value) === 1;
+        // Formati validi (tutti 16 char):
+        //   KYB + 13 alfanumerici maiuscoli  →  conti business
+        //   KYP + 13 alfanumerici maiuscoli  →  conti privati
+        //   KY  + 14 alfanumerici maiuscoli  →  conti sistema
+        return is_string($value)
+            && preg_match('/^(KY[BP][A-Z0-9]{13}|KY[A-Z0-9]{14})$/', $value) === 1;
     }
 
     public static function generateKyAccountNumber(string $ownerType = 'company'): string

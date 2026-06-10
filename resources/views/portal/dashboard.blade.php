@@ -603,6 +603,22 @@
         </a>
     </div>
 
+    {{-- Link rapido QR personale ─────────────────────────────────────── --}}
+    <div style="text-align:center;margin-top:10px;">
+        <a href="{{ route('portal.card') }}"
+           style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.75);text-decoration:none;
+                  padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.2);
+                  background:rgba(255,255,255,.08);transition:background .15s;"
+           onmouseover="this.style.background='rgba(255,255,255,.18)'"
+           onmouseout="this.style.background='rgba(255,255,255,.08)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>
+            </svg>
+            Il mio QR per ricevere KY
+        </a>
+    </div>
+
     {{-- KPI grid secondaria --}}
     <div class="bank-kpi-grid" style="margin-top:16px;">
 

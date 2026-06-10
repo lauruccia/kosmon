@@ -155,7 +155,11 @@
                             <span style="color:#0c4a86;text-decoration:underline;cursor:pointer;" onclick="document.getElementById('kyc-file').click()">clicca per scegliere</span>
                         </div>
                         <div style="font-size:12px;color:#94a3b8;margin-top:4px;">PDF, JPG, PNG, WebP · max 10 MB</div>
-                        <input id="kyc-file" type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;" required>
+                        {{-- capture="environment" apre la fotocamera posteriore su iOS/Android --}}
+                        <input id="kyc-file" type="file" name="document"
+                               accept=".pdf,.jpg,.jpeg,.png,.webp"
+                               capture="environment"
+                               style="display:none;" required>
                         <div id="kyc-filename" style="margin-top:10px;font-size:13px;color:#0c4a86;font-weight:600;display:none;"></div>
                     </div>
                 </div>

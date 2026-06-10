@@ -3,14 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Mail\KycStatusChanged;
+use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\KycDocument;
+use App\Models\SystemSetting;
+use App\Services\TransferBookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class KycController extends Controller
@@ -196,6 +201,12 @@ class KycController extends Controller
 
         $this->notifyCompanyUsers($company, 'approved', $request->input('notes'));
 
+        // ── Bonus benvenuto (fire-and-forget) ─────────────────────────────
+        // Eroga un bonus KY al nuovo iscritto al momento dell'approvazione KYC.
+        // L'importo è configurabile in SystemSetting.welcome_bonus_amount.
+        // Se non configurato o zero, nessun bonus viene erogato.
+        $this->maybeErogateWelcomeBonus($company, $request->user());
+
         return redirect()->route('admin.kyc.index')
             ->with('portal_success', "KYC approvato per {$company->name}.");
     }
@@ -269,6 +280,70 @@ class KycController extends Controller
                     )
                 );
             }
+        }
+    }
+
+    /**
+     * Eroga il bonus benvenuto al conto della company appena approvata.
+     * L'importo viene letto da SystemSetting (welcome_bonus_amount, in centesimi).
+     * Se zero o non configurato, non fa nulla.
+     * Usa una idempotency_key basata sull'ID company per evitare doppi bonus.
+     */
+    private function maybeErogateWelcomeBonus(Company $company, \App\Models\User $adminUser): void
+    {
+        try {
+            $settings    = SystemSetting::userLimitDefaults();
+            $bonusAmount = (int) ($settings->welcome_bonus_amount ?? 0);
+
+            if ($bonusAmount <= 0) {
+                return; // Bonus non configurato
+            }
+
+            $companyAccount = Account::where('company_id', $company->id)
+                ->whereNull('parent_account_id')
+                ->where('status', 'active')
+                ->first();
+
+            if (! $companyAccount) {
+                return;
+            }
+
+            $systemAccount = Account::systemAccount();
+            if (! $systemAccount) {
+                return;
+            }
+
+            $idempotencyKey = 'welcome_bonus_' . $company->id;
+
+            // Verifica idempotency: bonus già erogato?
+            if (\App\Models\Transfer::where('idempotency_key', $idempotencyKey)->exists()) {
+                return;
+            }
+
+            $booking = app(TransferBookingService::class);
+            $booking->book([
+                'initiated_by'    => $adminUser->id,
+                'from_account_id' => $systemAccount->id,
+                'to_account_id'   => $companyAccount->id,
+                'amount'          => $bonusAmount,
+                'description'     => 'Bonus di benvenuto KMoney',
+                'kind'            => 'portal_cashback', // usa cashback per essere esente da fee
+                'idempotency_key' => $idempotencyKey,
+            ]);
+
+            AuditLog::create([
+                'actor_user_id'  => $adminUser->id,
+                'event'          => 'welcome_bonus.credited',
+                'auditable_type' => Company::class,
+                'auditable_id'   => $company->id,
+                'context'        => [
+                    'amount'     => $bonusAmount,
+                    'account_id' => $companyAccount->id,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            // Non bloccare l'approvazione KYC se il bonus fallisce
+            \Log::warning('Welcome bonus failed for company ' . $company->id . ': ' . $e->getMessage());
         }
     }
 }

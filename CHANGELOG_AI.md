@@ -14,6 +14,14 @@ Formato voce:
 
 ---
 
+## 2026-06-10 — Sidebar a gruppi collassabili (accordion)
+- Cosa: refactoring completo del nav portale da lista piatta a 6 gruppi accordion stile banking app (Fineco/Revolut). Gruppo attivo si apre automaticamente in base a `$activeNav`; stato open/close persistito in `localStorage` chiave `km-nav-groups`.
+- Gruppi: **Panoramica** (sempre visibile: Home, Movimenti, Wallet, Richieste), **Paga** (Invia KY, Sonic, Codice, Rateizza, Programmati, Compensa), **Incassa** (QR, NFC, Sonic, Codice, Link, Kit merchant), **Carte & Conto** (Ricarica KY, Card NFC, Fido, Sottoconti), **Circuito** (Directory, Shop, Annunci, Invita), **Strumenti** (Report, Webhook, API Token, Docs, Operatore, Assistenza).
+- CSS: `.nav-group`, `.nav-group-btn`, `.nav-group-arrow`, `.nav-group-items` con transizione `max-height`/`opacity`.
+- JS: `toggleGroup(btn)` + IIFE ripristino stato `localStorage` al caricamento pagina.
+- File toccati: `resources/views/layouts/portal.blade.php`
+- DB: nessuna migration
+
 ## 2026-06-10 — Sprint 3: kit merchant, referral, report
 - Cosa:
   1. **Kit merchant** (`/kit-merchant`): nuova pagina hub con QR statico, link di pagamento, QR con importo, card NFC. PDF A5 stampabile scaricabile via dompdf (`/kit-merchant/qr-pdf`). Controller `MerchantKitController`, view `portal/merchant-kit.blade.php`, `pdf/merchant-qr.blade.php`.

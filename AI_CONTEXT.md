@@ -67,7 +67,8 @@ File importanti: `app/Services/TransferBookingService.php`, `app/Models/Account.
 - Sprint 0 (blocco produzione): completato.
 - Sprint 1 (mobile UX): completato.
 - Sprint 2 (hardening tecnico, 2026-06-10): HMAC NFC log legacy, API senza raw ID (account_number), indici DB già presenti, SW cache bypass `/api/` e `/health/`.
+- Sprint 3 (crescita, 2026-06-10): kit merchant `/kit-merchant`, referral `/invita` (migration users), report merchant `/report-merchant` con Chart.js e CSV.
+- Sprint 3b (UX sidebar, 2026-06-10): sidebar portale refactored da lista piatta a 6 gruppi accordion (`layouts/portal.blade.php`). Gruppi: Panoramica, Paga, Incassa, Carte & Conto, Circuito, Strumenti. Stato persistito in `localStorage`.
 
 ### Prossimi sprint
-- Sprint 3 (crescita, 2026-06-10): completato — kit merchant `/kit-merchant`, referral `/invita` (migration users), report merchant `/report-merchant` con Chart.js e CSV.
 - Sprint 4 (da pianificare): POS API documentata, notifica referral all'approvazione KYC, cashback regola automatica per referral, ottimizzazioni UX mobile Sprint 1 follow-up.

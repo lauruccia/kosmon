@@ -389,6 +389,9 @@ class PortalController extends Controller
 
         // Determina gli account ID da includere nella query
         if ($filters['sub_account_id'] && ! $currentAccount->isSubAccount()) {
+            // Verifica che il sottoconto richiesto appartenga al conto corrente (prevenzione IDOR)
+            $subAccountBelongs = $childAccounts->contains('id', (int) $filters['sub_account_id']);
+            abort_unless($subAccountBelongs, 403, 'Sottoconto non autorizzato.');
             // Filtro per sottoconto specifico: solo quel conto
             $accountIds = [(int) $filters['sub_account_id']];
         } elseif (! $currentAccount->isSubAccount() && $childAccounts->isNotEmpty()) {

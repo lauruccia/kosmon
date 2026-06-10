@@ -28,6 +28,7 @@ class SystemSetting extends Model
         'default_per_movement_limit',
         'payment_confirm_totp_threshold',
         'payment_pin_threshold',
+        'welcome_bonus_amount',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -180,9 +181,10 @@ HTML;
                 'default_negative_balance_limit'    => null,
                 'default_daily_transaction_limit'   => null,
                 'default_monthly_transaction_limit' => null,
-                'default_per_movement_limit'        => null,
+                'default_per_movement_limit'        => 200000, // 2.000 KY — hard fallback sicuro
                 'payment_confirm_totp_threshold'    => null,
                 'payment_pin_threshold'             => null,
+                'welcome_bonus_amount'              => 0, // centesimi; 0 = disabilitato
             ]
         );
     }

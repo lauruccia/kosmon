@@ -402,10 +402,11 @@
                                 body: JSON.stringify({ uuid, sig }),
                             });
 
-                            const data = await res.json();
+                            let data;
+                            try { data = await res.json(); } catch (_) { data = {}; }
 
                             if (!res.ok) {
-                                statusEl.textContent = '✕ ' + (data.error || 'Errore verifica card');
+                                statusEl.textContent = '✕ ' + (data.error || ('Errore server (' + res.status + ')'));
                                 statusEl.style.color = 'var(--danger)';
                                 resetCardBtn();
                                 return;
@@ -479,10 +480,11 @@
                 }),
             });
 
-            const data = await res.json();
+            let data;
+            try { data = await res.json(); } catch (_) { data = {}; }
 
             if (!res.ok) {
-                statusEl.textContent = '✕ ' + (data.error || 'Errore invio richiesta');
+                statusEl.textContent = '✕ ' + (data.error || ('Errore server (' + res.status + ')'));
                 statusEl.style.color = 'var(--danger)';
                 return;
             }

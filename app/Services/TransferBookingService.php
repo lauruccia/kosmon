@@ -9,6 +9,7 @@ use App\Models\LedgerEntry;
 use App\Models\Transfer;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -214,7 +215,23 @@ class TransferBookingService
                 ],
             ]);
 
-            return $pendingTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'confirmer']);
+            // Applica fee di transazione (best-effort, non blocca la conferma)
+            $kind = $pendingTransfer->kind ?? 'portal_collection_request';
+            $systemAccount = \App\Models\Account::systemAccount();
+            if ($systemAccount) {
+                try {
+                    $this->bookFee($fromAccount, $systemAccount, (int) $pendingTransfer->amount, $kind, $pendingTransfer);
+                } catch (\Throwable) {
+                    // fee non bloccante — il transfer è già stato confermato
+                }
+            }
+
+            $pendingTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'confirmer']);
+
+            // Applica cashback (fire-and-forget, fuori dalla transazione per evitare deadlock)
+            app(\App\Services\CashbackService::class)->applyIfEligible($pendingTransfer);
+
+            return $pendingTransfer;
         });
     }
 
@@ -831,43 +848,63 @@ class TransferBookingService
             throw new RuntimeException('Transfer exceeds the circuit capacity limit.');
         }
 
-        $singleTransferLimit = $limits['per_movement_limit'] ?? $account->spending_limit ?? $creditLimit?->single_transfer_limit;
-        if ($singleTransferLimit !== null && $amount > $singleTransferLimit) {
+        // Limite singolo trasferimento: configurazione utente → account → fido → default globale sicuro.
+        // Il default globale (200.000 centesimi = 2.000 KY) previene svuotamenti accidentali
+        // su conti senza limiti espliciti configurati dall'admin.
+        // Viene letto da SystemSetting.default_per_movement_limit, con hard fallback a 200.000.
+        $systemDefaultLimit = \App\Models\SystemSetting::userLimitDefaults()->default_per_movement_limit ?? 200000;
+        $singleTransferLimit = $limits['per_movement_limit']
+            ?? $account->spending_limit
+            ?? $creditLimit?->single_transfer_limit
+            ?? (int) $systemDefaultLimit;
+        if ($amount > $singleTransferLimit) {
             throw new RuntimeException('Transfer exceeds the single transfer limit.');
         }
 
         $dailyLimit = $limits['daily_transaction_limit'] ?? $account->daily_outgoing_limit ?? $creditLimit?->daily_outgoing_limit;
         if ($dailyLimit !== null && $initiator !== null) {
             $startOfDay = CarbonImmutable::now()->startOfDay();
-            $endOfDay = CarbonImmutable::now()->endOfDay();
+            $endOfDay   = CarbonImmutable::now()->endOfDay();
+            $cacheKey   = "spent_today_{$account->id}_{$initiator->id}";
 
-            $outgoingToday = Transfer::query()
-                ->where('from_account_id', $account->id)
-                ->where('initiated_by', $initiator->id)
-                ->where('status', 'booked')
-                ->whereBetween('booked_at', [$startOfDay, $endOfDay])
-                ->sum('amount');
+            // Cache 60s: evita query ripetute su ogni payment in burst
+            $outgoingToday = Cache::remember($cacheKey, 60, fn () =>
+                Transfer::query()
+                    ->where('from_account_id', $account->id)
+                    ->where('initiated_by', $initiator->id)
+                    ->where('status', 'booked')
+                    ->whereBetween('booked_at', [$startOfDay, $endOfDay])
+                    ->sum('amount')
+            );
 
             if (($outgoingToday + $amount) > $dailyLimit) {
                 throw new RuntimeException('Transfer exceeds the daily outgoing limit.');
             }
+
+            // Invalida cache dopo un booking confermato
+            Cache::forget($cacheKey);
         }
 
         $monthlyLimit = $limits['monthly_transaction_limit'] ?? null;
         if ($monthlyLimit !== null && $initiator !== null) {
-            $startOfMonth = CarbonImmutable::now()->startOfMonth();
-            $endOfMonth = CarbonImmutable::now()->endOfMonth();
+            $startOfMonth  = CarbonImmutable::now()->startOfMonth();
+            $endOfMonth    = CarbonImmutable::now()->endOfMonth();
+            $monthCacheKey = "spent_month_{$account->id}_{$initiator->id}_" . CarbonImmutable::now()->format('Y_m');
 
-            $outgoingMonth = Transfer::query()
-                ->where('from_account_id', $account->id)
-                ->where('initiated_by', $initiator->id)
-                ->where('status', 'booked')
-                ->whereBetween('booked_at', [$startOfMonth, $endOfMonth])
-                ->sum('amount');
+            $outgoingMonth = Cache::remember($monthCacheKey, 60, fn () =>
+                Transfer::query()
+                    ->where('from_account_id', $account->id)
+                    ->where('initiated_by', $initiator->id)
+                    ->where('status', 'booked')
+                    ->whereBetween('booked_at', [$startOfMonth, $endOfMonth])
+                    ->sum('amount')
+            );
 
             if (($outgoingMonth + $amount) > $monthlyLimit) {
                 throw new RuntimeException('Transfer exceeds the monthly outgoing limit.');
             }
+
+            Cache::forget($monthCacheKey);
         }
     }
     private function bookFee(
