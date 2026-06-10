@@ -295,4 +295,5 @@ class NfcCardPaymentControllerTest extends TestCase
             ->post(route('nfc.card.authorize.post', $session->nonce))
             ->assertForbidden();
     }
+
 }
