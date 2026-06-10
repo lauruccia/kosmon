@@ -1338,6 +1338,9 @@
                             @if($mv('link-pagamento'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'link-pagamento' ? 'active' : '' }}" href="{{ route('portal.payment-links.index') }}"><span class="nav-icon">&#128279;</span><span>Link pagamento</span></a>
                             @endif
+                            @if($mv('kit-merchant'))
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'kit-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-kit') }}"><span class="nav-icon">🛠️</span><span>Kit merchant</span></a>
+                            @endif
                             @if($mv('rate'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'rate' ? 'active' : '' }}" href="{{ route('portal.payment-plans.index') }}"><span class="nav-icon">RT</span><span>Rate</span></a>
                             @endif
@@ -1361,6 +1364,12 @@
                             @endif
                             @if($mv('shop') && ($currentUser ?? $authUser)?->canAccessMarketplace())
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}"><span class="nav-icon">SH</span><span>Shop</span></a>
+                            @endif
+                            @if($mv('report-merchant'))
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'report-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-report') }}"><span class="nav-icon">📊</span><span>Report</span></a>
+                            @endif
+                            @if($mv('invita'))
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'referral' ? 'active' : '' }}" href="{{ route('portal.referral') }}"><span class="nav-icon">🎁</span><span>Invita un amico</span></a>
                             @endif
                             @if($mv('operatore') && (($currentUser ?? $authUser)?->hasRole('broker') || $isBackoffice))
                                 <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatore</span></a>

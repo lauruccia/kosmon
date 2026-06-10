@@ -57,6 +57,9 @@ class MenuVisibility extends Model
             'aziende'            => 'Directory aziende',
             'annunci'            => 'Annunci',
             'shop'               => 'Shop',
+            'kit-merchant'       => 'Kit merchant',
+            'report-merchant'    => 'Report merchant',
+            'invita'             => 'Invita un amico',
             'operatore'          => 'Operatore broker',
             'help'               => 'Assistenza',
             // ── SEZIONE UTENTE (in fondo alla sidebar) ──────────────────
