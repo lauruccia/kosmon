@@ -65,6 +65,9 @@ use App\Http\Controllers\MerchantReportController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Refresh CSRF token (usato dalla PWA quando la sessione scade)
+Route::get('/csrf-refresh', fn() => response()->json(['token' => csrf_token()]))->name('csrf.refresh');
+
 
 // -- Card NFC statica esercente (es. ristorante) — URL programmato nel tag --
 // Il cliente avvicina il telefono → browser apre questa pagina pubblica →

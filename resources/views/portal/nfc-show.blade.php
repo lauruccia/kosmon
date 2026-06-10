@@ -141,6 +141,30 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
+    // Helper: POST JSON con refresh automatico CSRF se sessione scaduta (419)
+    async function postJson(url, body) {
+        const csrfMeta = () => document.querySelector('meta[name=csrf-token]')?.content || '';
+        let res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfMeta(), 'Accept': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (res.status === 419) {
+            // Sessione scaduta — refresha il CSRF token e riprova una volta
+            const refreshRes = await fetch('/csrf-refresh', { headers: { 'Accept': 'application/json' } });
+            const refreshData = await refreshRes.json().catch(() => ({}));
+            if (refreshData.token) {
+                const meta = document.querySelector('meta[name=csrf-token]');
+                if (meta) meta.setAttribute('content', refreshData.token);
+            }
+            res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfMeta(), 'Accept': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        }
+        return res;
+    }
     (function () {
         const PAY_URL     = @json($payUrl);
         const STATUS_URL  = @json(route('portal.incasso-nfc.status', $pr->token));
@@ -392,15 +416,7 @@
                         statusEl.textContent = 'Verifica card in corso...';
 
                         try {
-                            const res = await fetch('{{ route('nfc.card.identify') }}', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
-                                    'Accept': 'application/json',
-                                },
-                                body: JSON.stringify({ uuid, sig }),
-                            });
+                            const res = await postJson('{{ route('nfc.card.identify') }}', { uuid, sig });
 
                             let data;
                             try { data = await res.json(); } catch (_) { data = {}; }
@@ -466,18 +482,10 @@
         statusEl.style.border     = '1px solid var(--line)';
 
         try {
-            const res = await fetch('{{ route('nfc.card.request') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    card_uuid:   scannedCardUuid,
-                    amount:      amount,
-                    description: description,
-                }),
+            const res = await postJson('{{ route('nfc.card.request') }}', {
+                card_uuid:   scannedCardUuid,
+                amount:      amount,
+                description: description,
             });
 
             let data;
