@@ -14,7 +14,7 @@ Mappa di riferimento per orientarsi senza riesplorare il progetto. Aggiornata al
 | `bootstrap/app.php` | Middleware alias, routing, Sentry |
 | `vite.config.js` | Entry: `app.css`, `app.js`, `ky-payment-request.js` |
 
-## app/Http/Controllers/ (portale, ~55 file)
+## app/Http/Controllers/ (portale, ~58 file)
 
 | Area | Controller |
 |---|---|
@@ -25,6 +25,9 @@ Mappa di riferimento per orientarsi senza riesplorare il progetto. Aggiornata al
 | NFC | NfcCardController, NfcCardPaymentController, NfcPaymentController, StaticNfcController, CardController |
 | KY Card (ricariche) | KyCardController |
 | Marketplace | ListingController (shop), AnnouncementController |
+| Kit merchant | MerchantKitController (`/kit-merchant`, PDF QR stampabile) |
+| Referral | ReferralController (`/invita`, link invito, stats) |
+| Report merchant | MerchantReportController (`/report-merchant`, KPI, trend, CSV) |
 | Sottoconti | SubAccountInvitationController, SubAccountLimitRequestController |
 | Preferenze/notifiche | NotificationPreferencesController, PushSubscriptionController, BalanceAlertController, BeneficiaryController |
 | Integrazioni | ApiTokenController, WebhookController |

@@ -42,9 +42,16 @@ class AuthController extends Controller
             'company_name' => [Rule::requiredIf($holderType === 'company'), 'nullable', 'string', 'max:160'],
             'vat_number' => ['nullable', 'string', 'max:50', 'unique:companies,vat_number'],
             'company_email' => ['nullable', 'email', 'max:120'],
+            'ref' => ['nullable', 'string', 'max:12'],
         ]);
 
-        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType) {
+        // Risolvi chi ha invitato questo utente (se presente)
+        $referrer = null;
+        if (! empty($validated['ref'])) {
+            $referrer = \App\Models\User::where('referral_code', strtoupper(trim($validated['ref'])))->first();
+        }
+
+        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer) {
             $company = null;
             $legacyRoleLabel = $holderType === 'company' ? 'registered-company' : 'registered-private';
 
@@ -75,6 +82,7 @@ class AuthController extends Controller
                 'role' => $legacyRoleLabel,
                 'is_active' => true,
                 'is_super_admin' => false,
+                'referred_by_user_id' => $referrer?->id,
             ]);
 
             $account = Account::create([

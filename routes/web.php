@@ -59,6 +59,9 @@ use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
 use App\Http\Controllers\StaticNfcController;
 use App\Http\Controllers\SendPaymentController;
+use App\Http\Controllers\MerchantKitController;
+use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\MerchantReportController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -352,6 +355,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/profilo/personale', [PortalController::class, 'editPersonalProfile'])->name('portal.personal-profile.edit');
     Route::post('/profilo/personale', [PortalController::class, 'updatePersonalProfile'])->name('portal.personal-profile.update');
 
+    // Referral
+    Route::get('/invita', [ReferralController::class, 'index'])->name('portal.referral');
+
+    // Report merchant
+    Route::get('/report-merchant', [MerchantReportController::class, 'index'])->name('portal.merchant-report');
+    Route::get('/report-merchant/export-csv', [MerchantReportController::class, 'exportCsv'])->name('portal.merchant-report.csv');
+
     Route::get('/aziende', [PortalController::class, 'companies'])->name('portal.companies');
     Route::get('/aziende/{company:slug}', [PortalController::class, 'showCompany'])->name('portal.companies.show');
 
@@ -403,6 +413,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/link-pagamento', [PaymentLinkController::class, 'store'])->name('portal.payment-links.store');
     Route::get('/link-pagamento/{token}', [PaymentLinkController::class, 'show'])->name('portal.payment-links.show');
     Route::post('/link-pagamento/{token}/annulla', [PaymentLinkController::class, 'cancel'])->name('portal.payment-links.cancel');
+
+    // Kit merchant
+    Route::get('/kit-merchant', [MerchantKitController::class, 'index'])->name('portal.merchant-kit');
+    Route::get('/kit-merchant/qr-pdf', [MerchantKitController::class, 'qrPdf'])->name('portal.merchant-kit.qr-pdf');
+
     Route::get('/richieste', [PortalController::class, 'paymentRequests'])->name('portal.requests');
 
     // Compensazione crediti incrociati

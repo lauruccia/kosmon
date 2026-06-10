@@ -428,6 +428,11 @@
                 </div>
             </div>
 
+            {{-- Codice referral (nascosto, pre-compilato se presente nell'URL) --}}
+            @if(request('ref'))
+                <input type="hidden" name="ref" value="{{ request('ref') }}">
+            @endif
+
             {{-- ── SUBMIT ── --}}
             <div class="submit-row">
                 <button class="btn-submit" type="submit">

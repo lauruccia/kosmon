@@ -52,6 +52,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_change_cancel_token',
         'tutorial_shown_at',
         'payment_pin_hash',
+        'referral_code',
+        'referred_by_user_id',
     ];
 
     protected $hidden = [
@@ -401,6 +403,43 @@ class User extends Authenticatable implements MustVerifyEmail
     public function scopeUnsignedContract($query)
     {
         return $query->whereNull('contract_signed_at');
+    }
+
+    // ── Referral ─────────────────────────────────────────────────────────────
+
+    /** Utente che ha invitato questo utente. */
+    public function referredBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'referred_by_user_id');
+    }
+
+    /** Utenti invitati da questo utente. */
+    public function referrals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'referred_by_user_id');
+    }
+
+    /**
+     * Restituisce il codice referral, generandolo se non esiste.
+     * Formato: 8 caratteri alfanumerici maiuscoli.
+     */
+    public function referralCode(): string
+    {
+        if (! $this->referral_code) {
+            do {
+                $code = strtoupper(\Illuminate\Support\Str::random(8));
+            } while (self::where('referral_code', $code)->exists());
+
+            $this->forceFill(['referral_code' => $code])->save();
+        }
+
+        return $this->referral_code;
+    }
+
+    /** URL di registrazione con codice referral pre-compilato. */
+    public function referralUrl(): string
+    {
+        return route('register', ['ref' => $this->referralCode()]);
     }
 
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */

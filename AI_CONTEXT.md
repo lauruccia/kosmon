@@ -69,4 +69,5 @@ File importanti: `app/Services/TransferBookingService.php`, `app/Models/Account.
 - Sprint 2 (hardening tecnico, 2026-06-10): HMAC NFC log legacy, API senza raw ID (account_number), indici DB già presenti, SW cache bypass `/api/` e `/health/`.
 
 ### Prossimi sprint
-- Sprint 3 (crescita): kit merchant QR/NFC, directory esercenti, referral/cashback mission, POS API documentata, reportistica merchant.
+- Sprint 3 (crescita, 2026-06-10): completato — kit merchant `/kit-merchant`, referral `/invita` (migration users), report merchant `/report-merchant` con Chart.js e CSV.
+- Sprint 4 (da pianificare): POS API documentata, notifica referral all'approvazione KYC, cashback regola automatica per referral, ottimizzazioni UX mobile Sprint 1 follow-up.

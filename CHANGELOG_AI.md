@@ -14,6 +14,24 @@ Formato voce:
 
 ---
 
+## 2026-06-10 — Sprint 3: kit merchant, referral, report
+- Cosa:
+  1. **Kit merchant** (`/kit-merchant`): nuova pagina hub con QR statico, link di pagamento, QR con importo, card NFC. PDF A5 stampabile scaricabile via dompdf (`/kit-merchant/qr-pdf`). Controller `MerchantKitController`, view `portal/merchant-kit.blade.php`, `pdf/merchant-qr.blade.php`.
+  2. **Directory esercenti** — già presente (`/aziende`, `PortalController::companies()`), task verificato.
+  3. **Referral** (`/invita`): migration `2026_06_10_100000_add_referral_fields_to_users_table.php` aggiunge `referral_code` (unique 12 char) e `referred_by_user_id` a `users`. Metodi `referralCode()`, `referralUrl()`, relazioni `referredBy()` / `referrals()` su `User`. `AuthController::register()` legge `?ref=CODE` e salva `referred_by_user_id`. View `portal/referral.blade.php` con stats e lista invitati. Campo hidden `ref` in `auth/register.blade.php`.
+  4. **Report merchant** (`/report-merchant`): `MerchantReportController` con KPI (incassato, speso, cashback, fee, n° tx), trend 12 mesi, top 5 pagatori, tabella ultimi movimenti. Export CSV (`/report-merchant/export-csv`). Grafico con Chart.js CDN. View `portal/merchant-report.blade.php`.
+- File toccati: `app/Http/Controllers/MerchantKitController.php` (nuovo), `app/Http/Controllers/ReferralController.php` (nuovo), `app/Http/Controllers/MerchantReportController.php` (nuovo), `app/Models/User.php`, `app/Http/Controllers/AuthController.php`, `routes/web.php`, `resources/views/portal/merchant-kit.blade.php` (nuova), `resources/views/portal/referral.blade.php` (nuova), `resources/views/portal/merchant-report.blade.php` (nuova), `resources/views/pdf/merchant-qr.blade.php` (nuova), `resources/views/auth/register.blade.php`
+- DB: migration `2026_06_10_100000_add_referral_fields_to_users_table.php`
+- SQL produzione (phpMyAdmin):
+  ```sql
+  ALTER TABLE `users`
+    ADD COLUMN `referral_code` varchar(12) NULL AFTER `id`,
+    ADD COLUMN `referred_by_user_id` bigint unsigned NULL AFTER `referral_code`,
+    ADD UNIQUE KEY `users_referral_code_unique` (`referral_code`),
+    ADD KEY `users_referred_by_user_id_foreign` (`referred_by_user_id`),
+    ADD CONSTRAINT `users_referred_by_user_id_foreign` FOREIGN KEY (`referred_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ```
+
 ## 2026-06-10 — Sprint 2: hardening tecnico
 - Cosa:
   1. **HMAC NFC**: aggiunto `\Log::warning()` sul fallback legacy 16-hex — ora ogni card vecchia genera un log per monitorarne il riciclo; firma nuova è già full 64-hex da `buildPayload()`
