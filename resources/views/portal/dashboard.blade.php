@@ -448,6 +448,40 @@
     font-weight: 800;
     white-space: nowrap;
 }
+.mobile-transfer-feed {
+    display: none;
+}
+.mobile-transfer-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+.mobile-transfer-card:last-child { border-bottom: none; }
+.mobile-transfer-card__title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mobile-transfer-card__meta {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mobile-transfer-card__amount {
+    text-align: right;
+    font-size: 14px;
+    font-weight: 900;
+    white-space: nowrap;
+}
 @media (max-width: 560px) {
     .bank-trend-row {
         grid-template-columns: 42px minmax(0, 1fr);
@@ -455,6 +489,52 @@
     .bank-trend-value {
         grid-column: 2;
         text-align: left;
+    }
+}
+@media (max-width: 768px) {
+    #tutorial-modal {
+        width: calc(100vw - 32px) !important;
+        max-width: calc(100vw - 32px) !important;
+    }
+    #tutorial-modal .tut-step {
+        padding: 24px 16px 20px !important;
+    }
+    #tutorial-modal h2 {
+        font-size: 19px !important;
+        line-height: 1.18 !important;
+    }
+    #tutorial-modal,
+    #tutorial-modal * {
+        min-width: 0;
+        max-width: 100%;
+    }
+    #tutorial-modal div,
+    #tutorial-modal span,
+    #tutorial-modal p,
+    #tutorial-modal strong {
+        overflow-wrap: anywhere;
+    }
+    .bank-hero {
+        margin-bottom: 12px;
+        border-radius: 14px;
+    }
+    .bank-hero__header {
+        margin-bottom: 12px;
+    }
+    .bank-hero__actions,
+    .account-limits,
+    .dashboard-bank-grid--home > .dashboard-bank-col:first-child,
+    .dashboard-bank-grid--home > .dashboard-bank-col:nth-child(2) > section:not(:first-child) {
+        display: none !important;
+    }
+    .dashboard-bank-grid--home {
+        gap: 12px;
+    }
+    .dashboard-bank-grid--home .transactions-table {
+        display: none !important;
+    }
+    .dashboard-bank-grid--home .mobile-transfer-feed {
+        display: grid;
     }
 }
 </style>
@@ -722,7 +802,7 @@
 {{-- ══════════════════════════════════════════════════
      GRIGLIA PRINCIPALE
 ══════════════════════════════════════════════════ --}}
-<div class="dashboard-bank-grid">
+<div class="dashboard-bank-grid dashboard-bank-grid--home">
 
     {{-- Colonna sinistra --}}
     <div class="dashboard-bank-col">
@@ -849,6 +929,25 @@
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);">
                 <div class="card-title">Movimenti recenti</div>
                 <a class="cta secondary" href="{{ route('portal.movements') }}" style="min-height:28px;font-size:11.5px;padding:0 10px;">Vedi tutti →</a>
+            </div>
+            <div class="mobile-transfer-feed">
+                @forelse ($recentTransfers as $transfer)
+                    @php
+                        $isOutgoing = $transfer->from_account_id === $currentAccount->id;
+                        $counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount;
+                    @endphp
+                    <a class="mobile-transfer-card" href="{{ route('portal.movements.show', $transfer) }}">
+                        <span style="min-width:0;">
+                            <span class="mobile-transfer-card__title">{{ $counterparty?->display_name ?? 'N/D' }}</span>
+                            <span class="mobile-transfer-card__meta">{{ optional($transfer->booked_at ?? $transfer->created_at)->format('d/m/Y') }} · {{ $transfer->description ?: 'Movimento circuito' }}</span>
+                        </span>
+                        <span class="mobile-transfer-card__amount" style="color:{{ $isOutgoing ? 'var(--danger)' : 'var(--success)' }};">
+                            {{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }} KY
+                        </span>
+                    </a>
+                @empty
+                    <div class="subtle" style="text-align:center;padding:18px;">Nessun movimento disponibile.</div>
+                @endforelse
             </div>
             <table class="transactions-table">
                 <thead>

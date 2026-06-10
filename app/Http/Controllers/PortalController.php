@@ -722,7 +722,24 @@ class PortalController extends Controller
             'currentAccount' => $currentAccount,
             'currentUser' => $currentUser,
             'counterpartyAccounts' => $this->counterpartyAccounts($currentAccount),
-            'activeNav' => 'conto',
+            'activeNav' => 'ricevi',
+        ]);
+    }
+
+    public function scanner(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->redirectBackofficeUser($request->user())) {
+            return $redirect;
+        }
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
+        abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
+
+        return view('portal.scanner', [
+            'pageTitle' => 'Scanner',
+            'currentAccount' => $currentAccount,
+            'currentUser' => $currentUser,
+            'activeNav' => 'scanner',
         ]);
     }
 

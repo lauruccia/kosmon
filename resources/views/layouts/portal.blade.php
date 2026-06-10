@@ -1036,8 +1036,10 @@
             .topbar-title { flex: 1; min-width: 0; }
             .topbar-title h1 { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .topbar-title p { display: none; }
-            .topbar-tools { width: auto !important; flex-wrap: nowrap !important; }
+            .topbar-tools { width: auto !important; min-width: 0 !important; flex-wrap: nowrap !important; overflow: hidden; }
             .company-switch { display: none !important; }
+            .account-switcher-wrap { display: none !important; }
+            .topbar-tools .pill { display: none !important; }
         }
 
         /* ── BOTTOM NAVIGATION BAR ──────────────────────────────────── */
@@ -1935,6 +1937,23 @@
                 </span>
                 <span class="mobile-tab-label">Dashboard</span>
             </a>
+            {{-- Ricevi --}}
+            <a href="{{ route('portal.receive.form') }}"
+               class="mobile-tab {{ in_array($activeNav ?? '', ['ricevi', 'incasso-qr', 'incasso-nfc', 'incasso-sonic', 'incasso-codice', 'link-pagamento']) ? 'active' : '' }}">
+                <span class="mobile-tab-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                </span>
+                <span class="mobile-tab-label">Ricevi</span>
+            </a>
+            {{-- Scanner — pulsante centrale CTA --}}
+            <a href="{{ route('portal.scanner') }}"
+               class="mobile-tab mobile-tab--qr {{ ($activeNav ?? '') === 'scanner' ? 'active' : '' }}"
+               aria-label="Scanner QR">
+                <span class="mobile-tab-qr-inner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M17 4h2a1 1 0 0 1 1 1v2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 20H5a1 1 0 0 1-1-1v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+                </span>
+                <span class="mobile-tab-label">Scanner</span>
+            </a>
             {{-- Movimenti --}}
             <a href="{{ route('portal.movements') }}"
                class="mobile-tab {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}">
@@ -1942,15 +1961,6 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 </span>
                 <span class="mobile-tab-label">Movimenti</span>
-            </a>
-            {{-- QR — pulsante centrale CTA --}}
-            <a href="{{ route('portal.incasso-qr.form') }}"
-               class="mobile-tab mobile-tab--qr {{ ($activeNav ?? '') === 'qr' ? 'active' : '' }}"
-               aria-label="QR Ricevi KY">
-                <span class="mobile-tab-qr-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/><line x1="14" y1="20" x2="20" y2="20"/><line x1="20" y1="14" x2="20" y2="17"/></svg>
-                </span>
-                <span class="mobile-tab-label">QR</span>
             </a>
             {{-- Profilo --}}
             <a href="{{ (!$isBackoffice && ($currentAccount ?? null)?->owner_type !== 'private') ? route('portal.profile.edit') : route('portal.personal-profile.edit') }}"

@@ -17,10 +17,129 @@
     <div class="alert-banner error">{{ session('portal_error') }}</div>
 @endif
 
+<style>
+.receive-hub {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.receive-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #10305e 62%, #0284c7 100%);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 22px;
+}
+.receive-hero h2 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: 0;
+}
+.receive-hero p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.72);
+    max-width: 620px;
+}
+.receive-method-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+.receive-method {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    min-height: 148px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+}
+.receive-method__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: var(--primary-light);
+    color: var(--primary);
+}
+.receive-method strong {
+    font-size: 14px;
+    color: var(--ink);
+}
+.receive-method span {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+}
+@media (max-width: 920px) {
+    .receive-method-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    html, body, .content-shell { overflow-x: hidden; }
+    .topbar > div[style*="display:flex"] { display: none !important; }
+    .receive-hero { padding: 18px 16px; border-radius: 14px; }
+    .receive-hero h2 { font-size: 24px; }
+    .receive-hub,
+    .summary-grid {
+        max-width: calc(100vw - 20px);
+    }
+    .receive-method-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-width: calc(100vw - 20px);
+    }
+    .receive-method { min-height: 136px; padding: 12px; min-width: 0; }
+    .receive-method * { min-width: 0; }
+}
+@media (max-width: 480px) {
+    .receive-method-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<section class="receive-hub">
+    <div class="receive-hero">
+        <h2>Ricevi KY</h2>
+        <p>Scegli il modo piu rapido per incassare: QR locale al banco, link condivisibile, WhatsApp o richiesta importo a un conto del circuito.</p>
+    </div>
+
+    <div class="receive-method-grid">
+        <a class="receive-method" href="{{ route('portal.incasso-qr.form') }}">
+            <span class="receive-method__icon">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v6h-6"/></svg>
+            </span>
+            <strong>QR locale</strong>
+            <span>Genera un QR con importo per incasso immediato da mostrare al cliente.</span>
+        </a>
+        <a class="receive-method" href="{{ route('portal.payment-links.create') }}">
+            <span class="receive-method__icon">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </span>
+            <strong>Link</strong>
+            <span>Crea un link valido fino a 90 giorni da copiare o inviare al cliente.</span>
+        </a>
+        <a class="receive-method" href="{{ route('portal.payment-links.create') }}">
+            <span class="receive-method__icon">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.3 8.5 8.5 0 0 1-6.6 3.2 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.2a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 3.2-6.6 8.38 8.38 0 0 1 5.3-1.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            </span>
+            <strong>WhatsApp</strong>
+            <span>Prima generi un link, poi lo condividi direttamente da mobile.</span>
+        </a>
+        <a class="receive-method" href="#request-amount">
+            <span class="receive-method__icon">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </span>
+            <strong>Richiesta importo</strong>
+            <span>Invia una richiesta formale a un conto KMoney e attendi conferma.</span>
+        </a>
+    </div>
+</section>
+
 <div class="summary-grid" style="margin-bottom:24px;">
 
     {{-- Form richiesta pagamento --}}
-    <section class="card light-card">
+    <section class="card light-card" id="request-amount">
         <div class="section-head">
             <div>
                 <span class="eyebrow">Nuova richiesta</span>

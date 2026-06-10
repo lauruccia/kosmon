@@ -305,6 +305,7 @@ Route::middleware(['auth', 'verified', 'twofactor'])->prefix('contratto')->name(
 Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->group(function () {
 
     Route::get('/dashboard', [PortalController::class, 'dashboard'])->name('portal.dashboard');
+    Route::get('/scanner', [PortalController::class, 'scanner'])->name('portal.scanner');
 
     // Sicurezza account / 2FA setup
     // Step-up authentication

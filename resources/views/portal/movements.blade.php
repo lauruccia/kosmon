@@ -1,6 +1,135 @@
 @extends('layouts.portal')
 
 @section('content')
+<style>
+.movements-feed {
+    display: none;
+}
+.movement-card {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+}
+.movement-card__top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+}
+.movement-card__name {
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.movement-card__desc {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.movement-card__amount {
+    font-size: 15px;
+    font-weight: 900;
+    text-align: right;
+    white-space: nowrap;
+}
+.movement-card__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--ink-muted);
+}
+@media (max-width: 768px) {
+    html, body, .content-shell {
+        overflow-x: hidden;
+    }
+    .account-hero {
+        display: none !important;
+    }
+    .light-card {
+        max-width: calc(100vw - 20px);
+        overflow: hidden;
+    }
+    .section-head {
+        align-items: flex-start;
+    }
+    .section-head .cta {
+        width: auto !important;
+        max-width: 160px;
+    }
+    #filters-form > div {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px !important;
+    }
+    #filters-form > div > div,
+    #filters-form select,
+    #filters-form input,
+    #filters-form a {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+    #filters-form > div > div[style*="margin-left:auto"] {
+        grid-column: 1 / -1;
+        margin-left: 0 !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+    }
+    .movements-feed {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+        min-width: 0;
+    }
+    .movements-table-desktop {
+        display: none !important;
+    }
+    .movement-card {
+        min-width: 0;
+        overflow: hidden;
+    }
+    .movement-card__top {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .movement-card__amount {
+        max-width: 128px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .movement-card__meta {
+        flex-wrap: wrap;
+    }
+}
+@media (max-width: 480px) {
+    #filters-form > div {
+        grid-template-columns: 1fr;
+    }
+    #filters-form > div > div[style*="margin-left:auto"] {
+        grid-template-columns: 1fr;
+    }
+    .movement-card__top {
+        grid-template-columns: 1fr;
+    }
+    .movement-card__amount {
+        max-width: none;
+        text-align: left;
+    }
+}
+</style>
     {{-- ===== STRIP SALDI ORIZZONTALE ===== --}}
     <section class="card account-hero" style="padding:0;margin-bottom:16px;">
         <div style="position:relative;z-index:1;display:flex;align-items:center;gap:0;flex-wrap:wrap;padding:18px 22px;">
@@ -207,7 +336,53 @@
         $prevMonthKey = null;
         @endphp
 
-        <table class="transactions-table" style="margin-top:14px;">
+        <div class="movements-feed">
+            @forelse ($transfers as $transfer)
+                @php
+                    $childIds = isset($childAccounts) ? $childAccounts->pluck('id')->all() : [];
+                    $isOutgoing = $transfer->from_account_id === $currentAccount->id
+                        || in_array($transfer->from_account_id, $childIds, true);
+                    $counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount;
+                    $isCashback = $transfer->kind === 'portal_cashback';
+                    $flowLabel = match (true) {
+                        $isCashback                                     => 'Cashback',
+                        $transfer->status === 'pending' && $isOutgoing  => 'Da confermare',
+                        $transfer->status === 'pending' && !$isOutgoing => 'In attesa',
+                        $isOutgoing                                     => 'Addebito',
+                        default                                         => 'Accredito',
+                    };
+                    $statusLabel = match ($transfer->status) {
+                        'pending'  => 'In attesa',
+                        'booked'   => 'Contabilizzato',
+                        'rejected' => 'Rifiutato',
+                        default    => ucfirst($transfer->status ?? 'N/D'),
+                    };
+                    $statusClass = $transfer->status === 'booked' ? 'success' : 'pink';
+                    $eventDate   = $transfer->booked_at ?? $transfer->created_at;
+                @endphp
+                <a class="movement-card" href="{{ route('portal.movements.show', $transfer) }}">
+                    <span class="movement-card__top">
+                        <span style="min-width:0;">
+                            <span class="movement-card__name">{{ $counterparty?->display_name ?? 'N/D' }}</span>
+                            <span class="movement-card__desc">{{ $transfer->description ?: 'Movimento circuito' }}</span>
+                        </span>
+                        <span class="movement-card__amount" style="color:{{ $isOutgoing ? 'var(--danger)' : 'var(--success)' }};">
+                            {{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }} KY
+                        </span>
+                    </span>
+                    <span class="movement-card__meta">
+                        <span>{{ optional($eventDate)->format('d/m/Y H:i') }} · {{ $flowLabel }}</span>
+                        <span class="chip {{ $statusClass }}" style="font-size:9.5px;min-height:20px;padding:0 8px;">{{ $statusLabel }}</span>
+                    </span>
+                </a>
+            @empty
+                <div class="empty-state" style="padding:18px;">
+                    <strong>Nessun movimento presente.</strong>
+                </div>
+            @endforelse
+        </div>
+
+        <table class="transactions-table movements-table-desktop" style="margin-top:14px;">
             <thead>
                 <tr>
                     <th style="width:70px;">Data</th>
