@@ -48,4 +48,8 @@ return [
         'webhook_secret'  => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'health' => [
+        'token' => env('HEALTH_CHECK_TOKEN'),
+    ],
+
 ];

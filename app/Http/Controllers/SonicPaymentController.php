@@ -235,10 +235,10 @@ class SonicPaymentController extends Controller
             return response()->json(['error' => 'Il conto del destinatario non è più attivo.'], 422);
         }
 
-        // Se balance insufficiente, rispondi prima del transfer
-        if ($account->available_balance < $pr->amount) {
+        // Se saldo disponibile insufficiente, rispondi prima del transfer
+        if ($account->saldoDisponibile() < $pr->amount) {
             return response()->json([
-                'error' => 'Saldo insufficiente (' . $account->available_balance . ' KY disponibili).',
+                'error' => 'Saldo insufficiente (' . ky_format($account->saldoDisponibile()) . ' KY disponibili).',
             ], 422);
         }
 

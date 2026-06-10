@@ -8,7 +8,6 @@ use App\Models\Transfer;
 use App\Services\TransferBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class TransferController extends Controller
 {
@@ -94,9 +93,11 @@ class TransferController extends Controller
         }
 
         $data = $request->validate([
-            'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount'        => ['required', 'integer', 'min:1'],
-            'description'   => ['nullable', 'string', 'max:255'],
+            'to_account'      => ['required_without:to_account_number', 'string', 'max:32'],
+            'to_account_number' => ['required_without:to_account', 'string', 'max:32'],
+            'amount'          => ['required', 'integer', 'min:1'],
+            'description'     => ['nullable', 'string', 'max:255'],
+            'idempotency_key' => ['required', 'string', 'min:8', 'max:100'],
         ]);
 
         $fromAccount = Account::where('company_id', $company->id)
@@ -108,8 +109,13 @@ class TransferController extends Controller
             return response()->json(['error' => 'No active account for this company'], 422);
         }
 
-        // Scope check sul destinatario: deve essere attivo, non di sistema, non se stessi
-        $toAccount = Account::find((int) $data['to_account_id']);
+        $destinationNumber = strtoupper(trim($data['to_account'] ?? $data['to_account_number']));
+
+        // Scope check sul destinatario: deve essere attivo, non di sistema, non se stessi.
+        // L'API non accetta ID interni del database.
+        $toAccount = Account::query()
+            ->where('uuid', $destinationNumber)
+            ->first();
 
         if (! $toAccount || $toAccount->status !== 'active') {
             return response()->json(['error' => 'Destination account not found or not active'], 422);
@@ -136,7 +142,7 @@ class TransferController extends Controller
                 'amount'          => (int) $data['amount'],
                 'description'     => $data['description'] ?? 'Pagamento API',
                 'kind'            => 'api_payment',
-                'idempotency_key' => 'api_' . Str::uuid(),
+                'idempotency_key' => 'api_' . $company->id . '_' . $data['idempotency_key'],
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);

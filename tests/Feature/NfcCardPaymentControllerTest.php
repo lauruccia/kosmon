@@ -41,6 +41,7 @@ class NfcCardPaymentControllerTest extends TestCase
             'is_active'           => true,
             'contract_signed_at'  => now(),
             'email_verified_at'   => now(),
+            'payment_pin_hash'    => Hash::make('123456'),
         ]);
 
         $account = Account::create([
@@ -256,7 +257,9 @@ class NfcCardPaymentControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($customer)
-            ->post(route('nfc.card.authorize.post', $session->nonce));
+            ->post(route('nfc.card.authorize.post', $session->nonce), [
+                'pin' => '123456',
+            ]);
 
         $response->assertRedirect(route('portal.dashboard'));
         $this->assertDatabaseHas('nfc_card_auth_sessions', [

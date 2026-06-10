@@ -40,8 +40,10 @@ class BrokerController extends Controller
 
         // Una singola query per il trasferimento più recente per ogni account
         $recentTransfers = Transfer::query()
-            ->whereIn('from_account_id', $accountIds)
-            ->orWhereIn('to_account_id', $accountIds)
+            ->where(function ($query) use ($accountIds): void {
+                $query->whereIn('from_account_id', $accountIds)
+                    ->orWhereIn('to_account_id', $accountIds);
+            })
             ->where('status', 'booked')
             ->latest('booked_at')
             ->get()

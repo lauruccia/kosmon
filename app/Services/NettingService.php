@@ -176,7 +176,7 @@ class NettingService
                 // Verifica saldo
                 if (
                     ! $netPayerAccount->allow_negative_balance &&
-                    $netPayerAccount->available_balance < $proposal->net_amount
+                    $netPayerAccount->saldoDisponibile() < $proposal->net_amount
                 ) {
                     throw new RuntimeException(
                         'Saldo insufficiente per il pagamento netto di ' .

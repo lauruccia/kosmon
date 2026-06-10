@@ -8,6 +8,7 @@ use App\Models\CreditLimit;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
@@ -29,10 +30,8 @@ class PaymentPinTest extends TestCase
 {
     use RefreshDatabase;
 
-    // SHA-256 di "123456"
-    private const PIN_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
-    // SHA-256 di "000000"
-    private const WRONG_HASH = 'e4ad93ca07acb8d908a3aa41e920ea4f4ef4f26e7f86cf8291c5db289780a5ae';
+    private const PIN = '123456';
+    private const WRONG_PIN = '000000';
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -45,7 +44,7 @@ class PaymentPinTest extends TestCase
         $user = User::factory()->create([
             'email_verified_at'  => now(),
             'contract_signed_at' => now(),
-            'payment_pin_hash'   => $withPin ? self::PIN_HASH : null,
+            'payment_pin_hash'   => $withPin ? Hash::make(self::PIN) : null,
             'role'               => 'private-owner',
             // company_id null → resolveCurrentContext usa owner_user_id
         ]);
@@ -149,10 +148,10 @@ class PaymentPinTest extends TestCase
         $this->assertNull($user->payment_pin_hash);
 
         $this->actingAs($user)
-            ->post(route('portal.invia.pin.imposta'), ['pin_hash' => self::PIN_HASH])
+            ->post(route('portal.invia.pin.imposta'), ['pin' => self::PIN])
             ->assertRedirect();
 
-        $this->assertSame(self::PIN_HASH, $user->fresh()->payment_pin_hash);
+        $this->assertTrue(Hash::check(self::PIN, $user->fresh()->payment_pin_hash));
     }
 
     /** Utente può rimuovere il proprio PIN. */
@@ -169,14 +168,14 @@ class PaymentPinTest extends TestCase
         $this->assertNull($user->fresh()->payment_pin_hash);
     }
 
-    /** PIN deve essere esattamente 64 caratteri hex. */
-    public function test_set_pin_rejects_invalid_hash(): void
+    /** PIN deve essere esattamente 6 cifre. */
+    public function test_set_pin_rejects_invalid_pin(): void
     {
         [$user] = $this->makePortalUser();
 
         $this->actingAs($user)
-            ->post(route('portal.invia.pin.imposta'), ['pin_hash' => 'troppo-corto'])
-            ->assertSessionHasErrors('pin_hash');
+            ->post(route('portal.invia.pin.imposta'), ['pin' => 'troppo-corto'])
+            ->assertSessionHasErrors('pin');
 
         $this->assertNull($user->fresh()->payment_pin_hash);
     }
@@ -226,7 +225,7 @@ class PaymentPinTest extends TestCase
             ->post(route('portal.invia.esegui'), [
                 'to_account_id' => $toAccount->id,
                 'amount'        => '20.00',
-                'pin_hash'      => self::PIN_HASH,
+                'pin'           => self::PIN,
             ])
             ->assertRedirect()
             ->assertSessionMissing('portal_error');
@@ -243,7 +242,7 @@ class PaymentPinTest extends TestCase
             ->post(route('portal.invia.esegui'), [
                 'to_account_id' => $toAccount->id,
                 'amount'        => '20.00',
-                // nessun pin_hash
+                // nessun pin
             ])
             ->assertRedirect()
             ->assertSessionHas('portal_error');
@@ -260,7 +259,7 @@ class PaymentPinTest extends TestCase
             ->post(route('portal.invia.esegui'), [
                 'to_account_id' => $toAccount->id,
                 'amount'        => '20.00',
-                'pin_hash'      => self::WRONG_HASH,
+                'pin'           => self::WRONG_PIN,
             ])
             ->assertRedirect()
             ->assertSessionHas('portal_error');
@@ -294,7 +293,7 @@ class PaymentPinTest extends TestCase
             ->post(route('portal.invia.esegui'), [
                 'to_account_id' => $toAccount->id,
                 'amount'        => '10.00',
-                // nessun pin_hash
+                // nessun pin
             ])
             ->assertRedirect()
             ->assertSessionHas('portal_error');

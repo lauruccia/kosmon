@@ -6,6 +6,10 @@
         "build": "vite build",
         "dev": "vite"
     },
+    "engines": {
+        "node": "^22.12.0",
+        "npm": ">=10"
+    },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
         "axios": "^1.11.0",

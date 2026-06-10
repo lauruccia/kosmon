@@ -239,12 +239,12 @@ class DocsController extends Controller
                                 'application/json' => [
                                     'schema' => [
                                         'type'       => 'object',
-                                        'required'   => ['to_account_id', 'amount', 'idempotency_key'],
+                                        'required'   => ['to_account', 'amount', 'idempotency_key'],
                                         'properties' => [
-                                            'to_account_id'   => ['type' => 'integer'],
+                                            'to_account'      => ['type' => 'string', 'description' => 'Numero conto KY pubblico del destinatario'],
                                             'amount'          => ['type' => 'integer', 'minimum' => 1],
                                             'description'     => ['type' => 'string'],
-                                            'idempotency_key' => ['type' => 'string'],
+                                            'idempotency_key' => ['type' => 'string', 'minLength' => 8, 'maxLength' => 100],
                                         ],
                                     ],
                                 ],

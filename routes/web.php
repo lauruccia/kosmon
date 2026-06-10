@@ -41,8 +41,6 @@ use App\Http\Controllers\BeneficiaryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LoginLogController;
 use App\Http\Controllers\ReceiptController;
-use App\Models\Transfer;
-use App\Services\TransferBookingService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -94,7 +92,7 @@ Route::get('/legale/reclami',   [LegalController::class, 'complaints'])->name('l
 Route::get('/api/openapi.json', [DocsController::class, 'openApiJson'])->name('api.openapi-json');
 
 
-// Health check — nessuna auth richiesta
+// Health check pubblico minimale. I dettagli infrastrutturali richiedono HEALTH_CHECK_TOKEN.
 Route::get('/health', function () {
     $checks = [];
     $overallOk = true;
@@ -153,11 +151,17 @@ Route::get('/health', function () {
     }
 
     $status = $overallOk ? 'ok' : 'degraded';
-    return response()->json([
+    $payload = [
         'status'    => $status,
         'timestamp' => now()->toIso8601String(),
-        'checks'    => $checks,
-    ], $overallOk ? 200 : 503);
+    ];
+
+    $token = (string) config('services.health.token');
+    if ($token !== '' && request()->bearerToken() && hash_equals($token, request()->bearerToken())) {
+        $payload['checks'] = $checks;
+    }
+
+    return response()->json($payload, $overallOk ? 200 : 503);
 })->name('health');
 
 // Pagine legali e pubbliche — no auth
@@ -707,32 +711,6 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'c
     Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy');
     Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset');
 
-
-    Route::post('/api/transfers', function (Request $request, TransferBookingService $bookingService) {
-        $validated = $request->validate([
-            'initiated_by'    => ['required', 'integer', 'exists:users,id'],
-            'from_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'to_account_id'   => ['required', 'integer', 'exists:accounts,id'],
-            'amount'          => ['required', 'integer', 'min:1'],
-            'kind'            => ['nullable', 'string', 'max:50'],
-            'description'     => ['nullable', 'string', 'max:1000'],
-            'idempotency_key' => ['required', 'string', 'max:100'],
-        ]);
-        $validated['ip_address'] = $request->ip();
-        try {
-            $transfer = $bookingService->book($validated);
-        } catch (\RuntimeException $exception) {
-            $bookingService->recordRejectedAttempt($validated, $exception->getMessage());
-            return response()->json(['message' => $exception->getMessage()], 422);
-        }
-        return response()->json(['data' => [
-            'id'                   => $transfer->id,
-            'uuid'                 => $transfer->uuid,
-            'amount'              => $transfer->amount,
-            'status'              => $transfer->status,
-            'booked_at'            => $transfer->booked_at,
-        ]]);
-    });
 
     // ── Grafico storico saldo (AJAX) ─────────────────────────────────────────
     Route::get('/dashboard/saldo-storico', [PortalController::class, 'balanceHistory'])->name('portal.balance-history');

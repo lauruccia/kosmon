@@ -193,18 +193,21 @@ class NfcCard extends Model
     public static function buildPayload(string $uuid): string
     {
         $sig = hash_hmac('sha256', $uuid, config('app.nfc_card_secret', config('app.key')));
-        $shortSig = substr($sig, 0, 16);
 
-        return route('nfc.card.scan-landing', ['uuid' => $uuid, 'sig' => $shortSig]);
+        return route('nfc.card.scan-landing', ['uuid' => $uuid, 'sig' => $sig]);
     }
 
     /** Verifica la firma HMAC dell'UUID letto dal chip. */
     public static function verifyHmac(string $uuid, string $sig): bool
     {
         $expected = hash_hmac('sha256', $uuid, config('app.nfc_card_secret', config('app.key')));
-        $expectedShort = substr($expected, 0, 16);
 
-        return hash_equals($expectedShort, $sig);
+        if (hash_equals($expected, $sig)) {
+            return true;
+        }
+
+        // Compatibilita' temporanea con card gia' programmate con firma a 16 hex.
+        return strlen($sig) === 16 && hash_equals(substr($expected, 0, 16), $sig);
     }
 
     // ─── Numero seriale ──────────────────────────────────────────────────────

@@ -277,7 +277,7 @@
         </p>
 
         {{-- Form imposta / cambia PIN --}}
-        <details id="pin-set-details" style="border:1px solid var(--line);border-radius:10px;margin-bottom:12px;" {{ $errors->has('pin_hash') ? 'open' : '' }}>
+        <details id="pin-set-details" style="border:1px solid var(--line);border-radius:10px;margin-bottom:12px;" {{ $errors->has('pin') ? 'open' : '' }}>
             <summary style="padding:12px 16px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;user-select:none;">
                 <span>{{ auth()->user()->payment_pin_hash ? '🔄 Cambia PIN' : '➕ Imposta PIN' }}</span>
             </summary>
@@ -307,8 +307,8 @@
 
                 <form method="POST" action="{{ route('portal.invia.pin.imposta') }}" id="set-pin-form">
                     @csrf
-                    <input type="hidden" id="set_pin_hash" name="pin_hash">
-                    @error('pin_hash')
+                    <input type="hidden" id="set_pin" name="pin">
+                    @error('pin')
                         <div style="color:var(--danger);font-size:13px;margin-bottom:10px;">{{ $message }}</div>
                     @enderror
                     <button type="submit" id="set-pin-submit-btn" disabled
@@ -560,12 +560,7 @@
             setPinForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 if (setPinDigits.length < 6) return;
-                const pinStr  = setPinDigits.join('');
-                const encoder = new TextEncoder();
-                const data    = encoder.encode(pinStr);
-                const hash    = await crypto.subtle.digest('SHA-256', data);
-                const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-                document.getElementById('set_pin_hash').value = hashHex;
+                document.getElementById('set_pin').value = setPinDigits.join('');
                 this.submit();
             });
         }

@@ -1,9 +1,5 @@
 @extends('layouts.portal')
 
-@push('head')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-@endpush
-
 @section('content')
 
 {{-- Banner stato --}}
@@ -27,7 +23,9 @@
 
             {{-- QR Code --}}
             <div style="display:inline-block;background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.10);margin-bottom:16px;">
-                <div id="qr-code"></div>
+                <div id="qr-code" style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;">
+                    {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(220)->generate($payUrl) !!}
+                </div>
             </div>
 
             {{-- Countdown --}}
@@ -90,16 +88,6 @@
     const EXPIRES_AT  = {{ $pr->expires_at->timestamp }};
     const TOTAL_SECS  = {{ max(1, $pr->expires_at->diffInSeconds(now())) }};
     const CURRENT_STATUS = @json($pr->status);
-
-    // ─── Genera QR ─────────────────────────────────────────────────────────
-    new QRCode(document.getElementById('qr-code'), {
-        text: PAY_URL,
-        width: 220,
-        height: 220,
-        colorDark: '#1a1a2e',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-    });
 
     // ─── Se già chiuso, mostra subito lo stato ──────────────────────────────
     if (CURRENT_STATUS !== 'pending') {
@@ -248,4 +236,4 @@
 })();
 </script>
 @endpush
-@endsecti
+@endsection

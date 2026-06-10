@@ -209,9 +209,9 @@ class CodePaymentController extends Controller
         if ($pr->toAccount === null || $pr->toAccount->status !== 'active') {
             return response()->json(['error' => 'Il conto del destinatario non è più attivo.'], 422);
         }
-        if ($account->available_balance < $pr->amount) {
+        if ($account->saldoDisponibile() < $pr->amount) {
             return response()->json([
-                'error' => 'Saldo insufficiente (' . $account->available_balance . ' KY disponibili).',
+                'error' => 'Saldo insufficiente (' . ky_format($account->saldoDisponibile()) . ' KY disponibili).',
             ], 422);
         }
 

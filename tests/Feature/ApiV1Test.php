@@ -195,8 +195,9 @@ class ApiV1Test extends TestCase
         [$otherCompany, $otherAccount]  = $this->makeCompanyWithAccount();
 
         $this->postJson('/api/v1/transfers', [
-            'to_account_id' => $otherAccount->id,
-            'amount'        => 100,
+            'to_account'      => $otherAccount->account_number,
+            'amount'          => 100,
+            'idempotency_key' => 'readonly-test-1',
         ], ['Authorization' => 'Bearer ' . $rawToken])
             ->assertForbidden();
     }
@@ -219,9 +220,10 @@ class ApiV1Test extends TestCase
         $account->update(['owner_user_id' => $user->id]);
 
         $response = $this->postJson('/api/v1/transfers', [
-            'to_account_id' => $otherAccount->id,
-            'amount'        => 200,
-            'description'   => 'Test API payment',
+            'to_account'      => $otherAccount->account_number,
+            'amount'          => 200,
+            'description'     => 'Test API payment',
+            'idempotency_key' => 'api-test-' . Str::random(12),
         ], ['Authorization' => 'Bearer ' . $rawToken]);
 
         $response->assertCreated()
@@ -294,7 +296,7 @@ class ApiV1Test extends TestCase
     public function test_portal_other_company_cannot_view_token(): void
     {
         [$user] = $this->makePortalUser();
-        [, $otherCompany] = $this->makeCompanyWithAccount();
+        [$otherCompany] = $this->makeCompanyWithAccount();
         [,, $tokenModel] = $this->makeApiTokenForCompany($otherCompany, ['abilities' => ['read']]);
 
         $this->actingAs($user)
@@ -317,6 +319,7 @@ class ApiV1Test extends TestCase
 
         $token = ApiToken::create(array_merge([
             'company_id'   => $company->id,
+            'created_by'   => $this->makeTokenCreator($company)->id,
             'name'         => 'Test token',
             'token_hash'   => $hash,
             'token_prefix' => $prefix,
@@ -336,6 +339,7 @@ class ApiV1Test extends TestCase
 
         $token = ApiToken::create(array_merge([
             'company_id'   => $company->id,
+            'created_by'   => $this->makeTokenCreator($company)->id,
             'name'         => 'Token ' . Str::random(4),
             'token_hash'   => $hash,
             'token_prefix' => $prefix,
@@ -393,5 +397,20 @@ class ApiV1Test extends TestCase
     private function stepUp(): array
     {
         return ['step_up_verified_at' => now()->timestamp];
+    }
+
+    private function makeTokenCreator(Company $company): User
+    {
+        return User::create([
+            'name'                => 'Token Creator',
+            'email'               => 'creator-' . Str::random(8) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'company',
+            'company_id'          => $company->id,
+            'role'                => 'owner',
+            'is_active'           => true,
+            'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
+        ]);
     }
 }

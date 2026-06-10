@@ -40,9 +40,9 @@
 
     {{-- Saldo effettivo + fido --}}
     @php
-      $bal    = $account->balance ?? 0;
+      $bal    = $account->available_balance ?? 0;
       $avail  = $account->available_balance ?? 0;
-      $fido   = $account->company?->credit_limit ?? 0;
+      $fido   = $account->massimale();
     @endphp
     <div class="wallet-stat-row">
       <div class="wallet-stat-box">
@@ -78,7 +78,7 @@
 
     {{-- ── QR Personale Statico ────────────────────────────── --}}
     @php
-      $kyNumber = $account->ky_account_number ?? $account->account_number ?? '';
+      $kyNumber = $account->account_number ?? '';
       $qrPayUrl = $kyNumber ? route('portal.pay.qr', $kyNumber) : '';
       $whatsappText = urlencode('Pagami in KMoney: ' . $qrPayUrl);
     @endphp
@@ -86,10 +86,11 @@
     <section class="card card-pad" style="padding:20px;text-align:center;">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-muted);margin-bottom:14px;">Il mio codice QR</div>
 
-      {{-- QR generato lato client via API --}}
+      {{-- QR generato lato server, senza inviare URL di pagamento a servizi terzi --}}
       <div id="personal-qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:14px;border:2px solid var(--line);margin-bottom:12px;">
-        <img id="personal-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data={{ urlencode($qrPayUrl) }}"
-             alt="QR personale KMoney" width="160" height="160" style="display:block;border-radius:8px;">
+        <div id="personal-qr-img" role="img" aria-label="QR personale KMoney" style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;">
+          {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(150)->generate($qrPayUrl) !!}
+        </div>
       </div>
 
       <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;">{{ $account->display_name }}</div>

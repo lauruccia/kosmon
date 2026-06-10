@@ -44,6 +44,25 @@
             @csrf
 
             <div class="stack" style="gap:12px;">
+                <label style="display:block;text-align:left;font-size:13px;font-weight:700;color:var(--ink);">
+                    PIN di pagamento
+                    <input
+                        type="password"
+                        name="pin"
+                        inputmode="numeric"
+                        pattern="\d{6}"
+                        maxlength="6"
+                        autocomplete="one-time-code"
+                        required
+                        style="margin-top:6px;width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:12px;padding:14px;font-size:22px;font-weight:800;text-align:center;letter-spacing:.35em;color:var(--ink);background:var(--surface-soft);"
+                    >
+                </label>
+                @error('pin')
+                    <div style="background:#fee2e2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:13px;color:#991b1b;">
+                        {{ $message }}
+                    </div>
+                @enderror
+
                 <button type="submit" id="btn-conferma" class="cta" style="width:100%;font-size:18px;padding:18px;border-radius:14px;">
                     &#10003;&nbsp; Conferma pagamento
                 </button>

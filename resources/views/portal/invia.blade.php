@@ -547,7 +547,7 @@
         <input type="hidden" id="f_to_account_id" name="to_account_id">
         <input type="hidden" id="f_amount" name="amount">
         <input type="hidden" id="f_description" name="description">
-        <input type="hidden" id="f_pin_hash" name="pin_hash">
+        <input type="hidden" id="f_pin" name="pin">
     </form>
 
 </div>
@@ -814,7 +814,7 @@
         state.pinDigits.push(digit);
         updatePinDots();
         if (state.pinDigits.length === 6) {
-            setTimeout(() => hashAndSubmit(), 120);
+            setTimeout(() => submitPinPayment(), 120);
         }
     };
 
@@ -833,18 +833,8 @@
         }
     }
 
-    async function hashAndSubmit() {
-        const pinStr = state.pinDigits.join('');
-        try {
-            const encoder  = new TextEncoder();
-            const data     = encoder.encode(pinStr);
-            const hashBuf  = await crypto.subtle.digest('SHA-256', data);
-            const hashArr  = Array.from(new Uint8Array(hashBuf));
-            const hashHex  = hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
-            submitPayment(hashHex);
-        } catch (e) {
-            showPinError('Errore nel calcolo del PIN. Riprova.');
-        }
+    function submitPinPayment() {
+        submitPayment(state.pinDigits.join(''));
     }
 
     function showPinError(msg) {
@@ -862,11 +852,11 @@
     }
 
     // ── Form submit ──────────────────────────────────────────────────────────
-    function submitPayment(pinHash) {
+    function submitPayment(pin) {
         document.getElementById('f_to_account_id').value = state.recipientId;
         document.getElementById('f_amount').value        = (state.amountCents / 100).toFixed(2);
         document.getElementById('f_description').value   = state.description;
-        document.getElementById('f_pin_hash').value      = pinHash ?? '';
+        document.getElementById('f_pin').value           = pin ?? '';
 
         // Disable confirm button to prevent double-submit
         const btn = document.getElementById('confirmBtn');

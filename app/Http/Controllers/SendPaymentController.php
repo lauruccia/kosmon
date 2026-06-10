@@ -11,6 +11,7 @@ use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\TransferBookingService;
+use App\Support\PaymentPin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -108,7 +109,7 @@ class SendPaymentController extends PortalController
         return response()->json([
             'id'       => $recipient->id,
             'name'     => $recipient->display_name,
-            'number'   => $recipient->ky_account_number ?? $recipient->account_number,
+            'number'   => $recipient->account_number,
             'type'     => $recipient->owner_type ?? 'company',
             'logo_url' => $logoUrl,
             'is_first' => $isFirst,
@@ -141,14 +142,14 @@ class SendPaymentController extends PortalController
                       ->orWhereHas('ownerUser', fn($u) => $u->where('name', 'like', "%{$q}%")
                           ->orWhere('email', 'like', "%{$q}%")
                           ->orWhere('phone', 'like', "%{$q}%"))
-                      ->orWhere('ky_account_number', 'like', "%{$q}%");
+                      ->orWhere('uuid', 'like', "%{$q}%");
             })
             ->limit(10)
             ->get()
             ->map(fn(Account $a) => [
                 'id'     => $a->id,
                 'name'   => $a->display_name,
-                'number' => $a->ky_account_number ?? '',
+                'number' => $a->account_number,
                 'type'   => $a->account_type ?? '',
             ]);
 
@@ -180,7 +181,7 @@ class SendPaymentController extends PortalController
             'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
             'amount'        => ['required', 'numeric', 'min:0.01'],
             'description'   => ['nullable', 'string', 'max:200'],
-            'pin_hash'      => ['nullable', 'string', 'size:64'],
+            'pin'           => ['nullable', 'string', 'size:6', 'regex:/^\d{6}$/'],
         ]);
 
         $amountCents = ky_to_cents($validated['amount']);
@@ -191,7 +192,7 @@ class SendPaymentController extends PortalController
         $hasPin       = !is_null($currentUser->payment_pin_hash);
 
         if ($hasPin && $pinThreshold !== null && $amountCents >= (int) $pinThreshold) {
-            if (empty($validated['pin_hash'])) {
+            if (empty($validated['pin'])) {
                 AuditLog::create([
                     'actor_user_id'  => $currentUser->id,
                     'event'          => 'transfer.rejected',
@@ -207,7 +208,9 @@ class SendPaymentController extends PortalController
                 ]);
                 return back()->with('portal_error', 'Inserisci il PIN di pagamento per confermare questa transazione.');
             }
-            if (!hash_equals($currentUser->payment_pin_hash, $validated['pin_hash'])) {
+
+            [$pinOk, $pinError] = PaymentPin::verify($currentUser, $validated['pin']);
+            if (! $pinOk) {
                 AuditLog::create([
                     'actor_user_id'  => $currentUser->id,
                     'event'          => 'transfer.rejected',
@@ -221,7 +224,7 @@ class SendPaymentController extends PortalController
                         'amount'          => $amountCents,
                     ],
                 ]);
-                return back()->with('portal_error', 'PIN di pagamento errato. Riprova.');
+                return back()->with('portal_error', $pinError);
             }
         }
 
@@ -324,10 +327,10 @@ class SendPaymentController extends PortalController
     public function setPin(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'pin_hash' => ['required', 'string', 'size:64', 'regex:/^[0-9a-f]+$/'],
+            'pin' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
         ]);
 
-        $request->user()->forceFill(['payment_pin_hash' => $validated['pin_hash']])->save();
+        $request->user()->forceFill(['payment_pin_hash' => PaymentPin::hash($validated['pin'])])->save();
 
         return back()->with('portal_success', 'PIN di pagamento impostato correttamente.');
     }
