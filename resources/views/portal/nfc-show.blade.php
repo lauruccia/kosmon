@@ -144,11 +144,17 @@
     // Helper: POST JSON con refresh automatico CSRF se sessione scaduta (419)
     async function postJson(url, body) {
         const csrfMeta = () => document.querySelector('meta[name=csrf-token]')?.content || '';
-        let res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfMeta(), 'Accept': 'application/json' },
-            body: JSON.stringify(body),
-        });
+        let res;
+        try {
+            res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfMeta(), 'Accept': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        } catch (netErr) {
+            // Fetch ha lanciato eccezione (nessuna connessione, SSL, CORS, ecc.)
+            throw new Error('FETCH_EXCEPTION: ' + (netErr.message || netErr.name || String(netErr)) + ' | URL: ' + url);
+        }
         if (res.status === 419) {
             // Sessione scaduta — refresha il CSRF token e riprova una volta
             const refreshRes = await fetch('/csrf-refresh', { headers: { 'Accept': 'application/json' } });
@@ -440,7 +446,7 @@
                             btn.style.display    = 'none';
 
                         } catch (e) {
-                            statusEl.textContent = 'Errore di rete. Riprova.';
+                            statusEl.textContent = '⚠ ' + (e.message || String(e));
                             statusEl.style.color = 'var(--danger)';
                             resetCardBtn();
                         }
@@ -527,7 +533,7 @@
             }, 2000);
 
         } catch (e) {
-            statusEl.textContent = 'Errore di rete. Riprova.';
+            statusEl.textContent = '⚠ ' + (e.message || String(e));
             statusEl.style.color = 'var(--danger)';
         }
     }
