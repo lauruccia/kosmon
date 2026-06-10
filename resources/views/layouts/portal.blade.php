@@ -339,6 +339,48 @@
         .sidebar-nav, .sidebar-nav-group { display: grid; gap: 3px; }
         .sidebar-nav-group { padding-top: 4px; border-top: 1px solid rgba(255,255,255,.06); }
 
+        /* ── Grouped nav ── */
+        .nav-group { display: grid; gap: 1px; }
+        .nav-group + .nav-group { margin-top: 4px; }
+
+        .nav-group-btn {
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; background: none; border: none; cursor: pointer;
+            padding: 8px 10px; border-radius: 10px;
+            color: rgba(255,255,255,.55); font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .1em;
+            transition: background .15s, color .15s;
+        }
+        .nav-group-btn:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+        .nav-group-btn.open   { color: rgba(255,255,255,.85); }
+        .nav-group-btn-label  { flex: 1; text-align: left; }
+        .nav-group-arrow {
+            width: 16px; height: 16px; border-radius: 4px;
+            display: grid; place-items: center;
+            font-size: 9px; transition: transform .2s;
+            color: rgba(255,255,255,.35);
+        }
+        .nav-group-btn.open .nav-group-arrow { transform: rotate(90deg); color: rgba(255,255,255,.65); }
+
+        .nav-group-items {
+            display: grid; gap: 2px;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height .22s ease, opacity .18s;
+            opacity: 0;
+        }
+        .nav-group-items.open {
+            max-height: 600px;
+            opacity: 1;
+        }
+        /* sub-links rientrati */
+        .nav-group-items .sidebar-link {
+            padding-left: 16px; font-size: 13px;
+        }
+        .nav-group-items .sidebar-link .nav-icon {
+            width: 24px; height: 24px; border-radius: 7px; font-size: 9px;
+        }
+
         /* Links */
         .sidebar-link, .sidebar-sublink {
             display: flex; align-items: center; gap: 10px;
@@ -1290,93 +1332,244 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-menu-visibility' ? 'active' : '' }}" href="{{ route('admin.menu-visibility.index') }}"><span class="nav-icon">&#x1F441;</span><span>Menu utenti</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatori</span></a>
                         @else
+                        @php
+                            $an = $activeNav ?? '';
+                            // Calcola quale gruppo ha una voce attiva — aperto di default
+                            $grpOverview  = in_array($an, ['conto','movimenti','wallet','richieste']);
+                            $grpPaga      = in_array($an, ['paga','paga-sonic','paga-codice','rate','scheduled-payments','netting']);
+                            $grpIncassa   = in_array($an, ['incasso-qr','incasso-nfc','incasso-sonic','incasso-codice','link-pagamento','kit-merchant']);
+                            $grpCarte     = in_array($an, ['nfc-cards','ky-cards','fido','conti']);
+                            $grpCircuito  = in_array($an, ['aziende','shop','annunci','referral','invita']);
+                            $grpStrumenti = in_array($an, ['report-merchant','webhooks','api-tokens','docs-api','broker']);
+                        @endphp
+
+                        {{-- ── PANORAMICA (sempre visibile, niente collasso) ── --}}
+                        <div class="nav-group">
                             @if($mv('conto'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'conto' ? 'active' : '' }}" href="{{ route('portal.dashboard') }}"><span class="nav-icon">KY</span><span>{{ $isDelegate ? 'Vista delegato' : 'Conto' }}</span></a>
+                            <a class="sidebar-link {{ $an === 'conto' ? 'active' : '' }}" href="{{ route('portal.dashboard') }}">
+                                <span class="nav-icon">🏠</span><span>{{ $isDelegate ? 'Delegato' : 'Home' }}</span>
+                            </a>
                             @endif
                             @if($mv('movimenti'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'movimenti' ? 'active' : '' }}" href="{{ route('portal.movements') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
-                            @endif
-                            @if($mv('richieste'))
-                            <a class="sidebar-link {{ in_array($activeNav ?? '', ['richieste', 'richieste-text']) ? 'active' : '' }}" href="{{ route('portal.requests') }}"><span class="nav-icon">RQ</span><span>Richieste</span></a>
+                            <a class="sidebar-link {{ $an === 'movimenti' ? 'active' : '' }}" href="{{ route('portal.movements') }}">
+                                <span class="nav-icon">📋</span><span>Movimenti</span>
+                            </a>
                             @endif
                             @if($mv('wallet'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'wallet' ? 'active' : '' }}" href="{{ route('portal.wallet') }}"><span class="nav-icon">&#128179;</span><span>KY Wallet</span></a>
+                            <a class="sidebar-link {{ $an === 'wallet' ? 'active' : '' }}" href="{{ route('portal.wallet') }}">
+                                <span class="nav-icon">💳</span><span>Wallet</span>
+                            </a>
                             @endif
-                            @if($mv('incasso-qr'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-qr' ? 'active' : '' }}" href="{{ route('portal.incasso-qr.form') }}"><span class="nav-icon">QR</span><span>Incassa QR</span></a>
+                            @if($mv('richieste'))
+                            <a class="sidebar-link {{ in_array($an, ['richieste','richieste-text']) ? 'active' : '' }}" href="{{ route('portal.requests') }}">
+                                <span class="nav-icon">🔔</span><span>Richieste</span>
+                            </a>
                             @endif
-                            @if($mv('incasso-nfc'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}"><span class="nav-icon">NFC</span><span>Incassa NFC</span></a>
-                            @endif
-                            @if($mv('incasso-sonic'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-sonic' ? 'active' : '' }}" href="{{ route('portal.incasso-sonic.form') }}"><span class="nav-icon">&#128266;</span><span>Incassa Sonic</span></a>
-                            @endif
-                            @if($mv('paga-sonic'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'paga-sonic' ? 'active' : '' }}" href="{{ route('portal.paga-sonic.form') }}"><span class="nav-icon">&#127908;</span><span>Paga Sonic</span></a>
-                            @endif
-                            @if($mv('incasso-codice'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'incasso-codice' ? 'active' : '' }}" href="{{ route('portal.incasso-codice.form') }}"><span class="nav-icon">&#128290;</span><span>Incassa Codice</span></a>
-                            @endif
-                            @if($mv('paga-codice'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'paga-codice' ? 'active' : '' }}" href="{{ route('portal.paga-codice.form') }}"><span class="nav-icon">123</span><span>Paga Codice</span></a>
-                            @endif
-                            @if($mv('nfc-cards'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'nfc-cards' ? 'active' : '' }}" href="{{ route('portal.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Le mie Card NFC</span></a>
-                            @endif
-                            @if($mv('scheduled-payments'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'scheduled-payments' ? 'active' : '' }}" href="{{ route('portal.scheduled-payments.index') }}"><span class="nav-icon">SC</span><span>Pag. programmati</span></a>
-                            @endif
-                            @if($mv('webhooks') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'webhooks' ? 'active' : '' }}" href="{{ route('portal.webhooks.index') }}"><span class="nav-icon">WH</span><span>Webhook</span></a>
-                            @endif
-                            @if($mv('api-tokens') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'api-tokens' ? 'active' : '' }}" href="{{ route('portal.api-tokens.index') }}"><span class="nav-icon">API</span><span>Token API</span></a>
-                            @endif
-                            @if($mv('docs-api') && !$isDelegate && ($currentUser ?? $authUser)?->canAccessBackoffice())
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'docs-api' ? 'active' : '' }}" href="{{ route('portal.docs-api') }}"><span class="nav-icon">&#128216;</span><span>Docs API</span></a>
-                            @endif
-                            @if($mv('link-pagamento'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'link-pagamento' ? 'active' : '' }}" href="{{ route('portal.payment-links.index') }}"><span class="nav-icon">&#128279;</span><span>Link pagamento</span></a>
-                            @endif
-                            @if($mv('kit-merchant'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'kit-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-kit') }}"><span class="nav-icon">🛠️</span><span>Kit merchant</span></a>
-                            @endif
-                            @if($mv('rate'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'rate' ? 'active' : '' }}" href="{{ route('portal.payment-plans.index') }}"><span class="nav-icon">RT</span><span>Rate</span></a>
-                            @endif
-                            @if($mv('fido'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'fido' ? 'active' : '' }}" href="{{ route('portal.fido') }}"><span class="nav-icon">FD</span><span>Fido</span></a>
-                            @endif
-                            @if($mv('ky-cards'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'ky-cards' ? 'active' : '' }}" href="{{ route('portal.ky-cards.index') }}"><span class="nav-icon">KY</span><span>Ricarica KY</span></a>
-                            @endif
-                            @if($mv('netting'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'netting' ? 'active' : '' }}" href="{{ route('portal.netting.index') }}"><span class="nav-icon">⇄</span><span>Compensazione</span></a>
-                            @endif
-                            @if($mv('sottoconti') && ! $isDelegate && ($currentAccount ?? $currentUser?->managedAccount ?? null) !== null && ($currentUser ?? $authUser)?->canCreateSubaccountsFor($currentAccount ?? $currentUser?->managedAccount))
-                                <a class="sidebar-link {{ ($activeNav ?? '') === 'conti' ? 'active' : '' }}" href="{{ route('portal.accounts.structure') }}"><span class="nav-icon">SC</span><span>Sottoconti</span></a>
-                            @endif
-                            @if($mv('aziende') && ($currentUser ?? $authUser)?->canViewCompaniesDirectory())
-                                <a class="sidebar-link {{ ($activeNav ?? '') === 'aziende' ? 'active' : '' }}" href="{{ route('portal.companies') }}"><span class="nav-icon">AZ</span><span>Aziende</span></a>
-                            @endif
-                            @if($mv('annunci') && ($currentUser ?? $authUser)?->canAccessAnnouncements())
-                                <a class="sidebar-link {{ ($activeNav ?? '') === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}"><span class="nav-icon">AN</span><span>Annunci</span></a>
-                            @endif
-                            @if($mv('shop') && ($currentUser ?? $authUser)?->canAccessMarketplace())
-                                <a class="sidebar-link {{ ($activeNav ?? '') === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}"><span class="nav-icon">SH</span><span>Shop</span></a>
-                            @endif
-                            @if($mv('report-merchant'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'report-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-report') }}"><span class="nav-icon">📊</span><span>Report</span></a>
-                            @endif
-                            @if($mv('invita'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'referral' ? 'active' : '' }}" href="{{ route('portal.referral') }}"><span class="nav-icon">🎁</span><span>Invita un amico</span></a>
-                            @endif
-                            @if($mv('operatore') && (($currentUser ?? $authUser)?->hasRole('broker') || $isBackoffice))
-                                <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatore</span></a>
-                            @endif
-                            @if($mv('help'))
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'help' ? 'active' : '' }}" href="{{ route('help.index') }}"><span class="nav-icon">&#x2753;</span><span>Assistenza</span></a>
-                            @endif
+                        </div>
+
+                        {{-- ── PAGA ── --}}
+                        @php $showPaga = $mv('incasso-qr')||$mv('paga-sonic')||$mv('paga-codice')||$mv('rate')||$mv('scheduled-payments')||$mv('netting'); @endphp
+                        @if($showPaga)
+                        <div class="nav-group" data-group="paga">
+                            <button class="nav-group-btn {{ $grpPaga ? 'open' : '' }}" onclick="toggleGroup(this)">
+                                <span class="nav-icon" style="background:rgba(59,130,246,.25);color:#93c5fd;">↑</span>
+                                <span class="nav-group-btn-label">Paga</span>
+                                <span class="nav-group-arrow">▶</span>
+                            </button>
+                            <div class="nav-group-items {{ $grpPaga ? 'open' : '' }}">
+                                @if($mv('rate'))
+                                <a class="sidebar-link {{ $an === 'paga' ? 'active' : '' }}" href="{{ route('portal.pay.form') }}">
+                                    <span class="nav-icon">💸</span><span>Invia KY</span>
+                                </a>
+                                @endif
+                                @if($mv('paga-sonic'))
+                                <a class="sidebar-link {{ $an === 'paga-sonic' ? 'active' : '' }}" href="{{ route('portal.paga-sonic.form') }}">
+                                    <span class="nav-icon">🔊</span><span>Paga Sonic</span>
+                                </a>
+                                @endif
+                                @if($mv('paga-codice'))
+                                <a class="sidebar-link {{ $an === 'paga-codice' ? 'active' : '' }}" href="{{ route('portal.paga-codice.form') }}">
+                                    <span class="nav-icon">🔢</span><span>Paga Codice</span>
+                                </a>
+                                @endif
+                                @if($mv('rate'))
+                                <a class="sidebar-link {{ $an === 'rate' ? 'active' : '' }}" href="{{ route('portal.payment-plans.index') }}">
+                                    <span class="nav-icon">📅</span><span>Rateizza</span>
+                                </a>
+                                @endif
+                                @if($mv('scheduled-payments'))
+                                <a class="sidebar-link {{ $an === 'scheduled-payments' ? 'active' : '' }}" href="{{ route('portal.scheduled-payments.index') }}">
+                                    <span class="nav-icon">⏰</span><span>Programmati</span>
+                                </a>
+                                @endif
+                                @if($mv('netting'))
+                                <a class="sidebar-link {{ $an === 'netting' ? 'active' : '' }}" href="{{ route('portal.netting.index') }}">
+                                    <span class="nav-icon">⇄</span><span>Compensa</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- ── INCASSA ── --}}
+                        @php $showIncassa = $mv('incasso-qr')||$mv('incasso-nfc')||$mv('incasso-sonic')||$mv('incasso-codice')||$mv('link-pagamento')||$mv('kit-merchant'); @endphp
+                        @if($showIncassa)
+                        <div class="nav-group" data-group="incassa">
+                            <button class="nav-group-btn {{ $grpIncassa ? 'open' : '' }}" onclick="toggleGroup(this)">
+                                <span class="nav-icon" style="background:rgba(16,185,129,.22);color:#6ee7b7;">↓</span>
+                                <span class="nav-group-btn-label">Incassa</span>
+                                <span class="nav-group-arrow">▶</span>
+                            </button>
+                            <div class="nav-group-items {{ $grpIncassa ? 'open' : '' }}">
+                                @if($mv('incasso-qr'))
+                                <a class="sidebar-link {{ $an === 'incasso-qr' ? 'active' : '' }}" href="{{ route('portal.incasso-qr.form') }}">
+                                    <span class="nav-icon">QR</span><span>QR con importo</span>
+                                </a>
+                                @endif
+                                @if($mv('incasso-nfc'))
+                                <a class="sidebar-link {{ $an === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}">
+                                    <span class="nav-icon">NFC</span><span>NFC</span>
+                                </a>
+                                @endif
+                                @if($mv('incasso-sonic'))
+                                <a class="sidebar-link {{ $an === 'incasso-sonic' ? 'active' : '' }}" href="{{ route('portal.incasso-sonic.form') }}">
+                                    <span class="nav-icon">🔊</span><span>Sonic</span>
+                                </a>
+                                @endif
+                                @if($mv('incasso-codice'))
+                                <a class="sidebar-link {{ $an === 'incasso-codice' ? 'active' : '' }}" href="{{ route('portal.incasso-codice.form') }}">
+                                    <span class="nav-icon">🔢</span><span>Codice</span>
+                                </a>
+                                @endif
+                                @if($mv('link-pagamento'))
+                                <a class="sidebar-link {{ $an === 'link-pagamento' ? 'active' : '' }}" href="{{ route('portal.payment-links.index') }}">
+                                    <span class="nav-icon">🔗</span><span>Link pagamento</span>
+                                </a>
+                                @endif
+                                @if($mv('kit-merchant'))
+                                <a class="sidebar-link {{ $an === 'kit-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-kit') }}">
+                                    <span class="nav-icon">🛠️</span><span>Kit merchant</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- ── CARTE & CONTO ── --}}
+                        @php $showCarte = $mv('nfc-cards')||$mv('ky-cards')||$mv('fido')||($mv('sottoconti') && !$isDelegate && ($currentUser??$authUser)?->canCreateSubaccountsFor($currentAccount??$currentUser?->managedAccount)); @endphp
+                        @if($showCarte)
+                        <div class="nav-group" data-group="carte">
+                            <button class="nav-group-btn {{ $grpCarte ? 'open' : '' }}" onclick="toggleGroup(this)">
+                                <span class="nav-icon" style="background:rgba(168,85,247,.22);color:#d8b4fe;">💳</span>
+                                <span class="nav-group-btn-label">Carte & Conto</span>
+                                <span class="nav-group-arrow">▶</span>
+                            </button>
+                            <div class="nav-group-items {{ $grpCarte ? 'open' : '' }}">
+                                @if($mv('ky-cards'))
+                                <a class="sidebar-link {{ $an === 'ky-cards' ? 'active' : '' }}" href="{{ route('portal.ky-cards.index') }}">
+                                    <span class="nav-icon">💰</span><span>Ricarica KY</span>
+                                </a>
+                                @endif
+                                @if($mv('nfc-cards'))
+                                <a class="sidebar-link {{ $an === 'nfc-cards' ? 'active' : '' }}" href="{{ route('portal.nfc-cards.index') }}">
+                                    <span class="nav-icon">📶</span><span>Card NFC</span>
+                                </a>
+                                @endif
+                                @if($mv('fido'))
+                                <a class="sidebar-link {{ $an === 'fido' ? 'active' : '' }}" href="{{ route('portal.fido') }}">
+                                    <span class="nav-icon">FD</span><span>Fido</span>
+                                </a>
+                                @endif
+                                @if($mv('sottoconti') && !$isDelegate && ($currentAccount??$currentUser?->managedAccount??null) !== null && ($currentUser??$authUser)?->canCreateSubaccountsFor($currentAccount??$currentUser?->managedAccount))
+                                <a class="sidebar-link {{ $an === 'conti' ? 'active' : '' }}" href="{{ route('portal.accounts.structure') }}">
+                                    <span class="nav-icon">SC</span><span>Sottoconti</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- ── CIRCUITO ── --}}
+                        @php $showCircuito = ($mv('aziende')&&($currentUser??$authUser)?->canViewCompaniesDirectory())||($mv('shop')&&($currentUser??$authUser)?->canAccessMarketplace())||($mv('annunci')&&($currentUser??$authUser)?->canAccessAnnouncements())||$mv('invita'); @endphp
+                        @if($showCircuito)
+                        <div class="nav-group" data-group="circuito">
+                            <button class="nav-group-btn {{ $grpCircuito ? 'open' : '' }}" onclick="toggleGroup(this)">
+                                <span class="nav-icon" style="background:rgba(234,179,8,.18);color:#fde047;">🌐</span>
+                                <span class="nav-group-btn-label">Circuito</span>
+                                <span class="nav-group-arrow">▶</span>
+                            </button>
+                            <div class="nav-group-items {{ $grpCircuito ? 'open' : '' }}">
+                                @if($mv('aziende') && ($currentUser??$authUser)?->canViewCompaniesDirectory())
+                                <a class="sidebar-link {{ $an === 'aziende' ? 'active' : '' }}" href="{{ route('portal.companies') }}">
+                                    <span class="nav-icon">🏢</span><span>Directory</span>
+                                </a>
+                                @endif
+                                @if($mv('shop') && ($currentUser??$authUser)?->canAccessMarketplace())
+                                <a class="sidebar-link {{ $an === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}">
+                                    <span class="nav-icon">🛒</span><span>Shop</span>
+                                </a>
+                                @endif
+                                @if($mv('annunci') && ($currentUser??$authUser)?->canAccessAnnouncements())
+                                <a class="sidebar-link {{ $an === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}">
+                                    <span class="nav-icon">📣</span><span>Annunci</span>
+                                </a>
+                                @endif
+                                @if($mv('invita'))
+                                <a class="sidebar-link {{ $an === 'referral' ? 'active' : '' }}" href="{{ route('portal.referral') }}">
+                                    <span class="nav-icon">🎁</span><span>Invita un amico</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- ── STRUMENTI ── --}}
+                        @php
+                            $canDev = !$isDelegate && ($currentUser??$authUser)?->canAccessBackoffice();
+                            $showStrumenti = $mv('report-merchant')||($mv('webhooks')&&$canDev)||($mv('api-tokens')&&$canDev)||($mv('docs-api')&&$canDev)||($mv('operatore')&&(($currentUser??$authUser)?->hasRole('broker')||$isBackoffice))||$mv('help');
+                        @endphp
+                        @if($showStrumenti)
+                        <div class="nav-group" data-group="strumenti">
+                            <button class="nav-group-btn {{ $grpStrumenti ? 'open' : '' }}" onclick="toggleGroup(this)">
+                                <span class="nav-icon" style="background:rgba(148,163,184,.15);color:#94a3b8;">⚙️</span>
+                                <span class="nav-group-btn-label">Strumenti</span>
+                                <span class="nav-group-arrow">▶</span>
+                            </button>
+                            <div class="nav-group-items {{ $grpStrumenti ? 'open' : '' }}">
+                                @if($mv('report-merchant'))
+                                <a class="sidebar-link {{ $an === 'report-merchant' ? 'active' : '' }}" href="{{ route('portal.merchant-report') }}">
+                                    <span class="nav-icon">📊</span><span>Report</span>
+                                </a>
+                                @endif
+                                @if($mv('webhooks') && $canDev)
+                                <a class="sidebar-link {{ $an === 'webhooks' ? 'active' : '' }}" href="{{ route('portal.webhooks.index') }}">
+                                    <span class="nav-icon">WH</span><span>Webhook</span>
+                                </a>
+                                @endif
+                                @if($mv('api-tokens') && $canDev)
+                                <a class="sidebar-link {{ $an === 'api-tokens' ? 'active' : '' }}" href="{{ route('portal.api-tokens.index') }}">
+                                    <span class="nav-icon">API</span><span>Token API</span>
+                                </a>
+                                @endif
+                                @if($mv('docs-api') && $canDev)
+                                <a class="sidebar-link {{ $an === 'docs-api' ? 'active' : '' }}" href="{{ route('portal.docs-api') }}">
+                                    <span class="nav-icon">📖</span><span>Docs API</span>
+                                </a>
+                                @endif
+                                @if($mv('operatore') && (($currentUser??$authUser)?->hasRole('broker') || $isBackoffice))
+                                <a class="sidebar-link {{ $an === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}">
+                                    <span class="nav-icon">BR</span><span>Operatore</span>
+                                </a>
+                                @endif
+                                @if($mv('help'))
+                                <a class="sidebar-link {{ $an === 'help' ? 'active' : '' }}" href="{{ route('help.index') }}">
+                                    <span class="nav-icon">❓</span><span>Assistenza</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
                         @endif
                     </nav>
                 </section>
@@ -1873,8 +2066,6 @@
             var banner = null;
 
             window.addEventListener('beforeinstallprompt', function (e) {
-                e.preventDefault();
-                deferredPrompt = e;
                 window._kmInstallPrompt = e; // esposto globalmente per altre pagine
 
                 banner = document.createElement('div');
@@ -1908,6 +2099,42 @@
                 });
             });
         })();
+
+        /* ── Sidebar gruppi collassabili ───────────────────────────────────────── */
+        (function () {
+            var LS_KEY = 'km-nav-groups';
+            function loadState() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch(e){ return {}; } }
+            function saveState(s) { try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
+            var state = loadState();
+            document.querySelectorAll('.nav-group[data-group]').forEach(function(grp) {
+                var key   = grp.dataset.group;
+                var btn   = grp.querySelector('.nav-group-btn');
+                var items = grp.querySelector('.nav-group-items');
+                if (!btn || !items) return;
+                if (btn.classList.contains('open')) {
+                    state[key] = true; saveState(state);
+                } else if (state[key] === true) {
+                    btn.classList.add('open'); items.classList.add('open');
+                }
+            });
+        })();
+
+        function toggleGroup(btn) {
+            var items = btn.nextElementSibling;
+            if (!items) return;
+            var grp  = btn.closest('.nav-group[data-group]');
+            var key  = grp ? grp.dataset.group : null;
+            var isOpen = btn.classList.toggle('open');
+            items.classList.toggle('open', isOpen);
+            if (key) {
+                try {
+                    var s = JSON.parse(localStorage.getItem('km-nav-groups') || '{}');
+                    s[key] = isOpen;
+                    localStorage.setItem('km-nav-groups', JSON.stringify(s));
+                } catch(e) {}
+            }
+        }
+
     </script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script>
