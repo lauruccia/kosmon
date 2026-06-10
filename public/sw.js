@@ -3,7 +3,7 @@
  * Strategie: Cache-first per asset statici, Network-first per pagine HTML.
  */
 
-const CACHE_VERSION = 'kmoney-v2';
+const CACHE_VERSION = 'kmoney-v3';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const PAGE_CACHE    = `${CACHE_VERSION}-pages`;
 
@@ -23,6 +23,7 @@ const STATIC_PATTERNS = [
 // Le pagine HTML contengono CSRF token legati alla sessione: non vanno mai servite
 // dalla cache perché causano errore 419 quando il token scade (comune su mobile).
 const BYPASS_PATTERNS = [
+    /\/api\//,       // mai intercettare chiamate API
     /\/admin\//,
     /\/(login|logout|register)/,
     /\/(paga|incassa)/,
@@ -41,6 +42,7 @@ const BYPASS_PATTERNS = [
     /\/shop/,
     /\/onboarding/,
     /\/push\//,
+    /\/health/,      // health check sempre live
 ];
 
 // ── Install ─────────────────────────────────────────────────────────

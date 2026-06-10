@@ -167,12 +167,12 @@ class TransferController extends Controller
             'description' => $t->description,
             'booked_at'   => $t->booked_at?->toIso8601String(),
             'from'        => [
-                'account_id' => $t->from_account_id,
-                'company'    => $t->fromAccount?->company?->name,
+                'account_number' => $t->fromAccount?->account_number,
+                'company'        => $t->fromAccount?->company?->name,
             ],
             'to'          => [
-                'account_id' => $t->to_account_id,
-                'company'    => $t->toAccount?->company?->name,
+                'account_number' => $t->toAccount?->account_number,
+                'company'        => $t->toAccount?->company?->name,
             ],
         ];
     }

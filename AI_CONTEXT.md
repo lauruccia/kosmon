@@ -41,6 +41,32 @@ Questo progetto è già stato analizzato. **Non rianalizzare tutto il codice: le
 
 ## Ultima analisi
 Data: 2026-06-10
-Cosa è stato analizzato: intero codebase (controller, modelli, servizi, rotte, viste, job, middleware) — sintetizzato qui e in PROJECT_MAP.md
-Decisioni prese: creati AI_CONTEXT.md, PROJECT_MAP.md, CHANGELOG_AI.md, AGENTS.md come fonte di verità per le sessioni AI; nessuna modifica al codice
-File importanti: `app/Services/TransferBookingService.php`, `app/Models/Account.php`, `app/Models/Transfer.php`, `routes/web.php`, `bootstrap/app.php`, `app/helpers.php`, `CLAUDE.md`
+Cosa è stato analizzato: intero codebase + audit statico Codex — tutti i problemi critici verificati su codice reale
+Decisioni prese: creati AI_CONTEXT.md, PROJECT_MAP.md, CHANGELOG_AI.md, AGENTS.md; valutati problemi audit Codex (vedi sezione sotto)
+File importanti: `app/Services/TransferBookingService.php`, `app/Models/Account.php`, `app/Models/Transfer.php`, `routes/web.php`, `bootstrap/app.php`, `app/helpers.php`, `app/Support/PaymentPin.php`, `CLAUDE.md`
+
+## Stato audit Codex (valutazione reale al 2026-06-10)
+
+### Già risolti / falsi positivi
+- **File debug pubblici** (diag.php, clear-cache.php, ecc.) — NON esistono. Solo `index.php` legittimo in `public/`.
+- **PIN SHA-256 client-side** — GIÀ migrato: `PaymentPin.php` usa `Hash::make()` (bcrypt), `Hash::check()`, rate limit 5 tentativi / 15 min lockout, migrazione automatica legacy sha256→bcrypt al primo login.
+- **QR generato da servizio terzo** — GIÀ usa `SimpleSoftwareIO\QrCode` server-side.
+- **Auto-login NFC** — Non esiste nessun `Auth::login` in `NfcCardPaymentController`. Le route pubbliche NFC non creano sessione.
+- **PHP mismatch** — Problema dell'ambiente Codex (usava PHP 8.2 da xampp). Il progetto richiede `^8.2`, Laragon usa 8.3. Non è un bug del codice.
+- **API idempotency** — L'API v1 richiede `idempotency_key` come campo obbligatorio (validazione in `TransferController` line 100).
+
+### Problemi reali confermati (da risolvere)
+- **HMAC NFC troncato a 16 hex (64 bit)** — `NfcCard.php` line 210: `substr($expected, 0, 16)`. Bassa priorità pratica, alta teorica.
+- **API espone ID interni DB** — `TransferController` usa `from_account_id` / `to_account_id` (ID numerici) nella risposta. Meglio esporre solo il KY number / UUID.
+- **orWhereIn non raggruppato in BrokerController** — line 44-47: `whereIn(...)->orWhereIn(...)->where('status','booked')` — il `where('status')` si applica solo all'ultimo branch. Va wrappato in `where(fn($q)=>...)`.
+- **CSP unsafe-inline** — `ContentSecurityPolicy.php` line 69/78: `script-src` e `style-src` contengono `'unsafe-inline'`. Bassa priorità finché non si usa Stripe Inline / CSP Level 3.
+- **Route NFC `authorizeForm` pubblica** — by design (carta fisica deve funzionare senza login), ma la route POST che esegue il pagamento è dentro il gruppo auth. Accettabile, da documentare.
+- **Wallet mostra `available_balance` nella carta virtuale** — by design (saldo effettivo), fido mostrato separatamente nella sezione sotto. Non è un bug.
+
+### Sprint completati
+- Sprint 0 (blocco produzione): completato.
+- Sprint 1 (mobile UX): completato.
+- Sprint 2 (hardening tecnico, 2026-06-10): HMAC NFC log legacy, API senza raw ID (account_number), indici DB già presenti, SW cache bypass `/api/` e `/health/`.
+
+### Prossimi sprint
+- Sprint 3 (crescita): kit merchant QR/NFC, directory esercenti, referral/cashback mission, POS API documentata, reportistica merchant.

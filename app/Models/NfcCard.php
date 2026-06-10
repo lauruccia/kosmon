@@ -206,8 +206,14 @@ class NfcCard extends Model
             return true;
         }
 
-        // Compatibilita' temporanea con card gia' programmate con firma a 16 hex.
-        return strlen($sig) === 16 && hash_equals(substr($expected, 0, 16), $sig);
+        // Retrocompatibilità con card già programmate con firma a 16 hex (deprecated).
+        // Loggare per monitorare quante card legacy sono ancora in circolazione.
+        if (strlen($sig) === 16 && hash_equals(substr($expected, 0, 16), $sig)) {
+            \Log::warning('NFC HMAC legacy (16 hex) accettato — riprogrammare la card', ['uuid' => $uuid]);
+            return true;
+        }
+
+        return false;
     }
 
     // ─── Numero seriale ──────────────────────────────────────────────────────

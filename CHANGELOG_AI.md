@@ -14,6 +14,22 @@ Formato voce:
 
 ---
 
+## 2026-06-10 — Sprint 2: hardening tecnico
+- Cosa:
+  1. **HMAC NFC**: aggiunto `\Log::warning()` sul fallback legacy 16-hex — ora ogni card vecchia genera un log per monitorarne il riciclo; firma nuova è già full 64-hex da `buildPayload()`
+  2. **API v1 raw IDs rimossi**: `TransferController::formatTransfer()` ora espone `account_number` (KY number) invece di `from_account_id`/`to_account_id`; `AccountController::me()` rimuove `id` interno dal blocco `account`
+  3. **Indici DB**: già presenti nella migration `2026_05_26_100000_add_mysql_performance_indexes.php` — nessuna modifica necessaria
+  4. **PWA service worker**: aggiunto `/api/` e `/health/` a `BYPASS_PATTERNS`; versione cache bumped a `kmoney-v3` per forzare aggiornamento client
+- File toccati: `app/Models/NfcCard.php`, `app/Http/Controllers/Api/V1/TransferController.php`, `app/Http/Controllers/Api/V1/AccountController.php`, `public/sw.js`
+- DB: nessuna migration necessaria
+- Perché: hardening tecnico Sprint 2 post-audit Codex
+
+## 2026-06-10 — Analisi audit Codex + aggiornamento contesto AI
+- Cosa: verificato su codice reale tutti i problemi segnalati dall'audit statico Codex; separato falsi positivi da problemi reali; aggiornato AI_CONTEXT.md con stato reale
+- File toccati: AI_CONTEXT.md (solo contesto, nessuna modifica al codice)
+- Perché: l'audit Codex era basato su analisi statica senza esecuzione — diversi problemi erano già risolti
+- Risultato: Sprint 0 già completato; problemi reali rimasti sono minori (HMAC NFC, orWhereIn broker, API raw IDs, CSP)
+
 ## 2026-06-10 — Creazione file di contesto AI
 - Cosa: creati `AI_CONTEXT.md`, `PROJECT_MAP.md`, `CHANGELOG_AI.md`, `AGENTS.md`
 - File toccati: solo i 4 file nuovi, nessuna modifica al codice
