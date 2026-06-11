@@ -1072,6 +1072,8 @@
             }
             .sidebar.is-open { transform: translateX(0) !important; }
             .sidebar.is-open { touch-action: pan-y; user-select: none; }
+            /* Lock page scroll while sidebar is open (prevents scroll-through) */
+            body.sidebar-open { overflow: hidden; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
@@ -1761,9 +1763,11 @@
             var sidebar = document.querySelector('.sidebar');
             var overlay = document.getElementById('sidebar-overlay');
             var btn = document.getElementById('hamburger-btn');
+            var opening = !sidebar.classList.contains('is-open');
             sidebar.classList.toggle('is-open');
             overlay.classList.toggle('is-open');
             if (btn) btn.classList.toggle('open');
+            document.body.classList.toggle('sidebar-open', opening);
         }
         // ── Switch profilo WebAuthn ─────────────────────────────────────────────────
         (function () {
@@ -1895,11 +1899,17 @@
             var sidebar = document.querySelector('.sidebar');
             var overlay = document.getElementById('sidebar-overlay');
             var btn = document.getElementById('hamburger-btn');
+            // Restore CSS transition before removing class so the slide-out animates
             sidebar.style.transition = '';
             sidebar.style.transform = '';
-            sidebar.classList.remove('is-open');
-            overlay.classList.remove('is-open');
-            if (btn) btn.classList.remove('open');
+            // Allow a microtask so the browser sees the cleared inline transform
+            // before the class change, preventing a snap-to-hidden without animation
+            requestAnimationFrame(function () {
+                sidebar.classList.remove('is-open');
+                overlay.classList.remove('is-open');
+                if (btn) btn.classList.remove('open');
+                document.body.classList.remove('sidebar-open');
+            });
         }
         /* Chiudi sidebar quando si clicca un link (navigazione mobile) */
         document.addEventListener('DOMContentLoaded', function () {

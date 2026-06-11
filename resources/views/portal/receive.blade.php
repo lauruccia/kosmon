@@ -78,7 +78,7 @@
     .receive-method-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 768px) {
-    html, body, .content-shell { overflow-x: hidden; }
+    .content-shell { overflow-x: hidden; }
     .topbar > div[style*="display:flex"] { display: none !important; }
     .receive-hero { padding: 18px 16px; border-radius: 14px; }
     .receive-hero h2 { font-size: 24px; }

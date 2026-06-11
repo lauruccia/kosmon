@@ -61,7 +61,7 @@
 @media (max-width: 768px) {
     .scanner-shell { max-width: none; }
     .scanner-card { padding: 12px; }
-    .scanner-frame { min-height: min(68vh, 560px); }
+    .scanner-frame { min-height: min(52vh, 360px); max-height: calc(100dvh - 200px); }
     .scanner-actions { grid-template-columns: 1fr; }
 }
 </style>
