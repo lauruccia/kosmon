@@ -1071,6 +1071,7 @@
                 transition: transform .28s cubic-bezier(.4,0,.2,1);
             }
             .sidebar.is-open { transform: translateX(0) !important; }
+            .sidebar.is-open { touch-action: pan-y; user-select: none; }
             .sidebar-overlay { display: block; }
             .sidebar-overlay.is-open { opacity: 1; pointer-events: auto; }
             .hamburger-btn { display: flex !important; }
@@ -1906,6 +1907,51 @@
                     if (window.innerWidth <= 768) closeSidebar();
                 });
             });
+
+            /* ── Swipe-to-close sidebar su mobile ── */
+            var sidebar = document.querySelector('.sidebar');
+            var touchStartX = 0;
+            var touchStartY = 0;
+            var isDragging = false;
+
+            sidebar.addEventListener('touchstart', function (e) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isDragging = false;
+                sidebar.style.transition = 'none';
+            }, { passive: true });
+
+            sidebar.addEventListener('touchmove', function (e) {
+                if (!sidebar.classList.contains('is-open')) return;
+                var dx = e.touches[0].clientX - touchStartX;
+                var dy = e.touches[0].clientY - touchStartY;
+                // Solo swipe orizzontale verso sinistra
+                if (!isDragging && Math.abs(dx) < Math.abs(dy)) {
+                    sidebar.style.transition = '';
+                    return; // scroll verticale: non interferire
+                }
+                if (dx < 0) {
+                    isDragging = true;
+                    e.preventDefault();
+                    var clamp = Math.max(dx, -280);
+                    sidebar.style.transform = 'translateX(' + clamp + 'px)';
+                }
+            }, { passive: false });
+
+            sidebar.addEventListener('touchend', function (e) {
+                sidebar.style.transition = '';
+                if (isDragging) {
+                    var dx = e.changedTouches[0].clientX - touchStartX;
+                    if (dx < -60) {
+                        closeSidebar();
+                    } else {
+                        sidebar.style.transform = 'translateX(0)';
+                    }
+                } else {
+                    sidebar.style.transform = '';
+                }
+                isDragging = false;
+            }, { passive: true });
         });
 
         function _updateThemeColor(isDark) {
