@@ -27,10 +27,18 @@ class CardController extends Controller
 
         $payUrl = route('portal.pay.qr', $account->account_number);
 
+        // Genera QR code lato server come SVG inline
+        $qrSvg = null;
+        if (class_exists(\SimpleSoftwareIO\QrCode\Generator::class)) {
+            $gen    = new \SimpleSoftwareIO\QrCode\Generator();
+            $qrSvg  = (string) $gen->format('svg')->size(160)->margin(0)->generate($payUrl);
+        }
+
         return view('portal.card', [
             'pageTitle' => 'La tua carta KMoney',
             'account'   => $account,
             'payUrl'    => $payUrl,
+            'qrSvg'     => $qrSvg,
             'activeNav' => 'carta',
         ]);
     }
