@@ -13,7 +13,7 @@ class NfcCard extends Model
     protected $fillable = [
         'uuid', 'company_id', 'issued_by', 'serial_number', 'status',
         'pin_hash', 'pin_attempts', 'pin_locked_until',
-        'limit_per_transaction', 'limit_daily', 'limit_monthly',
+        'limit_per_transaction', 'pin_threshold', 'limit_daily', 'limit_monthly',
         'daily_spent', 'monthly_spent', 'daily_reset_date', 'monthly_reset_month',
         'nfc_payload', 'notes',
         'tracking_code', 'shipping_carrier', 'shipped_at',
@@ -21,6 +21,10 @@ class NfcCard extends Model
     ];
 
     protected $casts = [
+        'limit_per_transaction' => 'integer',
+        'pin_threshold'    => 'integer',
+        'limit_daily'      => 'integer',
+        'limit_monthly'    => 'integer',
         'pin_locked_until' => 'datetime',
         'issued_at'        => 'datetime',
         'delivered_at'     => 'datetime',
@@ -126,6 +130,18 @@ class NfcCard extends Model
         $this->logs()->create(['event' => 'auth_ok']);
 
         return true;
+    }
+
+    /**
+     * Il PIN è richiesto per questo importo?
+     * Soglia null = PIN sempre richiesto (default sicuro).
+     * Importi >= soglia → PIN richiesto; sotto soglia → conferma senza PIN.
+     *
+     * @param int $amount Importo in centesimi KY
+     */
+    public function requiresPinFor(int $amount): bool
+    {
+        return $this->pin_threshold === null || $amount >= $this->pin_threshold;
     }
 
     // ─── Limiti ──────────────────────────────────────────────────────────────

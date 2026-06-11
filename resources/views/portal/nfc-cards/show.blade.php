@@ -155,22 +155,31 @@
                         <div style="display:grid;gap:10px;">
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:5px;">Per transazione (KY)</label>
-                                <input type="number" name="limit_per_transaction" min="1" max="9999999"
-                                       value="{{ $card->limit_per_transaction }}"
+                                <input type="number" name="limit_per_transaction" min="0.01" max="9999999" step="0.01"
+                                       value="{{ ky_input($card->limit_per_transaction) }}"
                                        placeholder="Nessun limite"
                                        style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface-soft);outline:none;box-sizing:border-box;">
+                                <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Importi superiori vengono rifiutati.</div>
+                            </div>
+                            <div>
+                                <label style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:5px;">Richiedi PIN da (KY)</label>
+                                <input type="number" name="pin_threshold" min="0.01" max="9999999" step="0.01"
+                                       value="{{ ky_input($card->pin_threshold) }}"
+                                       placeholder="PIN sempre richiesto"
+                                       style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface-soft);outline:none;box-sizing:border-box;">
+                                <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Sotto questa soglia confermi senza PIN. Vuoto = PIN sempre richiesto.</div>
                             </div>
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:5px;">Giornaliero (KY)</label>
-                                <input type="number" name="limit_daily" min="1" max="9999999"
-                                       value="{{ $card->limit_daily }}"
+                                <input type="number" name="limit_daily" min="0.01" max="9999999" step="0.01"
+                                       value="{{ ky_input($card->limit_daily) }}"
                                        placeholder="Nessun limite"
                                        style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface-soft);outline:none;box-sizing:border-box;">
                             </div>
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:5px;">Mensile (KY)</label>
-                                <input type="number" name="limit_monthly" min="1" max="9999999"
-                                       value="{{ $card->limit_monthly }}"
+                                <input type="number" name="limit_monthly" min="0.01" max="9999999" step="0.01"
+                                       value="{{ ky_input($card->limit_monthly) }}"
                                        placeholder="Nessun limite"
                                        style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface-soft);outline:none;box-sizing:border-box;">
                             </div>

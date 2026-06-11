@@ -276,27 +276,32 @@ class NfcCardPaymentController extends Controller
                 && $session->card->company_id === null);
         abort_unless($user && $userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
 
-        $validated = $request->validate([
-            'pin' => ['required', 'string', 'min:4', 'max:8', 'regex:/^\d{4,8}$/'],
-        ], [
-            'pin.regex' => 'Il PIN deve contenere solo cifre (4–8).',
-            'pin.min'   => 'Il PIN deve essere di almeno 4 cifre.',
-            'pin.max'   => 'Il PIN puo\' avere al massimo 8 cifre.',
-        ]);
-
-        // Verifica il PIN della card (impostato in fase di attivazione)
+        // Verifica che la card sia attivata (PIN impostato in fase di attivazione)
         abort_unless($session->card->pin_hash !== null, 403, 'Card non attivata: imposta il PIN della card prima di usarla.');
 
-        if ($session->card->isPinLocked()) {
-            return back()->with('portal_error', 'Card bloccata per troppi tentativi errati. Riprova piu\' tardi.');
-        }
+        // PIN richiesto solo se l'importo raggiunge la soglia impostata dal titolare
+        // (soglia null = PIN sempre richiesto). Sotto soglia: conferma con sessione autenticata.
+        if ($session->card->requiresPinFor($session->amount)) {
+            $validated = $request->validate([
+                'pin' => ['required', 'string', 'min:4', 'max:8', 'regex:/^\d{4,8}$/'],
+            ], [
+                'pin.required' => 'Inserisci il PIN della card.',
+                'pin.regex' => 'Il PIN deve contenere solo cifre (4–8).',
+                'pin.min'   => 'Il PIN deve essere di almeno 4 cifre.',
+                'pin.max'   => 'Il PIN puo\' avere al massimo 8 cifre.',
+            ]);
 
-        if (! $session->card->verifyPin($validated['pin'])) {
-            $msg = $session->card->fresh()->isPinLocked()
-                ? 'PIN errato. Card bloccata per 1 ora dopo 3 tentativi falliti.'
-                : 'PIN errato. Riprova.';
+            if ($session->card->isPinLocked()) {
+                return back()->with('portal_error', 'Card bloccata per troppi tentativi errati. Riprova piu\' tardi.');
+            }
 
-            return back()->with('portal_error', $msg);
+            if (! $session->card->verifyPin($validated['pin'])) {
+                $msg = $session->card->fresh()->isPinLocked()
+                    ? 'PIN errato. Card bloccata per 1 ora dopo 3 tentativi falliti.'
+                    : 'PIN errato. Riprova.';
+
+                return back()->with('portal_error', $msg);
+            }
         }
 
         // Risolvi account cliente (titolare della card)

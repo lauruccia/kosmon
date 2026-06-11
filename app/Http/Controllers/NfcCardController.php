@@ -117,17 +117,26 @@ class NfcCardController extends Controller
 
         abort_unless($card->status === 'active', 403, 'Card non attiva.');
 
+        // Accetta sia virgola che punto come separatore decimale
+        foreach (['limit_per_transaction', 'pin_threshold', 'limit_daily', 'limit_monthly'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
+            }
+        }
+
         $data = $request->validate([
-            'limit_per_transaction' => ['nullable', 'integer', 'min:1', 'max:9999999'],
-            'limit_daily'           => ['nullable', 'integer', 'min:1', 'max:9999999'],
-            'limit_monthly'         => ['nullable', 'integer', 'min:1', 'max:9999999'],
+            'limit_per_transaction' => ['nullable', 'numeric', 'min:0.01', 'max:9999999'],
+            'pin_threshold'         => ['nullable', 'numeric', 'min:0.01', 'max:9999999'],
+            'limit_daily'           => ['nullable', 'numeric', 'min:0.01', 'max:9999999'],
+            'limit_monthly'         => ['nullable', 'numeric', 'min:0.01', 'max:9999999'],
         ]);
 
-        // Valori vuoti → null (rimuovi limite)
+        // Input in KY → centesimi. Valori vuoti → null (rimuovi limite / PIN sempre richiesto)
         $card->update([
-            'limit_per_transaction' => $data['limit_per_transaction'] ?: null,
-            'limit_daily'           => $data['limit_daily'] ?: null,
-            'limit_monthly'         => $data['limit_monthly'] ?: null,
+            'limit_per_transaction' => filled($data['limit_per_transaction'] ?? null) ? ky_to_cents($data['limit_per_transaction']) : null,
+            'pin_threshold'         => filled($data['pin_threshold'] ?? null) ? ky_to_cents($data['pin_threshold']) : null,
+            'limit_daily'           => filled($data['limit_daily'] ?? null) ? ky_to_cents($data['limit_daily']) : null,
+            'limit_monthly'         => filled($data['limit_monthly'] ?? null) ? ky_to_cents($data['limit_monthly']) : null,
         ]);
 
         return back()->with('portal_success', 'Limiti aggiornati.');
