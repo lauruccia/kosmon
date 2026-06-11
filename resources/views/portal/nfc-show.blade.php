@@ -44,7 +44,9 @@
                         {{-- Colonna 2: QR + NFC smartphone --}}
                         <div class="nfc-col-qr">
                             <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">Scansiona il QR</div>
-                            <div id="qr-container" style="display:inline-block;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px;"></div>
+                            <div id="qr-container" style="display:inline-block;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px;line-height:0;">
+                                {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(180)->margin(0)->errorCorrection('M')->generate($payUrl) !!}
+                            </div>
                             <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Il cliente inquadra con la fotocamera</div>
 
                             <div style="margin-top:14px;">
@@ -139,8 +141,11 @@
         }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
+    // Stato card NFC fisica — dichiarato in testa per evitare TDZ se lo script
+    // sottostante viene interrotto da un errore runtime.
+    var scannedCardUuid = null;
+
     // Helper: POST JSON con refresh automatico CSRF se sessione scaduta (419)
     async function postJson(url, body) {
         const csrfMeta = () => document.querySelector('meta[name=csrf-token]')?.content || '';
@@ -176,14 +181,6 @@
         const STATUS_URL  = @json(route('portal.incasso-nfc.status', $pr->token));
         const TOTAL_SECS  = {{ $pr->expires_at->diffInSeconds(now()) > 0 ? $pr->expires_at->diffInSeconds(now()) : 0 }};
         const EXPIRE_AT   = new Date({{ $pr->expires_at->valueOf() }});
-
-        // ── QR fallback ──────────────────────────────────────────────────────
-        new QRCode(document.getElementById('qr-container'), {
-            text:   PAY_URL,
-            width:  180,
-            height: 180,
-            correctLevel: QRCode.CorrectLevel.M,
-        });
 
         // ── Countdown ────────────────────────────────────────────────────────
         const countdownEl = document.getElementById('countdown');
@@ -379,7 +376,7 @@
     })();
 
     // ─── Card NFC fisica (Opzione A) ─────────────────────────────────────────
-    let scannedCardUuid = null;
+    // (scannedCardUuid dichiarato in testa allo script)
 
     async function startCardScan() {
         const statusEl = document.getElementById('card-nfc-status');
