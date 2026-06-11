@@ -1214,11 +1214,11 @@
             .page-actions, .form-actions, .quick-actions { flex-direction: column !important; }
             .page-actions .cta, .form-actions .cta, .form-actions .btn { width: 100% !important; }
 
-            /* Previeni pull-to-refresh accidentale nel content */
-            .content-shell { overscroll-behavior-y: contain; }
-
-            /* Smooth scroll globale */
-            html { scroll-behavior: smooth; }
+            /* Prevent horizontal overflow without creating a scroll container on <main>.
+               overflow-x:hidden on <main> would trigger the CSS spec rule that computes
+               overflow-y as 'auto', turning the element into a scroll container and
+               breaking page-level scrolling on iOS. Use overflow-x:clip instead (no BFC). */
+            .content-shell { overflow-x: clip; }
         }
 
         /* Pill nascosto su schermi molto piccoli (< 400px) */

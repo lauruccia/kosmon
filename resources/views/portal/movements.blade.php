@@ -53,9 +53,6 @@
     color: var(--ink-muted);
 }
 @media (max-width: 768px) {
-    .content-shell {
-        overflow-x: hidden;
-    }
     .account-hero {
         display: none !important;
     }
