@@ -8,7 +8,6 @@ use App\Models\NfcCard;
 use App\Models\NfcCardAuthSession;
 use App\Notifications\NfcCardPinRequestNotification;
 use App\Services\TransferBookingService;
-use App\Support\PaymentPin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -278,14 +277,26 @@ class NfcCardPaymentController extends Controller
         abort_unless($user && $userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
 
         $validated = $request->validate([
-            'pin' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
+            'pin' => ['required', 'string', 'min:4', 'max:8', 'regex:/^\d{4,8}$/'],
+        ], [
+            'pin.regex' => 'Il PIN deve contenere solo cifre (4–8).',
+            'pin.min'   => 'Il PIN deve essere di almeno 4 cifre.',
+            'pin.max'   => 'Il PIN puo\' avere al massimo 8 cifre.',
         ]);
 
-        abort_unless($user->payment_pin_hash !== null, 403, 'Imposta un PIN di pagamento prima di usare la card NFC.');
+        // Verifica il PIN della card (impostato in fase di attivazione)
+        abort_unless($session->card->pin_hash !== null, 403, 'Card non attivata: imposta il PIN della card prima di usarla.');
 
-        [$pinOk, $pinError] = PaymentPin::verify($user, $validated['pin']);
-        if (! $pinOk) {
-            return back()->with('portal_error', $pinError);
+        if ($session->card->isPinLocked()) {
+            return back()->with('portal_error', 'Card bloccata per troppi tentativi errati. Riprova piu\' tardi.');
+        }
+
+        if (! $session->card->verifyPin($validated['pin'])) {
+            $msg = $session->card->fresh()->isPinLocked()
+                ? 'PIN errato. Card bloccata per 1 ora dopo 3 tentativi falliti.'
+                : 'PIN errato. Riprova.';
+
+            return back()->with('portal_error', $msg);
         }
 
         // Risolvi account cliente (titolare della card)

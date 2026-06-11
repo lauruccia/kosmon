@@ -45,13 +45,14 @@
 
             <div class="stack" style="gap:12px;">
                 <label style="display:block;text-align:left;font-size:13px;font-weight:700;color:var(--ink);">
-                    PIN di pagamento
+                    PIN della card (4–8 cifre)
                     <input
                         type="password"
                         name="pin"
                         inputmode="numeric"
-                        pattern="\d{6}"
-                        maxlength="6"
+                        pattern="\d{4,8}"
+                        minlength="4"
+                        maxlength="8"
                         autocomplete="one-time-code"
                         required
                         style="margin-top:6px;width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:12px;padding:14px;font-size:22px;font-weight:800;text-align:center;letter-spacing:.35em;color:var(--ink);background:var(--surface-soft);"

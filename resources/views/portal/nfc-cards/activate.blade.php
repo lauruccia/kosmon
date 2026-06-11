@@ -66,7 +66,7 @@
                 <div style="margin-top:16px;padding:12px 14px;background:var(--surface-soft);border-radius:10px;border:1px solid var(--line);">
                     <div style="font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">&#128274; Sicurezza</div>
                     <div style="font-size:12px;color:var(--ink-muted);line-height:1.5;">
-                        Dopo 3 tentativi errati la card si blocca automaticamente per 30 minuti.
+                        Dopo 3 tentativi errati la card si blocca automaticamente per 1 ora.
                         Non condividere il PIN con nessuno.
                     </div>
                 </div>
