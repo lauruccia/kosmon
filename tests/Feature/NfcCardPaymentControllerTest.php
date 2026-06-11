@@ -167,6 +167,75 @@ class NfcCardPaymentControllerTest extends TestCase
         );
     }
 
+    /** Sotto soglia PIN → pagamento contactless immediato, senza conferma del titolare. */
+    public function test_create_request_below_threshold_books_immediately(): void
+    {
+        Notification::fake();
+
+        ['company' => $customerCompany, 'user' => $customer, 'account' => $customerAccount] = $this->makeCompanyUser();
+        ['user' => $merchant, 'account' => $merchantAccount] = $this->makeCompanyUser();
+
+        $card = $this->makeActiveCard($customerCompany, $merchant);
+        $card->update(['pin_threshold' => 100]); // soglia 1,00 KY
+
+        $response = $this->actingAs($merchant)
+            ->postJson(route('nfc.card.request'), [
+                'card_uuid'   => $card->uuid,
+                'amount'      => '0.50', // 0,50 KY < soglia
+                'description' => 'Contactless test',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonFragment(['status' => 'authorized'])
+            ->assertJsonStructure(['nonce', 'transfer_uuid', 'status_url']);
+
+        $this->assertDatabaseHas('nfc_card_auth_sessions', [
+            'nfc_card_id' => $card->id,
+            'amount'      => 50,
+            'status'      => 'authorized',
+        ]);
+        $this->assertDatabaseHas('transfers', [
+            'from_account_id' => $customerAccount->id,
+            'to_account_id'   => $merchantAccount->id,
+            'amount'          => 50,
+            'kind'            => 'nfc_card',
+        ]);
+
+        // Contatori card aggiornati
+        $this->assertSame(50, $card->fresh()->daily_spent);
+
+        // Nessuna notifica di richiesta conferma inviata
+        Notification::assertNotSentTo($customer, \App\Notifications\NfcCardPinRequestNotification::class);
+    }
+
+    /** Importo pari o sopra soglia → flusso normale con conferma (sessione pending). */
+    public function test_create_request_at_threshold_uses_confirmation_flow(): void
+    {
+        Notification::fake();
+
+        ['company' => $customerCompany, 'user' => $customer] = $this->makeCompanyUser();
+        ['user' => $merchant] = $this->makeCompanyUser();
+
+        $card = $this->makeActiveCard($customerCompany, $merchant);
+        $card->update(['pin_threshold' => 100]); // soglia 1,00 KY
+
+        $this->actingAs($merchant)
+            ->postJson(route('nfc.card.request'), [
+                'card_uuid' => $card->uuid,
+                'amount'    => '1', // 1,00 KY = soglia → conferma richiesta
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('nfc_card_auth_sessions', [
+            'nfc_card_id' => $card->id,
+            'amount'      => 100,
+            'status'      => 'pending',
+        ]);
+        $this->assertDatabaseMissing('transfers', ['kind' => 'nfc_card', 'amount' => 100]);
+
+        Notification::assertSentTo($customer, \App\Notifications\NfcCardPinRequestNotification::class);
+    }
+
     public function test_create_request_fails_for_inactive_card(): void
     {
         ['company' => $customerCompany, 'user' => $merchant] = $this->makeCompanyUser();

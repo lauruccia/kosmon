@@ -136,6 +136,14 @@ class NfcCardPaymentController extends Controller
             })
             ->update(['status' => 'cancelled']);
 
+        // ── Contactless: sotto la soglia PIN il pagamento parte subito, ──────
+        // ── senza notifica né conferma del titolare (come carte di credito) ──
+        if ($card->company_id !== null
+            && $card->pin_threshold !== null
+            && ! $card->requiresPinFor($amountCents)) {
+            return $this->bookContactless($request, $card, $merchantAccount, $amountCents, $data['description'] ?? null);
+        }
+
         // Crea sessione auth (scade in 10 minuti — tempo sufficiente per login se necessario)
         $session = NfcCardAuthSession::create([
             'nfc_card_id'          => $card->id,
@@ -182,6 +190,122 @@ class NfcCardPaymentController extends Controller
             'nonce'      => $session->nonce,
             'expires_at' => $session->expires_at->toISOString(),
             'status_url' => route('nfc.card.status', $session->nonce),
+        ]);
+    }
+
+    /**
+     * Addebito contactless immediato (importo sotto la soglia PIN della card).
+     * Nessuna conferma richiesta al titolare: il tap della card autorizza il pagamento.
+     */
+    private function bookContactless(Request $request, NfcCard $card, Account $merchantAccount, int $amountCents, ?string $description): JsonResponse
+    {
+        // Account del titolare della card
+        $customerAccount = Account::where('company_id', $card->company_id)
+            ->whereNull('parent_account_id')
+            ->first();
+
+        if (! $customerAccount) {
+            return response()->json(['error' => 'Conto del titolare della card non trovato.'], 422);
+        }
+
+        if ($customerAccount->id === $merchantAccount->id) {
+            return response()->json(['error' => 'Non puoi incassare dal tuo stesso conto.'], 422);
+        }
+
+        // Utente del titolare autorizzato a inviare pagamenti (per initiated_by/audit)
+        $initiator = $card->company->users
+            ->first(fn ($u) => $u->is_active && $u->canSendFromAccount($customerAccount));
+
+        if (! $initiator) {
+            return response()->json(['error' => 'Nessun utente del titolare abilitato ai pagamenti.'], 422);
+        }
+
+        $session = NfcCardAuthSession::create([
+            'nfc_card_id'         => $card->id,
+            'merchant_company_id' => $merchantAccount->company_id,
+            'merchant_account_id' => $merchantAccount->id,
+            'amount'              => $amountCents,
+            'description'         => $description,
+            'status'              => 'pending',
+            'expires_at'          => now()->addMinutes(10),
+        ]);
+
+        try {
+            $transfer = DB::transaction(function () use ($session, $customerAccount, $merchantAccount, $initiator, $request) {
+                /** @var NfcCard $locked */
+                $locked = NfcCard::lockForUpdate()->findOrFail($session->nfc_card_id);
+
+                // Ricontrolla limiti con lock acquisito (evita race su pagamenti concorrenti)
+                [$ok, $reason] = $locked->checkLimits($session->amount);
+                if (! $ok) {
+                    $locked->logs()->create(['event' => 'limit_exceeded', 'amount' => $session->amount, 'ip' => $request->ip()]);
+                    throw new \RuntimeException('__LIMIT__:' . $reason);
+                }
+
+                $transfer = app(TransferBookingService::class)->book([
+                    'from_account_id' => $customerAccount->id,
+                    'to_account_id'   => $merchantAccount->id,
+                    'amount'          => $session->amount,
+                    'description'     => $session->description ?? 'Pagamento Card NFC (contactless)',
+                    'kind'            => 'nfc_card',
+                    'idempotency_key' => 'nfc-card-' . $session->nonce,
+                    'initiated_by'    => $initiator->id,
+                    'ip_address'      => $request->ip(),
+                ]);
+
+                $session->update([
+                    'status'        => 'authorized',
+                    'transfer_uuid' => $transfer->uuid,
+                ]);
+
+                $locked->recordSpent($session->amount);
+                $locked->logs()->create([
+                    'event'               => 'payment_ok',
+                    'merchant_company_id' => $merchantAccount->company_id,
+                    'amount'              => $session->amount,
+                    'ip'                  => $request->ip(),
+                    'notes'               => 'Contactless: sotto soglia PIN, autorizzato al tap',
+                ]);
+
+                return $transfer;
+            });
+        } catch (\Throwable $e) {
+            $session->update(['status' => 'failed']);
+            $errorMsg = $e->getMessage();
+
+            if (str_starts_with($errorMsg, '__LIMIT__:')) {
+                return response()->json(['error' => substr($errorMsg, 10)], 422);
+            }
+
+            $card->logs()->create(['event' => 'payment_fail', 'notes' => $errorMsg]);
+            return response()->json(['error' => 'Pagamento fallito: ' . $errorMsg], 422);
+        }
+
+        // Notifica informativa al titolare (nessuna azione richiesta)
+        try {
+            $merchantName = $merchantAccount->company?->name
+                ?? Company::find($merchantAccount->company_id)?->name
+                ?? 'un commerciante';
+            $pushService = app(\App\Services\WebPushService::class);
+
+            $card->company->users->each(function ($user) use ($pushService, $session, $merchantName) {
+                $pushService->notifyUser(
+                    $user,
+                    'Pagamento contactless',
+                    sprintf('Pagati %s KY a %s con la tua card NFC (sotto soglia PIN).', ky_format($session->amount), $merchantName),
+                    ['url' => route('portal.dashboard'), 'tag' => 'nfc-contactless-payment'],
+                );
+            });
+        } catch (\Throwable $e) {
+            \Log::warning('NFC contactless notification failed: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'nonce'         => $session->nonce,
+            'status'        => 'authorized',
+            'transfer_uuid' => $transfer->uuid,
+            'expires_at'    => $session->expires_at->toISOString(),
+            'status_url'    => route('nfc.card.status', $session->nonce),
         ]);
     }
 

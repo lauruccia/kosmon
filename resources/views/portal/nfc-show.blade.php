@@ -500,6 +500,14 @@
                 return;
             }
 
+            // Pagamento contactless: autorizzato subito al tap (sotto soglia PIN)
+            if (data.status === 'authorized') {
+                document.getElementById('card-nfc-info').style.display = 'none';
+                document.getElementById('state-pending').style.display = 'none';
+                document.getElementById('state-paid').style.display    = 'block';
+                return;
+            }
+
             document.getElementById('card-nfc-info').style.display = 'none';
             statusEl.textContent   = '⏳ Notifica inviata. In attesa che il cliente autorizzi il pagamento...';
             statusEl.style.background = '#fef9c3';

@@ -167,7 +167,7 @@
                                        value="{{ ky_input($card->pin_threshold) }}"
                                        placeholder="PIN sempre richiesto"
                                        style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--ink);background:var(--surface-soft);outline:none;box-sizing:border-box;">
-                                <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Sotto questa soglia confermi senza PIN. Vuoto = PIN sempre richiesto.</div>
+                                <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Sotto questa soglia il pagamento parte subito al tap, senza PIN né conferma (contactless). Vuoto = PIN sempre richiesto.</div>
                             </div>
                             <div>
                                 <label style="font-size:10px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:5px;">Giornaliero (KY)</label>
