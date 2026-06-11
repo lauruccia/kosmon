@@ -1895,6 +1895,8 @@
             var sidebar = document.querySelector('.sidebar');
             var overlay = document.getElementById('sidebar-overlay');
             var btn = document.getElementById('hamburger-btn');
+            sidebar.style.transition = '';
+            sidebar.style.transform = '';
             sidebar.classList.remove('is-open');
             overlay.classList.remove('is-open');
             if (btn) btn.classList.remove('open');
@@ -1910,47 +1912,56 @@
 
             /* ── Swipe-to-close sidebar su mobile ── */
             var sidebar = document.querySelector('.sidebar');
-            var touchStartX = 0;
-            var touchStartY = 0;
-            var isDragging = false;
+            var swipeTouchStartX = 0;
+            var swipeTouchStartY = 0;
+            var swipeDirection = null; // 'h' | 'v' | null
+
+            function resetSidebarInlineStyle() {
+                sidebar.style.transition = '';
+                sidebar.style.transform = '';
+            }
 
             sidebar.addEventListener('touchstart', function (e) {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                isDragging = false;
-                sidebar.style.transition = 'none';
+                swipeTouchStartX = e.touches[0].clientX;
+                swipeTouchStartY = e.touches[0].clientY;
+                swipeDirection = null;
             }, { passive: true });
 
             sidebar.addEventListener('touchmove', function (e) {
                 if (!sidebar.classList.contains('is-open')) return;
-                var dx = e.touches[0].clientX - touchStartX;
-                var dy = e.touches[0].clientY - touchStartY;
-                // Solo swipe orizzontale verso sinistra
-                if (!isDragging && Math.abs(dx) < Math.abs(dy)) {
-                    sidebar.style.transition = '';
-                    return; // scroll verticale: non interferire
+                var dx = e.touches[0].clientX - swipeTouchStartX;
+                var dy = e.touches[0].clientY - swipeTouchStartY;
+
+                // Determina direzione al primo spostamento significativo
+                if (swipeDirection === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+                    swipeDirection = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
                 }
-                if (dx < 0) {
-                    isDragging = true;
+
+                if (swipeDirection === 'v') return; // scroll verticale: non toccare nulla
+
+                if (swipeDirection === 'h' && dx < 0) {
                     e.preventDefault();
-                    var clamp = Math.max(dx, -280);
-                    sidebar.style.transform = 'translateX(' + clamp + 'px)';
+                    sidebar.style.transition = 'none';
+                    sidebar.style.transform = 'translateX(' + Math.max(dx, -280) + 'px)';
                 }
             }, { passive: false });
 
             sidebar.addEventListener('touchend', function (e) {
-                sidebar.style.transition = '';
-                if (isDragging) {
-                    var dx = e.changedTouches[0].clientX - touchStartX;
+                if (swipeDirection === 'h') {
+                    var dx = e.changedTouches[0].clientX - swipeTouchStartX;
                     if (dx < -60) {
+                        resetSidebarInlineStyle();
                         closeSidebar();
                     } else {
-                        sidebar.style.transform = 'translateX(0)';
+                        resetSidebarInlineStyle();
                     }
-                } else {
-                    sidebar.style.transform = '';
                 }
-                isDragging = false;
+                swipeDirection = null;
+            }, { passive: true });
+
+            sidebar.addEventListener('touchcancel', function () {
+                resetSidebarInlineStyle();
+                swipeDirection = null;
             }, { passive: true });
         });
 
