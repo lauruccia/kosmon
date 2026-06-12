@@ -58,6 +58,21 @@ class Account extends Model
         });
     }
 
+    // ── Accessor: account_type (KYB / KYP / KY) derivato da owner_type ───────
+
+    /**
+     * Restituisce il prefisso del numero di conto (KYB, KYP, KY) basandosi su owner_type.
+     * Usato come colonna virtuale nei controller al posto di una colonna DB.
+     */
+    public function getAccountTypeAttribute(): string
+    {
+        return match ($this->owner_type) {
+            'private' => 'KYP',
+            'company' => 'KYB',
+            default   => 'KY',
+        };
+    }
+
     // ── Blocco temporaneo anti-frode ─────────────────────────────────────────
 
     /**

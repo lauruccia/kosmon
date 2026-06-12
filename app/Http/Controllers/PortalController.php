@@ -1638,8 +1638,8 @@ class PortalController extends Controller
             ->with([
                 'users' => fn ($q) => $q->select(['id', 'company_id', 'account_holder_type']),
                 'accounts' => fn ($q) => $q->where('is_system_account', false)
-                                           ->where('account_type', 'KYB')
-                                           ->select(['id', 'company_id', 'available_balance', 'max_balance', 'account_type', 'status']),
+                                           ->where('owner_type', 'company')
+                                           ->select(['id', 'company_id', 'owner_type', 'available_balance', 'max_balance', 'status']),
             ])
             ->when($filters['q'] !== '', function ($query) use ($filters): void {
                 $search = $filters['q'];
