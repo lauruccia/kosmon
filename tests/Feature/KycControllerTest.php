@@ -131,7 +131,7 @@ class KycControllerTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.kyc.reject', $company), [
-                'kyc_notes' => 'Documenti non validi.',
+                'notes' => 'Documenti non validi sono stati presentati.',
             ])
             ->assertRedirect();
 

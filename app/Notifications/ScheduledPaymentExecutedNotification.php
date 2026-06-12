@@ -7,6 +7,7 @@ use App\Notifications\Concerns\RespectsNotificationPreferences;
 use App\Models\ScheduledPayment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ScheduledPaymentExecutedNotification extends Notification implements ShouldQueue
@@ -23,6 +24,29 @@ class ScheduledPaymentExecutedNotification extends Notification implements Shoul
     public function via(object $notifiable): array
     {
         return $this->resolveChannels($notifiable, 'scheduled_payment', ['database', 'mail'], ['database', 'mail']);
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        if ($this->isRecipient) {
+            $senderName = $this->payment->fromAccount?->company?->name
+                ?? $this->payment->fromAccount?->display_name
+                ?? 'Un\'azienda';
+
+            return (new MailMessage)
+                ->subject('Pagamento programmato ricevuto — KMoney')
+                ->greeting('Ciao ' . $notifiable->name . ',')
+                ->line('Hai ricevuto ' . $this->payment->formattedAmount() . ' KY da ' . $senderName . ' tramite un pagamento programmato.')
+                ->action('Vedi i movimenti', route('portal.movements'))
+                ->salutation('Il team KMoney');
+        }
+
+        return (new MailMessage)
+            ->subject('Pagamento programmato eseguito — KMoney')
+            ->greeting('Ciao ' . $notifiable->name . ',')
+            ->line('Il tuo pagamento programmato di ' . $this->payment->formattedAmount() . ' KY è stato eseguito automaticamente.')
+            ->action('Vedi il pagamento', route('portal.scheduled-payments.show', $this->payment))
+            ->salutation('Il team KMoney');
     }
 
     public function toArray(object $notifiable): array

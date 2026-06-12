@@ -120,6 +120,7 @@ class NfcPaymentControllerTest extends TestCase
         $account = Account::where('owner_user_id', $user->id)->first();
 
         $pr = PaymentRequest::create([
+            'uuid'          => (string) \Illuminate\Support\Str::uuid(),
             'token'         => 'tok-nfc-cancel',
             'to_account_id' => $account->id,
             'amount'        => 200,

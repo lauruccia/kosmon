@@ -140,9 +140,9 @@ class ScheduledPaymentService
         }
 
         // ── Pagamento programmato standard ───────────────────────────────────
-        try {
-            $initiator = $payment->creator ?? User::findOrFail($payment->created_by);
+        $initiator = $payment->creator ?? User::findOrFail($payment->created_by);
 
+        try {
             $transfer = $this->booking->book([
                 'initiated_by'    => $initiator->id,
                 'from_account_id' => $payment->from_account_id,
@@ -152,14 +152,22 @@ class ScheduledPaymentService
                 'kind'            => 'portal_scheduled',
                 'idempotency_key' => 'sched_' . $payment->uuid,
             ]);
-
+        } catch (\Throwable $e) {
             $payment->update([
-                'status'      => 'executed',
-                'transfer_id' => $transfer->id,
-                'executed_at' => now(),
+                'status'         => 'failed',
+                'failure_reason' => $e->getMessage(),
             ]);
+            return;
+        }
 
-            // Notifica al mittente
+        $payment->update([
+            'status'      => 'executed',
+            'transfer_id' => $transfer->id,
+            'executed_at' => now(),
+        ]);
+
+        // Notifica al mittente
+        try {
             $initiator->notify(new ScheduledPaymentExecutedNotification($payment, isRecipient: false));
 
             // Notifica al destinatario
@@ -167,11 +175,8 @@ class ScheduledPaymentService
             if ($toOwner && $toOwner->id !== $initiator->id) {
                 $toOwner->notify(new ScheduledPaymentExecutedNotification($payment, isRecipient: true));
             }
-        } catch (\Throwable $e) {
-            $payment->update([
-                'status'         => 'failed',
-                'failure_reason' => $e->getMessage(),
-            ]);
+        } catch (\Throwable) {
+            // Le notifiche non devono bloccare la contabilizzazione
         }
     }
 
