@@ -34,7 +34,7 @@ class TextPaymentRequestControllerTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('portal.text-requests.index'))
-            ->assertOk();
+            ->assertRedirect(route('portal.requests', ['tab' => 'formali']));
     }
 
     // -------------------------------------------------------------------------

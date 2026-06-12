@@ -128,7 +128,7 @@ class DatabaseSeeder extends Seeder
         $this->seedAnnouncements($bakery, $farm, $studio, $tech, $textile);
 
         // Vetrina listings
-        $this->seedListings($bakery, $farm, $studio, $tech, $textile);
+        // $this->seedListings($bakery, $farm, $studio, $tech, $textile);
 
         // Riepilogo credenziali
         $this->command->info('');

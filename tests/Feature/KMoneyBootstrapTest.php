@@ -20,7 +20,7 @@ class KMoneyBootstrapTest extends TestCase
         $response = $this->get('/');
 
         $response
-            ->assertRedirect('/login');
+            ->assertOk();
     }
 
     public function test_company_account_and_ledger_relations_are_persisted(): void

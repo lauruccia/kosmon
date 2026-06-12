@@ -82,7 +82,7 @@ class CashbackRuleControllerTest extends TestCase
     {
         $admin = $this->makeAdmin();
         $rule  = CashbackRule::create(array_merge($this->rulePayload(), [
-            'applicable_kinds' => json_encode(['trade_payment']),
+            'applicable_kinds' => ['trade_payment'],
             'created_by'       => $admin->id,
         ]));
 
@@ -95,7 +95,7 @@ class CashbackRuleControllerTest extends TestCase
     {
         $admin = $this->makeAdmin();
         $rule  = CashbackRule::create(array_merge($this->rulePayload(), [
-            'applicable_kinds' => json_encode(['trade_payment']),
+            'applicable_kinds' => ['trade_payment'],
             'is_active'        => true,
             'created_by'       => $admin->id,
         ]));
@@ -111,7 +111,7 @@ class CashbackRuleControllerTest extends TestCase
     {
         $admin = $this->makeAdmin();
         $rule  = CashbackRule::create(array_merge($this->rulePayload(), [
-            'applicable_kinds' => json_encode(['trade_payment']),
+            'applicable_kinds' => ['trade_payment'],
             'created_by'       => $admin->id,
         ]));
 

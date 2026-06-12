@@ -81,6 +81,7 @@ class CardControllerTest extends TestCase
         $admin = User::factory()->create([
             'email_verified_at' => now(),
             'role'              => 'admin',
+            'is_super_admin'   => true,
         ]);
 
         $response = $this->actingAs($admin)->get(route('portal.card'));

@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\PaymentRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -77,6 +78,7 @@ class NfcPaymentController extends Controller
         ]);
 
         $pr = PaymentRequest::create([
+            'uuid'          => (string) Str::uuid(),
             'to_account_id' => $account->id,
             'amount'        => ky_to_cents($validated['amount']),
             'description'   => $validated['description'] ?? null,

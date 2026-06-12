@@ -215,7 +215,7 @@ class SendPaymentController extends PortalController
             return back()->withInput()->with(
                 'portal_warning',
                 'Per inviare importi superiori a ' . ky_format((int) $pinThreshold) . ' KY devi prima impostare un PIN di pagamento. '
-                . 'Vai in <a href="' . route('portal.profilo') . '" class="underline">Profilo → Sicurezza</a> per configurarlo.'
+                . 'Vai in <a href="' . route('portal.personal-profile.edit') . '" class="underline">Profilo → Sicurezza</a> per configurarlo.'
             );
         }
 

@@ -29,6 +29,7 @@ class AccountController extends Controller
                 'slug' => $company->slug,
             ],
             'account' => $mainAccount ? [
+                'id'                => $mainAccount->id,
                 'account_number'    => $mainAccount->account_number,
                 'currency'          => $mainAccount->currency_code ?? 'KY',
                 'balance'           => $mainAccount->available_balance,

@@ -84,7 +84,7 @@ class CardController extends Controller
         $user = $request->user();
         $account = $this->resolveRootAccount($user);
 
-        $account->forceFill(['status' => 'suspended'])->save();
+        $account->forceFill(['card_status' => 'blocked'])->save();
 
         return redirect()->route('portal.card')
             ->with('portal_success', 'Carta bloccata. Nessun pagamento potrà essere effettuato finché non la sblocchi.');
@@ -98,7 +98,7 @@ class CardController extends Controller
         $user = $request->user();
         $account = $this->resolveRootAccount($user);
 
-        $account->forceFill(['status' => 'active'])->save();
+        $account->forceFill(['card_status' => 'active'])->save();
 
         return redirect()->route('portal.card')
             ->with('portal_success', 'Carta sbloccata. Puoi di nuovo effettuare pagamenti.');

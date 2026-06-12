@@ -26,6 +26,7 @@ class Account extends Model
         'account_name',
         'currency_code',
         'status',
+        'card_status',
         'allow_negative_balance',
         'is_system_account',
         'available_balance',

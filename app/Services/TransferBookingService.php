@@ -794,6 +794,11 @@ class TransferBookingService
             return;
         }
 
+        // Broker autorizzato se e' il broker assegnato all'azienda del conto
+        if ($initiator->hasRole('broker') && $fromAccount->company?->broker_user_id === $initiator->id) {
+            return;
+        }
+
         if (! $initiator->canSendFromAccount($fromAccount)) {
             throw new RuntimeException('Initiator is not allowed to operate on this account.');
         }
