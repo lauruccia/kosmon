@@ -114,7 +114,7 @@ class PortalController extends Controller
         // KPI dashboard — una query Transfer con CASE WHEN per tutti gli aggregati,
         // più i totali di spesa del giorno/mese corrente. Cache 5 minuti per account.
         $kpi = Cache::remember(
-            "dashboard.kpi30.{$currentAccount->id}",
+            "dashboard.kpi30.v2.{$currentAccount->id}",
             now()->addMinutes(5),
             function () use ($currentAccount) {
                 $now    = CarbonImmutable::now();
@@ -171,12 +171,12 @@ class PortalController extends Controller
             }
         );
 
-        $income30      = $kpi['income30'];
-        $expense30     = $kpi['expense30'];
-        $incomePrev    = $kpi['income_prev'];
-        $expensePrev   = $kpi['expense_prev'];
-        $kyCardCount   = $kpi['ky_card_count'];
-        $kyCardTotalKy = $kpi['ky_card_total'];
+        $income30      = $kpi['income30']      ?? 0;
+        $expense30     = $kpi['expense30']     ?? 0;
+        $incomePrev    = $kpi['income_prev']   ?? 0;
+        $expensePrev   = $kpi['expense_prev']  ?? 0;
+        $kyCardCount   = $kpi['ky_card_count'] ?? 0;
+        $kyCardTotalKy = $kpi['ky_card_total'] ?? 0;
 
         $incomeTrend  = $incomePrev  > 0 ? round(($income30  - $incomePrev)  / $incomePrev  * 100) : null;
         $expenseTrend = $expensePrev > 0 ? round(($expense30 - $expensePrev) / $expensePrev * 100) : null;
