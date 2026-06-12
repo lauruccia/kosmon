@@ -418,4 +418,7 @@ class DatabaseSeeder extends Seeder
                 'contact_info'       => $item['company']['company']->email,
                 'expires_at'         => now()->addMonths(6),
                 'views_count'        => rand(5, 80),
-   
+            ]);
+        }
+    }
+}

@@ -29,7 +29,7 @@ class ApiTokenRevokedNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject('Token API revocato — KMoney')
             ->greeting('Ciao ' . $notifiable->name . ',')
-            ->line("Il token API **"{$this->token->name}"** (prefisso: `{$this->token->token_prefix}...`) è stato revocato.")
+            ->line("Il token API **\"{$this->token->name}\"** (prefisso: `{$this->token->token_prefix}...`) è stato revocato.")
             ->line('**Data e ora:** ' . now()->format('d/m/Y \a\l\l\e H:i'))
             ->when($this->revokedByIp, fn ($m) => $m->line("**IP operazione:** {$this->revokedByIp}"))
             ->line('Tutte le integrazioni che usavano questo token hanno immediatamente perso accesso.')

@@ -81,7 +81,12 @@
                 <div>
                     <label class="form-label" style="margin-bottom:6px;">Tipi di trasferimento validi *</label>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                        @php $selectedKinds = old('applicable_kinds', $rule->applicable_kinds ?? []); @endphp
+                        @php
+                            $rawKinds     = $rule->applicable_kinds ?? [];
+                            $selectedKinds = old('applicable_kinds',
+                                is_string($rawKinds) ? json_decode($rawKinds, true) ?? [] : $rawKinds
+                            );
+                        @endphp
                         @foreach($kindOptions as $value => $label)
                             <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;
                                           background:var(--surface-soft);border:1px solid var(--line);border-radius:6px;padding:5px 10px;
