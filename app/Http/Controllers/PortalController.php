@@ -1,5 +1,6 @@
 <?php
 
+// @version 2026-06-12
 namespace App\Http\Controllers;
 
 use App\Mail\PaymentReceived;
@@ -1755,4 +1756,12 @@ class PortalController extends Controller
         if ($company->payments_paused_at) {
             $company->update(['payments_paused_at' => null]);
             $msg = 'Pagamenti automatici ripristinati.';
-        } el
+        } else {
+            $company->update(['payments_paused_at' => now()]);
+            $msg = 'Pagamenti automatici sospesi. I pagamenti programmati e le rate non verranno elaborati finche non riattivi.';
+        }
+
+        return redirect()->route('portal.dashboard')->with('info', $msg);
+    }
+
+}
