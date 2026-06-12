@@ -736,13 +736,23 @@
             </div>
             <div class="limit-item__body">
                 <div class="limit-item__label">Limite giornaliero</div>
-                <div class="limit-item__value">
-                    @if($limitDaily !== null)
-                        {{ ky_format($limitDaily) }}<span class="limit-item__unit">KY</span>
-                    @else
-                        <span class="limit-item__unlimited">Nessun limite</span>
-                    @endif
-                </div>
+                @if($limitDaily !== null)
+                    @php
+                        $dailyUsedPct = $limitDaily > 0 ? min(100, round($spentToday / $limitDaily * 100)) : 0;
+                        $dailyBarColor = $dailyUsedPct >= 90 ? '#ef4444' : ($dailyUsedPct >= 70 ? '#f59e0b' : '#2563eb');
+                    @endphp
+                    <div class="limit-item__value">
+                        {{ ky_format($remainingToday) }}<span class="limit-item__unit">KY</span>
+                    </div>
+                    <div style="font-size:10px;color:var(--ink-muted);margin-top:1px;">
+                        residuo · limite {{ ky_format($limitDaily) }} KY
+                    </div>
+                    <div style="height:3px;background:#e5e7eb;border-radius:2px;margin-top:5px;overflow:hidden;">
+                        <div style="height:100%;width:{{ $dailyUsedPct }}%;background:{{ $dailyBarColor }};border-radius:2px;transition:width .3s;"></div>
+                    </div>
+                @else
+                    <div class="limit-item__value"><span class="limit-item__unlimited">Nessun limite</span></div>
+                @endif
             </div>
         </div>
 
@@ -752,16 +762,33 @@
             </div>
             <div class="limit-item__body">
                 <div class="limit-item__label">Limite mensile</div>
-                <div class="limit-item__value">
-                    @if($limitMonthly !== null)
-                        {{ ky_format($limitMonthly) }}<span class="limit-item__unit">KY</span>
-                    @else
-                        <span class="limit-item__unlimited">Nessun limite</span>
-                    @endif
-                </div>
+                @if($limitMonthly !== null)
+                    @php
+                        $monthlyUsedPct = $limitMonthly > 0 ? min(100, round($spentThisMonth / $limitMonthly * 100)) : 0;
+                        $monthlyBarColor = $monthlyUsedPct >= 90 ? '#ef4444' : ($monthlyUsedPct >= 70 ? '#f59e0b' : '#16a34a');
+                    @endphp
+                    <div class="limit-item__value">
+                        {{ ky_format($remainingThisMonth) }}<span class="limit-item__unit">KY</span>
+                    </div>
+                    <div style="font-size:10px;color:var(--ink-muted);margin-top:1px;">
+                        residuo · limite {{ ky_format($limitMonthly) }} KY
+                    </div>
+                    <div style="height:3px;background:#e5e7eb;border-radius:2px;margin-top:5px;overflow:hidden;">
+                        <div style="height:100%;width:{{ $monthlyUsedPct }}%;background:{{ $monthlyBarColor }};border-radius:2px;transition:width .3s;"></div>
+                    </div>
+                @else
+                    <div class="limit-item__value"><span class="limit-item__unlimited">Nessun limite</span></div>
+                @endif
             </div>
         </div>
 
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line,#e5e7eb);display:flex;align-items:center;justify-content:flex-end;">
+        <a href="mailto:{{ config('mail.from.address','info@kmoney.it') }}?subject=Richiesta+aumento+limiti+conto+{{ $currentAccount->ky_account_number }}"
+           style="font-size:11px;font-weight:600;color:var(--teal-strong,#0f52c4);display:inline-flex;align-items:center;gap:4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Richiedi aumento limiti
+        </a>
     </div>
 </section>
 

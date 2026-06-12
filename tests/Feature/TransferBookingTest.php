@@ -62,8 +62,7 @@ class TransferBookingTest extends TestCase
 
         CreditLimit::create(['account_id' => $buyerAccount->id, 'credit_limit' => 1000, 'daily_outgoing_limit' => 5000, 'single_transfer_limit' => 5000]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Transfer exceeds the allowed credit exposure.');
+        $this->expectException(\App\Exceptions\Financial\CreditExposureExceededException::class);
 
         $this->svc->book([
             'initiated_by'    => $initiator->id,
@@ -100,7 +99,7 @@ class TransferBookingTest extends TestCase
         CreditLimit::create(['account_id' => $buyerAccount->id, 'credit_limit' => 20000, 'daily_outgoing_limit' => 15000, 'single_transfer_limit' => 10000]);
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Initiator is not allowed to operate on this account.');
+        $this->expectExceptionMessage('Non sei autorizzato a operare su questo conto.');
 
         $this->svc->book([
             'initiated_by'    => $unauthorizedUser->id,
@@ -120,7 +119,7 @@ class TransferBookingTest extends TestCase
         CreditLimit::create(['account_id' => $buyerAccount->id, 'credit_limit' => 20000, 'daily_outgoing_limit' => 15000, 'single_transfer_limit' => 10000]);
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('The source company must be active.');
+        $this->expectExceptionMessage("L'azienda mittente non è attiva nel circuito.");
 
         $this->svc->book([
             'initiated_by'    => $initiator->id,

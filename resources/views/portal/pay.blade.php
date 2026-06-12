@@ -115,6 +115,26 @@
                             <label for="amount">Importo in KY</label>
                             <input id="amount" name="amount" type="number" min="0.01" step="0.01"
                                 value="{{ old('amount') }}" placeholder="Es. 15,00" required>
+                            {{-- Info limiti inline --}}
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                                @if($payRemainingToday !== null)
+                                    @php
+                                        $pctUsed = $payLimitDaily > 0 ? min(100, round($paySpentToday / $payLimitDaily * 100)) : 0;
+                                        $chipColor = $pctUsed >= 90 ? '#fee2e2' : ($pctUsed >= 70 ? '#fef3c7' : '#dbeafe');
+                                        $chipText  = $pctUsed >= 90 ? '#991b1b' : ($pctUsed >= 70 ? '#92400e' : '#1d4ed8');
+                                    @endphp
+                                    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;background:{{ $chipColor }};color:{{ $chipText }};font-size:11px;font-weight:600;">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        Residuo oggi: {{ ky_format($payRemainingToday) }} KY
+                                    </span>
+                                @endif
+                                @if($payLimitSingleTx !== null)
+                                    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;background:#f3f4f6;color:#374151;font-size:11px;font-weight:600;">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                                        Max per operazione: {{ ky_format($payLimitSingleTx) }} KY
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                         <div class="field">
                             <label for="description">Causale</label>

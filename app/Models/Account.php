@@ -188,6 +188,28 @@ class Account extends Model
             ->sum('amount');
     }
 
+    /**
+     * Centesimi KY che possono ancora essere inviati oggi (null = nessun limite configurato).
+     */
+    public function remainingToday(): ?int
+    {
+        if ($this->daily_outgoing_limit === null) {
+            return null;
+        }
+        return max(0, $this->daily_outgoing_limit - $this->spentToday());
+    }
+
+    /**
+     * Centesimi KY che possono ancora essere inviati questo mese (null = nessun limite configurato).
+     */
+    public function remainingThisMonth(): ?int
+    {
+        if ($this->monthly_outgoing_limit === null) {
+            return null;
+        }
+        return max(0, $this->monthly_outgoing_limit - $this->spentThisMonth());
+    }
+
     public function hasReachedDailyLimit(int $amount): bool
     {
         if ($this->daily_outgoing_limit === null) {

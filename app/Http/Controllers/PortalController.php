@@ -138,6 +138,11 @@ class PortalController extends Controller
         $limitDaily        = $effectiveUserLimits['daily_transaction_limit']    ?? null;
         $limitMonthly      = $effectiveUserLimits['monthly_transaction_limit']  ?? null;
 
+        $spentToday        = $currentAccount->spentToday();
+        $remainingToday    = $limitDaily !== null ? max(0, $limitDaily - $spentToday) : null;
+        $spentThisMonth    = $currentAccount->spentThisMonth();
+        $remainingThisMonth = $limitMonthly !== null ? max(0, $limitMonthly - $spentThisMonth) : null;
+
         return view('portal.dashboard', compact('currentAccount', 'currentUser', 'recentTransfers', 'currentBalance', 'availableBalance', 'massimale', 'commercialAvailability', 'commercialAvailabilityUsed', 'commercialAvailabilityResidual', 'commercialAvailabilityUsagePercentage', 'maxSingle', 'monthlyTrend') + [
             'rootAccount' => $rootAccount,
             'subaccounts' => $rootAccount->childAccounts()->with('managedUsers')->orderBy('id')->get(),
@@ -149,10 +154,14 @@ class PortalController extends Controller
             'expenseTrend' => $expenseTrend,
             'kyCardCount'   => $kyCardCount,
             'kyCardTotalKy' => $kyCardTotalKy,
-            'limitMaxBalance' => $limitMaxBalance,
-            'limitSingleTx'   => $limitSingleTx,
-            'limitDaily'      => $limitDaily,
-            'limitMonthly'    => $limitMonthly,
+            'limitMaxBalance'    => $limitMaxBalance,
+            'limitSingleTx'      => $limitSingleTx,
+            'limitDaily'         => $limitDaily,
+            'limitMonthly'       => $limitMonthly,
+            'spentToday'         => $spentToday,
+            'remainingToday'     => $remainingToday,
+            'spentThisMonth'     => $spentThisMonth,
+            'remainingThisMonth' => $remainingThisMonth,
             'pageTitle' => 'Conto KMoney',
             'activeNav' => 'conto',
         ]);
@@ -701,6 +710,12 @@ class PortalController extends Controller
             ->take(6)
             ->values();
 
+        $effectiveLimits    = $currentUser->effectiveTransferLimits();
+        $payLimitDaily      = $effectiveLimits['daily_transaction_limit'] ?? null;
+        $payLimitSingleTx   = $effectiveLimits['per_movement_limit'] ?? null;
+        $paySpentToday      = $currentAccount->spentToday();
+        $payRemainingToday  = $payLimitDaily !== null ? max(0, $payLimitDaily - $paySpentToday) : null;
+
         return view('portal.pay', [
             'pageTitle'        => 'Effettua un pagamento',
             'currentAccount'   => $currentAccount,
@@ -709,6 +724,10 @@ class PortalController extends Controller
             'recentRecipients' => $recentRecipients,
             'preselectedToId'  => $preselectedToId,
             'activeNav'        => 'conto',
+            'payLimitDaily'     => $payLimitDaily,
+            'payLimitSingleTx'  => $payLimitSingleTx,
+            'paySpentToday'     => $paySpentToday,
+            'payRemainingToday' => $payRemainingToday,
         ]);
     }
 

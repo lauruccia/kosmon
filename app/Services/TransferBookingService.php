@@ -10,6 +10,12 @@ use App\Models\Transfer;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use App\Exceptions\Financial\CircuitCapacityExceededException;
+use App\Exceptions\Financial\CreditExposureExceededException;
+use App\Exceptions\Financial\DailyLimitExceededException;
+use App\Exceptions\Financial\MonthlyLimitExceededException;
+use App\Exceptions\Financial\NegativeBalanceLimitExceededException;
+use App\Exceptions\Financial\SingleTransferLimitExceededException;
 use RuntimeException;
 
 class TransferBookingService
@@ -49,7 +55,7 @@ class TransferBookingService
             $this->assertAuthorizedInitiator($initiator, $fromAccount);
 
             if ($fromAccount->currency_code !== $toAccount->currency_code) {
-                throw new RuntimeException('Accounts must use the same currency.');
+                throw new RuntimeException('I due conti devono usare la stessa valuta.');
             }
 
             return $this->bookSettledTransfer(
@@ -100,7 +106,7 @@ class TransferBookingService
             $this->assertAuthorizedReceiver($initiator, $toAccount);
 
             if ($fromAccount->currency_code !== $toAccount->currency_code) {
-                throw new RuntimeException('Accounts must use the same currency.');
+                throw new RuntimeException('I due conti devono usare la stessa valuta.');
             }
 
             $transfer = Transfer::create([
@@ -146,7 +152,7 @@ class TransferBookingService
                 ->findOrFail($transfer->id);
 
             if ($pendingTransfer->status !== 'pending') {
-                throw new RuntimeException('Only pending requests can be confirmed.');
+                throw new RuntimeException('Solo le richieste in attesa possono essere confermate.');
             }
 
             $confirmer = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($confirmedBy);
@@ -157,7 +163,7 @@ class TransferBookingService
             $this->assertAuthorizedInitiator($confirmer, $fromAccount);
 
             if ($fromAccount->currency_code !== $toAccount->currency_code) {
-                throw new RuntimeException('Accounts must use the same currency.');
+                throw new RuntimeException('I due conti devono usare la stessa valuta.');
             }
 
             $this->assertTransferWithinLimits($fromAccount, (int) $pendingTransfer->amount, $confirmer);
@@ -264,7 +270,7 @@ class TransferBookingService
             $pendingTransfer = Transfer::query()->lockForUpdate()->findOrFail($transfer->id);
 
             if ($pendingTransfer->status !== 'pending') {
-                throw new RuntimeException('Only pending requests can be rejected.');
+                throw new RuntimeException('Solo le richieste in attesa possono essere rifiutate.');
             }
 
             $rejector = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($rejectedBy);
@@ -612,19 +618,19 @@ class TransferBookingService
     private function assertTransferPayload(int $amount, int $fromAccountId, int $toAccountId, int $initiatedBy, string $idempotencyKey): void
     {
         if ($amount <= 0) {
-            throw new RuntimeException('Transfer amount must be greater than zero.');
+            throw new RuntimeException("L'importo del trasferimento deve essere maggiore di zero.");
         }
 
         if ($fromAccountId === $toAccountId) {
-            throw new RuntimeException('Source and destination accounts must be different.');
+            throw new RuntimeException('Il conto mittente e il conto destinatario devono essere diversi.');
         }
 
         if ($initiatedBy <= 0) {
-            throw new RuntimeException('Initiator is required.');
+            throw new RuntimeException('Utente iniziatore non specificato.');
         }
 
         if ($idempotencyKey === '') {
-            throw new RuntimeException('Idempotency key is required.');
+            throw new RuntimeException('Chiave di idempotenza obbligatoria.');
         }
     }
 
@@ -839,7 +845,7 @@ class TransferBookingService
     private function assertAuthorizedInitiator(User $initiator, Account $fromAccount): void
     {
         if (! $initiator->is_active) {
-            throw new RuntimeException('Initiator is not active.');
+            throw new RuntimeException('Il tuo account non è attivo.');
         }
 
         if ($initiator->is_super_admin) {
@@ -852,14 +858,14 @@ class TransferBookingService
         }
 
         if (! $initiator->canSendFromAccount($fromAccount)) {
-            throw new RuntimeException('Initiator is not allowed to operate on this account.');
+            throw new RuntimeException('Non sei autorizzato a operare su questo conto.');
         }
     }
 
     private function assertAuthorizedReceiver(User $initiator, Account $toAccount): void
     {
         if (! $initiator->is_active) {
-            throw new RuntimeException('Initiator is not active.');
+            throw new RuntimeException('Il tuo account non è attivo.');
         }
 
         if ($initiator->is_super_admin) {
@@ -867,22 +873,22 @@ class TransferBookingService
         }
 
         if (! $initiator->canReceiveIntoAccount($toAccount)) {
-            throw new RuntimeException('Initiator is not allowed to request payment for this account.');
+            throw new RuntimeException('Non sei autorizzato a richiedere pagamenti su questo conto.');
         }
     }
 
     private function assertAccountsOperational(Account $fromAccount, Account $toAccount): void
     {
         if ($fromAccount->status !== 'active' || $toAccount->status !== 'active') {
-            throw new RuntimeException('Both accounts must be active.');
+            throw new RuntimeException('Entrambi i conti devono essere attivi per procedere.');
         }
 
         if ($fromAccount->owner_type === 'company' && $fromAccount->company?->status !== 'active') {
-            throw new RuntimeException('The source company must be active.');
+            throw new RuntimeException("L'azienda mittente non è attiva nel circuito.");
         }
 
         if ($toAccount->owner_type === 'company' && $toAccount->company?->status !== 'active') {
-            throw new RuntimeException('The destination company must be active.');
+            throw new RuntimeException("L'azienda destinataria non è attiva nel circuito.");
         }
     }
 
@@ -903,17 +909,17 @@ class TransferBookingService
         $creditExposureLimit = max(0, (int) ($creditLimit?->credit_limit ?? 0));
 
         if ($creditExposureLimit > 0 && $projectedBalance < -$creditExposureLimit) {
-            throw new RuntimeException('Transfer exceeds the allowed credit exposure.');
+            throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);
         }
 
         $effectiveNegativeBalanceLimit = max(0, (int) ($limits['negative_balance_limit'] ?? 0));
         if ($creditExposureLimit === 0 && $projectedBalance < -$effectiveNegativeBalanceLimit) {
-            throw new RuntimeException('Transfer exceeds the allowed negative balance.');
+            throw new NegativeBalanceLimitExceededException($effectiveNegativeBalanceLimit, $account->available_balance, $amount);
         }
 
         $circuitCapacityLimit = $limits['circuit_capacity_limit'] ?? null;
         if ($circuitCapacityLimit !== null && $amount > $circuitCapacityLimit) {
-            throw new RuntimeException('Transfer exceeds the circuit capacity limit.');
+            throw new CircuitCapacityExceededException((int) $circuitCapacityLimit, $amount);
         }
 
         // Limite singolo trasferimento: configurazione utente → account → fido → default globale sicuro.
@@ -926,7 +932,7 @@ class TransferBookingService
             ?? $creditLimit?->single_transfer_limit
             ?? (int) $systemDefaultLimit;
         if ($amount > $singleTransferLimit) {
-            throw new RuntimeException('Transfer exceeds the single transfer limit.');
+            throw new SingleTransferLimitExceededException((int) $singleTransferLimit, $amount);
         }
 
         $dailyLimit = $limits['daily_transaction_limit'] ?? $account->daily_outgoing_limit ?? $creditLimit?->daily_outgoing_limit;
@@ -945,7 +951,7 @@ class TransferBookingService
                 ->sum('amount');
 
             if (($outgoingToday + $amount) > $dailyLimit) {
-                throw new RuntimeException('Transfer exceeds the daily outgoing limit.');
+                throw new DailyLimitExceededException((int) $dailyLimit, (int) $outgoingToday, $amount);
             }
         }
 
@@ -961,7 +967,7 @@ class TransferBookingService
                 ->sum('amount');
 
             if (($outgoingMonth + $amount) > $monthlyLimit) {
-                throw new RuntimeException('Transfer exceeds the monthly outgoing limit.');
+                throw new MonthlyLimitExceededException((int) $monthlyLimit, (int) $outgoingMonth, $amount);
             }
         }
     }
