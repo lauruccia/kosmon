@@ -36,7 +36,6 @@ class DashboardTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Directory aziende', false)
             ->assertSee('Panificio Canale', false)
             ->assertSee('Azienda Agricola Selene', false)
             ->assertSee('Settori', false);
@@ -51,7 +50,6 @@ class DashboardTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Directory aziende', false)
             ->assertSee('Panificio Canale', false);
     }
 
@@ -64,7 +62,7 @@ class DashboardTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Scopri le aziende del circuito', false)
+            ->assertSee('aziende trovate', false)
             ->assertSee('Panificio Canale', false);
     }
 

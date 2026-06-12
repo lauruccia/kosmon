@@ -79,6 +79,7 @@ class NfcPaymentController extends Controller
 
         $pr = PaymentRequest::create([
             'uuid'          => (string) Str::uuid(),
+            'token'         => PaymentRequest::generateUniqueToken(),
             'to_account_id' => $account->id,
             'amount'        => ky_to_cents($validated['amount']),
             'description'   => $validated['description'] ?? null,

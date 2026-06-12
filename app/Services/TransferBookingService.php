@@ -9,7 +9,6 @@ use App\Models\LedgerEntry;
 use App\Models\Transfer;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -217,24 +216,43 @@ class TransferBookingService
                 ],
             ]);
 
-            // Applica fee di transazione (best-effort, non blocca la conferma)
-            $kind = $pendingTransfer->kind ?? 'portal_collection_request';
-            $fee  = \App\Models\TransactionFee::calculate($kind, (int) $pendingTransfer->amount);
-            if ($fee > 0) {
-                $systemAccount = \App\Models\Account::systemAccount();
-                if ($systemAccount) {
-                    try {
-                        $this->bookFee($fromAccount, $systemAccount, $fee, $kind, $pendingTransfer);
-                    } catch (\Throwable) {
-                        // fee non bloccante — il transfer è già stato confermato
-                    }
-                }
-            }
-
             $pendingTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'confirmer']);
 
-            // Applica cashback (fire-and-forget, fuori dalla transazione per evitare deadlock)
-            app(\App\Services\CashbackService::class)->applyIfEligible($pendingTransfer);
+            // Fee e cashback eseguiti DOPO il commit della transazione principale:
+            // - riduce la finestra di lock sul conto sistema
+            // - garantisce che vengano eseguiti solo se il transfer è effettivamente confermato
+            $transferSnapshot = $pendingTransfer;
+            $fromAccountId    = $fromAccount->id;
+            $kind             = $pendingTransfer->kind ?? 'portal_collection_request';
+            $fee              = \App\Models\TransactionFee::calculate($kind, (int) $pendingTransfer->amount);
+
+            DB::afterCommit(function () use ($transferSnapshot, $fromAccountId, $kind, $fee): void {
+                if ($fee > 0) {
+                    $systemAccount = \App\Models\Account::systemAccount();
+                    if ($systemAccount) {
+                        $fromAccountFresh = \App\Models\Account::find($fromAccountId);
+                        if ($fromAccountFresh) {
+                            try {
+                                $this->bookFee($fromAccountFresh, $systemAccount, $fee, $kind, $transferSnapshot);
+                            } catch (\Throwable $e) {
+                                \Illuminate\Support\Facades\Log::error('fee.booking_failed', [
+                                    'transfer_id' => $transferSnapshot->id,
+                                    'error'       => $e->getMessage(),
+                                ]);
+                            }
+                        }
+                    }
+                }
+
+                try {
+                    app(\App\Services\CashbackService::class)->applyIfEligible($transferSnapshot);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('cashback.apply_failed', [
+                        'transfer_id' => $transferSnapshot->id,
+                        'error'       => $e->getMessage(),
+                    ]);
+                }
+            });
 
             return $pendingTransfer;
         });
@@ -678,22 +696,38 @@ class TransferBookingService
             // Notifica al titolare del conto padre
             $this->notifyParentOfSubAccountTransfer($transfer, $fromAccount, $parentAccount, $initiator);
 
-            // Applica commissione (addebitata sul conto padre, come per i trasferimenti normali)
-            $kind = $transfer->kind;
-            $fee  = \App\Models\TransactionFee::calculate($kind, $amount);
-            if ($fee > 0) {
-                $systemAccount = \App\Models\Account::systemAccount();
-                if ($systemAccount) {
-                    try {
-                        $this->bookFee($parentAccount, $systemAccount, $fee, $kind, $transfer);
-                    } catch (\Throwable) {
-                        // fee non bloccante
+            // Fee e cashback dopo il commit (conto padre paga la fee, come per trasferimenti normali)
+            $kind            = $transfer->kind;
+            $fee             = \App\Models\TransactionFee::calculate($kind, $amount);
+            $parentAccountId = $parentAccount->id;
+
+            DB::afterCommit(function () use ($transfer, $parentAccountId, $kind, $fee): void {
+                if ($fee > 0) {
+                    $systemAccount = \App\Models\Account::systemAccount();
+                    if ($systemAccount) {
+                        $parentFresh = \App\Models\Account::find($parentAccountId);
+                        if ($parentFresh) {
+                            try {
+                                $this->bookFee($parentFresh, $systemAccount, $fee, $kind, $transfer);
+                            } catch (\Throwable $e) {
+                                \Illuminate\Support\Facades\Log::error('fee.booking_failed', [
+                                    'transfer_id' => $transfer->id,
+                                    'error'       => $e->getMessage(),
+                                ]);
+                            }
+                        }
                     }
                 }
-            }
 
-            // Applica eventuale cashback al conto padre (pagante reale)
-            app(\App\Services\CashbackService::class)->applyIfEligible($transfer);
+                try {
+                    app(\App\Services\CashbackService::class)->applyIfEligible($transfer);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('cashback.apply_failed', [
+                        'transfer_id' => $transfer->id,
+                        'error'       => $e->getMessage(),
+                    ]);
+                }
+            });
 
             return $transfer;
         }
@@ -764,24 +798,42 @@ class TransferBookingService
             ],
         ]);
 
-        // Applica commissione di transazione (se configurata)
-        $kind = $transfer->kind;
-        $fee = \App\Models\TransactionFee::calculate($kind, $amount);
-        if ($fee > 0) {
-            $systemAccount = \App\Models\Account::systemAccount();
-            if ($systemAccount) {
-                try {
-                    $this->bookFee($fromAccount, $systemAccount, $fee, $kind, $transfer);
-                } catch (\Throwable) {
-                    // fee non bloccante
+        $transferLoaded = $transfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator']);
+
+        // Fee e cashback dopo il commit: riduce lock sul conto sistema e isola gli errori
+        $kind          = $transfer->kind;
+        $fee           = \App\Models\TransactionFee::calculate($kind, $amount);
+        $fromAccountId = $fromAccount->id;
+
+        DB::afterCommit(function () use ($transfer, $fromAccountId, $kind, $fee): void {
+            if ($fee > 0) {
+                $systemAccount = \App\Models\Account::systemAccount();
+                if ($systemAccount) {
+                    $fromAccountFresh = \App\Models\Account::find($fromAccountId);
+                    if ($fromAccountFresh) {
+                        try {
+                            $this->bookFee($fromAccountFresh, $systemAccount, $fee, $kind, $transfer);
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::error('fee.booking_failed', [
+                                'transfer_id' => $transfer->id,
+                                'error'       => $e->getMessage(),
+                            ]);
+                        }
+                    }
                 }
             }
-        }
 
-        // Applica eventuale cashback (fire-and-forget, risolto lazily per evitare dipendenza circolare)
-        app(\App\Services\CashbackService::class)->applyIfEligible($transfer);
+            try {
+                app(\App\Services\CashbackService::class)->applyIfEligible($transfer);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('cashback.apply_failed', [
+                    'transfer_id' => $transfer->id,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        });
 
-        return $transfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator']);
+        return $transferLoaded;
     }
 
     private function assertAuthorizedInitiator(User $initiator, Account $fromAccount): void
@@ -878,49 +930,39 @@ class TransferBookingService
         }
 
         $dailyLimit = $limits['daily_transaction_limit'] ?? $account->daily_outgoing_limit ?? $creditLimit?->daily_outgoing_limit;
-        if ($dailyLimit !== null && $initiator !== null) {
+        if ($dailyLimit !== null) {
             $startOfDay = CarbonImmutable::now()->startOfDay();
             $endOfDay   = CarbonImmutable::now()->endOfDay();
-            $cacheKey   = "spent_today_{$account->id}_{$initiator->id}";
 
-            // Cache 60s: evita query ripetute su ogni payment in burst
-            $outgoingToday = Cache::remember($cacheKey, 60, fn () =>
-                Transfer::query()
-                    ->where('from_account_id', $account->id)
-                    ->where('initiated_by', $initiator->id)
-                    ->where('status', 'booked')
-                    ->whereBetween('booked_at', [$startOfDay, $endOfDay])
-                    ->sum('amount')
-            );
+            // Conteggio per from_account_id: il limite è del conto, non dell'utente che lo opera.
+            // Un'azienda con più gestori non può moltiplicare il limite giornaliero.
+            // Nessuna cache: il pattern Cache::remember(60)+forget() annullava il beneficio
+            // e in burst concorrenti poteva far sforare il limite.
+            $outgoingToday = Transfer::query()
+                ->where('from_account_id', $account->id)
+                ->where('status', 'booked')
+                ->whereBetween('booked_at', [$startOfDay, $endOfDay])
+                ->sum('amount');
 
             if (($outgoingToday + $amount) > $dailyLimit) {
                 throw new RuntimeException('Transfer exceeds the daily outgoing limit.');
             }
-
-            // Invalida cache dopo un booking confermato
-            Cache::forget($cacheKey);
         }
 
         $monthlyLimit = $limits['monthly_transaction_limit'] ?? null;
-        if ($monthlyLimit !== null && $initiator !== null) {
-            $startOfMonth  = CarbonImmutable::now()->startOfMonth();
-            $endOfMonth    = CarbonImmutable::now()->endOfMonth();
-            $monthCacheKey = "spent_month_{$account->id}_{$initiator->id}_" . CarbonImmutable::now()->format('Y_m');
+        if ($monthlyLimit !== null) {
+            $startOfMonth = CarbonImmutable::now()->startOfMonth();
+            $endOfMonth   = CarbonImmutable::now()->endOfMonth();
 
-            $outgoingMonth = Cache::remember($monthCacheKey, 60, fn () =>
-                Transfer::query()
-                    ->where('from_account_id', $account->id)
-                    ->where('initiated_by', $initiator->id)
-                    ->where('status', 'booked')
-                    ->whereBetween('booked_at', [$startOfMonth, $endOfMonth])
-                    ->sum('amount')
-            );
+            $outgoingMonth = Transfer::query()
+                ->where('from_account_id', $account->id)
+                ->where('status', 'booked')
+                ->whereBetween('booked_at', [$startOfMonth, $endOfMonth])
+                ->sum('amount');
 
             if (($outgoingMonth + $amount) > $monthlyLimit) {
                 throw new RuntimeException('Transfer exceeds the monthly outgoing limit.');
             }
-
-            Cache::forget($monthCacheKey);
         }
     }
     private function bookFee(

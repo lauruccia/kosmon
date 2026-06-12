@@ -153,6 +153,21 @@ class TwoFactorController extends Controller
     // -- Challenge (verifica OTP dopo login) -----------------------------------
 
     /**
+     * Pagina obbligatoria: l'utente non ha ancora configurato nessun secondo fattore.
+     * Mostra le opzioni (TOTP o passkey) e reindirizza al setup scelto.
+     */
+    public function showRequired(Request $request): \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+    {
+        // Se nel frattempo ha configurato il 2FA, redirect al portale
+        $user = $request->user();
+        if ($user && ($user->two_factor_confirmed_at || $user->webAuthnCredentials()->exists())) {
+            return redirect()->route('portal.dashboard');
+        }
+
+        return view('2fa.required');
+    }
+
+    /**
      * Show the 2FA OTP challenge page.
      */
     public function showChallenge(): View

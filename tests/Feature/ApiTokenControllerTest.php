@@ -7,6 +7,7 @@ use App\Models\ApiToken;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class ApiTokenControllerTest extends TestCase
@@ -132,6 +133,7 @@ class ApiTokenControllerTest extends TestCase
     /** DELETE /api-tokens/{token} — elimina token */
     public function test_destroy_token(): void
     {
+        Notification::fake();
         [$user, $company] = $this->makeUser();
         $token = ApiToken::factory()->create(['company_id' => $company->id, 'created_by' => $user->id]);
 

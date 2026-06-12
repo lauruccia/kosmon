@@ -38,6 +38,23 @@ class ContentSecurityPolicy
         $csp = $this->buildPolicy();
         $response->headers->set('Content-Security-Policy', $csp);
 
+        // HSTS — forza HTTPS per 1 anno (inclusi sottodomini)
+        if (! app()->environment('local', 'development', 'testing')) {
+            $response->headers->set(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains; preload'
+            );
+        }
+
+        // Nessun referrer verso siti terzi (protegge URL interni nei log di terze parti)
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+        // Disabilita API browser non necessarie (geolocalizzazione, microfono, camera)
+        $response->headers->set(
+            'Permissions-Policy',
+            'geolocation=(), microphone=(), camera=(), payment=(self)'
+        );
+
         return $response;
     }
 

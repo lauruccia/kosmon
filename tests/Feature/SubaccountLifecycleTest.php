@@ -38,10 +38,12 @@ class SubaccountLifecycleTest extends TestCase
     {
         [$owner, $rootAccount, $subaccount] = $this->makeOwnerAndSubaccount();
 
-        $response = $this->actingAs($owner)->post(route('portal.accounts.subaccounts.limits', $subaccount), [
-            'spending_limit' => 4.5,   // 4,50 KY → 450 centesimi
-            'daily_outgoing_limit' => 9,   // 9 KY → 900 centesimi
-        ]);
+        $response = $this->actingAs($owner)
+            ->withSession(['step_up_verified_at' => now()->timestamp])
+            ->post(route('portal.accounts.subaccounts.limits', $subaccount), [
+                'spending_limit'       => 4.5,  // 4,50 KY → 450 centesimi
+                'daily_outgoing_limit' => 9,    // 9 KY → 900 centesimi
+            ]);
 
         $response->assertRedirect();
         $subaccount->refresh();

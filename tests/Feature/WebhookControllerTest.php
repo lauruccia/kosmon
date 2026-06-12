@@ -60,6 +60,7 @@ class WebhookControllerTest extends TestCase
         [$user, $account, $company] = $this->makeCompanyUser();
 
         $response = $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.store'), [
                 'url'    => 'https://example.com/webhook',
                 'events' => ['transfer.booked'],
@@ -79,6 +80,7 @@ class WebhookControllerTest extends TestCase
         [$user] = $this->makeCompanyUser();
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.store'), [
                 'url'    => '',
                 'events' => ['transfer.booked'],
@@ -91,6 +93,7 @@ class WebhookControllerTest extends TestCase
         [$user] = $this->makeCompanyUser();
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.store'), [
                 'url'    => 'https://example.com/wh',
                 'events' => [],
@@ -103,6 +106,7 @@ class WebhookControllerTest extends TestCase
         [$user] = $this->makeCompanyUser();
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.store'), [
                 'url'    => 'https://example.com/wh',
                 'events' => ['fake.event.nonexistent'],
@@ -146,6 +150,7 @@ class WebhookControllerTest extends TestCase
         $this->assertTrue($webhook->is_active);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.toggle', $webhook))
             ->assertRedirect();
 
@@ -158,6 +163,7 @@ class WebhookControllerTest extends TestCase
         $webhook = $this->makeWebhook($company, ['is_active' => false]);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.toggle', $webhook))
             ->assertRedirect();
 
@@ -171,6 +177,7 @@ class WebhookControllerTest extends TestCase
         $webhook = $this->makeWebhook($otherCompany);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->post(route('portal.webhooks.toggle', $webhook))
             ->assertForbidden();
     }
@@ -213,6 +220,7 @@ class WebhookControllerTest extends TestCase
         $webhook = $this->makeWebhook($company);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->delete(route('portal.webhooks.destroy', $webhook))
             ->assertRedirect(route('portal.webhooks.index'));
 
@@ -226,6 +234,7 @@ class WebhookControllerTest extends TestCase
         $webhook = $this->makeWebhook($otherCompany);
 
         $this->actingAs($user)
+            ->withSession($this->stepUp())
             ->delete(route('portal.webhooks.destroy', $webhook))
             ->assertForbidden();
 
@@ -235,6 +244,11 @@ class WebhookControllerTest extends TestCase
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private function stepUp(): array
+    {
+        return ['step_up_verified_at' => now()->timestamp];
+    }
 
     /**
      * Crea Company + User + Account principale aziendale.

@@ -129,13 +129,27 @@ class SendPaymentController extends PortalController
             abort(403);
         }
 
+        // Throttle dedicato: max 30 ricerche/minuto per utente
+        $throttleKey = 'recipient_search_' . $request->user()->id;
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($throttleKey, 30)) {
+            abort(429, 'Troppe ricerche. Riprova tra poco.');
+        }
+        \Illuminate\Support\Facades\RateLimiter::hit($throttleKey, 60);
+
         [$currentAccount] = $this->resolveCurrentContext(
             $request->user(),
             $this->requestedCompanyId($request)
         );
 
-        $q = strtolower(trim((string) $request->query('q', '')));
+        $q = trim((string) $request->query('q', ''));
 
+        // Minimo 3 caratteri per prevenire enumerazione
+        if (mb_strlen($q) < 3) {
+            return response()->json([]);
+        }
+
+        // Cerca per numero di conto (match esatto) o per nome (substring su nome pubblico)
+        // Email e telefono: match esatto (non LIKE) per prevenire enumerazione
         $results = Account::query()
             ->with(['company', 'ownerUser'])
             ->where('status', 'active')
@@ -143,10 +157,12 @@ class SendPaymentController extends PortalController
             ->whereKeyNot($currentAccount->id)
             ->where(function ($query) use ($q) {
                 $query->whereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
-                      ->orWhereHas('ownerUser', fn($u) => $u->where('name', 'like', "%{$q}%")
-                          ->orWhere('email', 'like', "%{$q}%")
-                          ->orWhere('phone', 'like', "%{$q}%"))
-                      ->orWhere('uuid', 'like', "%{$q}%");
+                      ->orWhereHas('ownerUser', function ($u) use ($q) {
+                          $u->where('name', 'like', "%{$q}%")
+                            ->orWhere('email', $q)       // match esatto
+                            ->orWhere('phone', $q);      // match esatto
+                      })
+                      ->orWhere('account_number', $q);  // match esatto sul numero conto
             })
             ->limit(10)
             ->get()
@@ -155,6 +171,7 @@ class SendPaymentController extends PortalController
                 'name'   => $a->display_name,
                 'number' => $a->account_number,
                 'type'   => $a->account_type ?? '',
+                // email e phone non vengono mai restituiti
             ]);
 
         return response()->json($results);

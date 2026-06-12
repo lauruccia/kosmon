@@ -261,10 +261,11 @@ Route::middleware('auth')->group(function () {
     })->middleware('throttle:6,1')->name('verification.send');
 });
 
-// 2FA challenge (auth only — no twofactor/onboarding middleware to avoid loops)
+// 2FA challenge e wizard obbligatorio (auth only — no twofactor/onboarding middleware per evitare loop)
 Route::middleware('auth')->group(function () {
     Route::get('/2fa/verifica', [TwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
     Route::post('/2fa/verifica', [TwoFactorController::class, 'verifyChallenge'])->name('2fa.verify');
+    Route::get('/2fa/obbligatorio', [TwoFactorController::class, 'showRequired'])->name('portal.2fa.required');
 });
 
 // ── Onboarding wizard (auth, senza middleware 'onboarding' per evitare loop) ──
@@ -325,8 +326,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // Beneficiari
     Route::get('/beneficiari', [BeneficiaryController::class, 'index'])->name('portal.beneficiaries.index');
     Route::post('/beneficiari', [BeneficiaryController::class, 'store'])->name('portal.beneficiaries.store');
-    Route::patch('/beneficiari/{beneficiary}', [BeneficiaryController::class, 'update'])->name('portal.beneficiaries.update');
-    Route::delete('/beneficiari/{beneficiary}', [BeneficiaryController::class, 'destroy'])->name('portal.beneficiaries.destroy');
+    Route::patch('/beneficiari/{beneficiary}', [BeneficiaryController::class, 'update'])->name('portal.beneficiaries.update')->middleware('step.up');
+    Route::delete('/beneficiari/{beneficiary}', [BeneficiaryController::class, 'destroy'])->name('portal.beneficiaries.destroy')->middleware('step.up');
     Route::get('/beneficiari/cerca', [BeneficiaryController::class, 'search'])->name('portal.beneficiaries.search');
     Route::get('/beneficiari/cerca-salvati', [BeneficiaryController::class, 'searchSaved'])->name('portal.beneficiaries.search-saved');
     Route::post('/profilo/2fa/inizia', [TwoFactorController::class, 'startSetup'])->name('portal.2fa.start');
@@ -338,7 +339,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/conti', [AccountController::class, 'structure'])->name('portal.accounts.structure');
     Route::post('/conti/sottoconti', [AccountController::class, 'storeSubaccount'])->name('portal.accounts.subaccounts.store');
     Route::post('/conti/sottoconti/{subaccount}/budget', [AccountController::class, 'topUpSubaccount'])->name('portal.accounts.subaccounts.budget');
-    Route::post('/conti/sottoconti/{subaccount}/limits', [AccountController::class, 'updateSubaccountLimits'])->name('portal.accounts.subaccounts.limits');
+    Route::post('/conti/sottoconti/{subaccount}/limits', [AccountController::class, 'updateSubaccountLimits'])->name('portal.accounts.subaccounts.limits')->middleware('step.up');
     Route::post('/conti/sottoconti/{subaccount}/status', [AccountController::class, 'updateSubaccountStatus'])->name('portal.accounts.subaccounts.status');
     Route::post('/conti/sottoconti/{subaccount}/invita', [AccountController::class, 'inviteManager'])->name('portal.accounts.subaccounts.invite');
     Route::delete('/conti/sottoconti/{subaccount}/inviti/{invitation}', [AccountController::class, 'cancelInvitation'])->name('portal.accounts.subaccounts.invite.cancel');
@@ -545,11 +546,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // Webhook (integrazioni esterne)
     Route::get('/webhook', [WebhookController::class, 'index'])->name('portal.webhooks.index');
     Route::get('/webhook/nuovo', [WebhookController::class, 'create'])->name('portal.webhooks.create');
-    Route::post('/webhook', [WebhookController::class, 'store'])->name('portal.webhooks.store');
+    Route::post('/webhook', [WebhookController::class, 'store'])->name('portal.webhooks.store')->middleware('step.up');
     Route::get('/webhook/{webhook}', [WebhookController::class, 'show'])->name('portal.webhooks.show');
-    Route::post('/webhook/{webhook}/toggle', [WebhookController::class, 'toggle'])->name('portal.webhooks.toggle');
+    Route::post('/webhook/{webhook}/toggle', [WebhookController::class, 'toggle'])->name('portal.webhooks.toggle')->middleware('step.up');
     Route::post('/webhook/{webhook}/test', [WebhookController::class, 'test'])->name('portal.webhooks.test');
-    Route::delete('/webhook/{webhook}', [WebhookController::class, 'destroy'])->name('portal.webhooks.destroy');
+    Route::delete('/webhook/{webhook}', [WebhookController::class, 'destroy'])->name('portal.webhooks.destroy')->middleware('step.up');
 
     // Token API
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');

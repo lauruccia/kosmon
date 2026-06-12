@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -282,6 +283,7 @@ class ApiV1Test extends TestCase
 
     public function test_portal_user_can_revoke_api_token(): void
     {
+        Notification::fake();
         [$user,, $company] = $this->makePortalUser();
         [, $rawToken, $tokenModel] = $this->makeApiTokenForCompany($company, ['abilities' => ['read']]);
 

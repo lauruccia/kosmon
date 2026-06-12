@@ -27,6 +27,13 @@ Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-mo
 // Controlla gli avvisi saldo ogni ora
 Schedule::job(new CheckBalanceAlerts())->hourly()->name('check-balance-alerts')->withoutOverlapping();
 
+// Verifica integrità contabile ogni notte alle 02:00
+Schedule::command('accounting:verify-integrity')
+    ->dailyAt('02:00')
+    ->name('accounting-integrity-check')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/accounting-integrity.log'));
+
 // Processa la coda ogni minuto (compatibile con hosting shared senza supervisor)
 Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=60')
     ->everyMinute()

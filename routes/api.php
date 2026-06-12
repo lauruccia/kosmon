@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 | Tutti gli endpoint restituiscono JSON.
 */
 
-Route::prefix('v1')->middleware(ApiTokenAuth::class)->group(function () {
+Route::prefix('v1')->middleware([ApiTokenAuth::class, 'throttle:60,1'])->group(function () {
 
     // Account / saldo
     Route::get('/me', [AccountController::class, 'me'])->name('api.v1.me');
