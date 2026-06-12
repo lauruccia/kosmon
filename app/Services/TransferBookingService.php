@@ -1003,4 +1003,19 @@ class TransferBookingService
         $ownerUser = $parentAccount->ownerUser;
 
         if ($ownerUser === null && $parentAccount->company_id !== null) {
-            // Fallback: c
+            // Fallback: cerca il proprietario dell'azienda associata al conto padre
+            $ownerUser = $parentAccount->company?->owner;
+        }
+
+        if ($ownerUser === null || $ownerUser->id === $initiator->id) {
+            return;
+        }
+
+        $ownerUser->notify(new \App\Notifications\SubAccountTransferNotification(
+            transfer: $transfer,
+            subAccount: $subAccount,
+            parentAccount: $parentAccount,
+            initiator: $initiator,
+        ));
+    }
+}
