@@ -21,7 +21,7 @@ class AdminBackofficeTest extends TestCase
 
         $this->actingAs($admin)->get('/admin/users')
             ->assertOk()
-            ->assertSee('Tutti gli utenti', false);
+            ->assertSee('Elenco utenti', false);
 
         $this->actingAs($admin)->get('/admin/users/' . $privateUser->id)
             ->assertOk()
