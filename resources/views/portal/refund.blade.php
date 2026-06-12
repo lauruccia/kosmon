@@ -79,6 +79,7 @@
 
         <form method="POST" action="{{ route('portal.refund.submit', $transfer) }}" id="refundForm">
             @csrf
+            <input type="hidden" name="idempotency_key" value="{{ Str::uuid() }}">
 
             {{-- Importo --}}
             <div style="margin-bottom:18px;">

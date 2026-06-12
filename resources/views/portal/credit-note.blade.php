@@ -57,6 +57,7 @@
 
         <form method="POST" action="{{ route('portal.credit-note.submit') }}" id="cnForm">
             @csrf
+            <input type="hidden" name="idempotency_key" value="{{ Str::uuid() }}">
 
             {{-- Conto destinatario --}}
             <div style="margin-bottom:18px;">

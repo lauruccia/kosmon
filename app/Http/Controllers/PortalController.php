@@ -1093,6 +1093,7 @@ class PortalController extends Controller
             'amount'               => ['required', 'numeric', 'min:0.01'],
             'description'          => ['nullable', 'string', 'max:255'],
             'original_transfer_id' => ['nullable', 'integer', 'exists:transfers,id'],
+            'idempotency_key'      => ['nullable', 'uuid'],
         ]);
 
         try {
@@ -1104,6 +1105,7 @@ class PortalController extends Controller
                 description:        $validated['description'] ?? null,
                 originalTransferId: isset($validated['original_transfer_id']) ? (int) $validated['original_transfer_id'] : null,
                 ipAddress:          $request->ip(),
+                idempotencyKey:     $validated['idempotency_key'] ?? null,
             );
         } catch (\RuntimeException $exception) {
             return back()->withInput()->with('portal_error', $exception->getMessage());
@@ -1242,17 +1244,19 @@ class PortalController extends Controller
         $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
 
         $validated = $request->validate([
-            'amount'      => ['required', 'numeric', 'min:0.01'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'amount'          => ['required', 'numeric', 'min:0.01'],
+            'description'     => ['nullable', 'string', 'max:255'],
+            'idempotency_key' => ['nullable', 'uuid'],
         ]);
 
         try {
             $refund = $bookingService->refundMerchant(
                 originalTransfer: $transfer,
-                refundAmount: ky_to_cents($validated['amount']),
-                initiatedBy: $currentUser->id,
-                description: $validated['description'] ?? null,
-                ipAddress: $request->ip(),
+                refundAmount:     ky_to_cents($validated['amount']),
+                initiatedBy:      $currentUser->id,
+                description:      $validated['description'] ?? null,
+                ipAddress:        $request->ip(),
+                idempotencyKey:   $validated['idempotency_key'] ?? null,
             );
         } catch (\RuntimeException $exception) {
             return back()->withInput()->with('portal_error', $exception->getMessage());
@@ -1751,12 +1755,4 @@ class PortalController extends Controller
         if ($company->payments_paused_at) {
             $company->update(['payments_paused_at' => null]);
             $msg = 'Pagamenti automatici ripristinati.';
-        } else {
-            $company->update(['payments_paused_at' => now()]);
-            $msg = 'Pagamenti automatici sospesi. I pagamenti programmati e le rate non verranno elaborati finche non riattivi.';
-        }
-
-        return redirect()->route('portal.dashboard')->with('info', $msg);
-    }
-
-}
+        } el

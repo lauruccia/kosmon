@@ -138,6 +138,8 @@ class TransferBookingService
 
     public function confirmRequest(Transfer $transfer, int $confirmedBy, ?string $ipAddress = null): Transfer
     {
+        $this->assertNotAnomalousActivity((int) $transfer->from_account_id, $confirmedBy, $ipAddress, ['amount' => $transfer->amount]);
+
         return DB::transaction(function () use ($transfer, $confirmedBy, $ipAddress) {
             $pendingTransfer = Transfer::query()
                 ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'ledgerEntries'])
@@ -217,12 +219,15 @@ class TransferBookingService
 
             // Applica fee di transazione (best-effort, non blocca la conferma)
             $kind = $pendingTransfer->kind ?? 'portal_collection_request';
-            $systemAccount = \App\Models\Account::systemAccount();
-            if ($systemAccount) {
-                try {
-                    $this->bookFee($fromAccount, $systemAccount, (int) $pendingTransfer->amount, $kind, $pendingTransfer);
-                } catch (\Throwable) {
-                    // fee non bloccante — il transfer è già stato confermato
+            $fee  = \App\Models\TransactionFee::calculate($kind, (int) $pendingTransfer->amount);
+            if ($fee > 0) {
+                $systemAccount = \App\Models\Account::systemAccount();
+                if ($systemAccount) {
+                    try {
+                        $this->bookFee($fromAccount, $systemAccount, $fee, $kind, $pendingTransfer);
+                    } catch (\Throwable) {
+                        // fee non bloccante — il transfer è già stato confermato
+                    }
                 }
             }
 
@@ -284,8 +289,11 @@ class TransferBookingService
         ?string $description = null,
         ?int $originalTransferId = null,
         ?string $ipAddress = null,
+        ?string $idempotencyKey = null,
     ): Transfer {
-        return DB::transaction(function () use ($fromAccountId, $toAccountId, $amount, $initiatedBy, $description, $originalTransferId, $ipAddress) {
+        $this->assertNotAnomalousActivity($fromAccountId, $initiatedBy, $ipAddress, ['amount' => $amount]);
+
+        return DB::transaction(function () use ($fromAccountId, $toAccountId, $amount, $initiatedBy, $description, $originalTransferId, $ipAddress, $idempotencyKey) {
             if ($amount <= 0) {
                 throw new RuntimeException("L'importo della nota di credito deve essere maggiore di zero.");
             }
@@ -336,7 +344,7 @@ class TransferBookingService
                 'currency_code'        => $fromAccount->currency_code,
                 'status'               => 'booked',
                 'kind'                 => 'portal_credit_note',
-                'idempotency_key'      => (string) \Illuminate\Support\Str::uuid(),
+                'idempotency_key'      => $idempotencyKey ?? (string) \Illuminate\Support\Str::uuid(),
                 'description'          => $description ?? 'Nota di credito',
                 'booked_at'            => $bookedAt,
                 'reversed_transfer_id' => $originalTransfer?->id,
@@ -388,9 +396,12 @@ class TransferBookingService
         });
     }
 
-    public function refundMerchant(Transfer $originalTransfer, int $refundAmount, int $initiatedBy, ?string $description = null, ?string $ipAddress = null): Transfer
+    public function refundMerchant(Transfer $originalTransfer, int $refundAmount, int $initiatedBy, ?string $description = null, ?string $ipAddress = null, ?string $idempotencyKey = null): Transfer
     {
-        return DB::transaction(function () use ($originalTransfer, $refundAmount, $initiatedBy, $description, $ipAddress) {
+        // Il merchant che emette il rimborso è il toAccount del movimento originale
+        $this->assertNotAnomalousActivity((int) $originalTransfer->to_account_id, $initiatedBy, $ipAddress, ['amount' => $refundAmount]);
+
+        return DB::transaction(function () use ($originalTransfer, $refundAmount, $initiatedBy, $description, $ipAddress, $idempotencyKey) {
             // Reload with lock
             $original = Transfer::query()
                 ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'toAccount.parentAccount'])
@@ -401,7 +412,7 @@ class TransferBookingService
                 throw new RuntimeException('Solo i movimenti contabilizzati possono essere rimborsati.');
             }
 
-            $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'portal_refund', 'nfc_card', 'code'];
+            $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code'];
             if (! in_array($original->kind, $refundableKinds, true)) {
                 throw new RuntimeException('Questo tipo di movimento non è rimborsabile dal portale.');
             }
@@ -450,7 +461,7 @@ class TransferBookingService
                 'currency_code'        => $original->currency_code,
                 'status'               => 'booked',
                 'kind'                 => 'portal_refund',
-                'idempotency_key'      => (string) \Illuminate\Support\Str::uuid(),
+                'idempotency_key'      => $idempotencyKey ?? (string) \Illuminate\Support\Str::uuid(),
                 'description'          => $description ?? 'Rimborso del movimento ' . $original->reference,
                 'booked_at'            => $bookedAt,
                 'reversed_transfer_id' => $original->id,
@@ -987,29 +998,4 @@ class TransferBookingService
         $ownerUser = $parentAccount->ownerUser;
 
         if ($ownerUser === null && $parentAccount->company_id !== null) {
-            // Fallback: cerca l'utente collegato alla company
-            $ownerUser = \App\Models\User::where('company_id', $parentAccount->company_id)
-                ->whereNull('managed_account_id')
-                ->first();
-        }
-
-        if ($ownerUser === null) {
-            return;
-        }
-
-        // Non notificare se il titolare ha eseguito lui stesso il pagamento
-        if ($ownerUser->id === $initiator->id) {
-            return;
-        }
-
-        $ownerUser->notify(
-            new \App\Notifications\SubAccountTransferNotification(
-                transfer:      $transfer,
-                subAccount:    $subAccount,
-                parentAccount: $parentAccount,
-                initiator:     $initiator,
-            )
-        );
-    }
-
-}
+            // Fallback: c
