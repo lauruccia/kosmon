@@ -130,12 +130,34 @@
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
+
+/* ── Ultimo metodo usato ─────────────────────────────────── */
+.hub-card--last-used {
+    position: relative;
+}
+.hub-card--last-used::before {
+    content: '★ Usato di recente';
+    position: absolute;
+    top: -9px;
+    left: 14px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    background: var(--primary, #0f52c4);
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 99px;
+}
+.hub-card--primary.hub-card--last-used::before {
+    background: rgba(255,255,255,.9);
+    color: #0f52c4;
+}
 </style>
 
 {{-- Header --}}
 <div class="hub-header">
     <h1>💸 Invia &amp; Ricevi KY</h1>
-    <p>Scegli il metodo più comodo per te o per il tuo cliente.</p>
+    <p id="hub-subtitle">Scegli il metodo più comodo per te o per il tuo cliente.</p>
     <div class="hub-balance">
         <span class="hub-balance__amount">{{ ky_format($currentBalance) }}</span>
         <span class="hub-balance__currency">KY</span>
@@ -162,42 +184,42 @@
 <p class="hub-section-title">Invia KMoney</p>
 <div class="hub-grid">
 
-    <a href="{{ route('portal.pay.form') }}" class="hub-card hub-card--primary">
+    <a href="{{ route('portal.pay.form') }}" class="hub-card hub-card--primary" data-method="diretto">
         <div class="hub-card__icon">➡️</div>
         <div class="hub-card__title">Pagamento diretto</div>
         <div class="hub-card__desc">Scegli l'azienda dalla rubrica e inserisci l'importo. Conferma in 2 step.</div>
         <span class="hub-card__badge hub-card__badge--white">⚡ Immediato</span>
     </a>
 
-    <a href="{{ route('portal.incasso-qr.form') }}" class="hub-card hub-card--green">
+    <a href="{{ route('portal.incasso-qr.form') }}" class="hub-card hub-card--green" data-method="qr">
         <div class="hub-card__icon hub-card__icon--green">📷</div>
         <div class="hub-card__title">Scansiona QR</div>
         <div class="hub-card__desc">Scansiona il QR del merchant e paga in un tap. Valido 10 minuti.</div>
         <span class="hub-card__badge hub-card__badge--green">QR dinamico</span>
     </a>
 
-    <a href="{{ route('portal.incasso-nfc.form') }}" class="hub-card hub-card--amber">
+    <a href="{{ route('portal.incasso-nfc.form') }}" class="hub-card hub-card--amber" data-method="nfc">
         <div class="hub-card__icon hub-card__icon--amber">📡</div>
         <div class="hub-card__title">Tap NFC</div>
         <div class="hub-card__desc">Avvicina la carta NFC al POS del commerciante. Sicuro con HMAC.</div>
         <span class="hub-card__badge hub-card__badge--amber">Contactless</span>
     </a>
 
-    <a href="{{ route('portal.incasso-sonic.form') }}" class="hub-card">
+    <a href="{{ route('portal.incasso-sonic.form') }}" class="hub-card" data-method="sonic">
         <div class="hub-card__icon hub-card__icon--violet">🔊</div>
         <div class="hub-card__title">Sonic Pay</div>
         <div class="hub-card__desc">Trasferimento via ultrasuoni con il microfono del telefono.</div>
         <span class="hub-card__badge hub-card__badge--violet">Audio token</span>
     </a>
 
-    <a href="{{ route('portal.incasso-codice.form') }}" class="hub-card">
+    <a href="{{ route('portal.incasso-codice.form') }}" class="hub-card" data-method="codice">
         <div class="hub-card__icon hub-card__icon--slate">🔑</div>
         <div class="hub-card__title">Codice di pagamento</div>
         <div class="hub-card__desc">Inserisci il codice univoco fornito dal merchant.</div>
         <span class="hub-card__badge hub-card__badge--slate">Codice OTP</span>
     </a>
 
-    <a href="{{ route('portal.text-requests.create') }}" class="hub-card">
+    <a href="{{ route('portal.text-requests.create') }}" class="hub-card" data-method="formale">
         <div class="hub-card__icon hub-card__icon--pink">📋</div>
         <div class="hub-card__title">Richiesta formale</div>
         <div class="hub-card__desc">Invia una richiesta di pagamento formale con nota e importo fisso.</div>
@@ -210,42 +232,42 @@
 <p class="hub-section-title">Ricevi KMoney</p>
 <div class="hub-grid">
 
-    <a href="{{ route('portal.receive.form') }}" class="hub-card hub-card--primary">
+    <a href="{{ route('portal.receive.form') }}" class="hub-card hub-card--primary" data-method="richiedi">
         <div class="hub-card__icon">📥</div>
         <div class="hub-card__title">Richiedi KY</div>
         <div class="hub-card__desc">Seleziona un'azienda e richiedi un importo. Ricevi conferma in tempo reale.</div>
         <span class="hub-card__badge hub-card__badge--white">⚡ Request</span>
     </a>
 
-    <a href="{{ route('portal.incasso-qr.form') }}" class="hub-card hub-card--green">
+    <a href="{{ route('portal.incasso-qr.form') }}" class="hub-card hub-card--green" data-method="genera-qr">
         <div class="hub-card__icon hub-card__icon--green">🔲</div>
         <div class="hub-card__title">Genera QR</div>
         <div class="hub-card__desc">Crea un QR dinamico con importo preimpostato. Il cliente scansiona e paga.</div>
         <span class="hub-card__badge hub-card__badge--green">10 minuti</span>
     </a>
 
-    <a href="{{ route('portal.payment-links.create') }}" class="hub-card hub-card--amber">
+    <a href="{{ route('portal.payment-links.create') }}" class="hub-card hub-card--amber" data-method="link">
         <div class="hub-card__icon hub-card__icon--amber">🔗</div>
         <div class="hub-card__title">Link permanente</div>
         <div class="hub-card__desc">Condividi un link via WhatsApp/email. Valido da 1 a 90 giorni.</div>
         <span class="hub-card__badge hub-card__badge--amber">Condivisibile</span>
     </a>
 
-    <a href="{{ route('portal.incasso-nfc.form') }}" class="hub-card">
+    <a href="{{ route('portal.incasso-nfc.form') }}" class="hub-card" data-method="pos-nfc">
         <div class="hub-card__icon hub-card__icon--slate">💳</div>
         <div class="hub-card__title">POS NFC</div>
         <div class="hub-card__desc">Attiva una sessione NFC e ricevi il pagamento tap dal cliente.</div>
         <span class="hub-card__badge hub-card__badge--slate">NFC merchant</span>
     </a>
 
-    <a href="{{ route('portal.nfc-cards.index') }}" class="hub-card">
+    <a href="{{ route('portal.nfc-cards.index') }}" class="hub-card" data-method="card-nfc">
         <div class="hub-card__icon hub-card__icon--violet">📶</div>
         <div class="hub-card__title">Le mie card NFC</div>
         <div class="hub-card__desc">Gestisci le tue carte NFC fisiche: attiva, blocca, vedi limiti.</div>
         <span class="hub-card__badge hub-card__badge--violet">Card fisiche</span>
     </a>
 
-    <a href="{{ route('portal.payment-links.index') }}" class="hub-card">
+    <a href="{{ route('portal.payment-links.index') }}" class="hub-card" data-method="storico-link">
         <div class="hub-card__icon hub-card__icon--pink">📊</div>
         <div class="hub-card__title">I miei link</div>
         <div class="hub-card__desc">Storico dei link di pagamento attivi e scaduti.</div>
@@ -291,5 +313,34 @@
     </a>
 
 </div>
+
+{{-- Memoria ultimo metodo usato ──────────────────────────────────────────── --}}
+<script>
+(function () {
+    const KEY = 'kmoney_last_payment_method';
+
+    // Leggi il metodo salvato e applica il badge
+    const last = localStorage.getItem(KEY);
+    if (last) {
+        const card = document.querySelector('[data-method="' + last + '"]');
+        if (card) {
+            card.classList.add('hub-card--last-used');
+            // Aggiorna anche il sottotitolo nell'header
+            const subtitle = document.getElementById('hub-subtitle');
+            if (subtitle) {
+                const title = card.querySelector('.hub-card__title');
+                subtitle.textContent = 'Ultimo metodo usato: ' + (title ? title.textContent.trim() : last);
+            }
+        }
+    }
+
+    // Salva il metodo quando si clicca una card
+    document.querySelectorAll('[data-method]').forEach(function (card) {
+        card.addEventListener('click', function () {
+            localStorage.setItem(KEY, card.dataset.method);
+        });
+    });
+})();
+</script>
 
 @endsection

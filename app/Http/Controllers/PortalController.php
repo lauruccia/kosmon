@@ -1583,7 +1583,12 @@ class PortalController extends Controller
 
         $companiesQuery = Company::query()
             ->withCount(['users', 'listings', 'announcements'])
-            ->with(['users' => fn ($q) => $q->select(['id', 'company_id', 'account_holder_type'])])
+            ->with([
+                'users' => fn ($q) => $q->select(['id', 'company_id', 'account_holder_type']),
+                'accounts' => fn ($q) => $q->where('is_system_account', false)
+                                           ->where('account_type', 'KYB')
+                                           ->select(['id', 'company_id', 'available_balance', 'max_balance', 'account_type', 'status']),
+            ])
             ->when($filters['q'] !== '', function ($query) use ($filters): void {
                 $search = $filters['q'];
                 $query->where(function ($scope) use ($search): void {
@@ -1612,11 +1617,16 @@ class PortalController extends Controller
             ->paginate(48)
             ->withQueryString()
             ->through(function (Company $company) {
+            $bizAccount = $company->accounts->first();
             return [
                 'company'             => $company,
                 'listings_count'      => (int) $company->listings_count,
                 'announcements_count' => (int) $company->announcements_count,
                 'is_private'          => $company->users->first()?->account_holder_type === 'private',
+                'biz_account'         => $bizAccount,
+                'allowed_ky_pct'      => $bizAccount ? $bizAccount->allowedKyPercentages() : [],
+                'is_in_debit'         => $bizAccount ? $bizAccount->isInDebit() : false,
+                'is_at_ceiling'       => $bizAccount ? $bizAccount->isAtCeiling() : false,
             ];
         });
 

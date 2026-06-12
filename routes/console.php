@@ -2,6 +2,7 @@
 
 use App\Jobs\ProcessDueInstallments;
 use App\Jobs\ExpirePaymentRequests;
+use App\Jobs\RemindPaymentRequests;
 use App\Jobs\CheckBalanceAlerts;
 use App\Jobs\SendMonthlyStatements;
 use Illuminate\Foundation\Inspiring;
@@ -17,6 +18,9 @@ Schedule::job(new ProcessDueInstallments())->dailyAt('06:00')->name('process-due
 
 // Scade le PaymentRequest (QR dinamico) ogni minuto
 Schedule::job(new ExpirePaymentRequests())->everyMinute()->name('expire-payment-requests')->withoutOverlapping();
+
+// Promemoria scadenza richieste di pagamento (24h e 1h prima) — ogni 5 minuti
+Schedule::job(new RemindPaymentRequests())->everyFiveMinutes()->name('remind-payment-requests')->withoutOverlapping();
 
 // Esegue i pagamenti programmati ogni minuto — comando diretto, no coda, no mutex
 Schedule::command('payments:run-scheduled')->everyMinute()->withoutOverlapping(5)->appendOutputTo(storage_path('logs/payments-scheduled.log'));

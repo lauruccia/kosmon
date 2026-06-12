@@ -21,12 +21,16 @@ class PaymentRequest extends Model
         'expires_at',
         'paid_at',
         'transfer_id',
+        'reminder_24h_sent_at',
+        'reminder_1h_sent_at',
     ];
 
     protected $casts = [
-        'expires_at' => 'datetime',
-        'paid_at'    => 'datetime',
-        'amount'     => 'integer',
+        'expires_at'           => 'datetime',
+        'paid_at'              => 'datetime',
+        'reminder_24h_sent_at' => 'datetime',
+        'reminder_1h_sent_at'  => 'datetime',
+        'amount'               => 'integer',
     ];
 
     protected static function booted(): void

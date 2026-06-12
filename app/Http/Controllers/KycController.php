@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\KycStatusChanged;
+use App\Notifications\KycStatusChangedNotification;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Company;
@@ -269,7 +270,13 @@ class KycController extends Controller
     {
         $users = $company->users()->where('is_active', true)->get();
 
+        $notification = new KycStatusChangedNotification($company, $newStatus, $notes);
+
         foreach ($users as $user) {
+            // Notifica in-app (database)
+            $user->notify($notification);
+
+            // Email (solo se l'utente ha un indirizzo email)
             if ($user->email) {
                 Mail::to($user->email)->queue(
                     new KycStatusChanged(

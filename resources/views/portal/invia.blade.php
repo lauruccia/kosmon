@@ -418,6 +418,14 @@
                 <button class="qa-btn" data-amount="5000" onclick="setQuickAmount(this)">50 KY</button>
             </div>
 
+            {{-- Importi recenti verso il beneficiario selezionato (nascosti finché non si sceglie un destinatario) --}}
+            <div id="recentAmountsWrap" style="display:none;margin-top:-4px;margin-bottom:8px;">
+                <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">
+                    Importi usati di recente con questo beneficiario
+                </div>
+                <div id="recentAmountsBtns" class="quick-amounts"></div>
+            </div>
+
             {{-- Input numerico --}}
             <div class="amount-input-wrapper">
                 <input type="number" id="amountInput" min="0.01" step="0.01" placeholder="Oppure inserisci un importo">
@@ -611,6 +619,9 @@
 
         document.getElementById('toStep2Btn').disabled = false;
 
+        // Carica importi recenti verso questo destinatario
+        loadRecentAmountsForRecipient(id);
+
         // Hide dropdown
         closeDropdown();
         document.getElementById('recipientSearch').value = '';
@@ -795,8 +806,54 @@
             } else {
                 document.getElementById('firstPaymentAlert').classList.remove('visible');
             }
+
+            // Importi recenti verso questo beneficiario
+            if (data.recent_amounts && data.recent_amounts.length) {
+                const wrap = document.getElementById('recentAmountsWrap');
+                const btns = document.getElementById('recentAmountsBtns');
+                btns.innerHTML = '';
+                data.recent_amounts.forEach(function(cents) {
+                    const btn = document.createElement('button');
+                    btn.className = 'qa-btn';
+                    btn.type = 'button';
+                    btn.dataset.amount = cents;
+                    btn.textContent = formatKy(cents) + ' KY';
+                    btn.onclick = function () { setQuickAmount(btn); };
+                    btns.appendChild(btn);
+                });
+                wrap.style.display = '';
+            } else {
+                document.getElementById('recentAmountsWrap').style.display = 'none';
+            }
         })
         .catch(() => { /* silent — la card di base è già popolata */ });
+    }
+
+    // ── Caricamento importi recenti al cambio destinatario (step 2) ──────────
+    function loadRecentAmountsForRecipient(recipientId) {
+        const wrap = document.getElementById('recentAmountsWrap');
+        if (wrap) wrap.style.display = 'none';
+        if (!recipientId) return;
+        fetch(RECIPIENT_INFO_BASE + '/' + recipientId, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF }
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data || !data.recent_amounts || !data.recent_amounts.length) return;
+            const btns = document.getElementById('recentAmountsBtns');
+            btns.innerHTML = '';
+            data.recent_amounts.forEach(function(cents) {
+                const btn = document.createElement('button');
+                btn.className = 'qa-btn';
+                btn.type = 'button';
+                btn.dataset.amount = cents;
+                btn.textContent = formatKy(cents) + ' KY';
+                btn.onclick = function () { setQuickAmount(btn); };
+                btns.appendChild(btn);
+            });
+            wrap.style.display = '';
+        })
+        .catch(() => {});
     }
 
     window.handleConfirm = function () {
@@ -877,6 +934,63 @@
     function escHtml(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
+
+    // ── Pre-selezione via query string (?to=ID&amount=X.XX&desc=...) ─────────
+    // Usato dal pulsante "Ripeti" su movimenti e ricevuta.
+    (function () {
+        const params = new URLSearchParams(window.location.search);
+        const toId   = parseInt(params.get('to') || '0');
+        const amount = parseFloat(params.get('amount') || '0');
+        const desc   = params.get('desc') || '';
+
+        if (toId > 0) {
+            // Prova a selezionare il chip se già presente
+            const chip = document.querySelector('.contact-chip[data-id="' + toId + '"]');
+            if (chip) {
+                chip.click();
+            } else {
+                // Destinatario non nei chip: carica il nome via API e poi pre-seleziona
+                fetch(RECIPIENT_INFO_BASE + '/' + toId, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF }
+                })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    selectRecipient(toId, data.name, data.number);
+                })
+                .catch(() => {});
+            }
+        }
+
+        if (amount > 0) {
+            // Aspetta un tick per far sì che il destinatario sia già selezionato
+            setTimeout(function () {
+                const cents = Math.round(amount * 100);
+                // Usa setQuickAmount solo se il valore corrisponde a un bottone,
+                // altrimenti imposta direttamente lo state
+                const matchBtn = document.querySelector('.qa-btn[data-amount="' + cents + '"]');
+                if (matchBtn) {
+                    setQuickAmount(matchBtn);
+                } else {
+                    const amtInput = document.getElementById('amountInput');
+                    if (amtInput) {
+                        amtInput.value = amount.toFixed(2);
+                        amtInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            }, 50);
+        }
+
+        if (desc) {
+            setTimeout(function () {
+                const dInp = document.getElementById('descriptionInput');
+                if (dInp) {
+                    dInp.value = decodeURIComponent(desc);
+                    dInp.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }, 50);
+        }
+    })();
 
 })();
 </script>

@@ -109,13 +109,27 @@ class SendPaymentController extends PortalController
             $logoUrl = $recipient->ownerUser?->avatar_url ?? null;
         }
 
+        // Ultimi 3 importi distinti usati verso questo beneficiario
+        $recentAmounts = Transfer::where('from_account_id', $currentAccount->id)
+            ->where('to_account_id', $recipient->id)
+            ->where('status', 'booked')
+            ->whereNotIn('kind', ['portal_fee', 'portal_cashback'])
+            ->orderByDesc('booked_at')
+            ->limit(20)
+            ->pluck('amount')
+            ->unique()
+            ->take(3)
+            ->values()
+            ->toArray();
+
         return response()->json([
-            'id'       => $recipient->id,
-            'name'     => $recipient->display_name,
-            'number'   => $recipient->account_number,
-            'type'     => $recipient->owner_type ?? 'company',
-            'logo_url' => $logoUrl,
-            'is_first' => $isFirst,
+            'id'             => $recipient->id,
+            'name'           => $recipient->display_name,
+            'number'         => $recipient->account_number,
+            'type'           => $recipient->owner_type ?? 'company',
+            'logo_url'       => $logoUrl,
+            'is_first'       => $isFirst,
+            'recent_amounts' => $recentAmounts,
         ]);
     }
 

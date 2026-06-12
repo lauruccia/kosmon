@@ -197,6 +197,18 @@
     .dir-card--simple .dir-footer { padding:8px 14px; border-top:1px solid var(--line); }
     .dir-card--simple .dir-btn-primary { font-size:12px; min-height:32px; }
 
+    /* ── Badge KY percentuale ── */
+    .ky-badge {
+        display:inline-flex; align-items:center; gap:4px;
+        font-size:10px; font-weight:800; letter-spacing:.04em;
+        padding:2px 8px; border-radius:99px;
+        white-space:nowrap; flex-shrink:0;
+    }
+    .ky-badge--full  { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
+    .ky-badge--mix   { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .ky-badge--debit { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+    .ky-badge--ceil  { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+
     /* ── Pagination ── */
     .dir-pagination {
         margin-top:4px; padding:14px 16px;
@@ -264,9 +276,14 @@
         <div class="dir-grid">
             @foreach ($companies as $entry)
                 @php
-                    $company  = $entry['company'];
-                    $listings = $entry['listings_count'];
-                    $anns     = $entry['announcements_count'];
+                    $company      = $entry['company'];
+                    $listings     = $entry['listings_count'];
+                    $anns         = $entry['announcements_count'];
+                    $bizAccount   = $entry['biz_account'] ?? null;
+                    $allowedKyPct = $entry['allowed_ky_pct'] ?? [];
+                    $isInDebit    = $entry['is_in_debit'] ?? false;
+                    $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
+                    $maxKyPct     = !empty($allowedKyPct) ? max($allowedKyPct) : null;
 
                     // Avatar letter
                     preg_match('/[A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF]/u', $company->name, $avatarMatch);
@@ -355,13 +372,29 @@
                             @endif
                         </div>
                     </div>
-                    <div class="dir-footer">
+                    <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
+                        {{-- Badge KY --}}
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal')
+                            @if($isInDebit)
+                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% KY">⚡ Vende 100% KY</span>
+                            @elseif($isAtCeiling)
+                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Al massimale</span>
+                            @elseif($maxKyPct !== null)
+                                <span class="ky-badge {{ $maxKyPct === 100 ? 'ky-badge--full' : 'ky-badge--mix' }}">
+                                    ✓ KY {{ $maxKyPct }}%
+                                </span>
+                            @endif
+                        @endif
                         @if($listings > 0)
                             <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="dir-btn dir-btn-ghost">🛍</a>
                         @endif
-                        <a href="{{ route('portal.companies.show', $company->slug) }}" class="dir-btn dir-btn-primary">
-                            Vedi profilo →
-                        </a>
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
+                            <a href="{{ route('portal.invia') }}?to={{ $bizAccount->id }}" class="dir-btn dir-btn-primary">💸 Paga</a>
+                        @else
+                            <a href="{{ route('portal.companies.show', $company->slug) }}" class="dir-btn dir-btn-primary">
+                                Vedi →
+                            </a>
+                        @endif
                         @if(($directoryMode ?? '') === 'admin')
                             <a href="{{ route('admin.companies.show', $company) }}" class="dir-btn dir-btn-ghost">⚙</a>
                         @endif
@@ -438,13 +471,29 @@
                     </div>
 
                     {{-- Footer --}}
-                    <div class="dir-footer">
+                    <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
+                        {{-- Badge KY --}}
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal')
+                            @if($isInDebit)
+                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% KY — ha bisogno di vendere">⚡ Vende 100% KY</span>
+                            @elseif($isAtCeiling)
+                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Al massimale</span>
+                            @elseif($maxKyPct !== null)
+                                <span class="ky-badge {{ $maxKyPct === 100 ? 'ky-badge--full' : 'ky-badge--mix' }}">
+                                    ✓ KY {{ $maxKyPct }}%
+                                </span>
+                            @endif
+                        @endif
                         @if($listings > 0)
                             <a href="{{ route('portal.shop') }}?company={{ $company->id }}"
                                class="dir-btn dir-btn-ghost">🛍 Shop</a>
                         @endif
                         <a href="{{ route('portal.companies.show', $company->slug) }}"
-                           class="dir-btn dir-btn-primary">Vedi profilo &rarr;</a>
+                           class="dir-btn dir-btn-ghost">Profilo</a>
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
+                            <a href="{{ route('portal.invia') }}?to={{ $bizAccount->id }}"
+                               class="dir-btn dir-btn-primary">💸 Paga</a>
+                        @endif
                         @if(($directoryMode ?? '') === 'admin')
                             <a href="{{ route('admin.companies.show', $company) }}"
                                class="dir-btn dir-btn-ghost">⚙</a>

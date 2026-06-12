@@ -518,6 +518,14 @@
                                title="Scarica ricevuta PDF">
                                 &#x1F4C4; PDF
                             </a>
+                            @if($isOutgoing && $counterparty && !$counterparty->is_system_account)
+                            <a href="{{ route('portal.invia') }}?to={{ $counterparty->id }}&amount={{ ky_input($transfer->amount) }}&desc={{ urlencode($transfer->description ?? '') }}"
+                               class="cta secondary"
+                               style="font-size:11px;padding:4px 9px;min-height:26px;display:inline-flex;align-items:center;gap:4px;text-decoration:none;margin-top:4px;"
+                               title="Ripeti questo pagamento">
+                                🔁
+                            </a>
+                            @endif
                             @endif
                         </td>
                     </tr>
