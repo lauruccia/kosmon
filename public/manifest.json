@@ -41,6 +41,13 @@
     ],
     "shortcuts": [
         {
+            "name": "Incassa QR",
+            "short_name": "Incassa",
+            "description": "Genera il tuo QR code per ricevere pagamenti",
+            "url": "/incasso-qr?source=pwa-shortcut",
+            "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
+        },
+        {
             "name": "Paga",
             "short_name": "Paga",
             "description": "Avvia un pagamento nel circuito",
@@ -60,6 +67,22 @@
             "description": "KY Wallet",
             "url": "/wallet?source=pwa-shortcut",
             "icons": [{ "src": "/assets/brand/icon-192.png", "sizes": "192x192" }]
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/assets/brand/screenshot-mobile-dashboard.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Dashboard KMoney"
+        },
+        {
+            "src": "/assets/brand/screenshot-mobile-pay.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Invia un pagamento"
         }
     ]
 }

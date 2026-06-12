@@ -1,0 +1,4 @@
+# Questa cartella contiene script diagnostici e dump locali.
+# Non committare nulla qui — mai in produzione.
+*
+!.gitignore

@@ -23,10 +23,6 @@ class CheckBalanceAlerts implements ShouldQueue
             ->with(['account.ownerUser'])
             ->chunk(200, function ($alerts) {
                 foreach ($alerts as $alert) {
-                    if (! $alert->canTrigger()) {
-                        continue;
-                    }
-
                     $account = $alert->account;
                     if (! $account) {
                         continue;
@@ -34,7 +30,14 @@ class CheckBalanceAlerts implements ShouldQueue
 
                     $balance = $account->available_balance; // centesimi
 
-                    if ($balance < $alert->threshold_amount) {
+                    // Saldo tornato sopra soglia: resetta lo stato di allerta
+                    if ($balance >= $alert->threshold_amount && $alert->is_in_alert) {
+                        $alert->update(['is_in_alert' => false]);
+                        continue;
+                    }
+
+                    // Saldo sotto soglia: notifica solo se non siamo già in stato di allerta
+                    if ($balance < $alert->threshold_amount && $alert->canTrigger()) {
                         $user = $account->ownerUser;
                         if ($user) {
                             try {
@@ -46,7 +49,10 @@ class CheckBalanceAlerts implements ShouldQueue
                             }
                         }
 
-                        $alert->update(['last_triggered_at' => now()]);
+                        $alert->update([
+                            'last_triggered_at' => now(),
+                            'is_in_alert'       => true,
+                        ]);
                     }
                 }
             });

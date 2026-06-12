@@ -20,11 +20,12 @@ class StepUpController extends Controller
 {
     public function show(Request $request): View
     {
-        $user    = $request->user();
-        $has2fa  = $user->two_factor_confirmed_at !== null;
-        $reason  = session('step_up_reason', 'Conferma la tua identità per continuare.');
+        $user       = $request->user();
+        $has2fa     = $user->two_factor_confirmed_at !== null;
+        $hasPasskey = $user->webAuthnCredentials()->exists();
+        $reason     = session('step_up_reason', 'Conferma la tua identità per continuare.');
 
-        return view('portal.step-up', compact('has2fa', 'reason'));
+        return view('portal.step-up', compact('has2fa', 'hasPasskey', 'reason'));
     }
 
     public function verify(Request $request): RedirectResponse

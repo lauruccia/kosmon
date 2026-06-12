@@ -971,6 +971,40 @@ class TransferBookingService
             }
         }
     }
+    /**
+     * Registra la commissione (portal_fee) contestualmente al pagamento principale.
+     *
+     * ⚠️  COLLO DI BOTTIGLIA A VOLUME ELEVATO — LEGGERE PRIMA DI MODIFICARE
+     * ─────────────────────────────────────────────────────────────────────────
+     * Ogni chiamata a bookFee() esegue lockForUpdate() sul conto sistema (Cassa
+     * Circuito KMoney). Con pochi pagamenti concorrenti questo non è un problema,
+     * ma al crescere dei volumi tutti i thread si accodan su quella singola riga,
+     * serializzando di fatto tutti i pagamenti.
+     *
+     * Stesso problema esiste in CashbackService::applyIfEligible().
+     *
+     * SOLUZIONE CONSIGLIATA (da attivare quando i pagamenti/minuto superano ~50):
+     *
+     *   1. Creare una tabella `pending_system_credits` con le colonne:
+     *      (transfer_id, amount, kind, created_at)
+     *
+     *   2. Sostituire bookFee() e applyIfEligible() con un semplice INSERT
+     *      in quella tabella (nessun lock, nessun aggiornamento saldo).
+     *
+     *   3. Creare un job `FlushSystemCredits` (schedulato ogni 10-30 secondi)
+     *      che aggrega le righe pendenti con una singola transazione:
+     *        - lockForUpdate() sul conto sistema UNA sola volta
+     *        - UPDATE saldo += SUM(amount) in batch
+     *        - Inserisce i Transfer e LedgerEntry aggregati
+     *        - Elimina le righe processate
+     *
+     *   Impatto: il lock sul conto sistema scende da N volte/secondo a 1 volta
+     *   ogni 10-30 secondi, eliminando la serializzazione.
+     *
+     *   Il saldo del conto sistema risulterà "in ritardo" di max 30 secondi,
+     *   accettabile per fee interne non visibili all'utente.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
     private function bookFee(
         \App\Models\Account $fromAccount,
         \App\Models\Account $systemAccount,

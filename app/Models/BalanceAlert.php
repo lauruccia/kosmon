@@ -17,6 +17,7 @@ class BalanceAlert extends Model
         'cooldown_hours',
         'last_triggered_at',
         'is_active',
+        'is_in_alert',
     ];
 
     protected $casts = [
@@ -24,6 +25,7 @@ class BalanceAlert extends Model
         'notify_email'      => 'boolean',
         'notify_inapp'      => 'boolean',
         'is_active'         => 'boolean',
+        'is_in_alert'       => 'boolean',
     ];
 
     protected static function booted(): void
@@ -53,17 +55,29 @@ class BalanceAlert extends Model
     }
 
     /**
-     * L'alert puo' sparare ora?
-     * Condizioni: attivo E (mai sparato OPPURE cooldown scaduto)
+     * L'alert può sparare ora?
+     * Logica edge-triggered: scatta solo quando il saldo SCENDE sotto soglia,
+     * non ad ogni ciclo mentre resta sotto. Si resetta quando torna sopra soglia.
+     *
+     * Condizioni: attivo E non già in stato di allerta (is_in_alert = false).
+     * Il cooldown resta come protezione extra contro bug o doppi job concorrenti.
      */
     public function canTrigger(): bool
     {
         if (! $this->is_active) {
             return false;
         }
-        if (! $this->last_triggered_at) {
-            return true;
+
+        // Già in stato di allerta: non notificare di nuovo finché non si riprende
+        if ($this->is_in_alert) {
+            return false;
         }
-        return $this->last_triggered_at->addHours($this->cooldown_hours)->isPast();
+
+        // Protezione anti-doppio: rispetta il cooldown anche in stato non-alert
+        if ($this->last_triggered_at) {
+            return $this->last_triggered_at->addHours($this->cooldown_hours)->isPast();
+        }
+
+        return true;
     }
 }

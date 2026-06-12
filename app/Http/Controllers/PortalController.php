@@ -111,22 +111,73 @@ class PortalController extends Controller
         }
 
 
-        // 30-day KPI con confronto mese precedente — cache 5 minuti per account
-        [$income30, $expense30, $incomePrev, $expensePrev, $kyCardCount, $kyCardTotalKy] = Cache::remember(
+        // KPI dashboard — una query Transfer con CASE WHEN per tutti gli aggregati,
+        // più i totali di spesa del giorno/mese corrente. Cache 5 minuti per account.
+        $kpi = Cache::remember(
             "dashboard.kpi30.{$currentAccount->id}",
             now()->addMinutes(5),
             function () use ($currentAccount) {
-                $now = CarbonImmutable::now();
+                $now    = CarbonImmutable::now();
+                $acctId = $currentAccount->id;
+
+                $cutoff60  = $now->subDays(60);
+                $cutoff30  = $now->subDays(30);
+                $todayStart = $now->startOfDay();
+                $todayEnd   = $now->endOfDay();
+                $monthStart = $now->startOfMonth();
+                $monthEnd   = $now->endOfMonth();
+
+                // Unica query: tutti gli aggregati sui movimenti in un colpo solo
+                $row = DB::selectOne("
+                    SELECT
+                        SUM(CASE WHEN to_account_id   = :a1 AND booked_at >= :c30a             THEN amount ELSE 0 END) AS income30,
+                        SUM(CASE WHEN from_account_id = :a2 AND booked_at >= :c30b             THEN amount ELSE 0 END) AS expense30,
+                        SUM(CASE WHEN to_account_id   = :a3 AND booked_at BETWEEN :c60a AND :c30c THEN amount ELSE 0 END) AS income_prev,
+                        SUM(CASE WHEN from_account_id = :a4 AND booked_at BETWEEN :c60b AND :c30d THEN amount ELSE 0 END) AS expense_prev,
+                        SUM(CASE WHEN from_account_id = :a5 AND booked_at BETWEEN :td_s AND :td_e THEN amount ELSE 0 END) AS spent_today,
+                        SUM(CASE WHEN from_account_id = :a6 AND booked_at BETWEEN :tm_s AND :tm_e THEN amount ELSE 0 END) AS spent_month
+                    FROM transfers
+                    WHERE status = 'booked'
+                      AND booked_at >= :cutoff_global
+                      AND (to_account_id = :a7 OR from_account_id = :a8)
+                ", [
+                    'a1' => $acctId, 'c30a' => $cutoff30,
+                    'a2' => $acctId, 'c30b' => $cutoff30,
+                    'a3' => $acctId, 'c60a' => $cutoff60, 'c30c' => $cutoff30,
+                    'a4' => $acctId, 'c60b' => $cutoff60, 'c30d' => $cutoff30,
+                    'a5' => $acctId, 'td_s' => $todayStart, 'td_e' => $todayEnd,
+                    'a6' => $acctId, 'tm_s' => $monthStart, 'tm_e' => $monthEnd,
+                    'cutoff_global' => $cutoff60,
+                    'a7' => $acctId, 'a8' => $acctId,
+                ]);
+
+                // KyCard: due aggregati, una query
+                $kyCard = DB::selectOne("
+                    SELECT COUNT(*) AS cnt, COALESCE(SUM(ky_amount), 0) AS total
+                    FROM ky_card_purchases
+                    WHERE account_id = :account_id AND status = 'completed'
+                ", ['account_id' => $acctId]);
+
                 return [
-                    Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->where('booked_at', '>=', $now->subDays(30))->sum('amount'),
-                    Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->where('booked_at', '>=', $now->subDays(30))->sum('amount'),
-                    Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount'),
-                    Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereBetween('booked_at', [$now->subDays(60), $now->subDays(30)])->sum('amount'),
-                    KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->count(),
-                    (int) KyCardPurchase::where('account_id', $currentAccount->id)->where('status', 'completed')->sum('ky_amount'),
+                    'income30'     => (int) ($row->income30     ?? 0),
+                    'expense30'    => (int) ($row->expense30    ?? 0),
+                    'income_prev'  => (int) ($row->income_prev  ?? 0),
+                    'expense_prev' => (int) ($row->expense_prev ?? 0),
+                    'spent_today'  => (int) ($row->spent_today  ?? 0),
+                    'spent_month'  => (int) ($row->spent_month  ?? 0),
+                    'ky_card_count' => (int) ($kyCard->cnt   ?? 0),
+                    'ky_card_total' => (int) ($kyCard->total ?? 0),
                 ];
             }
         );
+
+        $income30      = $kpi['income30'];
+        $expense30     = $kpi['expense30'];
+        $incomePrev    = $kpi['income_prev'];
+        $expensePrev   = $kpi['expense_prev'];
+        $kyCardCount   = $kpi['ky_card_count'];
+        $kyCardTotalKy = $kpi['ky_card_total'];
+
         $incomeTrend  = $incomePrev  > 0 ? round(($income30  - $incomePrev)  / $incomePrev  * 100) : null;
         $expenseTrend = $expensePrev > 0 ? round(($expense30 - $expensePrev) / $expensePrev * 100) : null;
 
@@ -138,9 +189,10 @@ class PortalController extends Controller
         $limitDaily        = $effectiveUserLimits['daily_transaction_limit']    ?? null;
         $limitMonthly      = $effectiveUserLimits['monthly_transaction_limit']  ?? null;
 
-        $spentToday        = $currentAccount->spentToday();
-        $remainingToday    = $limitDaily !== null ? max(0, $limitDaily - $spentToday) : null;
-        $spentThisMonth    = $currentAccount->spentThisMonth();
+        // Spesa giorno/mese già inclusa nella cache sopra — nessuna query aggiuntiva
+        $spentToday         = $kpi['spent_today'];
+        $remainingToday     = $limitDaily !== null ? max(0, $limitDaily - $spentToday) : null;
+        $spentThisMonth     = $kpi['spent_month'];
         $remainingThisMonth = $limitMonthly !== null ? max(0, $limitMonthly - $spentThisMonth) : null;
 
         return view('portal.dashboard', compact('currentAccount', 'currentUser', 'recentTransfers', 'currentBalance', 'availableBalance', 'massimale', 'commercialAvailability', 'commercialAvailabilityUsed', 'commercialAvailabilityResidual', 'commercialAvailabilityUsagePercentage', 'maxSingle', 'monthlyTrend') + [

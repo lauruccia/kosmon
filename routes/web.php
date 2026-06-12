@@ -242,6 +242,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/credentials/{id}', [WebAuthnController::class, 'deleteCredential'])->name('credentials.delete');
     Route::post('/switch/options',     [WebAuthnController::class, 'switchOptions'])->name('switch.options');
     Route::post('/switch/verify',      [WebAuthnController::class, 'switchVerify'])->name('switch.verify');
+    // Conferma operazione sensibile (step-up) via biometria/passkey
+    Route::get('/confirm/options',     [WebAuthnController::class, 'confirmOptions'])->name('confirm.options');
+    Route::post('/confirm/verify',     [WebAuthnController::class, 'confirmVerify'])->name('confirm.verify');
 });
 // ─────────────────────────────────────────────────────────────────────────────
 

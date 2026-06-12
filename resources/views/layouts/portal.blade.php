@@ -2129,13 +2129,34 @@
 
         /* PWA — Install prompt (banner "Aggiungi alla schermata home") */
         (function () {
-            var deferredPrompt = null;
-            var banner = null;
+            var LS_DISMISS = 'km-pwa-install-dismissed';
+            var COOLDOWN_DAYS = 14; // mostra di nuovo dopo N giorni se ignorato
 
+            function isDismissed() {
+                try {
+                    var ts = parseInt(localStorage.getItem(LS_DISMISS) || '0', 10);
+                    if (!ts) return false;
+                    return (Date.now() - ts) < COOLDOWN_DAYS * 86400000;
+                } catch (e) { return false; }
+            }
+
+            function setDismissed() {
+                try { localStorage.setItem(LS_DISMISS, String(Date.now())); } catch (e) {}
+            }
+
+            function isStandalone() {
+                return window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone === true;
+            }
+
+            // ── Android/Chrome: beforeinstallprompt ──────────────────────────────
             window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault(); // blocca il prompt nativo automatico
                 window._kmInstallPrompt = e; // esposto globalmente per altre pagine
 
-                banner = document.createElement('div');
+                if (isStandalone() || isDismissed()) return;
+
+                var banner = document.createElement('div');
                 banner.id = 'pwa-install-banner';
                 banner.style.cssText = [
                     'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);',
@@ -2145,26 +2166,63 @@
                     'max-width:calc(100vw - 32px);'
                 ].join('');
                 banner.innerHTML = [
-                    '<span>Installa <strong>KMoney</strong> come app</span>',
+                    '<span>📲 Installa <strong>KMoney</strong> come app</span>',
                     '<button id="pwa-install-btn" style="background:#0f52c4;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Installa</button>',
-                    '<button id="pwa-dismiss-btn" style="background:transparent;color:rgba(255,255,255,.5);border:none;cursor:pointer;font-size:16px;padding:4px;">&#x2715;</button>'
+                    '<button id="pwa-dismiss-btn" style="background:transparent;color:rgba(255,255,255,.5);border:none;cursor:pointer;font-size:18px;line-height:1;padding:4px 0 4px 4px;" aria-label="Ignora">&#x2715;</button>'
                 ].join('');
                 document.body.appendChild(banner);
 
                 document.getElementById('pwa-install-btn').addEventListener('click', function () {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then(function () {
-                        deferredPrompt = null;
-
-                        deferredPrompt = null;
+                    e.prompt();
+                    e.userChoice.then(function (choice) {
+                        window._kmInstallPrompt = null;
                         banner.remove();
+                        if (choice.outcome === 'dismissed') setDismissed();
                     });
                 });
 
                 document.getElementById('pwa-dismiss-btn').addEventListener('click', function () {
+                    setDismissed();
                     banner.remove();
                 });
             });
+
+            // ── iOS Safari: nessun beforeinstallprompt — mostra istruzioni manuali ──
+            (function () {
+                var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+                if (!isIos || isStandalone() || isDismissed()) return;
+
+                // Mostra solo dopo 2 visite per non disturbare al primo accesso
+                var VISITS_KEY = 'km-pwa-visits';
+                var visits = parseInt(localStorage.getItem(VISITS_KEY) || '0', 10) + 1;
+                try { localStorage.setItem(VISITS_KEY, String(visits)); } catch(e){}
+                if (visits < 2) return;
+
+                var banner = document.createElement('div');
+                banner.id = 'pwa-ios-banner';
+                banner.style.cssText = [
+                    'position:fixed;bottom:0;left:0;right:0;',
+                    'background:#0b2244;color:#fff;padding:16px 20px 20px;',
+                    'z-index:9999;box-shadow:0 -4px 24px rgba(0,0,0,.3);font-size:13px;',
+                    'border-radius:16px 16px 0 0;'
+                ].join('');
+                banner.innerHTML = [
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">',
+                    '  <strong style="font-size:14px;">📲 Installa KMoney</strong>',
+                    '  <button id="pwa-ios-dismiss" style="background:transparent;color:rgba(255,255,255,.5);border:none;cursor:pointer;font-size:20px;line-height:1;" aria-label="Chiudi">&#x2715;</button>',
+                    '</div>',
+                    '<p style="margin:0 0 8px;line-height:1.5;color:rgba(255,255,255,.85);">',
+                    '  Tocca <strong>Condividi</strong> <span style="font-size:16px;">⬆</span> in basso,',
+                    '  poi <strong>"Aggiungi a schermata Home"</strong> per usare KMoney come app.',
+                    '</p>',
+                ].join('');
+                document.body.appendChild(banner);
+
+                document.getElementById('pwa-ios-dismiss').addEventListener('click', function () {
+                    setDismissed();
+                    banner.remove();
+                });
+            })();
         })();
 
         /* ── Sidebar gruppi collassabili ───────────────────────────────────────── */

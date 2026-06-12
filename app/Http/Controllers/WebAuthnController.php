@@ -488,4 +488,129 @@ class WebAuthnController extends Controller
         }
     }
 
+    // ── Conferma pagamento (step-up WebAuthn) ─────────────────────────────────
+
+    /**
+     * GET /webauthn/confirm/options  (auth required)
+     *
+     * Genera la challenge per confermare un'operazione sensibile (pagamento,
+     * conferma richiesta incasso, ecc.) con biometria/passkey.
+     * Alternativa a password/OTP nel flusso step-up.
+     */
+    public function confirmOptions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || $user->webAuthnCredentials()->doesntExist()) {
+            return response()->json([
+                'error' => 'Nessuna passkey registrata. Usa password o OTP.',
+            ], 404);
+        }
+
+        $serializer = $this->makeSerializer();
+
+        try {
+            $allowCredentials = $user->webAuthnCredentials()
+                ->get()
+                ->map(fn($c) => PublicKeyCredentialDescriptor::create(
+                    'public-key',
+                    $this->b64UrlDecode($c->credential_id),
+                ))
+                ->all();
+
+            $options = PublicKeyCredentialRequestOptions::create(
+                challenge:        random_bytes(32),
+                timeout:          90000,
+                rpId:             $this->rpId(),
+                allowCredentials: $allowCredentials,
+                userVerification: 'required', // obbliga verifica biometrica/PIN dispositivo
+            );
+
+            $json = $serializer->serialize($options, 'json');
+            session(['webauthn_confirm_options' => $json]);
+
+            return response()->json(json_decode($json, true));
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /webauthn/confirm/verify  (auth required)
+     *
+     * Verifica l'assertion biometrica e segna la sessione step-up come
+     * completata, identico a quanto fa StepUpController::verify() con password/OTP.
+     */
+    public function confirmVerify(Request $request): JsonResponse
+    {
+        $user        = $request->user();
+        $serializer  = $this->makeSerializer();
+        $optionsJson = session('webauthn_confirm_options');
+        session()->forget('webauthn_confirm_options');
+
+        if (! $optionsJson) {
+            return response()->json(['error' => 'Sessione scaduta. Riprova.'], 422);
+        }
+
+        try {
+            $options = $serializer->deserialize(
+                $optionsJson,
+                PublicKeyCredentialRequestOptions::class,
+                'json',
+            );
+
+            $credential = $serializer->deserialize(
+                json_encode($request->all()),
+                PublicKeyCredential::class,
+                'json',
+            );
+
+            $storedCred = WebAuthnCredential::where(
+                'credential_id', $this->b64UrlEncode($credential->rawId)
+            )->where('user_id', $user->id)->first();
+
+            if (! $storedCred) {
+                return response()->json(['error' => 'Passkey non riconosciuta.'], 401);
+            }
+
+            $source = $serializer->deserialize(
+                $storedCred->credential_source,
+                PublicKeyCredentialSource::class,
+                'json',
+            );
+
+            $validator     = AuthenticatorAssertionResponseValidator::create();
+            $updatedSource = $validator->check(
+                $source,
+                $credential->response,
+                $options,
+                $this->rpId(),
+                (string) $user->id,
+                $this->securedRpIds(),
+            );
+
+            $storedCred->update([
+                'credential_source' => $serializer->serialize($updatedSource, 'json'),
+                'last_used_at'      => now(),
+            ]);
+
+            // ✅ Stessa semantica dello step-up classico: segna la sessione come verificata
+            $request->session()->put('step_up_verified_at', now());
+            $request->session()->forget('step_up_reason');
+
+            $returnUrl = $request->session()->pull(
+                'step_up_return_url',
+                route('portal.dashboard')
+            );
+
+            return response()->json([
+                'verified'   => true,
+                'return_url' => $returnUrl,
+            ]);
+
+        } catch (Throwable $e) {
+            return response()->json(['error' => 'Verifica fallita: ' . $e->getMessage()], 401);
+        }
+    }
+
 }
