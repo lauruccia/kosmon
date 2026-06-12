@@ -266,7 +266,7 @@
 
                 <div class="ufb-actions">
                     <button type="submit" class="cta secondary users-compact-cta">Filtra</button>
-                    <a class="cta secondary users-compact-cta" href="{{ route('admin.users.index') }}">Reset</a>
+                    <a class="cta secondary users-compact-cta" href="{{ route('admin.users.index') }}">Reset filtri</a>
                 </div>
             </form>
 

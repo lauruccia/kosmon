@@ -156,7 +156,8 @@ class AdminBackofficeTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(12345, $account->fresh()->max_balance);
+        // L'input del form è in KY: 12345 KY → 1234500 centesimi
+        $this->assertSame(1234500, $account->fresh()->max_balance);
 
         $this->actingAs($privateUser)
             ->get('/dashboard')
@@ -196,7 +197,8 @@ class AdminBackofficeTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(22222, $account->fresh()->max_balance);
+        // L'input del form è in KY: 22222 KY → 2222200 centesimi
+        $this->assertSame(2222200, $account->fresh()->max_balance);
     }
 
     public function test_updating_default_limits_does_not_change_existing_users_effective_limits(): void
@@ -222,7 +224,8 @@ class AdminBackofficeTest extends TestCase
 
         $this->assertFalse($privateUser->transfer_limits_use_defaults);
         $this->assertSame($oldLimits, $privateUser->effectiveTransferLimits());
-        $this->assertSame(10000, SystemSetting::userLimitDefaults()->default_negative_balance_limit);
+        // L'input del form è in KY: 10000 KY → 1000000 centesimi
+        $this->assertSame(1000000, SystemSetting::userLimitDefaults()->default_negative_balance_limit);
     }
 
     public function test_superadmin_can_refund_transfer_within_refund_window(): void
