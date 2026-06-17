@@ -86,7 +86,7 @@ class DatabaseSeeder extends Seeder
             'currency_code'          => 'KY',
             'status'                 => 'active',
             'allow_negative_balance' => false,
-            'available_balance'      => 4200,
+            'available_balance'      => 0, // emesso sotto via TransferBookingService (circuito chiuso)
             'pending_balance'        => 0,
         ]);
 
@@ -101,7 +101,7 @@ class DatabaseSeeder extends Seeder
             'currency_code'          => 'KY',
             'status'                 => 'active',
             'allow_negative_balance' => false,
-            'available_balance'      => 600,
+            'available_balance'      => 0, // i sottoconti nascono a 0: la spesa addebita il padre, il budget e' spending_limit
             'pending_balance'        => 0,
             'spending_limit'         => 150,
             'daily_outgoing_limit'   => 200,
@@ -120,6 +120,23 @@ class DatabaseSeeder extends Seeder
         ]);
         $delegate->forceFill(['email_verified_at' => now(), 'contract_signed_at' => now()])->save();
         $delegate->roles()->sync([$delegateRole->id]);
+
+        // Emissione iniziale dei KY del membro privato.
+        // REGOLA CIRCUITO CHIUSO: ogni KY in circolazione deve essere emesso dalla
+        // Cassa Circuito (conto sistema), che va in negativo della stessa cifra.
+        // Mai impostare available_balance > 0 direttamente: romperebbe l'invariante
+        // SUM(available_balance) = 0. Le aziende partono da 0 e si scambiano KY tra
+        // loro (somma invariata), quindi non serve emissione per loro.
+        $systemAccount = Account::systemAccount();
+        app(TransferBookingService::class)->book([
+            'initiated_by'    => $superAdmin->id,
+            'from_account_id' => $systemAccount->id,
+            'to_account_id'   => $privateAccount->id,
+            'amount'          => 4200,
+            'kind'            => 'ky_emission',
+            'description'     => 'Emissione iniziale demo (Maria Ferri)',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
 
         // Storico trasferimenti
         $this->seedTransferHistory($bakery, $farm, $studio, $tech, $textile);
@@ -147,6 +164,18 @@ class DatabaseSeeder extends Seeder
         $this->command->info('  elisa.ferri@kmoney.test                  | secret123');
         $this->command->info('  ----------------------------------------+------------');
         $this->command->info('');
+
+        // ── Guardia invariante circuito chiuso ──────────────────────────────
+        // SUM(available_balance) di TUTTI i conti (sistema incluso) deve essere 0.
+        // Se non lo e', il seed ha introdotto KY senza contropartita: blocca subito.
+        $totalBalance = (int) Account::query()->sum('available_balance');
+        if ($totalBalance !== 0) {
+            throw new \RuntimeException(
+                "Seed non bilanciato: SUM(available_balance) = {$totalBalance} centesimi (deve essere 0). "
+                . 'Ogni saldo positivo va emesso dal conto sistema via TransferBookingService.'
+            );
+        }
+        $this->command->info('  ✓ Invariante circuito verificato: SUM(saldi) = 0');
     }
 
     // -------------------------------------------------------------------------
