@@ -455,11 +455,6 @@
               id=”form-aggiorna-utente”
               onsubmit=”return adminUpdateConfirm(this)”>
             @csrf
-            {{-- hidden fallback per i checkbox booleani: devono stare subito dopo @csrf, non dentro .field --}}
-            <div style=”display:none !important; visibility:hidden; position:absolute; pointer-events:none;”>
-                <input type=”text” name=”is_super_admin” value=”0”>
-                <input type=”text” name=”primary_account_allow_negative” value=”0”>
-            </div>
 
             {{-- ── Anagrafica ──────────────────────────────────────────────────────── --}}
             <p class=”eyebrow” style=”margin:0 0 6px;”>Anagrafica</p>
@@ -645,13 +640,6 @@
 
         <script>
         function adminUpdateConfirm(form) {
-            // Sincronizza i fallback hidden con i checkbox prima del submit
-            ['is_super_admin', 'primary_account_allow_negative'].forEach(function(name) {
-                var cb  = form.querySelector('input[type=”checkbox”][name=”' + name + '”]');
-                var hid = form.querySelector('div[style*=”display:none”] input[name=”' + name + '”]');
-                if (cb && hid) hid.disabled = cb.checked; // se checked, il hidden non invia
-            });
-
             var warnings = [];
             var emailInput = form.querySelector('[name=”email”]');
             if (emailInput && emailInput.value !== emailInput.dataset.originalEmail) {

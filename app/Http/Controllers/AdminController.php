@@ -692,7 +692,7 @@ class AdminController extends Controller
             'managed_account_id'     => $validated['managed_account_id'] ?? null,
             'role'                   => $validated['role_label'] ?? $user->role,
             'is_active'              => (bool) $validated['is_active'],
-            'is_super_admin'         => (bool) ($validated['is_super_admin'] ?? false),
+            'is_super_admin'         => $request->boolean('is_super_admin'),
             'circuit_capacity_limit'    => $limitToCents('circuit_capacity_limit'),
             'negative_balance_limit'    => $limitToCents('negative_balance_limit'),
             'daily_transaction_limit'   => $limitToCents('daily_transaction_limit'),
@@ -710,7 +710,7 @@ class AdminController extends Controller
         if ($primaryAccount) {
             $accountUpdates = [
                 // allow_negative_balance: sempre aggiornato (il form invia sempre 0 o 1)
-                'allow_negative_balance' => (bool) ($validated['primary_account_allow_negative'] ?? false),
+                'allow_negative_balance' => $request->boolean('primary_account_allow_negative'),
             ];
             if ($request->filled('primary_account_max_balance') || $request->has('primary_account_max_balance')) {
                 $accountUpdates['max_balance'] = $limitToCents('primary_account_max_balance');
