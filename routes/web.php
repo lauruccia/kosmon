@@ -660,6 +660,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/emissione-ky', [AdminController::class, 'emitKyForm'])->name('admin.ky.emit');
     Route::post('/admin/emissione-ky', [AdminController::class, 'emitKy'])->name('admin.ky.emit.submit');
 
+    // Integrità contabile circuito
+    Route::get('/admin/integrita', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'index'])->name('admin.integrity.index');
+    Route::post('/admin/integrita/fix-all', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAll'])->name('admin.integrity.fix-all');
+    Route::post('/admin/integrita/fix/{accountId}', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAccount'])->name('admin.integrity.fix-account');
+
     Route::get('/admin/report', [AdminController::class, 'report'])->name('admin.report');
     Route::get('/admin/audit', [AdminController::class, 'auditLog'])->name('admin.audit');
     Route::get('/admin/audit/export-csv', [AdminController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');

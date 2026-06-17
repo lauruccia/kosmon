@@ -1323,6 +1323,7 @@
                                 @endif
                             </a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'emit' ? 'active' : '' }}" href="{{ route('admin.ky.emit') }}"><span class="nav-icon">KY</span><span>Emissione KY</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'integrity' ? 'active' : '' }}" href="{{ route('admin.integrity.index') }}"><span class="nav-icon">⚖</span><span>Integrità KY</span></a>
                             @endif
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
