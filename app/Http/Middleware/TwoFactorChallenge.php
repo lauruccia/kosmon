@@ -34,32 +34,9 @@ class TwoFactorChallenge
         $hasTwoFactor = (bool) $user->two_factor_confirmed_at;
         $hasPasskey   = $user->webAuthnCredentials()->exists();
 
-        // Nessun secondo fattore configurato → obbliga la configurazione
+        // Nessun secondo fattore configurato → l'utente può scegliere se attivarlo
         if (! $hasTwoFactor && ! $hasPasskey) {
-            // Esenzione: admin super può saltare (gestione emergenza)
-            if ($user->is_super_admin) {
-                return $next($request);
-            }
-
-            // Esenzione: route di profilo/sicurezza per poter configurare il 2FA
-            if ($request->routeIs(
-                'portal.security',
-                'portal.profile.*',
-                'portal.settings.*',
-                'portal.2fa.*',
-            )) {
-                return $next($request);
-            }
-
-            // In testing il redirect al wizard 2FA viene bypassato: i test esistenti
-            // non configurano 2FA perché non testano questo flusso UX. Il comportamento
-            // è coperto da TwoFactorRequiredTest dedicato.
-            if (app()->environment('testing')) {
-                return $next($request);
-            }
-
-            return redirect()->route('portal.2fa.required')
-                ->with('info', 'Per accedere al circuito è necessario attivare un secondo fattore di autenticazione (TOTP o passkey).');
+            return $next($request);
         }
 
         // TOTP configurato ma non ancora verificato in questa sessione
