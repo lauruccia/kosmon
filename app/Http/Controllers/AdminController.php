@@ -503,13 +503,14 @@ class AdminController extends Controller
         if ($search !== '') {
             $transfersQuery->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($search): void {
                 $like = '%' . $search . '%';
-                // Cerca sul nome dell'account (display_name) o del titolare (users.name) o della company (companies.name)
+                // display_name è un accessor: la colonna reale è account_name,
+                // con fallback su users.name (privati) e companies.name (aziende)
                 $q->whereHas('fromAccount', function ($q2) use ($like): void {
-                    $q2->where('display_name', 'like', $like)
+                    $q2->where('account_name', 'like', $like)
                         ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', $like))
                         ->orWhereHas('company', fn ($c) => $c->where('name', 'like', $like));
                 })->orWhereHas('toAccount', function ($q2) use ($like): void {
-                    $q2->where('display_name', 'like', $like)
+                    $q2->where('account_name', 'like', $like)
                         ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', $like))
                         ->orWhereHas('company', fn ($c) => $c->where('name', 'like', $like));
                 });
