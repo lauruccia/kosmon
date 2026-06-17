@@ -203,7 +203,7 @@
                     </span>
                     @if($massimale > 0)
                         <div style="font-size:10px;color:var(--accent);margin-top:2px;">
-                            +{{ number_format($massimale, 0, ',', '.') }} fido
+                            +{{ ky_format($massimale) }} KY fido
                         </div>
                     @endif
                 </td>

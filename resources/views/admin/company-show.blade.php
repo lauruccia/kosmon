@@ -541,5 +541,3 @@
 
 </div>
 @endsection
-iv>
-@endsection
