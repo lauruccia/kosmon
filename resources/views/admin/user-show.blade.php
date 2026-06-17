@@ -481,12 +481,13 @@
             <div class=”field-grid” style=”grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;”>
                 <div class=”field”>
                     <label>Tipologia</label>
-                    <select name=”account_holder_type”>
+                    <select name=”account_holder_type” id=”tipologia-select”
+                            onchange=”toggleAziendaField(this.value)”>
                         <option value=”company” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'company')>Azienda</option>
                         <option value=”private” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'private')>Privato</option>
                     </select>
                 </div>
-                <div class=”field”>
+                <div class=”field” id=”field-azienda-collegata”>
                     <label>Azienda collegata</label>
                     <select name=”company_id”>
                         <option value=””>Nessuna</option>
@@ -639,6 +640,25 @@
         </form>
 
         <script>
+        function toggleAziendaField(tipo) {
+            var el = document.getElementById('field-azienda-collegata');
+            if (!el) return;
+            if (tipo === 'private') {
+                el.style.display = 'none';
+                var sel = el.querySelector('select[name="company_id"]');
+                if (sel) sel.disabled = true;
+            } else {
+                el.style.display = '';
+                var sel = el.querySelector('select[name="company_id"]');
+                if (sel) sel.disabled = false;
+            }
+        }
+        // Applica subito al caricamento della pagina
+        document.addEventListener('DOMContentLoaded', function () {
+            var tipologia = document.getElementById('tipologia-select');
+            if (tipologia) toggleAziendaField(tipologia.value);
+        });
+
         function adminUpdateConfirm(form) {
             var warnings = [];
             var emailInput = form.querySelector('[name=”email”]');
