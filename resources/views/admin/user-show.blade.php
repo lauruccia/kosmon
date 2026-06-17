@@ -1,5 +1,81 @@
 @extends('layouts.portal')
 
+@push('head')
+<style>
+/* ── Admin user-update form ────────────────────────────────────── */
+#user-update { padding: 0; }
+.uu-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px 16px; border-bottom: 2px solid var(--line);
+}
+.uu-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+.uu-group {
+    border: 2px solid var(--line-strong); border-radius: 10px;
+    overflow: hidden; background: var(--surface);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.uu-group-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; background: var(--surface-soft);
+    border-bottom: 1px solid var(--line);
+    font-size: 10px; font-weight: 800; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--ink-muted);
+}
+.uu-group-head svg { opacity: .55; flex-shrink: 0; }
+.uu-group-body { padding: 14px 16px; display: grid; gap: 12px; }
+.uu-group-body.cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.uu-group-body.cols-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.uu-group-body.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.uu-group-body.cols-5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+@media (max-width: 960px) {
+    .uu-group-body.cols-4,
+    .uu-group-body.cols-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 620px) {
+    .uu-group-body.cols-2,
+    .uu-group-body.cols-3,
+    .uu-group-body.cols-4,
+    .uu-group-body.cols-5 { grid-template-columns: 1fr; }
+}
+.uu-field { display: flex; flex-direction: column; gap: 4px; }
+.uu-field > label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--ink-muted);
+}
+.uu-field input[type="text"],
+.uu-field input[type="email"],
+.uu-field input[type="number"],
+.uu-field select {
+    width: 100%; padding: 7px 10px;
+    border: 1.5px solid var(--line); border-radius: 7px;
+    background: var(--surface); color: var(--ink);
+    font-size: 13.5px; line-height: 1.4;
+    transition: border-color .15s, box-shadow .15s;
+}
+.uu-field input:focus, .uu-field select:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+}
+.uu-hint { font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+.uu-toggle {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border: 1.5px solid var(--line);
+    border-radius: 8px; background: var(--surface-soft);
+    cursor: pointer; user-select: none;
+}
+.uu-toggle input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: var(--primary);
+    cursor: pointer; flex-shrink: 0; margin-top: 2px;
+}
+.uu-toggle.danger { border-color: #f5c6cb; background: #fff5f5; }
+.uu-toggle.danger input[type="checkbox"] { accent-color: #c0392b; }
+.uu-toggle-text strong { font-size: 13px; color: var(--ink); }
+.uu-toggle-text span { display: block; font-size: 11px; color: var(--ink-muted); margin-top: 2px; line-height: 1.4; }
+.uu-select-active  { border-color: #27ae6066 !important; background: #f0fff4 !important; }
+.uu-select-inactive{ border-color: #e74c3c66 !important; background: #fff5f5 !important; }
+</style>
+@endpush
+
 @section('content')
     @php
         $currency = $primaryAccount?->currency_code ?? 'KY';
@@ -323,213 +399,7 @@
         @else
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
                 @foreach($activeSessions as $session)
-                @php
-                    $ua       = $session->user_agent ?? '';
-                    $isMobile = stripos($ua, 'mobile') !== false || stripos($ua, 'android') !== false;
-                    $isTablet = stripos($ua, 'tablet') !== false || stripos($ua, 'ipad') !== false;
-                    $icon     = $isMobile ? '📱' : ($isTablet ? '📟' : '🖥️');
-                    $lastSeen = \Carbon\Carbon::createFromTimestamp($session->last_activity);
-                @endphp
-                <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:22px;">{{ $icon }}</span>
-                        <div>
-                            <div style="font-size:13px;font-weight:700;color:var(--ink);">
-                                {{ $session->ip_address ?? 'IP sconosciuto' }}
-                            </div>
-                            <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">
-                                Attiva {{ $lastSeen->diffForHumans() }} &middot; {{ $lastSeen->format('d/m/Y H:i') }}
-                            </div>
-                            @if($ua)
-                            <div style="font-size:11px;color:var(--ink-muted);margin-top:1px;max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $ua }}">
-                                {{ Str::limit($ua, 80) }}
-                            </div>
-                            @endif
-                        </div>
-                    </div>
-                    <form method="POST" action="{{ route('admin.users.sessions.terminate', [$userRecord, $session->id]) }}"
-                          onsubmit="return confirm('Terminare questa sessione?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit"
-                                style="font-size:12px;font-weight:600;color:var(--danger);background:transparent;border:1.5px solid var(--danger);padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;">
-                            Disconnetti
-                        </button>
-                    </form>
-                </div>
-                @endforeach
-            </div>
-        @endif
-
-        {{-- Storico accessi --}}
-        @if($loginLogs->isNotEmpty())
-        <div style="border-top:1px solid var(--line);padding-top:18px;">
-            <div class="eyebrow" style="margin-bottom:10px;">Ultimi accessi registrati</div>
-            <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--line);">
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Data</th>
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">IP</th>
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Posizione</th>
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Dispositivo</th>
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;">Browser</th>
-                        <th style="padding:6px 10px;text-align:left;color:var(--ink-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:10px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($loginLogs as $log)
-                    <tr style="border-bottom:1px solid var(--line-soft);">
-                        <td style="padding:8px 10px;white-space:nowrap;">
-                            <div style="font-weight:600;color:var(--ink);">{{ $log->logged_in_at?->format('d/m/Y') }}</div>
-                            <div style="color:var(--ink-muted);font-size:10px;">{{ $log->logged_in_at?->format('H:i:s') }}</div>
-                        </td>
-                        <td style="padding:8px 10px;">
-                            <code style="font-size:11px;background:var(--surface-soft);padding:2px 6px;border-radius:4px;border:1px solid var(--line);">{{ $log->ip_address ?? '—' }}</code>
-                        </td>
-                        <td style="padding:8px 10px;color:var(--ink);">
-                            {{ implode(', ', array_filter([$log->city, $log->country])) ?: '—' }}
-                        </td>
-                        <td style="padding:8px 10px;">
-                            @php $dIcon = match($log->device_type) { 'mobile' => '📱', 'tablet' => '📟', 'desktop' => '🖥️', default => '💻' }; @endphp
-                            {{ $dIcon }} {{ ucfirst($log->device_type ?? '—') }}
-                        </td>
-                        <td style="padding:8px 10px;">
-                            <div style="color:var(--ink);">{{ $log->browser ?? '—' }}</div>
-                            <div style="color:var(--ink-muted);font-size:10px;">{{ $log->os ?? '' }}</div>
-                        </td>
-                        <td style="padding:8px 10px;text-align:right;">
-                            @if($loop->first)
-                                <span style="background:#dbeafe;color:#1d4ed8;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;">Più recente</span>
-                            @elseif($log->is_new_ip)
-                                <span style="background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;" title="Primo accesso da questo IP">⚠ Nuovo IP</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-        @else
-            <p class="table-muted" style="padding-top:12px;">Nessun accesso registrato nella cronologia.</p>
-        @endif
-    </section>
-
-    <section class="card light-card" id="user-password" style="margin-bottom:22px;">
-        <div class="section-head">
-            <div>
-                <span class="eyebrow">Sicurezza account</span>
-                <h3 class="section-title">Cambia password</h3>
-            </div>
-        </div>
-        <form method="post" action="{{ route('admin.users.password', $userRecord) }}" class="field-grid" style="max-width:480px;">
-            @csrf
-            <div class="field">
-                <label>Nuova password</label>
-                <div class="pw-wrap">
-                    <input name="new_password" type="password" required minlength="8" autocomplete="new-password">
-                </div>
-            </div>
-            <div class="field">
-                <label>Conferma nuova password</label>
-                <div class="pw-wrap">
-                    <input name="new_password_confirmation" type="password" required minlength="8" autocomplete="new-password">
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="cta" onclick="return confirm('Impostare la nuova password per {{ addslashes($userRecord->name) }}?')">Imposta password</button>
-            </div>
-        </form>
-    </section>
-
-    @push('head')
-    <style>
-    /* ── Admin user-update form ─────────────────────────────────────────────── */
-    #user-update { padding: 0; }
-    .uu-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 18px 24px 16px; border-bottom: 1px solid var(--line);
-    }
-    .uu-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
-
-    /* sub-card per ogni gruppo */
-    .uu-group {
-        border: 1px solid var(--line); border-radius: var(--radius-sm);
-        overflow: hidden;
-    }
-    .uu-group-head {
-        display: flex; align-items: center; gap: 8px;
-        padding: 10px 16px; background: var(--surface-soft);
-        border-bottom: 1px solid var(--line);
-        font-size: 11px; font-weight: 800; letter-spacing: .07em;
-        text-transform: uppercase; color: var(--ink-muted);
-    }
-    .uu-group-head svg { opacity: .6; flex-shrink: 0; }
-    .uu-group-body { padding: 16px; display: grid; gap: 14px; }
-    .uu-group-body.cols-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .uu-group-body.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
-    .uu-group-body.cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
-    .uu-group-body.cols-5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
-    @media (max-width: 900px) {
-        .uu-group-body.cols-3,
-        .uu-group-body.cols-4,
-        .uu-group-body.cols-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
-
-    /* field dentro uu-group */
-    .uu-field { display: flex; flex-direction: column; gap: 5px; }
-    .uu-field label {
-        font-size: 11px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .06em; color: var(--ink-muted);
-    }
-    .uu-field input[type=”text”],
-    .uu-field input[type=”email”],
-    .uu-field input[type=”number”],
-    .uu-field input[type=”tel”],
-    .uu-field select {
-        width: 100%; padding: 8px 10px; border: 1px solid var(--line);
-        border-radius: var(--radius-sm); background: var(--surface);
-        color: var(--ink); font-size: 13.5px; line-height: 1.4;
-        transition: border-color .15s, box-shadow .15s;
-    }
-    .uu-field input:focus,
-    .uu-field select:focus {
-        outline: none; border-color: var(--primary);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
-    }
-    .uu-field .uu-hint {
-        font-size: 11px; color: var(--ink-muted); margin-top: 2px; line-height: 1.4;
-    }
-
-    /* toggle checkbox */
-    .uu-toggle {
-        display: flex; align-items: center; gap: 10px;
-        padding: 10px 12px; border: 1px solid var(--line);
-        border-radius: var(--radius-sm); background: var(--surface);
-        cursor: pointer; user-select: none;
-    }
-    .uu-toggle input[type=”checkbox”] {
-        width: 18px; height: 18px; accent-color: var(--primary);
-        cursor: pointer; flex-shrink: 0; margin: 0;
-    }
-    .uu-toggle-text strong { font-size: 13px; }
-    .uu-toggle-text span { display: block; font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
-
-    /* danger toggle */
-    .uu-toggle.danger { border-color: #e53e3e22; background: #fff5f5; }
-    .uu-toggle.danger input[type=”checkbox”] { accent-color: #e53e3e; }
-
-    /* status select */
-    .uu-status-active  { border-color: #38a16933 !important; background: #f0fff433 !important; }
-    .uu-status-inactive{ border-color: #e53e3e33 !important; background: #fff5f533 !important; }
-    </style>
-    @endpush
-
-    <section class=”card light-card” id=”user-update”>
-        @php
-            /* Pulisce eventuali virgolette legacy nel DB (dati importati con apici) */
-            $uuClean = fn (?string $v): string => trim($v ?? '', '”\'');
-            $holderType = $userRecord->account_holder_type;
-        @endphp
+                @php $holderType = $userRecord->account_holder_type; @endphp
 
         <div class=”uu-header”>
             <div>
@@ -555,21 +425,21 @@
                     <div class=”uu-field”>
                         <label>Nome completo</label>
                         <input name=”name” type=”text” required
-                               value=”{{ old('name', $uuClean($userRecord->name)) }}”
+                               value=”{{ old('name', trim((string)($userRecord->name ?? ''), '"')) }}”
                                placeholder=”Nome e cognome”>
                     </div>
                     <div class=”uu-field”>
                         <label>Indirizzo email</label>
                         <input name=”email” type=”email” required
-                               value=”{{ old('email', $uuClean($userRecord->email)) }}”
-                               data-original-email=”{{ $uuClean($userRecord->email) }}”
+                               value=”{{ old('email', trim((string)($userRecord->email ?? ''), '"')) }}”
+                               data-original-email=”{{ trim((string)($userRecord->email ?? ''), '"') }}”
                                placeholder=”email@esempio.it”>
                         <span class=”uu-hint”>Modificare reimposta la verifica email.</span>
                     </div>
                     <div class=”uu-field”>
                         <label>Telefono</label>
                         <input name=”phone” type=”text”
-                               value=”{{ old('phone', $uuClean($userRecord->phone)) }}”
+                               value=”{{ old('phone', trim((string)($userRecord->phone ?? ''), '"')) }}”
                                placeholder=”+39 000 0000000”>
                     </div>
                 </div>
@@ -611,7 +481,7 @@
                     <div class=”uu-field”>
                         <label>Etichetta interna</label>
                         <input name=”role_label” type=”text”
-                               value=”{{ old('role_label', $uuClean($userRecord->role)) }}”
+                               value=”{{ old('role_label', trim((string)($userRecord->role ?? ''), '"')) }}”
                                placeholder=”owner, manager, operatore…”>
                     </div>
                 </div>
