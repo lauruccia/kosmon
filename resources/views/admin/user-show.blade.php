@@ -514,4 +514,138 @@
                     <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;”>
                         <input type=”hidden” name=”is_super_admin” value=”0”>
                         <input type=”checkbox” name=”is_super_admin” value=”1”
-                             
+                               @checked(old('is_super_admin', $userRecord->is_super_admin))
+                               data-danger=”superadmin”
+                               style=”width:18px;height:18px;”>
+                        <span><strong>Super Admin</strong><span class=”table-muted” style=”display:block;font-size:11px;”>Accesso illimitato a tutte le funzioni del backoffice.</span></span>
+                    </label>
+                </div>
+            </div>
+
+            {{-- ── Limiti utente ─────────────────────────────────────────────── --}}
+            <div style=”margin-top:8px;margin-bottom:4px;”><span class=”eyebrow”>Limiti transazionali (KY)</span></div>
+            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+                <div class=”field”>
+                    <label>Disponibilità commerciale personalizzata</label>
+                    <input name=”circuit_capacity_limit” type=”number” min=”0” step=”0.01”
+                           value=”{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}”
+                           placeholder=”Vuoto = default admin”>
+                    <div class=”table-muted”>Tetto massimo acquistabile nel circuito.</div>
+                </div>
+                <div class=”field”>
+                    <label>Massimale / fido personalizzato (KY)</label>
+                    <input name=”negative_balance_limit” type=”number” min=”0” step=”0.01”
+                           value=”{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}”
+                           placeholder=”Vuoto = default admin”>
+                    <div class=”table-muted”><code>0</code> blocca il negativo; vuoto usa il default.</div>
+                </div>
+                <div class=”field”>
+                    <label>Limite giornaliero personalizzato (KY)</label>
+                    <input name=”daily_transaction_limit” type=”number” min=”0” step=”0.01”
+                           value=”{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}”
+                           placeholder=”Vuoto = default admin”>
+                </div>
+                <div class=”field”>
+                    <label>Limite mensile personalizzato (KY)</label>
+                    <input name=”monthly_transaction_limit” type=”number” min=”0” step=”0.01”
+                           value=”{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}”
+                           placeholder=”Vuoto = default admin”>
+                </div>
+                <div class=”field”>
+                    <label>Limite per movimento personalizzato (KY)</label>
+                    <input name=”per_movement_limit” type=”number” min=”0” step=”0.01”
+                           value=”{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}”
+                           placeholder=”Vuoto = default admin”>
+                </div>
+            </div>
+
+            {{-- ── Conto principale ──────────────────────────────────────────── --}}
+            @if ($primaryAccount)
+                <div style=”margin-top:8px;margin-bottom:4px;”>
+                    <span class=”eyebrow”>Conto principale — {{ $primaryAccount->display_name ?? $primaryAccount->uuid }}</span>
+                </div>
+                <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+                    <div class=”field”>
+                        <label>Saldo massimo (KY)</label>
+                        <input name=”primary_account_max_balance” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('primary_account_max_balance', ky_input($primaryAccount->max_balance)) }}”
+                               placeholder=”Vuoto = nessun limite”>
+                        <div class=”table-muted”>Tetto positivo del conto (max_balance). Vive sul conto.</div>
+                    </div>
+                    <div class=”field” style=”display:flex;flex-direction:column;justify-content:flex-end;gap:10px;”>
+                        <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;”>
+                            <input type=”hidden” name=”primary_account_allow_negative” value=”0”>
+                            <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
+                                   @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))
+                                   style=”width:18px;height:18px;”>
+                            <span><strong>Consenti saldo negativo</strong><span class=”table-muted” style=”display:block;font-size:11px;”>Il conto può scendere sotto zero (fido).</span></span>
+                        </label>
+                    </div>
+                </div>
+            @endif
+
+            {{-- ── Ruoli ─────────────────────────────────────────────────────── --}}
+            <div class=”field”>
+                <label>Ruoli</label>
+                <div class=”role-grid”>
+                    @foreach ($roles as $role)
+                        <label class=”check-tile”>
+                            <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
+                                   @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
+                            <span class=”check-tile-copy”>
+                                <span class=”check-tile-head”>
+                                    <strong>{{ $role->name }}</strong>
+                                    <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
+                                </span>
+                                <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
+                                <span class=”perm-badges”>
+                                    @forelse ($role->permissions->take(4) as $permission)
+                                        <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
+                                    @empty
+                                        <span class=”perm-empty”>Nessun permesso collegato</span>
+                                    @endforelse
+                                    @if ($role->permissions->count() > 4)
+                                        <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
+                                    @endif
+                                </span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class=”form-actions”>
+                <button type=”submit” class=”cta”>Salva modifiche</button>
+            </div>
+        </form>
+
+        <script>
+        function adminUpdateConfirm(form) {
+            const warnings = [];
+
+            // Email cambiata?
+            const emailInput = form.querySelector('[name=”email”]');
+            if (emailInput && emailInput.value !== emailInput.dataset.originalEmail) {
+                warnings.push('⚠️ Stai cambiando l\'email dell\'utente. La verifica email verrà reimpostata.');
+            }
+
+            // Account disattivato?
+            const isActive = form.querySelector('[name=”is_active”]');
+            if (isActive && isActive.value === '0') {
+                warnings.push('⚠️ Stai disattivando l\'account. L\'utente non potrà più accedere.');
+            }
+
+            // Super admin abilitato?
+            const isSuperAdmin = form.querySelector('[name=”is_super_admin”][type=”checkbox”]');
+            if (isSuperAdmin && isSuperAdmin.checked) {
+                warnings.push('⚠️ Stai assegnando i privilegi di SUPER ADMIN. Avrà accesso illimitato al backoffice.');
+            }
+
+            if (warnings.length > 0) {
+                return confirm(warnings.join('\n\n') + '\n\nConfermi le modifiche?');
+            }
+            return true;
+        }
+        </script>
+    </section>
+@endsection
