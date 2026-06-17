@@ -40,6 +40,9 @@ class VerifyAccountingIntegrity extends Command
             FROM transfers t
             LEFT JOIN ledger_entries le ON le.transfer_id = t.id
             WHERE t.status = 'booked'
+              -- Esenta i record di migrazione legacy ('KM-MIG-*'): storico importato
+              -- senza partita doppia per natura (vedi AdminIntegrityController).
+              AND t.reference NOT LIKE 'KM-MIG-%'
             GROUP BY t.id, t.uuid, t.amount, t.kind
             HAVING total_debit != t.amount
                 OR total_credit != t.amount

@@ -77,6 +77,10 @@ class AdminIntegrityController extends Controller
             LEFT JOIN accounts fa ON fa.id = t.from_account_id
             LEFT JOIN accounts ta ON ta.id = t.to_account_id
             WHERE t.status = 'booked'
+              -- Esenta i record di migrazione legacy (reference 'KM-MIG-*'): sono lo storico
+              -- importato dal vecchio sistema, privo di partita doppia per natura. I saldi
+              -- sono gia' allineati al ledger tramite i movimenti di apertura.
+              AND t.reference NOT LIKE 'KM-MIG-%'
             GROUP BY t.id, t.uuid, t.amount, t.kind, t.status, t.booked_at, fa.account_name, ta.account_name
             HAVING total_debit  != t.amount
                 OR total_credit != t.amount
