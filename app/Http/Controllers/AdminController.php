@@ -680,7 +680,6 @@ class AdminController extends Controller
 
         $limitToCents = fn (string $field) => $request->filled($field) ? ky_to_cents($validated[$field]) : null;
 
-        // Avviso se si sta cambiando email
         $emailChanged = $validated['email'] !== $user->email;
 
         $user->forceFill([
@@ -704,7 +703,6 @@ class AdminController extends Controller
 
         $user->roles()->sync($validated['roles'] ?? []);
 
-        // Aggiornamento conto principale
         $user->load(['company.accounts', 'managedAccount', 'ownedAccounts']);
         $primaryAccount = $this->accountsForUser($user)->firstWhere('type', 'primary')
             ?? $this->accountsForUser($user)->first();
@@ -2706,77 +2704,7 @@ Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at),
                     ky_format($a->available_balance),
                     ky_format($climit)
                 ),
-             
                 'link'     => route('admin.accounts.show', $a->id),
-                'at'       => null,
-            ]);
-        }
-
-        // 4. KYC non completato su account attivi con transazioni recenti
-        $activeWithoutKyc = Account::select('accounts.id', 'accounts.account_name', 'accounts.company_id')
-            ->join('transfers', function ($j) use ($from) {
-                $j->on('accounts.id', '=', 'transfers.from_account_id')
-                  ->where('transfers.status', 'booked')
-                  ->where('transfers.booked_at', '>=', $from);
-            })
-            ->whereHas('company', function ($q) {
-                $q->whereDoesntHave('kycDocuments', fn ($d) => $d->where('status', 'approved'))
-                  ->where('status', 'active');
-            })
-            ->with('company:id,name')
-            ->distinct()
-            ->limit(10)
-            ->get();
-
-        foreach ($activeWithoutKyc as $a) {
-            $anomalies->push([
-                'type'     => 'kyc_missing',
-                'severity' => 'medium',
-                'title'    => 'KYC non approvato con attività recente',
-                'detail'   => sprintf(
-                    '%s ha transazioni nel periodo ma KYC non verificato',
-                    $a->company?->name ?? $a->account_name
-                ),
-                'link'     => route('admin.kyc.index'),
-                'at'       => null,
-            ]);
-        }
-
-        // Ordina per severity
-        $anomalies = $anomalies->sortBy(fn ($a) => match ($a['severity']) {
-            'high'   => 0,
-            'medium' => 1,
-            default  => 2,
-        })->values();
-
-        return view('admin.circuito', [
-            'pageTitle'         => 'Circolazione & Rete KY',
-            'activeNav'         => 'circuito',
-            'days'              => $days,
-
-            // Velocity
-            'kyInCirculation'   => $kyInCirculation,
-            'volumePeriod'      => $volumePeriod,
-            'transactionCount'  => $transactionCount,
-            'velocity30d'       => $velocity30d,
-            'rotationDays'      => $rotationDays,
-            'activeParticipants'=> (int) $activeParticipants,
-            'totalAccounts'     => $totalAccounts,
-            'participationRate' => $participationRate,
-            'avgAmount'         => $avgAmount ? (int) round($avgAmount) : 0,
-            'avgBalance'        => $avgBalance ? (int) round($avgBalance) : 0,
-            'velocityTrend'     => $velocityTrend,
-
-            // Rete
-            'networkNodes'      => $networkNodes,
-            'networkLinks'      => $networkLinks,
-
-            // Anomalie
-            'anomalies'         => $anomalies,
-        ]);
-    }
-}
-=> route('admin.accounts.show', $a->id),
                 'at'       => null,
             ]);
         }
