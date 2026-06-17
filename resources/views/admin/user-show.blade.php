@@ -441,222 +441,346 @@
         </form>
     </section>
 
-    <section class="card light-card" id="user-update">
-        <div class="section-head">
+    @push('head')
+    <style>
+    /* ── Admin user-update form ─────────────────────────────────────────────── */
+    #user-update { padding: 0; }
+    .uu-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 24px 16px; border-bottom: 1px solid var(--line);
+    }
+    .uu-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* sub-card per ogni gruppo */
+    .uu-group {
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+        overflow: hidden;
+    }
+    .uu-group-head {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 16px; background: var(--surface-soft);
+        border-bottom: 1px solid var(--line);
+        font-size: 11px; font-weight: 800; letter-spacing: .07em;
+        text-transform: uppercase; color: var(--ink-muted);
+    }
+    .uu-group-head svg { opacity: .6; flex-shrink: 0; }
+    .uu-group-body { padding: 16px; display: grid; gap: 14px; }
+    .uu-group-body.cols-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .uu-group-body.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .uu-group-body.cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .uu-group-body.cols-5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+    @media (max-width: 900px) {
+        .uu-group-body.cols-3,
+        .uu-group-body.cols-4,
+        .uu-group-body.cols-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    /* field dentro uu-group */
+    .uu-field { display: flex; flex-direction: column; gap: 5px; }
+    .uu-field label {
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--ink-muted);
+    }
+    .uu-field input[type=”text”],
+    .uu-field input[type=”email”],
+    .uu-field input[type=”number”],
+    .uu-field input[type=”tel”],
+    .uu-field select {
+        width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+        border-radius: var(--radius-sm); background: var(--surface);
+        color: var(--ink); font-size: 13.5px; line-height: 1.4;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .uu-field input:focus,
+    .uu-field select:focus {
+        outline: none; border-color: var(--primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+    }
+    .uu-field .uu-hint {
+        font-size: 11px; color: var(--ink-muted); margin-top: 2px; line-height: 1.4;
+    }
+
+    /* toggle checkbox */
+    .uu-toggle {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border: 1px solid var(--line);
+        border-radius: var(--radius-sm); background: var(--surface);
+        cursor: pointer; user-select: none;
+    }
+    .uu-toggle input[type=”checkbox”] {
+        width: 18px; height: 18px; accent-color: var(--primary);
+        cursor: pointer; flex-shrink: 0; margin: 0;
+    }
+    .uu-toggle-text strong { font-size: 13px; }
+    .uu-toggle-text span { display: block; font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+    /* danger toggle */
+    .uu-toggle.danger { border-color: #e53e3e22; background: #fff5f5; }
+    .uu-toggle.danger input[type=”checkbox”] { accent-color: #e53e3e; }
+
+    /* status select */
+    .uu-status-active  { border-color: #38a16933 !important; background: #f0fff433 !important; }
+    .uu-status-inactive{ border-color: #e53e3e33 !important; background: #fff5f533 !important; }
+    </style>
+    @endpush
+
+    <section class=”card light-card” id=”user-update”>
+        @php
+            /* Pulisce eventuali virgolette legacy nel DB (dati importati con apici) */
+            $uuClean = fn (?string $v): string => trim($v ?? '', '”\'');
+            $holderType = $userRecord->account_holder_type;
+        @endphp
+
+        <div class=”uu-header”>
             <div>
-                <span class="eyebrow">Aggiornamento backoffice</span>
-                <h3 class="section-title">Aggiorna utente</h3>
+                <span class=”eyebrow”>Aggiornamento backoffice</span>
+                <h3 class=”section-title” style=”margin:2px 0 0;”>Modifica utente</h3>
             </div>
-            <span class="pill">{{ $roles->count() }} ruoli</span>
+            <span class=”pill”>{{ $roles->count() }} ruoli disponibili</span>
         </div>
 
-        {{-- hidden inputs FUORI dal form-grid per evitare che il CSS li renda visibili --}}
-        <form method=”post” action=”{{ route('admin.users.update', $userRecord) }}” class=”field-grid”
+        <div class=”uu-body”>
+        <form method=”post” action=”{{ route('admin.users.update', $userRecord) }}”
               id=”form-aggiorna-utente”
               onsubmit=”return adminUpdateConfirm(this)”>
             @csrf
 
-            {{-- ── Anagrafica ──────────────────────────────────────────────────────── --}}
-            <p class=”eyebrow” style=”margin:0 0 6px;”>Anagrafica</p>
-            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
-                <div class=”field”>
-                    <label>Nome completo</label>
-                    <input name=”name” type=”text” required
-                           value=”{{ old('name', $userRecord->name) }}”>
+            {{-- ── 1. Anagrafica ────────────────────────────────────────────────── --}}
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><circle cx=”12” cy=”8” r=”4”/><path d=”M4 20c0-4 3.6-7 8-7s8 3 8 7”/></svg>
+                    Anagrafica
                 </div>
-                <div class=”field”>
-                    <label>Email</label>
-                    <input name=”email” type=”email” required
-                           value=”{{ old('email', $userRecord->email) }}”
-                           data-original-email=”{{ $userRecord->email }}”>
-                    <div class=”table-muted” style=”margin-top:4px;”>Modificare reimposta la verifica.</div>
-                </div>
-                <div class=”field”>
-                    <label>Telefono</label>
-                    <input name=”phone” type=”text”
-                           value=”{{ old('phone', $userRecord->phone) }}”>
-                </div>
-            </div>
-
-            <div class=”field-grid” style=”grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;”>
-                <div class=”field”>
-                    <label>Tipologia</label>
-                    <select name=”account_holder_type” id=”tipologia-select”
-                            onchange=”toggleAziendaField(this.value)”>
-                        <option value=”company” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'company')>Azienda</option>
-                        <option value=”private” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'private')>Privato</option>
-                    </select>
-                </div>
-                <div class=”field” id=”field-azienda-collegata”>
-                    <label>Azienda collegata</label>
-                    <select name=”company_id”>
-                        <option value=””>Nessuna</option>
-                        @foreach ($companies as $company)
-                            <option value=”{{ $company->id }}”
-                                    @selected((int) old('company_id', $userRecord->company_id) === $company->id)>
-                                {{ $company->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class=”field”>
-                    <label>Sottoconto gestito (ID)</label>
-                    <input name=”managed_account_id” type=”number” min=”1”
-                           value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”
-                           placeholder=”Lascia vuoto se non applicabile”>
-                </div>
-                <div class=”field”>
-                    <label>Etichetta interna</label>
-                    <input name=”role_label” type=”text”
-                           value=”{{ old('role_label', $userRecord->role) }}”
-                           placeholder=”es. owner, manager…”>
+                <div class=”uu-group-body cols-3”>
+                    <div class=”uu-field”>
+                        <label>Nome completo</label>
+                        <input name=”name” type=”text” required
+                               value=”{{ old('name', $uuClean($userRecord->name)) }}”
+                               placeholder=”Nome e cognome”>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Indirizzo email</label>
+                        <input name=”email” type=”email” required
+                               value=”{{ old('email', $uuClean($userRecord->email)) }}”
+                               data-original-email=”{{ $uuClean($userRecord->email) }}”
+                               placeholder=”email@esempio.it”>
+                        <span class=”uu-hint”>Modificare reimposta la verifica email.</span>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Telefono</label>
+                        <input name=”phone” type=”text”
+                               value=”{{ old('phone', $uuClean($userRecord->phone)) }}”
+                               placeholder=”+39 000 0000000”>
+                    </div>
                 </div>
             </div>
 
-            {{-- ── Stato e accessi speciali ────────────────────────────────────────── --}}
-            <p class=”eyebrow” style=”margin:8px 0 6px;”>Stato e accessi</p>
-            <div class=”field-grid” style=”grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;”>
-                <div class=”field”>
-                    <label>Stato account</label>
-                    <select name=”is_active”>
-                        <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>✅ Attivo</option>
-                        <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>🚫 Disattivo — accesso bloccato</option>
-                    </select>
+            {{-- ── 2. Classificazione ───────────────────────────────────────────── --}}
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”2” y=”7” width=”20” height=”14” rx=”2”/><path d=”M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2”/></svg>
+                    Classificazione
                 </div>
-                <div class=”field”>
-                    <label>Privilegi Super Admin</label>
-                    <div style=”display:flex;align-items:center;gap:12px;padding:10px 0;”>
-                        <label class=”admin-toggle” style=”display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:normal;”>
+                <div class=”uu-group-body cols-4”>
+                    <div class=”uu-field”>
+                        <label>Tipologia</label>
+                        <select name=”account_holder_type” id=”tipologia-select”
+                                onchange=”toggleAziendaField(this.value)”>
+                            <option value=”company” @selected(old('account_holder_type', $holderType) === 'company')>Azienda</option>
+                            <option value=”private” @selected(old('account_holder_type', $holderType) === 'private')>Privato</option>
+                        </select>
+                    </div>
+                    <div class=”uu-field” id=”field-azienda-collegata”>
+                        <label>Azienda collegata</label>
+                        <select name=”company_id”>
+                            <option value=””>— Nessuna —</option>
+                            @foreach ($companies as $company)
+                                <option value=”{{ $company->id }}”
+                                        @selected((int) old('company_id', $userRecord->company_id) === $company->id)>
+                                    {{ $company->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Sottoconto gestito (ID)</label>
+                        <input name=”managed_account_id” type=”number” min=”1”
+                               value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”
+                               placeholder=”Vuoto se non applicabile”>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Etichetta interna</label>
+                        <input name=”role_label” type=”text”
+                               value=”{{ old('role_label', $uuClean($userRecord->role)) }}”
+                               placeholder=”owner, manager, operatore…”>
+                    </div>
+                </div>
+            </div>
+
+            {{-- ── 3. Stato e accessi ───────────────────────────────────────────── --}}
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”3” y=”11” width=”18” height=”11” rx=”2”/><path d=”M7 11V7a5 5 0 0 1 10 0v4”/></svg>
+                    Stato e accessi
+                </div>
+                <div class=”uu-group-body cols-2”>
+                    <div class=”uu-field”>
+                        <label>Stato account</label>
+                        <select name=”is_active” id=”stato-select”
+                                onchange=”updateStatusStyle(this)”>
+                            <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo — accesso consentito</option>
+                            <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo — accesso bloccato</option>
+                        </select>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Privilegi speciali</label>
+                        <label class=”uu-toggle danger”>
                             <input type=”checkbox” name=”is_super_admin” value=”1”
-                                   @checked(old('is_super_admin', $userRecord->is_super_admin))
-                                   style=”width:20px;height:20px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;”>
-                            <span>
+                                   @checked(old('is_super_admin', $userRecord->is_super_admin))>
+                            <div class=”uu-toggle-text”>
                                 <strong>Super Admin</strong>
-                                <span class=”table-muted” style=”display:block;font-size:11px;margin-top:2px;”>Accesso illimitato a tutto il backoffice.</span>
-                            </span>
+                                <span>Accesso illimitato a tutto il backoffice — assegnare con cautela.</span>
+                            </div>
                         </label>
                     </div>
                 </div>
             </div>
 
-            {{-- ── Limiti transazionali ────────────────────────────────────────────── --}}
-            <p class=”eyebrow” style=”margin:8px 0 6px;”>Limiti transazionali personalizzati (KY) — vuoto = usa il default admin</p>
-            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
-                <div class=”field”>
-                    <label>Disponibilità commerciale</label>
-                    <input name=”circuit_capacity_limit” type=”number” min=”0” step=”0.01”
-                           value=”{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}”
-                           placeholder=”Vuoto = default”>
-                    <div class=”table-muted” style=”margin-top:4px;”>Tetto massimo acquistabile nel circuito.</div>
+            {{-- ── 4. Limiti transazionali ──────────────────────────────────────── --}}
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><line x1=”12” y1=”1” x2=”12” y2=”23”/><path d=”M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6”/></svg>
+                    Limiti transazionali personalizzati (KY) &mdash; lascia vuoto per usare il default admin
                 </div>
-                <div class=”field”>
-                    <label>Massimale / fido</label>
-                    <input name=”negative_balance_limit” type=”number” min=”0” step=”0.01”
-                           value=”{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}”
-                           placeholder=”Vuoto = default”>
-                    <div class=”table-muted” style=”margin-top:4px;”><code>0</code> = nessun fido; vuoto = default.</div>
-                </div>
-                <div class=”field”>
-                    <label>Limite giornaliero</label>
-                    <input name=”daily_transaction_limit” type=”number” min=”0” step=”0.01”
-                           value=”{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}”
-                           placeholder=”Vuoto = default”>
-                </div>
-                <div class=”field”>
-                    <label>Limite mensile</label>
-                    <input name=”monthly_transaction_limit” type=”number” min=”0” step=”0.01”
-                           value=”{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}”
-                           placeholder=”Vuoto = default”>
-                </div>
-                <div class=”field”>
-                    <label>Limite per singolo movimento</label>
-                    <input name=”per_movement_limit” type=”number” min=”0” step=”0.01”
-                           value=”{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}”
-                           placeholder=”Vuoto = default”>
+                <div class=”uu-group-body cols-5”>
+                    <div class=”uu-field”>
+                        <label>Disponibilità commerciale</label>
+                        <input name=”circuit_capacity_limit” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}”
+                               placeholder=”Default admin”>
+                        <span class=”uu-hint”>Tetto massimo acquistabile.</span>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Massimale / fido</label>
+                        <input name=”negative_balance_limit” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}”
+                               placeholder=”Default admin”>
+                        <span class=”uu-hint”><code>0</code> = nessun fido.</span>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Limite giornaliero</label>
+                        <input name=”daily_transaction_limit” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}”
+                               placeholder=”Default admin”>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Limite mensile</label>
+                        <input name=”monthly_transaction_limit” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}”
+                               placeholder=”Default admin”>
+                    </div>
+                    <div class=”uu-field”>
+                        <label>Limite per movimento</label>
+                        <input name=”per_movement_limit” type=”number” min=”0” step=”0.01”
+                               value=”{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}”
+                               placeholder=”Default admin”>
+                    </div>
                 </div>
             </div>
 
-            {{-- ── Conto principale ────────────────────────────────────────────────── --}}
+            {{-- ── 5. Conto principale ──────────────────────────────────────────── --}}
             @if ($primaryAccount)
-                <p class=”eyebrow” style=”margin:8px 0 6px;”>
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”2” y=”5” width=”20” height=”14” rx=”2”/><line x1=”2” y1=”10” x2=”22” y2=”10”/></svg>
                     Conto principale &mdash; {{ $primaryAccount->display_name ?? $primaryAccount->uuid }}
-                </p>
-                <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
-                    <div class=”field”>
+                </div>
+                <div class=”uu-group-body cols-2”>
+                    <div class=”uu-field”>
                         <label>Saldo massimo (KY)</label>
                         <input name=”primary_account_max_balance” type=”number” min=”0” step=”0.01”
                                value=”{{ old('primary_account_max_balance', ky_input($primaryAccount->max_balance)) }}”
                                placeholder=”Vuoto = nessun tetto”>
-                        <div class=”table-muted” style=”margin-top:4px;”>Valore vive sul conto, non sull'utente.</div>
+                        <span class=”uu-hint”>Tetto positivo del conto. Vive sul conto, non sull'utente.</span>
                     </div>
-                    <div class=”field”>
-                        <label>Saldo negativo</label>
-                        <div style=”display:flex;align-items:center;gap:10px;padding:10px 0;”>
-                            <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:normal;”>
-                                <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
-                                       @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))
-                                       style=”width:20px;height:20px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;”>
-                                <span>
-                                    <strong>Consenti saldo negativo</strong>
-                                    <span class=”table-muted” style=”display:block;font-size:11px;margin-top:2px;”>Il conto può scendere sotto zero (fido).</span>
-                                </span>
-                            </label>
-                        </div>
+                    <div class=”uu-field”>
+                        <label>Fido / saldo negativo</label>
+                        <label class=”uu-toggle”>
+                            <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
+                                   @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))>
+                            <div class=”uu-toggle-text”>
+                                <strong>Consenti saldo negativo</strong>
+                                <span>Il conto può scendere sotto zero (linea di credito attiva).</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
+            </div>
             @endif
 
-            {{-- ── Ruoli ───────────────────────────────────────────────────────────── --}}
-            <p class=”eyebrow” style=”margin:8px 0 6px;”>Ruoli assegnati</p>
-            <div class=”role-grid”>
-                @foreach ($roles as $role)
-                    <label class=”check-tile”>
-                        <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
-                               @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
-                        <span class=”check-tile-copy”>
-                            <span class=”check-tile-head”>
-                                <strong>{{ $role->name }}</strong>
-                                <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
-                            </span>
-                            <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
-                            <span class=”perm-badges”>
-                                @forelse ($role->permissions->take(4) as $permission)
-                                    <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
-                                @empty
-                                    <span class=”perm-empty”>Nessun permesso collegato</span>
-                                @endforelse
-                                @if ($role->permissions->count() > 4)
-                                    <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
-                                @endif
-                            </span>
-                        </span>
-                    </label>
-                @endforeach
+            {{-- ── 6. Ruoli ─────────────────────────────────────────────────────── --}}
+            <div class=”uu-group”>
+                <div class=”uu-group-head”>
+                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><path d=”M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2”/><circle cx=”9” cy=”7” r=”4”/><path d=”M23 21v-2a4 4 0 0 0-3-3.87”/><path d=”M16 3.13a4 4 0 0 1 0 7.75”/></svg>
+                    Ruoli assegnati
+                </div>
+                <div style=”padding:16px;”>
+                    <div class=”role-grid”>
+                        @foreach ($roles as $role)
+                            <label class=”check-tile”>
+                                <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
+                                       @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
+                                <span class=”check-tile-copy”>
+                                    <span class=”check-tile-head”>
+                                        <strong>{{ $role->name }}</strong>
+                                        <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
+                                    </span>
+                                    <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
+                                    <span class=”perm-badges”>
+                                        @forelse ($role->permissions->take(4) as $permission)
+                                            <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
+                                        @empty
+                                            <span class=”perm-empty”>Nessun permesso collegato</span>
+                                        @endforelse
+                                        @if ($role->permissions->count() > 4)
+                                            <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
+                                        @endif
+                                    </span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
             </div>
 
-            <div class=”form-actions” style=”margin-top:12px;”>
-                <button type=”submit” class=”cta”>Salva modifiche utente</button>
+            <div class=”form-actions”>
+                <button type=”submit” class=”cta”>Salva modifiche</button>
             </div>
         </form>
+        </div>{{-- /.uu-body --}}
 
         <script>
         function toggleAziendaField(tipo) {
             var el = document.getElementById('field-azienda-collegata');
             if (!el) return;
             if (tipo === 'private') {
-                el.style.display = 'none';
-                var sel = el.querySelector('select[name="company_id"]');
+                el.style.visibility = 'hidden'; el.style.opacity = '0'; el.style.pointerEvents = 'none';
+                var sel = el.querySelector('select');
                 if (sel) sel.disabled = true;
             } else {
-                el.style.display = '';
-                var sel = el.querySelector('select[name="company_id"]');
+                el.style.visibility = ''; el.style.opacity = ''; el.style.pointerEvents = '';
+                var sel = el.querySelector('select');
                 if (sel) sel.disabled = false;
             }
         }
-        // Applica subito al caricamento della pagina
+        function updateStatusStyle(sel) {
+            sel.className = sel.value === '1' ? 'uu-status-active' : 'uu-status-inactive';
+        }
         document.addEventListener('DOMContentLoaded', function () {
-            var tipologia = document.getElementById('tipologia-select');
-            if (tipologia) toggleAziendaField(tipologia.value);
+            var t = document.getElementById('tipologia-select');
+            if (t) toggleAziendaField(t.value);
+            var s = document.getElementById('stato-select');
+            if (s) updateStatusStyle(s);
         });
 
         function adminUpdateConfirm(form) {
