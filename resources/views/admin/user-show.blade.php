@@ -450,31 +450,40 @@
             <span class="pill">{{ $roles->count() }} ruoli</span>
         </div>
 
+        {{-- hidden inputs FUORI dal form-grid per evitare che il CSS li renda visibili --}}
         <form method=”post” action=”{{ route('admin.users.update', $userRecord) }}” class=”field-grid”
               id=”form-aggiorna-utente”
               onsubmit=”return adminUpdateConfirm(this)”>
             @csrf
+            {{-- hidden fallback per i checkbox booleani: devono stare subito dopo @csrf, non dentro .field --}}
+            <div style=”display:none !important; visibility:hidden; position:absolute; pointer-events:none;”>
+                <input type=”text” name=”is_super_admin” value=”0”>
+                <input type=”text” name=”primary_account_allow_negative” value=”0”>
+            </div>
 
-            {{-- ── Anagrafica ────────────────────────────────────────────────── --}}
-            <div style=”margin-bottom:4px;”><span class=”eyebrow”>Anagrafica</span></div>
-            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+            {{-- ── Anagrafica ──────────────────────────────────────────────────────── --}}
+            <p class=”eyebrow” style=”margin:0 0 6px;”>Anagrafica</p>
+            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
                 <div class=”field”>
                     <label>Nome completo</label>
-                    <input name=”name” type=”text” required value=”{{ old('name', $userRecord->name) }}”>
+                    <input name=”name” type=”text” required
+                           value=”{{ old('name', $userRecord->name) }}”>
                 </div>
                 <div class=”field”>
                     <label>Email</label>
-                    <input name=”email” type=”email” required value=”{{ old('email', $userRecord->email) }}”
+                    <input name=”email” type=”email” required
+                           value=”{{ old('email', $userRecord->email) }}”
                            data-original-email=”{{ $userRecord->email }}”>
-                    <div class=”table-muted”>Modificare reimposta la verifica email.</div>
+                    <div class=”table-muted” style=”margin-top:4px;”>Modificare reimposta la verifica.</div>
                 </div>
                 <div class=”field”>
                     <label>Telefono</label>
-                    <input name=”phone” type=”text” value=”{{ old('phone', $userRecord->phone) }}”>
+                    <input name=”phone” type=”text”
+                           value=”{{ old('phone', $userRecord->phone) }}”>
                 </div>
             </div>
 
-            <div class=”field-grid” style=”grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;”>
+            <div class=”field-grid” style=”grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;”>
                 <div class=”field”>
                     <label>Tipologia</label>
                     <select name=”account_holder_type”>
@@ -483,164 +492,179 @@
                     </select>
                 </div>
                 <div class=”field”>
-                    <label>Azienda</label>
+                    <label>Azienda collegata</label>
                     <select name=”company_id”>
                         <option value=””>Nessuna</option>
                         @foreach ($companies as $company)
-                            <option value=”{{ $company->id }}” @selected((int) old('company_id', $userRecord->company_id) === $company->id)>{{ $company->name }}</option>
+                            <option value=”{{ $company->id }}”
+                                    @selected((int) old('company_id', $userRecord->company_id) === $company->id)>
+                                {{ $company->name }}
+                            </option>
                         @endforeach
                     </select>
                 </div>
                 <div class=”field”>
-                    <label>Sottoconto gestito</label>
-                    <input name=”managed_account_id” type=”number” min=”1” value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”>
+                    <label>Sottoconto gestito (ID)</label>
+                    <input name=”managed_account_id” type=”number” min=”1”
+                           value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”
+                           placeholder=”Lascia vuoto se non applicabile”>
                 </div>
                 <div class=”field”>
                     <label>Etichetta interna</label>
-                    <input name=”role_label” type=”text” value=”{{ old('role_label', $userRecord->role) }}”>
+                    <input name=”role_label” type=”text”
+                           value=”{{ old('role_label', $userRecord->role) }}”
+                           placeholder=”es. owner, manager…”>
                 </div>
             </div>
 
-            {{-- ── Stato e permessi speciali ──────────────────────────────────── --}}
-            <div class=”field-grid” style=”grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;”>
+            {{-- ── Stato e accessi speciali ────────────────────────────────────────── --}}
+            <p class=”eyebrow” style=”margin:8px 0 6px;”>Stato e accessi</p>
+            <div class=”field-grid” style=”grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;”>
                 <div class=”field”>
                     <label>Stato account</label>
-                    <select name=”is_active” data-danger=”deactivate”>
-                        <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo</option>
-                        <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo — l'utente non potrà accedere</option>
+                    <select name=”is_active”>
+                        <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>✅ Attivo</option>
+                        <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>🚫 Disattivo — accesso bloccato</option>
                     </select>
                 </div>
-                <div class=”field” style=”display:flex;flex-direction:column;justify-content:flex-end;gap:10px;”>
-                    <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;”>
-                        <input type=”hidden” name=”is_super_admin” value=”0”>
-                        <input type=”checkbox” name=”is_super_admin” value=”1”
-                               @checked(old('is_super_admin', $userRecord->is_super_admin))
-                               data-danger=”superadmin”
-                               style=”width:18px;height:18px;”>
-                        <span><strong>Super Admin</strong><span class=”table-muted” style=”display:block;font-size:11px;”>Accesso illimitato a tutte le funzioni del backoffice.</span></span>
-                    </label>
+                <div class=”field”>
+                    <label>Privilegi Super Admin</label>
+                    <div style=”display:flex;align-items:center;gap:12px;padding:10px 0;”>
+                        <label class=”admin-toggle” style=”display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:normal;”>
+                            <input type=”checkbox” name=”is_super_admin” value=”1”
+                                   @checked(old('is_super_admin', $userRecord->is_super_admin))
+                                   style=”width:20px;height:20px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;”>
+                            <span>
+                                <strong>Super Admin</strong>
+                                <span class=”table-muted” style=”display:block;font-size:11px;margin-top:2px;”>Accesso illimitato a tutto il backoffice.</span>
+                            </span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            {{-- ── Limiti utente ─────────────────────────────────────────────── --}}
-            <div style=”margin-top:8px;margin-bottom:4px;”><span class=”eyebrow”>Limiti transazionali (KY)</span></div>
-            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+            {{-- ── Limiti transazionali ────────────────────────────────────────────── --}}
+            <p class=”eyebrow” style=”margin:8px 0 6px;”>Limiti transazionali personalizzati (KY) — vuoto = usa il default admin</p>
+            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
                 <div class=”field”>
-                    <label>Disponibilità commerciale personalizzata</label>
+                    <label>Disponibilità commerciale</label>
                     <input name=”circuit_capacity_limit” type=”number” min=”0” step=”0.01”
                            value=”{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}”
-                           placeholder=”Vuoto = default admin”>
-                    <div class=”table-muted”>Tetto massimo acquistabile nel circuito.</div>
+                           placeholder=”Vuoto = default”>
+                    <div class=”table-muted” style=”margin-top:4px;”>Tetto massimo acquistabile nel circuito.</div>
                 </div>
                 <div class=”field”>
-                    <label>Massimale / fido personalizzato (KY)</label>
+                    <label>Massimale / fido</label>
                     <input name=”negative_balance_limit” type=”number” min=”0” step=”0.01”
                            value=”{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}”
-                           placeholder=”Vuoto = default admin”>
-                    <div class=”table-muted”><code>0</code> blocca il negativo; vuoto usa il default.</div>
+                           placeholder=”Vuoto = default”>
+                    <div class=”table-muted” style=”margin-top:4px;”><code>0</code> = nessun fido; vuoto = default.</div>
                 </div>
                 <div class=”field”>
-                    <label>Limite giornaliero personalizzato (KY)</label>
+                    <label>Limite giornaliero</label>
                     <input name=”daily_transaction_limit” type=”number” min=”0” step=”0.01”
                            value=”{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}”
-                           placeholder=”Vuoto = default admin”>
+                           placeholder=”Vuoto = default”>
                 </div>
                 <div class=”field”>
-                    <label>Limite mensile personalizzato (KY)</label>
+                    <label>Limite mensile</label>
                     <input name=”monthly_transaction_limit” type=”number” min=”0” step=”0.01”
                            value=”{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}”
-                           placeholder=”Vuoto = default admin”>
+                           placeholder=”Vuoto = default”>
                 </div>
                 <div class=”field”>
-                    <label>Limite per movimento personalizzato (KY)</label>
+                    <label>Limite per singolo movimento</label>
                     <input name=”per_movement_limit” type=”number” min=”0” step=”0.01”
                            value=”{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}”
-                           placeholder=”Vuoto = default admin”>
+                           placeholder=”Vuoto = default”>
                 </div>
             </div>
 
-            {{-- ── Conto principale ──────────────────────────────────────────── --}}
+            {{-- ── Conto principale ────────────────────────────────────────────────── --}}
             @if ($primaryAccount)
-                <div style=”margin-top:8px;margin-bottom:4px;”>
-                    <span class=”eyebrow”>Conto principale — {{ $primaryAccount->display_name ?? $primaryAccount->uuid }}</span>
-                </div>
-                <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+                <p class=”eyebrow” style=”margin:8px 0 6px;”>
+                    Conto principale &mdash; {{ $primaryAccount->display_name ?? $primaryAccount->uuid }}
+                </p>
+                <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;”>
                     <div class=”field”>
                         <label>Saldo massimo (KY)</label>
                         <input name=”primary_account_max_balance” type=”number” min=”0” step=”0.01”
                                value=”{{ old('primary_account_max_balance', ky_input($primaryAccount->max_balance)) }}”
-                               placeholder=”Vuoto = nessun limite”>
-                        <div class=”table-muted”>Tetto positivo del conto (max_balance). Vive sul conto.</div>
+                               placeholder=”Vuoto = nessun tetto”>
+                        <div class=”table-muted” style=”margin-top:4px;”>Valore vive sul conto, non sull'utente.</div>
                     </div>
-                    <div class=”field” style=”display:flex;flex-direction:column;justify-content:flex-end;gap:10px;”>
-                        <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;”>
-                            <input type=”hidden” name=”primary_account_allow_negative” value=”0”>
-                            <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
-                                   @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))
-                                   style=”width:18px;height:18px;”>
-                            <span><strong>Consenti saldo negativo</strong><span class=”table-muted” style=”display:block;font-size:11px;”>Il conto può scendere sotto zero (fido).</span></span>
-                        </label>
+                    <div class=”field”>
+                        <label>Saldo negativo</label>
+                        <div style=”display:flex;align-items:center;gap:10px;padding:10px 0;”>
+                            <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:normal;”>
+                                <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
+                                       @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))
+                                       style=”width:20px;height:20px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;”>
+                                <span>
+                                    <strong>Consenti saldo negativo</strong>
+                                    <span class=”table-muted” style=”display:block;font-size:11px;margin-top:2px;”>Il conto può scendere sotto zero (fido).</span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                 </div>
             @endif
 
-            {{-- ── Ruoli ─────────────────────────────────────────────────────── --}}
-            <div class=”field”>
-                <label>Ruoli</label>
-                <div class=”role-grid”>
-                    @foreach ($roles as $role)
-                        <label class=”check-tile”>
-                            <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
-                                   @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
-                            <span class=”check-tile-copy”>
-                                <span class=”check-tile-head”>
-                                    <strong>{{ $role->name }}</strong>
-                                    <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
-                                </span>
-                                <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
-                                <span class=”perm-badges”>
-                                    @forelse ($role->permissions->take(4) as $permission)
-                                        <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
-                                    @empty
-                                        <span class=”perm-empty”>Nessun permesso collegato</span>
-                                    @endforelse
-                                    @if ($role->permissions->count() > 4)
-                                        <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
-                                    @endif
-                                </span>
+            {{-- ── Ruoli ───────────────────────────────────────────────────────────── --}}
+            <p class=”eyebrow” style=”margin:8px 0 6px;”>Ruoli assegnati</p>
+            <div class=”role-grid”>
+                @foreach ($roles as $role)
+                    <label class=”check-tile”>
+                        <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
+                               @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
+                        <span class=”check-tile-copy”>
+                            <span class=”check-tile-head”>
+                                <strong>{{ $role->name }}</strong>
+                                <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
                             </span>
-                        </label>
-                    @endforeach
-                </div>
+                            <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
+                            <span class=”perm-badges”>
+                                @forelse ($role->permissions->take(4) as $permission)
+                                    <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
+                                @empty
+                                    <span class=”perm-empty”>Nessun permesso collegato</span>
+                                @endforelse
+                                @if ($role->permissions->count() > 4)
+                                    <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
+                                @endif
+                            </span>
+                        </span>
+                    </label>
+                @endforeach
             </div>
 
-            <div class=”form-actions”>
-                <button type=”submit” class=”cta”>Salva modifiche</button>
+            <div class=”form-actions” style=”margin-top:12px;”>
+                <button type=”submit” class=”cta”>Salva modifiche utente</button>
             </div>
         </form>
 
         <script>
         function adminUpdateConfirm(form) {
-            const warnings = [];
+            // Sincronizza i fallback hidden con i checkbox prima del submit
+            ['is_super_admin', 'primary_account_allow_negative'].forEach(function(name) {
+                var cb  = form.querySelector('input[type=”checkbox”][name=”' + name + '”]');
+                var hid = form.querySelector('div[style*=”display:none”] input[name=”' + name + '”]');
+                if (cb && hid) hid.disabled = cb.checked; // se checked, il hidden non invia
+            });
 
-            // Email cambiata?
-            const emailInput = form.querySelector('[name=”email”]');
+            var warnings = [];
+            var emailInput = form.querySelector('[name=”email”]');
             if (emailInput && emailInput.value !== emailInput.dataset.originalEmail) {
-                warnings.push('⚠️ Stai cambiando l\'email dell\'utente. La verifica email verrà reimpostata.');
+                warnings.push('⚠️ Stai cambiando l\'email. La verifica email verrà reimpostata.');
             }
-
-            // Account disattivato?
-            const isActive = form.querySelector('[name=”is_active”]');
+            var isActive = form.querySelector('[name=”is_active”]');
             if (isActive && isActive.value === '0') {
-                warnings.push('⚠️ Stai disattivando l\'account. L\'utente non potrà più accedere.');
+                warnings.push('⚠️ Stai DISATTIVANDO l\'account. L\'utente non potrà più accedere.');
             }
-
-            // Super admin abilitato?
-            const isSuperAdmin = form.querySelector('[name=”is_super_admin”][type=”checkbox”]');
-            if (isSuperAdmin && isSuperAdmin.checked) {
-                warnings.push('⚠️ Stai assegnando i privilegi di SUPER ADMIN. Avrà accesso illimitato al backoffice.');
+            var isSA = form.querySelector('input[type=”checkbox”][name=”is_super_admin”]');
+            if (isSA && isSA.checked) {
+                warnings.push('⚠️ Stai assegnando i privilegi SUPER ADMIN. Avrà accesso illimitato al backoffice.');
             }
-
             if (warnings.length > 0) {
                 return confirm(warnings.join('\n\n') + '\n\nConfermi le modifiche?');
             }

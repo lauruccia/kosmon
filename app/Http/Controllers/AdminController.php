@@ -708,16 +708,14 @@ class AdminController extends Controller
             ?? $this->accountsForUser($user)->first();
 
         if ($primaryAccount) {
-            $accountUpdates = [];
-            if ($request->has('primary_account_max_balance')) {
+            $accountUpdates = [
+                // allow_negative_balance: sempre aggiornato (il form invia sempre 0 o 1)
+                'allow_negative_balance' => (bool) ($validated['primary_account_allow_negative'] ?? false),
+            ];
+            if ($request->filled('primary_account_max_balance') || $request->has('primary_account_max_balance')) {
                 $accountUpdates['max_balance'] = $limitToCents('primary_account_max_balance');
             }
-            if ($request->has('primary_account_allow_negative')) {
-                $accountUpdates['allow_negative_balance'] = (bool) ($validated['primary_account_allow_negative'] ?? false);
-            }
-            if ($accountUpdates) {
-                $primaryAccount->forceFill($accountUpdates)->save();
-            }
+            $primaryAccount->forceFill($accountUpdates)->save();
         }
 
         $message = 'Utente aggiornato correttamente.';
