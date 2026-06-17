@@ -748,10 +748,19 @@ class ImportOldData extends Command
         $name = trim($u['company_name'] ?? '');
         if ($name !== '') return $name;
 
+        // Per i conti azienda senza company_name, usa lo username come nome commerciale.
+        // Il nome personale (firstname + lastname) non è il nome dell'azienda.
+        $isCompany = strtolower(trim((string) ($u['account_type'] ?? ''))) !== 'individual';
+        $username  = trim($u['username'] ?? '');
+
+        if ($isCompany && $username !== '') {
+            return $username;
+        }
+
         $name = trim(($u['firstname'] ?? '') . ' ' . ($u['lastname'] ?? ''));
         if ($name !== '') return $name;
 
-        return $u['username'] ?? ('Azienda ' . $u['id']);
+        return $username ?: ('Azienda ' . $u['id']);
     }
 
     private function uniqueSlug(string $companyName, string $username, array &$seen): string
