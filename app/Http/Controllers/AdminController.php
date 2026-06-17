@@ -658,52 +658,76 @@ class AdminController extends Controller
         }
 
         $validated = $request->validate([
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'managed_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'role_label' => ['nullable', 'string', 'max:50'],
-            'is_active' => ['required', 'boolean'],
+            'name'                   => ['required', 'string', 'max:255'],
+            'email'                  => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'phone'                  => ['nullable', 'string', 'max:30'],
+            'account_holder_type'    => ['required', 'in:company,private'],
+            'company_id'             => ['nullable', 'integer', 'exists:companies,id'],
+            'managed_account_id'     => ['nullable', 'integer', 'exists:accounts,id'],
+            'role_label'             => ['nullable', 'string', 'max:50'],
+            'is_active'              => ['required', 'boolean'],
+            'is_super_admin'         => ['boolean'],
             'circuit_capacity_limit' => ['nullable', 'numeric', 'min:0'],
             'negative_balance_limit' => ['nullable', 'numeric', 'min:0'],
-            'daily_transaction_limit' => ['nullable', 'numeric', 'min:0'],
+            'daily_transaction_limit'   => ['nullable', 'numeric', 'min:0'],
             'monthly_transaction_limit' => ['nullable', 'numeric', 'min:0'],
-            'per_movement_limit' => ['nullable', 'numeric', 'min:0'],
-            'primary_account_max_balance' => ['nullable', 'numeric', 'min:0'],
-            'roles' => ['array'],
+            'per_movement_limit'        => ['nullable', 'numeric', 'min:0'],
+            'primary_account_max_balance'    => ['nullable', 'numeric', 'min:0'],
+            'primary_account_allow_negative' => ['boolean'],
+            'roles'   => ['array'],
             'roles.*' => ['integer', 'exists:roles,id'],
         ]);
 
         $limitToCents = fn (string $field) => $request->filled($field) ? ky_to_cents($validated[$field]) : null;
 
+        // Avviso se si sta cambiando email
+        $emailChanged = $validated['email'] !== $user->email;
+
         $user->forceFill([
-            'company_id' => $validated['company_id'] ?? null,
-            'managed_account_id' => $validated['managed_account_id'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'role' => $validated['role_label'] ?? $user->role,
-            'is_active' => (bool) $validated['is_active'],
-            'circuit_capacity_limit' => $limitToCents('circuit_capacity_limit'),
-            'negative_balance_limit' => $limitToCents('negative_balance_limit'),
-            'daily_transaction_limit' => $limitToCents('daily_transaction_limit'),
+            'name'                   => $validated['name'],
+            'email'                  => $validated['email'],
+            'email_verified_at'      => $emailChanged ? null : $user->email_verified_at,
+            'phone'                  => $validated['phone'] ?? null,
+            'account_holder_type'    => $validated['account_holder_type'],
+            'company_id'             => $validated['company_id'] ?? null,
+            'managed_account_id'     => $validated['managed_account_id'] ?? null,
+            'role'                   => $validated['role_label'] ?? $user->role,
+            'is_active'              => (bool) $validated['is_active'],
+            'is_super_admin'         => (bool) ($validated['is_super_admin'] ?? false),
+            'circuit_capacity_limit'    => $limitToCents('circuit_capacity_limit'),
+            'negative_balance_limit'    => $limitToCents('negative_balance_limit'),
+            'daily_transaction_limit'   => $limitToCents('daily_transaction_limit'),
             'monthly_transaction_limit' => $limitToCents('monthly_transaction_limit'),
-            'per_movement_limit' => $limitToCents('per_movement_limit'),
+            'per_movement_limit'        => $limitToCents('per_movement_limit'),
             'transfer_limits_use_defaults' => false,
         ])->save();
 
         $user->roles()->sync($validated['roles'] ?? []);
 
-        if ($request->has('primary_account_max_balance')) {
-            $user->load(['company.accounts', 'managedAccount', 'ownedAccounts']);
-            $primaryAccount = $this->accountsForUser($user)->firstWhere('type', 'primary')
-                ?? $this->accountsForUser($user)->first();
+        // Aggiornamento conto principale
+        $user->load(['company.accounts', 'managedAccount', 'ownedAccounts']);
+        $primaryAccount = $this->accountsForUser($user)->firstWhere('type', 'primary')
+            ?? $this->accountsForUser($user)->first();
 
-            if ($primaryAccount) {
-                $primaryAccount->forceFill([
-                    'max_balance' => $limitToCents('primary_account_max_balance'),
-                ])->save();
+        if ($primaryAccount) {
+            $accountUpdates = [];
+            if ($request->has('primary_account_max_balance')) {
+                $accountUpdates['max_balance'] = $limitToCents('primary_account_max_balance');
+            }
+            if ($request->has('primary_account_allow_negative')) {
+                $accountUpdates['allow_negative_balance'] = (bool) ($validated['primary_account_allow_negative'] ?? false);
+            }
+            if ($accountUpdates) {
+                $primaryAccount->forceFill($accountUpdates)->save();
             }
         }
 
-        return back()->with('portal_success', 'Utente aggiornato correttamente.');
+        $message = 'Utente aggiornato correttamente.';
+        if ($emailChanged) {
+            $message .= ' Email modificata — la verifica è stata reimpostata.';
+        }
+
+        return back()->with('portal_success', $message);
     }
 
     /**
@@ -2682,72 +2706,4 @@ Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at),
                     ky_format($a->available_balance),
                     ky_format($climit)
                 ),
-                'link'     => route('admin.accounts.show', $a->id),
-                'at'       => null,
-            ]);
-        }
-
-        // 4. KYC non completato su account attivi con transazioni recenti
-        $activeWithoutKyc = Account::select('accounts.id', 'accounts.account_name', 'accounts.company_id')
-            ->join('transfers', function ($j) use ($from) {
-                $j->on('accounts.id', '=', 'transfers.from_account_id')
-                  ->where('transfers.status', 'booked')
-                  ->where('transfers.booked_at', '>=', $from);
-            })
-            ->whereHas('company', function ($q) {
-                $q->whereDoesntHave('kycDocuments', fn ($d) => $d->where('status', 'approved'))
-                  ->where('status', 'active');
-            })
-            ->with('company:id,name')
-            ->distinct()
-            ->limit(10)
-            ->get();
-
-        foreach ($activeWithoutKyc as $a) {
-            $anomalies->push([
-                'type'     => 'kyc_missing',
-                'severity' => 'medium',
-                'title'    => 'KYC non approvato con attività recente',
-                'detail'   => sprintf(
-                    '%s ha transazioni nel periodo ma KYC non verificato',
-                    $a->company?->name ?? $a->account_name
-                ),
-                'link'     => route('admin.kyc.index'),
-                'at'       => null,
-            ]);
-        }
-
-        // Ordina per severity
-        $anomalies = $anomalies->sortBy(fn ($a) => match ($a['severity']) {
-            'high'   => 0,
-            'medium' => 1,
-            default  => 2,
-        })->values();
-
-        return view('admin.circuito', [
-            'pageTitle'         => 'Circolazione & Rete KY',
-            'activeNav'         => 'circuito',
-            'days'              => $days,
-
-            // Velocity
-            'kyInCirculation'   => $kyInCirculation,
-            'volumePeriod'      => $volumePeriod,
-            'transactionCount'  => $transactionCount,
-            'velocity30d'       => $velocity30d,
-            'rotationDays'      => $rotationDays,
-            'activeParticipants'=> (int) $activeParticipants,
-            'totalAccounts'     => $totalAccounts,
-            'participationRate' => $participationRate,
-            'avgAmount'         => $avgAmount ? (int) round($avgAmount) : 0,
-            'avgBalance'        => $avgBalance ? (int) round($avgBalance) : 0,
-            'velocityTrend'     => $velocityTrend,
-
-            // Rete
-            'networkNodes'      => $networkNodes,
-            'networkLinks'      => $networkLinks,
-
-            // Anomalie
-            'anomalies'         => $anomalies,
-        ]);
-    }
-}
+             

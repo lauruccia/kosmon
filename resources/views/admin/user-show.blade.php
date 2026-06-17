@@ -450,29 +450,68 @@
             <span class="pill">{{ $roles->count() }} ruoli</span>
         </div>
 
-        <form method="post" action="{{ route('admin.users.update', $userRecord) }}" class="field-grid">
+        <form method=”post” action=”{{ route('admin.users.update', $userRecord) }}” class=”field-grid”
+              id=”form-aggiorna-utente”
+              onsubmit=”return adminUpdateConfirm(this)”>
             @csrf
-            <div class="field-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;">
-                <div class="field"><label>Telefono</label><input name="phone" type="text" value="{{ old('phone', $userRecord->phone) }}"></div>
-                <div class="field"><label>Azienda</label><select name="company_id"><option value="">Nessuna</option>@foreach ($companies as $company)<option value="{{ $company->id }}" @selected((int) old('company_id', $userRecord->company_id) === $company->id)>{{ $company->name }}</option>@endforeach</select></div>
-                <div class="field"><label>Sottoconto gestito</label><input name="managed_account_id" type="number" min="1" value="{{ old('managed_account_id', $userRecord->managed_account_id) }}"></div>
-                <div class="field"><label>Stato</label><select name="is_active"><option value="1" @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo</option><option value="0" @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo</option></select></div>
-            </div>
-            <div class="field"><label>Etichetta interna</label><input name="role_label" type="text" value="{{ old('role_label', $userRecord->role) }}"></div>
 
-            <div class="field-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;">
-                <div class="field"><label>Disponibilita commerciale personalizzata</label><input name="circuit_capacity_limit" type="number" min="0" value="{{ old('circuit_capacity_limit', $userRecord->circuit_capacity_limit) }}"><div class="table-muted">Lascia vuoto per usare il default admin.</div></div>
-                <div class="field"><label>Massimale / fido personalizzato</label><input name="negative_balance_limit" type="number" min="0" value="{{ old('negative_balance_limit', $userRecord->negative_balance_limit) }}"><div class="table-muted">Importo del fido. `0` blocca il negativo, vuoto usa il default.</div></div>
-                @if ($primaryAccount)
-                    <div class="field"><label>Saldo massimo conto principale</label><input name="primary_account_max_balance" type="number" min="0" value="{{ old('primary_account_max_balance', $primaryAccount->max_balance) }}" placeholder="Vuoto = nessun limite"><div class="table-muted">Tetto positivo del conto mostrato in dashboard come “Saldo massimo”. Questo valore vive sul conto, non sull'utente.</div></div>
-                @endif
-                <div class="field"><label>Limite giornaliero personalizzato</label><input name="daily_transaction_limit" type="number" min="0" value="{{ old('daily_transaction_limit', $userRecord->daily_transaction_limit) }}"></div>
-                <div class="field"><label>Limite mensile personalizzato</label><input name="monthly_transaction_limit" type="number" min="0" value="{{ old('monthly_transaction_limit', $userRecord->monthly_transaction_limit) }}"></div>
-                <div class="field"><label>Limite per movimento personalizzato</label><input name="per_movement_limit" type="number" min="0" value="{{ old('per_movement_limit', $userRecord->per_movement_limit) }}"></div>
+            {{-- ── Anagrafica ────────────────────────────────────────────────── --}}
+            <div style=”margin-bottom:4px;”><span class=”eyebrow”>Anagrafica</span></div>
+            <div class=”field-grid” style=”grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;”>
+                <div class=”field”>
+                    <label>Nome completo</label>
+                    <input name=”name” type=”text” required value=”{{ old('name', $userRecord->name) }}”>
+                </div>
+                <div class=”field”>
+                    <label>Email</label>
+                    <input name=”email” type=”email” required value=”{{ old('email', $userRecord->email) }}”
+                           data-original-email=”{{ $userRecord->email }}”>
+                    <div class=”table-muted”>Modificare reimposta la verifica email.</div>
+                </div>
+                <div class=”field”>
+                    <label>Telefono</label>
+                    <input name=”phone” type=”text” value=”{{ old('phone', $userRecord->phone) }}”>
+                </div>
             </div>
 
-            <div class="field"><label>Ruoli</label><div class="role-grid">@foreach ($roles as $role)<label class="check-tile"><input class="check-mark" type="checkbox" name="roles[]" value="{{ $role->id }}" @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))><span class="check-tile-copy"><span class="check-tile-head"><strong>{{ $role->name }}</strong><span class="check-tile-meta">{{ strtoupper($role->scope) }}</span></span><span class="subtle">{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span><span class="perm-badges">@forelse ($role->permissions->take(4) as $permission)<span class="perm-badge">{{ str_replace('.', ' · ', $permission->slug) }}</span>@empty<span class="perm-empty">Nessun permesso collegato</span>@endforelse @if ($role->permissions->count() > 4)<span class="perm-more">+{{ $role->permissions->count() - 4 }} altri</span>@endif</span></span></label>@endforeach</div></div>
-            <div class="form-actions"><button type="submit" class="cta">Salva modifiche</button></div>
-        </form>
-    </section>
-@endsection
+            <div class=”field-grid” style=”grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;”>
+                <div class=”field”>
+                    <label>Tipologia</label>
+                    <select name=”account_holder_type”>
+                        <option value=”company” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'company')>Azienda</option>
+                        <option value=”private” @selected(old('account_holder_type', $userRecord->account_holder_type) === 'private')>Privato</option>
+                    </select>
+                </div>
+                <div class=”field”>
+                    <label>Azienda</label>
+                    <select name=”company_id”>
+                        <option value=””>Nessuna</option>
+                        @foreach ($companies as $company)
+                            <option value=”{{ $company->id }}” @selected((int) old('company_id', $userRecord->company_id) === $company->id)>{{ $company->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class=”field”>
+                    <label>Sottoconto gestito</label>
+                    <input name=”managed_account_id” type=”number” min=”1” value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”>
+                </div>
+                <div class=”field”>
+                    <label>Etichetta interna</label>
+                    <input name=”role_label” type=”text” value=”{{ old('role_label', $userRecord->role) }}”>
+                </div>
+            </div>
+
+            {{-- ── Stato e permessi speciali ──────────────────────────────────── --}}
+            <div class=”field-grid” style=”grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;”>
+                <div class=”field”>
+                    <label>Stato account</label>
+                    <select name=”is_active” data-danger=”deactivate”>
+                        <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo</option>
+                        <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo — l'utente non potrà accedere</option>
+                    </select>
+                </div>
+                <div class=”field” style=”display:flex;flex-direction:column;justify-content:flex-end;gap:10px;”>
+                    <label style=”display:flex;align-items:center;gap:10px;cursor:pointer;”>
+                        <input type=”hidden” name=”is_super_admin” value=”0”>
+                        <input type=”checkbox” name=”is_super_admin” value=”1”
+                             
