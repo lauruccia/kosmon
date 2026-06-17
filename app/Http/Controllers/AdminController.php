@@ -498,6 +498,24 @@ class AdminController extends Controller
         $transfersQuery = $this->movementQuery();
         $this->applyMovementDateFilters($transfersQuery, $movementFilters);
 
+        // Ricerca per nome utente (mittente o destinatario)
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $transfersQuery->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($search): void {
+                $like = '%' . $search . '%';
+                // Cerca sul nome dell'account (display_name) o del titolare (users.name) o della company (companies.name)
+                $q->whereHas('fromAccount', function ($q2) use ($like): void {
+                    $q2->where('display_name', 'like', $like)
+                        ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', $like))
+                        ->orWhereHas('company', fn ($c) => $c->where('name', 'like', $like));
+                })->orWhereHas('toAccount', function ($q2) use ($like): void {
+                    $q2->where('display_name', 'like', $like)
+                        ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', $like))
+                        ->orWhereHas('company', fn ($c) => $c->where('name', 'like', $like));
+                });
+            });
+        }
+
         return view('admin.transfers', [
             'pageTitle' => 'Movimenti e correzioni',
             'refundWindowDays' => self::REFUND_WINDOW_DAYS,
@@ -507,6 +525,7 @@ class AdminController extends Controller
             'movementPeriodOptions' => $this->movementPeriodOptions(),
             'supportsTransferRefunds' => $this->supportsTransferRefunds(),
             'activeNav' => 'transfers',
+            'search' => $search,
         ]);
     }
 

@@ -14,9 +14,6 @@
 <a class="cta secondary" href="{{ route('admin.users.index') }}">Utenti</a>
 @endsection
 
-
-
-
 @section('content')
     <section class="grid-cards">
         <article class="stat-card"><div class="eyebrow">Movimenti filtrati</div><div class="section-title">{{ $movementTotals['count'] }}</div></article>
@@ -26,10 +23,13 @@
     </section>
 
     <section class="card light-card">
-        <div class="section-head"><div><span class="eyebrow">Registro movimenti</span><h3 class="section-title">Movimenti registrati</h3></div><span class="pill">{{ $movementFilters['label'] }}</span></div>
+        <div class="section-head">
+            <div><span class="eyebrow">Registro movimenti</span><h3 class="section-title">Movimenti registrati</h3></div>
+            <span class="pill">{{ $movementFilters['label'] }}</span>
+        </div>
 
         <form method="get" action="{{ route('admin.transfers.index') }}" style="margin-bottom:10px;">
-            <div style="display:grid;grid-template-columns:200px 1fr 1fr auto;gap:8px;align-items:end;">
+            <div style="display:grid;grid-template-columns:160px 1fr 1fr 1fr auto;gap:8px;align-items:end;">
                 <div class="field">
                     <label>Periodo</label>
                     <select name="period">
@@ -40,78 +40,166 @@
                 </div>
                 <div class="field"><label>Da data</label><input type="date" name="from_date" value="{{ $movementFilters['from_date'] }}"></div>
                 <div class="field"><label>A data</label><input type="date" name="to_date" value="{{ $movementFilters['to_date'] }}"></div>
+                <div class="field"><label>Cerca utente / azienda</label><input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…"></div>
                 <div style="padding-bottom:1px;"><button type="submit" class="cta secondary">Filtra</button></div>
             </div>
         </form>
 
-        <div class="timeline-list">
-            @forelse ($transfers as $transfer)
+        @if ($transfers->isEmpty())
+            <div class="empty-state">Nessun movimento trovato per i filtri selezionati.</div>
+        @else
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#f6f9fb;border-bottom:2px solid #e4edf2;text-align:left;">
+                        <th style="padding:6px 10px;white-space:nowrap;">Data</th>
+                        <th style="padding:6px 10px;">Riferimento</th>
+                        <th style="padding:6px 10px;">Da</th>
+                        <th style="padding:6px 10px;">A</th>
+                        <th style="padding:6px 10px;text-align:right;white-space:nowrap;">Importo</th>
+                        <th style="padding:6px 10px;">Tipo</th>
+                        <th style="padding:6px 10px;">Stato</th>
+                        <th style="padding:6px 10px;">Operatore</th>
+                        <th style="padding:6px 10px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach ($transfers as $transfer)
                 @php
                     $isRefundable = $supportsTransferRefunds
                         && $transfer->status === 'booked'
                         && $transfer->reversalChildren->isEmpty()
                         && $transfer->booked_at !== null
                         && $transfer->booked_at->greaterThanOrEqualTo(now()->subDays($refundWindowDays));
-                    $stato = match ($transfer->status) {
-                        'booked' => 'Contabilizzato',
-                        'pending' => 'In elaborazione',
+
+                    $statoLabel = match ($transfer->status) {
+                        'booked'   => 'Contabilizzato',
+                        'pending'  => 'In elaborazione',
                         'rejected' => 'Respinto',
-                        default => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')),
+                        default    => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')),
+                    };
+                    $statoChip = match ($transfer->status) {
+                        'booked'  => 'success',
+                        default   => 'pink',
                     };
                     $causale = match ($transfer->kind) {
-                        'portal_payment' => 'Pagamento da portale',
-                        'portal_collection' => 'Incasso da portale',
-                        'trade_payment' => 'Pagamento commerciale',
-                        'admin_refund' => 'Storno amministrativo',
+                        'portal_payment'            => 'Pag. portale',
+                        'portal_collection'         => 'Incasso',
+                        'trade_payment'             => 'Pag. commerciale',
+                        'admin_refund'              => 'Storno amm.',
+                        'portal_refund'             => 'Rimborso',
+                        'portal_credit_note'        => 'Nota credito',
+                        'portal_fee'                => 'Commissione',
+                        'portal_cashback'           => 'Cashback',
+                        'portal_installment'        => 'Rata',
+                        'portal_netting'            => 'Netting',
+                        'portal_payment_request'    => 'Pag. richiesta',
+                        'portal_collection_request' => 'Incasso richiesta',
                         default => $transfer->kind ? ucfirst(str_replace('_', ' ', $transfer->kind)) : 'Movimento',
                     };
-                    $azioneAdmin = match ($transfer->admin_action) {
-                        'refund' => 'Storno',
-                        default => $transfer->admin_action ? ucfirst(str_replace('_', ' ', $transfer->admin_action)) : null,
-                    };
+
+                    $fromLabel = $transfer->fromAccount?->display_name
+                        ?? $transfer->fromAccount?->company?->name
+                        ?? $transfer->fromAccount?->ownerLabel
+                        ?? 'N/D';
+                    $toLabel = $transfer->toAccount?->display_name
+                        ?? $transfer->toAccount?->company?->name
+                        ?? $transfer->toAccount?->ownerLabel
+                        ?? 'N/D';
+
+                    $isAlreadyRefunded  = $supportsTransferRefunds && $transfer->reversedTransfer !== null;
+                    $hasReversalChild   = $supportsTransferRefunds && $transfer->reversalChildren->isNotEmpty();
+                    $rowBg = $isAlreadyRefunded || $hasReversalChild ? '#fff8f0' : 'transparent';
                 @endphp
-                <article class="timeline-item">
-                    <div class="entity-head">
-                        <div>
-                            <strong>{{ $transfer->reference }}</strong>
-                            <div class="table-muted">{{ $transfer->booked_at?->format('d/m/Y H:i') ?? 'non contabilizzato' }} · {{ $causale }}</div>
-                            <div class="table-muted">Operatore: {{ $transfer->initiator?->name ?? 'sistema' }}</div>
-                        </div>
-                        <div class="entity-meta">
-                            <span class="chip {{ $transfer->status === 'booked' ? 'success' : 'pink' }}">{{ $stato }}</span>
-                            @if ($supportsTransferRefunds && $azioneAdmin)
-                                <span class="chip pink">{{ $azioneAdmin }}</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="field-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;">
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Da</div><strong>{{ $transfer->fromAccount?->display_name ?? 'N/D' }}</strong><div class="table-muted">{{ $transfer->fromAccount?->company?->name ?? $transfer->fromAccount?->ownerLabel }}</div></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">A</div><strong>{{ $transfer->toAccount?->display_name ?? 'N/D' }}</strong><div class="table-muted">{{ $transfer->toAccount?->company?->name ?? $transfer->toAccount?->ownerLabel }}</div></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Importo</div><strong>{{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}</strong><div class="table-muted">{{ $transfer->description ?: 'nessuna causale' }}</div></div>
-                    </div>
-
-                    @if (! $supportsTransferRefunds)
-                        <div class="notice">Storni amministrativi non disponibili finché il database non viene aggiornato con i campi dedicati.</div>
-                    @elseif ($transfer->reversedTransfer)
-                        <div class="notice">Storno di {{ $transfer->reversedTransfer->reference }} registrato il {{ $transfer->refunded_at?->format('d/m/Y H:i') ?? 'N/D' }}.</div>
-                    @elseif ($transfer->reversalChildren->isNotEmpty())
-                        <div class="notice">Questo movimento è già stato corretto da {{ $transfer->reversalChildren->first()->reference }}.</div>
-                    @else
-                        <div class="notice {{ $isRefundable ? 'success' : 'error' }}">{{ $isRefundable ? 'Storno amministrativo disponibile entro la finestra operativa.' : 'Storno non disponibile: finestra scaduta o movimento non correggibile.' }}</div>
-                    @endif
-
-                    @if ($isRefundable)
-                        <form method="post" action="{{ route('admin.transfers.refund', $transfer) }}" class="field-grid">
-                            @csrf
-                            <div class="field"><label>Motivazione storno</label><input name="reason" type="text" placeholder="Storno operativo, errore utente, correzione contabile"></div>
-                            <div class="form-actions"><button type="submit" class="cta">Esegui storno</button></div>
-                        </form>
-                    @endif
-                </article>
-            @empty
-                <div class="empty-state">Nessun movimento trovato per il periodo selezionato.</div>
-            @endforelse
+                <tr style="border-bottom:1px solid #edf1f4;background:{{ $rowBg }};vertical-align:middle;">
+                    <td style="padding:5px 10px;white-space:nowrap;color:#5a6474;font-size:12px;">
+                        {{ $transfer->booked_at?->format('d/m/Y') ?? '—' }}<br>
+                        <span style="font-size:11px;">{{ $transfer->booked_at?->format('H:i') }}</span>
+                    </td>
+                    <td style="padding:5px 10px;white-space:nowrap;">
+                        <strong style="font-size:12px;">{{ $transfer->reference }}</strong>
+                        @if ($transfer->description)
+                            <div style="font-size:11px;color:#8a94a6;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $transfer->description }}">{{ $transfer->description }}</div>
+                        @endif
+                    </td>
+                    <td style="padding:5px 10px;max-width:160px;">
+                        <span style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $fromLabel }}">{{ $fromLabel }}</span>
+                        @if ($transfer->fromAccount?->number)
+                            <span style="font-size:11px;color:#8a94a6;">{{ $transfer->fromAccount->number }}</span>
+                        @endif
+                    </td>
+                    <td style="padding:5px 10px;max-width:160px;">
+                        <span style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $toLabel }}">{{ $toLabel }}</span>
+                        @if ($transfer->toAccount?->number)
+                            <span style="font-size:11px;color:#8a94a6;">{{ $transfer->toAccount->number }}</span>
+                        @endif
+                    </td>
+                    <td style="padding:5px 10px;text-align:right;white-space:nowrap;font-weight:700;">
+                        {{ ky_format($transfer->amount) }} <span style="font-size:11px;font-weight:400;">{{ $transfer->currency_code }}</span>
+                    </td>
+                    <td style="padding:5px 10px;white-space:nowrap;font-size:12px;">{{ $causale }}</td>
+                    <td style="padding:5px 10px;white-space:nowrap;">
+                        <span class="chip {{ $statoChip }}" style="font-size:11px;padding:2px 7px;">{{ $statoLabel }}</span>
+                        @if ($supportsTransferRefunds && $transfer->admin_action === 'refund')
+                            <span class="chip pink" style="font-size:11px;padding:2px 7px;">Stornato</span>
+                        @endif
+                    </td>
+                    <td style="padding:5px 10px;font-size:12px;color:#5a6474;white-space:nowrap;">{{ $transfer->initiator?->name ?? 'sistema' }}</td>
+                    <td style="padding:5px 10px;white-space:nowrap;">
+                        @if ($isAlreadyRefunded)
+                            <span style="font-size:11px;color:#e07e00;" title="Storno di {{ $transfer->reversedTransfer->reference }}">↩ stornato</span>
+                        @elseif ($hasReversalChild)
+                            <span style="font-size:11px;color:#e07e00;" title="Corretto da {{ $transfer->reversalChildren->first()->reference }}">⚠ corretto</span>
+                        @elseif ($isRefundable)
+                            <button type="button"
+                                onclick="document.getElementById('refund-modal-{{ $transfer->id }}').showModal()"
+                                class="cta secondary"
+                                style="font-size:11px;padding:3px 10px;">
+                                Storna
+                            </button>
+                        @elseif ($supportsTransferRefunds)
+                            <span style="font-size:11px;color:#b0bac4;">finestra scaduta</span>
+                        @endif
+                    </td>
+                </tr>
+                @endforeach
+                </tbody>
+            </table>
         </div>
+
+        {{-- Modal storno per ogni riga refundable --}}
+        @foreach ($transfers as $transfer)
+        @php
+            $isRefundable = $supportsTransferRefunds
+                && $transfer->status === 'booked'
+                && $transfer->reversalChildren->isEmpty()
+                && $transfer->booked_at !== null
+                && $transfer->booked_at->greaterThanOrEqualTo(now()->subDays($refundWindowDays));
+        @endphp
+        @if ($isRefundable)
+        <dialog id="refund-modal-{{ $transfer->id }}" style="border:none;border-radius:16px;padding:28px 32px;max-width:440px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.15);">
+            <h4 style="margin:0 0 6px;">Storno amministrativo</h4>
+            <p style="margin:0 0 16px;font-size:13px;color:#5a6474;">
+                Movimento <strong>{{ $transfer->reference }}</strong> —
+                {{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}<br>
+                Da <strong>{{ $transfer->fromAccount?->display_name ?? 'N/D' }}</strong>
+                a <strong>{{ $transfer->toAccount?->display_name ?? 'N/D' }}</strong>
+            </p>
+            <form method="post" action="{{ route('admin.transfers.refund', $transfer) }}">
+                @csrf
+                <div class="field" style="margin-bottom:14px;">
+                    <label>Motivazione storno</label>
+                    <input name="reason" type="text" placeholder="Storno operativo, errore utente, correzione contabile" required>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" class="cta secondary" onclick="document.getElementById('refund-modal-{{ $transfer->id }}').close()">Annulla</button>
+                    <button type="submit" class="cta">Conferma storno</button>
+                </div>
+            </form>
+        </dialog>
+        @endif
+        @endforeach
+
+        @endif
     </section>
 @endsection
