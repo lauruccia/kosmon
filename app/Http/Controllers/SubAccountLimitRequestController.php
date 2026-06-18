@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSubAccountLimitRequest;
 use App\Models\Account;
 use App\Models\SubAccountLimitRequest;
 use App\Services\SubAccountService;
@@ -14,20 +15,10 @@ class SubAccountLimitRequestController extends Controller
      * Il gestore del sottoconto invia una richiesta di aumento limite o sforamento.
      * Route: POST /conti/sottoconti/{subaccount}/richieste-limite
      */
-    public function store(Request $request, Account $subaccount, SubAccountService $service): RedirectResponse
+    public function store(StoreSubAccountLimitRequest $request, Account $subaccount, SubAccountService $service): RedirectResponse
     {
-        abort_if($request->user()->canAccessBackoffice(), 403);
-
-        // Verifica che l'utente gestisca effettivamente questo sottoconto
-        abort_unless($request->user()->canManageSubAccount($subaccount), 403);
-
-        $request->merge(['requested_amount' => str_replace(',', '.', (string) $request->input('requested_amount'))]);
-
-        $validated = $request->validate([
-            'type' => ['required', 'in:spending_limit_increase,daily_limit_increase,monthly_limit_increase,temporary_overdraft'],
-            'requested_amount' => ['required', 'numeric', 'min:0.01'],
-            'reason' => ['required', 'string', 'min:10', 'max:1000'],
-        ]);
+        // Autorizzazione e validazione (con normalizzazione importo) in StoreSubAccountLimitRequest
+        $validated = $request->validated();
 
         try {
             $service->requestLimitChange(
