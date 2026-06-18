@@ -55,6 +55,9 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
+use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\ContractController as AdminContractController;
+use App\Http\Controllers\Admin\WebhookController as AdminWebhookController;
 use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
 use App\Http\Controllers\StaticNfcController;
@@ -647,8 +650,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/companies/{company}/plan', [AdminController::class, 'updatePlan'])->name('admin.companies.plan');
     Route::post('/admin/payment-plans/{plan}/cancel', [AdminController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel');
     Route::post('/admin/netting/{proposal}/cancel', [AdminController::class, 'cancelNettingProposal'])->name('admin.netting.cancel');
-    Route::get('/admin/webhooks/deliveries', [AdminController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries');
-    Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry');
+    Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries');
+    Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry');
 
     Route::get('/admin/accounts', [AdminController::class, 'accounts'])->name('admin.accounts.index');
     Route::get('/admin/accounts/{account}', [AdminController::class, 'showAccount'])->name('admin.accounts.show');
@@ -670,15 +673,15 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/audit/export-csv', [AdminController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');
     Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
     Route::get('/admin/circuito', [AdminController::class, 'circuito'])->name('admin.circuito');
-    Route::get('/admin/branding', [AdminController::class, 'branding'])->name('admin.branding');
-Route::get('/admin/contratto',   [AdminController::class, 'contractSettings'])->name('admin.contract-settings');
-Route::patch('/admin/contratto', [AdminController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update');
-Route::post('/admin/contratto/testo', [AdminController::class, 'contractTextUpdate'])->name('admin.contract-text.update');
-Route::get('/admin/contratto/firme',             [AdminController::class, 'contractSignatures'])->name('admin.contract-signatures');
-Route::get('/admin/contratto/firme/export',      [AdminController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export');
-Route::get('/admin/contratto/firme/{signature}', [AdminController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show');
-Route::get('/admin/contratto/firme/{signature}/pdf', [AdminController::class, 'contractSignatureExportSingle'])->name('admin.contract-signatures.export-single');
-    Route::patch('/admin/branding', [AdminController::class, 'brandingUpdate'])->name('admin.branding.update');
+    Route::get('/admin/branding', [BrandingController::class, 'branding'])->name('admin.branding');
+Route::get('/admin/contratto',   [AdminContractController::class, 'contractSettings'])->name('admin.contract-settings');
+Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update');
+Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update');
+Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures');
+Route::get('/admin/contratto/firme/export',      [AdminContractController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export');
+Route::get('/admin/contratto/firme/{signature}', [AdminContractController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show');
+Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::class, 'contractSignatureExportSingle'])->name('admin.contract-signatures.export-single');
+    Route::patch('/admin/branding', [BrandingController::class, 'brandingUpdate'])->name('admin.branding.update');
 
     // Web Push subscriptions
     Route::get('/push/vapid-key', [PushSubscriptionController::class, 'vapidKey'])->name('push.vapid-key');
