@@ -3,6 +3,36 @@
 
 ---
 
+## Stato avanzamento — aggiornato 2026-06-18 (si continua domani)
+
+Lavorato a coppie io+Laura in più sessioni. Riepilogo di cosa è chiuso e cosa resta.
+
+| # | Intervento | Stato |
+|---|---|---|
+| 1 | **God controller** — split `AdminController` | ✅ **FATTO** — 2.773 → 854 righe (−69%); 10 controller in `Admin/*` (Contract, Branding, Webhook, Audit, Emission, Role, Account, CreditLimit, Company, User) + 2 trait (`AuthorizesBackoffice`, `HandlesMovementFilters`) |
+| 4 | **Larastan** (analisi statica) | ✅ **FATTO** — `larastan ^3.0`, `phpstan.neon.dist` livello 5, baseline con **581 errori legacy congelati**, job CI `static-analysis` |
+| 3a | **CI su MySQL** | ✅ **FATTO** — job `test-mysql` (MySQL 8 service) oltre a SQLite |
+| 3b | **Unit test sul motore** | ✅ **FATTO** — 12 test: `TransactionFee::calculate` (8) + limiti giornaliero/mensile/per-movimento + invariante circuito chiuso (4) |
+| min | **Catch vuoti** | ✅ **FATTO** — 4 `catch` silenziosi (EmailChange ×3, SendBroadcastMessageJob) ora con `Log::warning` |
+| min | **Hardening `.env` / debug** | ✅ **FATTO** — warning in `.env.example` + check `/health` `config_debug` (segnala APP_DEBUG attivo in prod) |
+| min | **Backup DB prod** | ✅ **FATTO** — cron cPanel notturno `mysqldump | gzip`, retention 30gg (ricordare apici singoli sulla password) |
+
+### 5 bug reali corretti lungo il percorso
+1. `ApiTokenNewIpNotification.php:33` — virgolette doppie interne non escapate → **fatal error** ad ogni notifica "token usato da nuovo IP" (trovato da Larastan).
+2. `ReconcileBalances.php` — opzione `--verbose` in collisione con quella globale di Symfony → comando **non avviabile**, rinominata `--details` (trovato da Larastan).
+3. Vincolo `NOT NULL` su `transaction_fees.min_fee` emerso dai test (insert con `null` falliva).
+4. Rotte morte `/admin/support` → `supportMessages`/`resolveSupport`: metodi **inesistenti** in qualsiasi controller (pre-esistenti). **DA SISTEMARE**: implementare i 2 metodi o rimuovere le 2 rotte.
+
+### Da fare DOMANI
+- **#2 FormRequest** — pattern stabilito con `StoreSubAccountLimitRequest` (1 fatta); restano ~43 controller con `validate()` inline, da estrarre a piccoli lotti (un test per ogni form critico). Attenzione all'ordine auth/validazione: dove l'autorizzazione usa un parametro route-bound va in `authorize()` (ordine preservato); dove dipende dal contesto risolto nel corpo (es. `SendPaymentController::execute`) serve più cura.
+- **Split `PortalController`** (1.848 righe) — stesso metodo del God controller admin.
+- **Fix rotte morte `/admin/support`** (vedi sopra).
+- **Ridurre la baseline Larastan** (581 → ...) un po' alla volta.
+
+> **Nota tecnica per le prossime sessioni:** sul mount NTFS (Cowork → Windows) gli strumenti Edit/Write troncano i file (anche piccoli) lasciando byte NUL in coda. Usare scritture via Python (binario), e dopo ogni modifica verificare: parentesi graffe bilanciate, file che termina con `}`/`});`, e 0 byte NUL.
+
+---
+
 ## Premessa: il backlog precedente è quasi tutto chiuso
 
 Verificato sul codice attuale. Risultano già risolti i punti aperti di `ANALISI_QUALITA.md` (2026-06-04) e `PROPOSTE_MIGLIORAMENTO_2026-06-12.md`:
