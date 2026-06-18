@@ -55,7 +55,9 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\EmissionController;
 use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\WebhookController as AdminWebhookController;
 use App\Http\Controllers\NfcCardController;
@@ -660,8 +662,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement');
 
     // Emissione KY sovrana (solo super admin)
-    Route::get('/admin/emissione-ky', [AdminController::class, 'emitKyForm'])->name('admin.ky.emit');
-    Route::post('/admin/emissione-ky', [AdminController::class, 'emitKy'])->name('admin.ky.emit.submit');
+    Route::get('/admin/emissione-ky', [EmissionController::class, 'emitKyForm'])->name('admin.ky.emit');
+    Route::post('/admin/emissione-ky', [EmissionController::class, 'emitKy'])->name('admin.ky.emit.submit');
 
     // Integrità contabile circuito
     Route::get('/admin/integrita', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'index'])->name('admin.integrity.index');
@@ -669,8 +671,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/integrita/fix/{accountId}', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAccount'])->name('admin.integrity.fix-account');
 
     Route::get('/admin/report', [AdminController::class, 'report'])->name('admin.report');
-    Route::get('/admin/audit', [AdminController::class, 'auditLog'])->name('admin.audit');
-    Route::get('/admin/audit/export-csv', [AdminController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');
+    Route::get('/admin/audit', [AuditController::class, 'auditLog'])->name('admin.audit');
+    Route::get('/admin/audit/export-csv', [AuditController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');
     Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
     Route::get('/admin/circuito', [AdminController::class, 'circuito'])->name('admin.circuito');
     Route::get('/admin/branding', [BrandingController::class, 'branding'])->name('admin.branding');
