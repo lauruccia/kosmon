@@ -19,6 +19,7 @@ use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Concerns\HandlesMovementFilters;
 use App\Services\TransferBookingService;
 use Carbon\CarbonImmutable;
@@ -41,6 +42,7 @@ class AdminController extends Controller
 
     use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
     use HandlesMovementFilters;
+    use AuthorizesBackoffice;
 
     public function dashboard(Request $request): View
     {
@@ -476,15 +478,6 @@ class AdminController extends Controller
         return $query->get();
     }
 
-    private function authorizeBackoffice(User $user): void
-    {
-        abort_unless($user->canAccessBackoffice(), 403);
-    }
-
-    private function authorizePermission(User $user, string $permission): void
-    {
-        abort_unless($user->is_super_admin || $user->hasPermission($permission), 403);
-    }
     // ── Analytics ─────────────────────────────────────────────────────────────
 
     public function analytics(Request $request): View
