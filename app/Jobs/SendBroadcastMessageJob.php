@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendBroadcastMessageJob implements ShouldQueue
@@ -44,7 +45,9 @@ class SendBroadcastMessageJob implements ShouldQueue
                     Mail::raw($this->body, function ($m) use ($user) {
                         $m->to($user->email)->subject($this->subject);
                     });
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                    Log::warning('broadcast.email_mail_failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+                }
             }
         }
     }

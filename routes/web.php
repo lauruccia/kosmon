@@ -166,6 +166,11 @@ Route::get('/health', function () {
         $checks['queue_failed_recent'] = 'unknown';
     }
 
+    // Config safety — APP_DEBUG non deve essere attivo in produzione
+    $checks['config_debug'] = (app()->environment('production') && config('app.debug'))
+        ? 'warning:debug_enabled_in_production'
+        : 'ok';
+
     $status = $overallOk ? 'ok' : 'degraded';
     $payload = [
         'status'    => $status,

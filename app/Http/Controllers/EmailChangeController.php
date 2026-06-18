@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -83,7 +84,9 @@ class EmailChangeController extends Controller
                       ->subject('[KMoney] Codice verifica cambio email: ' . $token);
                 }
             );
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            Log::warning('email_change.verification_mail_failed', ['new_email' => $request->new_email, 'error' => $e->getMessage()]);
+        }
 
         // Link di revoca alla vecchia email
         $cancelUrl = route('email-change.cancel-by-token', ['token' => $cancelToken]);
@@ -98,7 +101,9 @@ class EmailChangeController extends Controller
                 $m->to($oldEmail)
                   ->subject('[KMoney] Richiesta cambio email - verifica se sei stato tu');
             });
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            Log::warning('email_change.alert_mail_failed', ['old_email' => $oldEmail, 'error' => $e->getMessage()]);
+        }
 
         return redirect()->route('portal.email-change.verify-form')
             ->with('info', 'Abbiamo inviato un codice a ' . $request->new_email . '. Inseriscilo per confermare. Hai ricevuto anche un\'email su ' . $oldEmail . ' per annullare se non eri stato tu.');
@@ -156,7 +161,9 @@ class EmailChangeController extends Controller
                     $m->to($oldEmail)->subject('[KMoney] Email aggiornata');
                 }
             );
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            Log::warning('email_change.confirmation_mail_failed', ['old_email' => $oldEmail, 'error' => $e->getMessage()]);
+        }
 
         return redirect()->route('portal.dashboard')
             ->with('success', 'Email aggiornata con successo a ' . $user->email . '.');
