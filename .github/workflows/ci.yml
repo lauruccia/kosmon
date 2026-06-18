@@ -80,3 +80,72 @@ jobs:
 
       - name: Run Larastan
         run: vendor/bin/phpstan analyse --no-progress
+
+  test-mysql:
+    name: PHP 8.2 — Tests (MySQL)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: kmoney_test
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, pdo, pdo_mysql, mysqli, gd, zip, bcmath, intl, sodium
+          coverage: none
+
+      - name: Copy .env
+        run: cp .env.example .env.testing
+
+      - name: Configura MySQL per i test
+        run: |
+          sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env.testing
+          {
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=kmoney_test"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=root"
+            echo "APP_KEY="
+          } >> .env.testing
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-8.2-${{ hashFiles('composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate app key
+        run: php artisan key:generate --env=testing
+
+      - name: Attendi MySQL pronto
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h127.0.0.1 -P3306 -uroot -proot --silent; then echo "MySQL pronto"; break; fi
+            echo "Attendo MySQL..."; sleep 2
+          done
+
+      - name: Run migrations
+        run: php artisan migrate --env=testing --force
+
+      - name: Run tests (MySQL, sequenziale)
+        run: php artisan test --env=testing --stop-on-failure
