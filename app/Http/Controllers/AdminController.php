@@ -296,29 +296,6 @@ class AdminController extends Controller
         ]);
     }
 
-    public function roles(Request $request): View
-    {
-        $this->authorizeBackoffice($request->user());
-
-        return view('admin.roles', [
-            'pageTitle' => 'Ruoli e permessi',
-            'roles' => Role::query()->with('permissions')->orderBy('scope')->orderBy('name')->get(),
-            'permissions' => Permission::query()->orderBy('name')->get(),
-            'activeNav' => 'roles',
-        ]);
-    }
-
-    public function accounts(Request $request): View
-    {
-        $this->authorizeBackoffice($request->user());
-
-        return view('admin.accounts', [
-            'pageTitle' => 'Conti e sottoconti',
-            'accounts' => Account::query()->with(['company', 'ownerUser', 'parentAccount', 'managedUsers'])->orderByDesc('id')->get(),
-            'activeNav' => 'accounts',
-        ]);
-    }
-
     public function companies(Request $request): View
     {
         $this->authorizeBackoffice($request->user());
@@ -455,41 +432,6 @@ class AdminController extends Controller
         );
     }
 
-    public function showAccount(Request $request, Account $account): View
-    {
-        $this->authorizeBackoffice($request->user());
-
-        $account->load([
-            'company',
-            'ownerUser',
-            'parentAccount',
-            'childAccounts.ownerUser',
-            'childAccounts.company',
-            'managedUsers.roles',
-        ]);
-
-        $recentTransfers = Transfer::query()
-            ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'initiator'])
-            ->where(function ($query) use ($account): void {
-                $query
-                    ->where('from_account_id', $account->id)
-                    ->orWhere('to_account_id', $account->id);
-            })
-            ->latest('booked_at')
-            ->latest('id')
-            ->limit(12)
-            ->get();
-
-        return view('admin.account-show', [
-            'pageTitle' => 'Dettaglio conto',
-            'accountRecord' => $account,
-            'recentTransfers' => $recentTransfers,
-            'defaultTransferLimits' => SystemSetting::userLimitDefaults()->defaultsMap(),
-            'ownerEffectiveTransferLimits' => $account->ownerUser?->effectiveTransferLimits(),
-            'activeNav' => 'accounts',
-        ]);
-    }
-
     public function transfers(Request $request): View
     {
         $this->authorizeBackoffice($request->user());
@@ -547,49 +489,6 @@ class AdminController extends Controller
                 ->count(),
             'activeNav' => 'limits',
         ]);
-    }
-
-    public function storeRole(Request $request): RedirectResponse
-    {
-        $this->authorizePermission($request->user(), 'roles.manage');
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'scope' => ['required', 'string', 'max:50'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id'],
-        ]);
-
-        $role = Role::updateOrCreate([
-            'slug' => Str::slug($validated['name']),
-        ], [
-            'name' => $validated['name'],
-            'scope' => $validated['scope'],
-            'description' => $validated['description'] ?? null,
-        ]);
-
-        $role->permissions()->sync($validated['permissions'] ?? []);
-
-        return back()->with('portal_success', 'Ruolo creato correttamente.');
-    }
-
-    public function updateRole(Request $request, Role $role): RedirectResponse
-    {
-        $this->authorizePermission($request->user(), 'roles.manage');
-
-        $validated = $request->validate([
-            'description' => ['nullable', 'string', 'max:255'],
-            'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id'],
-        ]);
-
-        $role->forceFill([
-            'description' => $validated['description'] ?? $role->description,
-        ])->save();
-        $role->permissions()->sync($validated['permissions'] ?? []);
-
-        return back()->with('portal_success', 'Ruolo aggiornato correttamente.');
     }
 
     public function storeUser(Request $request): RedirectResponse
@@ -883,66 +782,6 @@ class AdminController extends Controller
         });
 
         return back()->with('portal_success', 'Limiti di default aggiornati correttamente.');
-    }
-
-    public function updateAccount(Request $request, Account $account): RedirectResponse
-    {
-        $this->authorizePermission($request->user(), 'accounts.manage');
-
-        foreach (['max_balance', 'spending_limit', 'daily_outgoing_limit'] as $field) {
-            if ($request->filled($field)) {
-                $request->merge([$field => str_replace(',', '.', (string) $request->input($field))]);
-            }
-        }
-
-        $validated = $request->validate([
-            'status' => ['required', Rule::in(['active', 'suspended'])],
-            'max_balance' => ['nullable', 'numeric', 'min:0'],
-            'spending_limit' => ['nullable', 'numeric', 'min:0.01'],
-            'daily_outgoing_limit' => ['nullable', 'numeric', 'min:0.01'],
-            'allow_negative_balance' => ['required', 'boolean'],
-        ]);
-
-        $account->forceFill([
-            'status' => $validated['status'],
-            'max_balance' => $request->filled('max_balance') ? ky_to_cents($validated['max_balance']) : null,
-            'spending_limit' => $request->filled('spending_limit') ? ky_to_cents($validated['spending_limit']) : null,
-            'daily_outgoing_limit' => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
-            'allow_negative_balance' => (bool) $validated['allow_negative_balance'],
-        ])->save();
-
-        if ($account->type === 'subaccount') {
-            $account->managedUsers()->update(['is_active' => $validated['status'] === 'active']);
-        }
-
-        AuditLog::create([
-            'actor_user_id' => $request->user()->id,
-            'event' => 'admin.account.updated',
-            'auditable_type' => Account::class,
-            'auditable_id' => $account->id,
-            'ip_address' => $request->ip(),
-            'context' => $validated,
-        ]);
-
-        return back()->with('portal_success', 'Conto aggiornato correttamente.');
-    }
-
-    public function unlockAccount(Request $request, Account $account): RedirectResponse
-    {
-        $this->authorizePermission($request->user(), 'accounts.manage');
-
-        $account->forceFill(['locked_until' => null])->save();
-
-        AuditLog::create([
-            'actor_user_id'  => $request->user()->id,
-            'event'          => 'admin.account.unlocked',
-            'auditable_type' => Account::class,
-            'auditable_id'   => $account->id,
-            'ip_address'     => $request->ip(),
-            'context'        => ['reason' => 'admin_manual_unlock'],
-        ]);
-
-        return back()->with('portal_success', 'Conto sbloccato correttamente.');
     }
 
     public function refundTransfer(Request $request, Transfer $transfer, TransferBookingService $bookingService): RedirectResponse

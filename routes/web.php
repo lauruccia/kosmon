@@ -55,9 +55,11 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
+use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
 use App\Http\Controllers\Admin\EmissionController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\WebhookController as AdminWebhookController;
 use App\Http\Controllers\NfcCardController;
@@ -633,9 +635,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/admin/users/{user}/sessioni/{sessionId}', [AdminController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate');
     Route::delete('/admin/users/{user}/sessioni', [AdminController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all');
 
-    Route::get('/admin/roles', [AdminController::class, 'roles'])->name('admin.roles.index');
-    Route::post('/admin/roles', [AdminController::class, 'storeRole'])->name('admin.roles.store');
-    Route::post('/admin/roles/{role}', [AdminController::class, 'updateRole'])->name('admin.roles.update');
+    Route::get('/admin/roles', [RoleController::class, 'roles'])->name('admin.roles.index');
+    Route::post('/admin/roles', [RoleController::class, 'storeRole'])->name('admin.roles.store');
+    Route::post('/admin/roles/{role}', [RoleController::class, 'updateRole'])->name('admin.roles.update');
 
     Route::get('/admin/companies', [AdminController::class, 'companies'])->name('admin.companies.index');
     Route::get('/admin/companies/{company}', [AdminController::class, 'showCompany'])->name('admin.companies.show');
@@ -655,10 +657,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries');
     Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry');
 
-    Route::get('/admin/accounts', [AdminController::class, 'accounts'])->name('admin.accounts.index');
-    Route::get('/admin/accounts/{account}', [AdminController::class, 'showAccount'])->name('admin.accounts.show');
-    Route::post('/admin/accounts/{account}', [AdminController::class, 'updateAccount'])->name('admin.accounts.update');
-    Route::post('/admin/accounts/{account}/sblocca', [AdminController::class, 'unlockAccount'])->name('admin.accounts.unlock');
+    Route::get('/admin/accounts', [AdminAccountController::class, 'accounts'])->name('admin.accounts.index');
+    Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show');
+    Route::post('/admin/accounts/{account}', [AdminAccountController::class, 'updateAccount'])->name('admin.accounts.update');
+    Route::post('/admin/accounts/{account}/sblocca', [AdminAccountController::class, 'unlockAccount'])->name('admin.accounts.unlock');
     Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement');
 
     // Emissione KY sovrana (solo super admin)
