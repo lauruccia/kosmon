@@ -62,6 +62,7 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CreditLimitController;
 use App\Http\Controllers\Admin\EmissionController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\WebhookController as AdminWebhookController;
 use App\Http\Controllers\NfcCardController;
@@ -627,15 +628,15 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
 
         Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
-    Route::get('/admin/users', [AdminController::class, 'users'])->name('admin.users.index');
-    Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
-    Route::post('/admin/users/verifica-tutti', [AdminController::class, 'verifyAllUsers'])->name('admin.users.verify-all');
-    Route::get('/admin/users/{user}', [AdminController::class, 'showUser'])->name('admin.users.show');
-    Route::post('/admin/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
-    Route::post('/admin/users/{user}/verifica-email', [AdminController::class, 'verifyUserEmail'])->name('admin.users.verify-email');
-    Route::post('/admin/users/{user}/password', [AdminController::class, 'changePasswordUser'])->name('admin.users.password');
-    Route::delete('/admin/users/{user}/sessioni/{sessionId}', [AdminController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate');
-    Route::delete('/admin/users/{user}/sessioni', [AdminController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all');
+    Route::get('/admin/users', [UserController::class, 'users'])->name('admin.users.index');
+    Route::post('/admin/users', [UserController::class, 'storeUser'])->name('admin.users.store');
+    Route::post('/admin/users/verifica-tutti', [UserController::class, 'verifyAllUsers'])->name('admin.users.verify-all');
+    Route::get('/admin/users/{user}', [UserController::class, 'showUser'])->name('admin.users.show');
+    Route::post('/admin/users/{user}', [UserController::class, 'updateUser'])->name('admin.users.update');
+    Route::post('/admin/users/{user}/verifica-email', [UserController::class, 'verifyUserEmail'])->name('admin.users.verify-email');
+    Route::post('/admin/users/{user}/password', [UserController::class, 'changePasswordUser'])->name('admin.users.password');
+    Route::delete('/admin/users/{user}/sessioni/{sessionId}', [UserController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate');
+    Route::delete('/admin/users/{user}/sessioni', [UserController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all');
 
     Route::get('/admin/roles', [RoleController::class, 'roles'])->name('admin.roles.index');
     Route::post('/admin/roles', [RoleController::class, 'storeRole'])->name('admin.roles.store');
