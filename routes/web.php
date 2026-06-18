@@ -58,6 +58,7 @@ use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\CreditLimitController;
 use App\Http\Controllers\Admin\EmissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\ContractController as AdminContractController;
@@ -642,11 +643,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/companies', [AdminController::class, 'companies'])->name('admin.companies.index');
     Route::get('/admin/companies/{company}', [AdminController::class, 'showCompany'])->name('admin.companies.show');
     Route::post('/admin/companies/{company}/broker', [AdminController::class, 'assignBroker'])->name('admin.companies.broker');
-    Route::post('/admin/companies/{company}/credit-limit', [AdminController::class, 'setCreditLimit'])->name('admin.companies.credit-limit');
-    Route::post('/admin/companies/{company}/max-balance', [AdminController::class, 'setMaxBalance'])->name('admin.companies.max-balance');
-    Route::get('/admin/richieste-fido', [AdminController::class, 'creditLimitRequests'])->name('admin.credit-requests.index');
-    Route::post('/admin/richieste-fido/{creditRequest}/approve', [AdminController::class, 'approveCreditRequest'])->name('admin.credit-requests.approve');
-    Route::post('/admin/richieste-fido/{creditRequest}/reject', [AdminController::class, 'rejectCreditRequest'])->name('admin.credit-requests.reject');
+    Route::post('/admin/companies/{company}/credit-limit', [CreditLimitController::class, 'setCreditLimit'])->name('admin.companies.credit-limit');
+    Route::post('/admin/companies/{company}/max-balance', [CreditLimitController::class, 'setMaxBalance'])->name('admin.companies.max-balance');
+    Route::get('/admin/richieste-fido', [CreditLimitController::class, 'creditLimitRequests'])->name('admin.credit-requests.index');
+    Route::post('/admin/richieste-fido/{creditRequest}/approve', [CreditLimitController::class, 'approveCreditRequest'])->name('admin.credit-requests.approve');
+    Route::post('/admin/richieste-fido/{creditRequest}/reject', [CreditLimitController::class, 'rejectCreditRequest'])->name('admin.credit-requests.reject');
     Route::post('/admin/companies/{company}/suspend', [AdminController::class, 'suspendCompany'])->name('admin.companies.suspend');
     Route::post('/admin/companies/{company}/unsuspend', [AdminController::class, 'unsuspendCompany'])->name('admin.companies.unsuspend');
     Route::post('/admin/companies/{company}/activate', [AdminController::class, 'activateCompany'])->name('admin.companies.activate');
@@ -695,8 +696,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/transfers', [AdminController::class, 'transfers'])->name('admin.transfers.index');
     Route::post('/admin/transfers/{transfer}/refund', [AdminController::class, 'refundTransfer'])->name('admin.transfers.refund');
 
-    Route::get('/admin/limits', [AdminController::class, 'limits'])->name('admin.limits.index');
-    Route::post('/admin/limits', [AdminController::class, 'updateLimitDefaults'])->name('admin.limits.update');
+    Route::get('/admin/limits', [CreditLimitController::class, 'limits'])->name('admin.limits.index');
+    Route::post('/admin/limits', [CreditLimitController::class, 'updateLimitDefaults'])->name('admin.limits.update');
 
     Route::get('/admin/kyc', [KycController::class, 'adminIndex'])->name('admin.kyc.index');
     Route::get('/admin/kyc/{company}', [KycController::class, 'adminShow'])->name('admin.kyc.show');
