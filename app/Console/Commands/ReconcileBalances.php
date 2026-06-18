@@ -18,13 +18,13 @@ use Illuminate\Support\Facades\DB;
  * Uso:
  *   php artisan kmoney:reconcile-balances           # solo report
  *   php artisan kmoney:reconcile-balances --fix     # corregge discrepanze
- *   php artisan kmoney:reconcile-balances --verbose # dettaglio per ogni account
+ *   php artisan kmoney:reconcile-balances --details # dettaglio per ogni account
  */
 class ReconcileBalances extends Command
 {
     protected $signature = 'kmoney:reconcile-balances
                             {--fix : Corregge i saldi discrepanti impostando il valore dal vecchio DB}
-                            {--verbose : Mostra dettaglio per ogni account}';
+                            {--details : Mostra dettaglio per ogni account}';
 
     protected $description = 'Verifica la coerenza dei saldi dopo la migrazione dal vecchio DB';
 
@@ -32,7 +32,7 @@ class ReconcileBalances extends Command
     {
         $this->info('=== FASE 4: Riconciliazione saldi ===');
         $fix     = $this->option('fix');
-        $verbose = $this->option('verbose');
+        $verbose = $this->option('details');
 
         // Controlla che migration_user_map esista
         if (! DB::getSchemaBuilder()->hasTable('migration_user_map')) {

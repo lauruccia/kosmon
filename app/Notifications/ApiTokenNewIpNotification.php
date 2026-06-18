@@ -30,7 +30,7 @@ class ApiTokenNewIpNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject('Token API usato da nuovo IP — KMoney')
             ->greeting('Ciao ' . $notifiable->name . ',')
-            ->line("Il token API **"{$this->token->name}"** (prefisso: `{$this->token->token_prefix}...`) è stato utilizzato da un indirizzo IP diverso dal solito.")
+            ->line("Il token API **\"{$this->token->name}\"** (prefisso: `{$this->token->token_prefix}...`) è stato utilizzato da un indirizzo IP diverso dal solito.")
             ->line("**Nuovo IP:** {$this->newIp}")
             ->when($this->previousIp, fn ($m) => $m->line("**IP precedente:** {$this->previousIp}"))
             ->line('**Data e ora:** ' . now()->format('d/m/Y \a\l\l\e H:i'))

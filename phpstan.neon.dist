@@ -1,0 +1,24 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+
+    paths:
+        - app
+
+    # Esclusioni: comandi di import/migrazione one-off legacy (rumorosi, non in hot path)
+    excludePaths:
+        - app/Console/Commands/ImportOldData.php
+        - app/Console/Commands/ImportAllTransactions.php
+        - app/Console/Commands/ReimportCurrentDump.php
+        - app/Console/Commands/RepairImportedProfiles.php
+
+    # Riduce i falsi positivi tipici su un'app Laravel legacy
+    treatPhpDocTypesAsCertain: false
+
+    # Windows/Laragon: i worker paralleli causano
+    # "An option named verbose already exists" -> forziamo un solo processo
+    parallel:
+        maximumNumberOfProcesses: 1
