@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTextPaymentRequestRequest;
 use App\Models\Account;
 use App\Models\TextPaymentRequest;
 use App\Models\User;
@@ -67,19 +68,11 @@ class TextPaymentRequestController extends Controller
 
     // ── Store ─────────────────────────────────────────────────────────────────
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreTextPaymentRequestRequest $request): RedirectResponse
     {
         [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user());
 
-        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
-
-        $data = $request->validate([
-            'to_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'amount'        => ['required', 'numeric', 'min:0.01', 'max:9999999'],
-            'causale'       => ['required', 'string', 'min:3', 'max:500'],
-            'note'          => ['nullable', 'string', 'max:1000'],
-            'due_date'      => ['nullable', 'date', 'after:today'],
-        ]);
+        $data = $request->validated();
 
         // Verifica che il conto mittente (creditore) sia attivo.
         // resolveCurrentContext() filtra per 'active' nei rami aziendali/personali,

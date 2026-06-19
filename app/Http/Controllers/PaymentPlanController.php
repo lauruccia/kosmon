@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePaymentPlanRequest;
 use App\Models\PaymentPlan;
 use App\Services\PaymentPlanService;
 use Carbon\Carbon;
@@ -80,24 +81,14 @@ class PaymentPlanController extends Controller
     }
 
     /** Salva il piano rateale. */
-    public function store(Request $request): RedirectResponse
+    public function store(StorePaymentPlanRequest $request): RedirectResponse
     {
         [$currentAccount, $currentUser] = $this->resolveCurrentContext(
             $request->user(),
             $this->requestedCompanyId($request)
         );
 
-        $request->merge(['total_amount' => str_replace(',', '.', (string) $request->input('total_amount'))]);
-
-        $validated = $request->validate([
-            'initiator_role'     => ['required', 'in:debtor,creditor'],
-            'counterparty_id'    => ['required', 'integer', 'exists:accounts,id'],
-            'total_amount'       => ['required', 'numeric', 'min:0.02'],
-            'installments_count' => ['required', 'integer', 'min:2', 'max:60'],
-            'frequency'          => ['required', 'in:weekly,biweekly,monthly'],
-            'first_due_date'     => ['required', 'date', 'after_or_equal:today'],
-            'description'        => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $initiatorRole   = $validated['initiator_role'];
         $counterpartyId  = (int) $validated['counterparty_id'];

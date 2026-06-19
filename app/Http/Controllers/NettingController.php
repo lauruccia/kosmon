@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreNettingProposalRequest;
 use App\Models\Account;
 use App\Models\NettingProposal;
 use App\Services\NettingService;
@@ -106,21 +107,14 @@ class NettingController extends Controller
     }
 
     /** Salva la proposta di compensazione. */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreNettingProposalRequest $request): RedirectResponse
     {
         [$currentAccount, $currentUser] = $this->resolveCurrentContext(
             $request->user(),
             $this->requestedCompanyId($request)
         );
 
-        $validated = $request->validate([
-            'counterparty_account_id'    => ['required', 'integer', 'exists:accounts,id'],
-            'proposer_transfer_ids'      => ['nullable', 'array'],
-            'proposer_transfer_ids.*'    => ['integer'],
-            'counterparty_transfer_ids'  => ['nullable', 'array'],
-            'counterparty_transfer_ids.*' => ['integer'],
-            'description'               => ['nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         $proposerIds      = array_map('intval', $validated['proposer_transfer_ids'] ?? []);
         $counterpartyIds  = array_map('intval', $validated['counterparty_transfer_ids'] ?? []);

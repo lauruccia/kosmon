@@ -60,6 +60,11 @@ Il refactor UX "form utente sub-card" (`4bb59cd`/`85dec28`) aveva lasciato `@if`
 ### Bug preesistente (7°): filteredChannels() inesistente in 3 notifiche
 `RespectsNotificationPreferences` espone `resolveChannels($notifiable, $eventKey, $default, $allowed)`, ma 3 notifiche chiamavano ancora il vecchio nome `filteredChannels()` (rimosso): `KycStatusChangedNotification`, `PaymentRequestExpiredForCreditorNotification`, `PaymentRequestExpiringNotification` → fatal error all'invio. Conseguenza in produzione: **approva/rifiuta KYC va in 500** (e le notifiche di scadenza richiesta crashano quando parte `ExpirePaymentRequests`). Le altre 18 notifiche usavano già `resolveChannels`. Fix: convertite le 3 con eventKey dedicati (kyc_status / payment_request_expired / payment_request_expiring) + canali default invariati. Emerso dalla suite completa (`KycControllerTest`). Lezione: dopo un rename di metodo condiviso, fare grep dell'intero progetto, non fidarsi dei soli file toccati.
 
+### Lotto 2 (form che muovono denaro) — parziale
+Estratte 3 FormRequest: `StoreTextPaymentRequestRequest`, `StorePaymentPlanRequest`, `StoreNettingProposalRequest`. `authorize()` replica il solo `abort_if(canAccessBackoffice, 403)` di `resolveCurrentContext` (403 backoffice prima della validazione, ordine preservato); business check inline. validate() 87->84.
+**Lasciati inline (non estraibili a iso-comportamento):** Code/Sonic `store` (guardie pre-validate = redirect+flash, non 403); Scheduled `store` (ramo `is_recurring` -> regole diverse). Da rivedere con cura: SendPaymentController::execute (abort_unless pre-validate) e NfcCardPaymentController (endpoint JSON semi-pubblici + abort di stato prima della validate).
+Microscostamento accettato su PaymentPlan/Netting: il 403 su `company_id` estraneo (in resolveCurrentContext) ora gira dopo la validazione (difesa in profondita', nessun test lo esercita).
+
 ### Restano per i prossimi lotti #2
 Form che muovono denaro (SendPayment, CodePayment, Sonic, NfcCardPayment, ScheduledPayment, PaymentPlan, Netting, TextPaymentRequest), area auth (TwoFactor, Kyc, Onboarding, EmailChange, WebAuthn, StepUp), API e i restanti admin. ~87 `validate()` inline ancora da valutare.
 
