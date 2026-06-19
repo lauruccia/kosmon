@@ -22,7 +22,7 @@ class KycStatusChangedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return $this->filteredChannels($notifiable, ['database']);
+        return $this->resolveChannels($notifiable, 'kyc_status', ['database'], ['database']);
     }
 
     public function toArray(object $notifiable): array

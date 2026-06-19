@@ -22,7 +22,7 @@ class PaymentRequestExpiringNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return $this->filteredChannels($notifiable, ['mail', 'database']);
+        return $this->resolveChannels($notifiable, 'payment_request_expiring', ['mail', 'database'], ['mail', 'database']);
     }
 
     public function toMail(object $notifiable): MailMessage

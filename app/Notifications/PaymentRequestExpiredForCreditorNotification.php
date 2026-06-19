@@ -21,7 +21,7 @@ class PaymentRequestExpiredForCreditorNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return $this->filteredChannels($notifiable, ['mail', 'database']);
+        return $this->resolveChannels($notifiable, 'payment_request_expired', ['mail', 'database'], ['mail', 'database']);
     }
 
     public function toMail(object $notifiable): MailMessage
