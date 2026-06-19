@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CreateNfcCardPaymentRequest;
+use App\Http\Requests\IdentifyNfcCardRequest;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\NfcCard;
@@ -42,12 +44,9 @@ class NfcCardPaymentController extends Controller
      * POST /nfc/card/identify
      * Riceve uuid+sig letti dal chip, verifica HMAC, restituisce info owner.
      */
-    public function identify(Request $request): JsonResponse
+    public function identify(IdentifyNfcCardRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'uuid' => ['required', 'string', 'size:36'],
-            'sig'  => ['required', 'string'],
-        ]);
+        $data = $request->validated();
 
         // Verifica firma HMAC
         if (! NfcCard::verifyHmac($data['uuid'], $data['sig'])) {
@@ -94,15 +93,9 @@ class NfcCardPaymentController extends Controller
      * POST /nfc/card/request
      * Merchant invia importo → crea sessione auth → notifica cliente.
      */
-    public function createRequest(Request $request): JsonResponse
+    public function createRequest(CreateNfcCardPaymentRequest $request): JsonResponse
     {
-        $request->merge(['amount' => str_replace(',', '.', (string) $request->input('amount'))]);
-
-        $data = $request->validate([
-            'card_uuid'   => ['required', 'string'],
-            'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
-            'description' => ['nullable', 'string', 'max:200'],
-        ]);
+        $data = $request->validated();
 
         $amountCents = ky_to_cents($data['amount']);
 

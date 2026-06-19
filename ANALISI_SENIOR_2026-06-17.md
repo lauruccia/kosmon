@@ -62,7 +62,8 @@ Il refactor UX "form utente sub-card" (`4bb59cd`/`85dec28`) aveva lasciato `@if`
 
 ### Lotto 2 (form che muovono denaro) — parziale
 Estratte 3 FormRequest: `StoreTextPaymentRequestRequest`, `StorePaymentPlanRequest`, `StoreNettingProposalRequest`. `authorize()` replica il solo `abort_if(canAccessBackoffice, 403)` di `resolveCurrentContext` (403 backoffice prima della validazione, ordine preservato); business check inline. validate() 87->84.
-**Lasciati inline (non estraibili a iso-comportamento):** Code/Sonic `store` (guardie pre-validate = redirect+flash, non 403); Scheduled `store` (ramo `is_recurring` -> regole diverse). Da rivedere con cura: SendPaymentController::execute (abort_unless pre-validate) e NfcCardPaymentController (endpoint JSON semi-pubblici + abort di stato prima della validate).
+Aggiunte poi 3 FormRequest dai due controller piu' delicati: `SetPaymentPinRequest` (SendPayment::setPin), `IdentifyNfcCardRequest` e `CreateNfcCardPaymentRequest` (NfcCardPayment::identify/createRequest) — in tutti la validate era gia' la prima istruzione, estrazione a iso-comportamento.
+**Lasciati inline (non estraibili senza cambiare comportamento):** Code/Sonic `store` (guardie pre-validate = redirect+flash, non 403); Scheduled `store` (ramo `is_recurring` -> regole diverse); **SendPayment::execute** (redirect backoffice + abort_unless su conto attivo/canSendFromAccount + logica PIN, tutto prima/intorno alla validate); **NfcCardPayment::authorize** (abort di stato sessione/card/PIN prima della validate). Totale lotto 2: 6 FormRequest. validate() inline complessivo 102 -> 81.
 Microscostamento accettato su PaymentPlan/Netting: il 403 su `company_id` estraneo (in resolveCurrentContext) ora gira dopo la validazione (difesa in profondita', nessun test lo esercita).
 
 ### Restano per i prossimi lotti #2

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SetPaymentPinRequest;
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentSent;
 use App\Models\Account;
@@ -383,11 +384,9 @@ class SendPaymentController extends PortalController
     // ── POST /invia/pin/imposta ───────────────────────────────────────────────
     // Permette all'utente di impostare/cambiare il proprio PIN di pagamento
 
-    public function setPin(Request $request): RedirectResponse
+    public function setPin(SetPaymentPinRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'pin' => ['required', 'string', 'size:6', 'regex:/^\d{6}$/'],
-        ]);
+        $validated = $request->validated();
 
         $request->user()->forceFill(['payment_pin_hash' => PaymentPin::hash($validated['pin'])])->save();
 
