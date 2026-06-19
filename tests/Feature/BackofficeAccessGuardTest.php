@@ -83,6 +83,15 @@ class BackofficeAccessGuardTest extends TestCase
             'nfc store'             => ['post', 'admin.nfc-cards.store'],
             'menu-visibility index' => ['get',  'admin.menu-visibility.index'],
             'menu-visibility store' => ['post', 'admin.menu-visibility.store'],
+            'fees index'            => ['get',  'admin.fees.index'],
+            'fees store'            => ['post', 'admin.fees.store'],
+            'broadcast index'       => ['get',  'admin.broadcast.index'],
+            'broadcast send'        => ['post', 'admin.broadcast.send'],
+            'ky-cards index'        => ['get',  'admin.ky-cards.index'],
+            'ky-cards store'        => ['post', 'admin.ky-cards.store'],
+            'companies index'       => ['get',  'admin.companies.index'],
+            'users index'           => ['get',  'admin.users.index'],
+            'kyc index'             => ['get',  'admin.kyc.index'],
         ];
     }
 
@@ -134,5 +143,29 @@ class BackofficeAccessGuardTest extends TestCase
         $this->actingAs($admin)
             ->post(route('admin.menu-visibility.store'), [])
             ->assertSessionHasErrors(['menu_item_key', 'scope_type', 'visible']);
+    }
+
+    /** Rotta parametrizzata ad alto impatto: sospensione azienda (era scoperta). */
+    public function test_non_backoffice_user_cannot_suspend_company(): void
+    {
+        $user = $this->makeRegularUser();
+
+        $slug = 'target-' . Str::random(5);
+        $company = Company::create([
+            'name'          => 'Target Co ' . Str::random(4),
+            'slug'          => $slug,
+            'email'         => $slug . '@test.test',
+            'status'        => 'active',
+            'kyc_status'    => 'approved',
+            'currency_code' => 'KY',
+            'sector'        => 'informatica',
+            'description'   => 'Test',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('admin.companies.suspend', $company))
+            ->assertForbidden();
+
+        $this->assertNull($company->fresh()->suspended_at);
     }
 }

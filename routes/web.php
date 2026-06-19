@@ -598,161 +598,161 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/ricarica/success/{purchase}', [KyCardController::class, 'success'])->name('portal.ky-cards.success');
 
     // Admin Settori
-    Route::get('/admin/settori', [AdminSectorController::class, 'index'])->name('admin.sectors.index');
-    Route::post('/admin/settori', [AdminSectorController::class, 'store'])->name('admin.sectors.store');
-    Route::put('/admin/settori/{sector}', [AdminSectorController::class, 'update'])->name('admin.sectors.update');
-    Route::patch('/admin/settori/{sector}/toggle', [AdminSectorController::class, 'toggle'])->name('admin.sectors.toggle');
-    Route::delete('/admin/settori/{sector}', [AdminSectorController::class, 'destroy'])->name('admin.sectors.destroy');
+    Route::get('/admin/settori', [AdminSectorController::class, 'index'])->name('admin.sectors.index')->middleware('backoffice');
+    Route::post('/admin/settori', [AdminSectorController::class, 'store'])->name('admin.sectors.store')->middleware('backoffice');
+    Route::put('/admin/settori/{sector}', [AdminSectorController::class, 'update'])->name('admin.sectors.update')->middleware('backoffice');
+    Route::patch('/admin/settori/{sector}/toggle', [AdminSectorController::class, 'toggle'])->name('admin.sectors.toggle')->middleware('backoffice');
+    Route::delete('/admin/settori/{sector}', [AdminSectorController::class, 'destroy'])->name('admin.sectors.destroy')->middleware('backoffice');
 
     // Admin KYCard CRUD
-    Route::get('/admin/ky-cards', [AdminKyCardController::class, 'index'])->name('admin.ky-cards.index');
-    Route::get('/admin/ky-cards/create', [AdminKyCardController::class, 'create'])->name('admin.ky-cards.create');
-    Route::post('/admin/ky-cards', [AdminKyCardController::class, 'store'])->name('admin.ky-cards.store');
-    Route::get('/admin/ky-cards/{kyCard}/edit', [AdminKyCardController::class, 'edit'])->name('admin.ky-cards.edit');
-    Route::put('/admin/ky-cards/{kyCard}', [AdminKyCardController::class, 'update'])->name('admin.ky-cards.update');
-    Route::delete('/admin/ky-cards/{kyCard}', [AdminKyCardController::class, 'destroy'])->name('admin.ky-cards.destroy');
-    Route::patch('/admin/ky-cards/{kyCard}/toggle', [AdminKyCardController::class, 'toggle'])->name('admin.ky-cards.toggle');
-    Route::get('/admin/ky-cards/bonifici', [AdminKyCardController::class, 'pendingTransfers'])->name('admin.ky-cards.pending-transfers');
-    Route::post('/admin/ky-cards/bonifici/{purchase}/confirm', [KyCardController::class, 'adminConfirmBankTransfer'])->name('admin.ky-cards.confirm-transfer');
-    Route::post('/admin/ky-cards/bonifici/{purchase}/reject', [KyCardController::class, 'adminRejectBankTransfer'])->name('admin.ky-cards.reject-transfer');
-    Route::post('/admin/ky-cards/acquisti/{purchase}/retry', [KyCardController::class, 'adminRetryCredit'])->name('admin.ky-cards.retry-credit');
+    Route::get('/admin/ky-cards', [AdminKyCardController::class, 'index'])->name('admin.ky-cards.index')->middleware('backoffice');
+    Route::get('/admin/ky-cards/create', [AdminKyCardController::class, 'create'])->name('admin.ky-cards.create')->middleware('backoffice');
+    Route::post('/admin/ky-cards', [AdminKyCardController::class, 'store'])->name('admin.ky-cards.store')->middleware('backoffice');
+    Route::get('/admin/ky-cards/{kyCard}/edit', [AdminKyCardController::class, 'edit'])->name('admin.ky-cards.edit')->middleware('backoffice');
+    Route::put('/admin/ky-cards/{kyCard}', [AdminKyCardController::class, 'update'])->name('admin.ky-cards.update')->middleware('backoffice');
+    Route::delete('/admin/ky-cards/{kyCard}', [AdminKyCardController::class, 'destroy'])->name('admin.ky-cards.destroy')->middleware('backoffice');
+    Route::patch('/admin/ky-cards/{kyCard}/toggle', [AdminKyCardController::class, 'toggle'])->name('admin.ky-cards.toggle')->middleware('backoffice');
+    Route::get('/admin/ky-cards/bonifici', [AdminKyCardController::class, 'pendingTransfers'])->name('admin.ky-cards.pending-transfers')->middleware('backoffice');
+    Route::post('/admin/ky-cards/bonifici/{purchase}/confirm', [KyCardController::class, 'adminConfirmBankTransfer'])->name('admin.ky-cards.confirm-transfer')->middleware('backoffice');
+    Route::post('/admin/ky-cards/bonifici/{purchase}/reject', [KyCardController::class, 'adminRejectBankTransfer'])->name('admin.ky-cards.reject-transfer')->middleware('backoffice');
+    Route::post('/admin/ky-cards/acquisti/{purchase}/retry', [KyCardController::class, 'adminRetryCredit'])->name('admin.ky-cards.retry-credit')->middleware('backoffice');
 
     // -- Card NFC fisiche (Admin) -----------------------------------------
-    Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index');
-    Route::get('/admin/nfc-cards/create', [AdminNfcCardController::class, 'create'])->name('admin.nfc-cards.create');
-    Route::post('/admin/nfc-cards', [AdminNfcCardController::class, 'store'])->name('admin.nfc-cards.store');
-    Route::get('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkCreate'])->name('admin.nfc-cards.bulk-create');
-    Route::post('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkStore'])->name('admin.nfc-cards.bulk-store');
-    Route::get('/admin/nfc-cards/{nfcCard}', [AdminNfcCardController::class, 'show'])->name('admin.nfc-cards.show');
-    Route::post('/admin/nfc-cards/{nfcCard}/mark-issued', [AdminNfcCardController::class, 'markIssued'])->name('admin.nfc-cards.mark-issued');
-    Route::post('/admin/nfc-cards/{nfcCard}/mark-shipped', [AdminNfcCardController::class, 'markShipped'])->name('admin.nfc-cards.mark-shipped');
-    Route::post('/admin/nfc-cards/{nfcCard}/mark-delivered', [AdminNfcCardController::class, 'markDelivered'])->name('admin.nfc-cards.mark-delivered');
-    Route::post('/admin/nfc-cards/{nfcCard}/revoke', [AdminNfcCardController::class, 'revoke'])->name('admin.nfc-cards.revoke');
+    Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index')->middleware('backoffice');
+    Route::get('/admin/nfc-cards/create', [AdminNfcCardController::class, 'create'])->name('admin.nfc-cards.create')->middleware('backoffice');
+    Route::post('/admin/nfc-cards', [AdminNfcCardController::class, 'store'])->name('admin.nfc-cards.store')->middleware('backoffice');
+    Route::get('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkCreate'])->name('admin.nfc-cards.bulk-create')->middleware('backoffice');
+    Route::post('/admin/nfc-cards/bulk', [AdminNfcCardController::class, 'bulkStore'])->name('admin.nfc-cards.bulk-store')->middleware('backoffice');
+    Route::get('/admin/nfc-cards/{nfcCard}', [AdminNfcCardController::class, 'show'])->name('admin.nfc-cards.show')->middleware('backoffice');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-issued', [AdminNfcCardController::class, 'markIssued'])->name('admin.nfc-cards.mark-issued')->middleware('backoffice');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-shipped', [AdminNfcCardController::class, 'markShipped'])->name('admin.nfc-cards.mark-shipped')->middleware('backoffice');
+    Route::post('/admin/nfc-cards/{nfcCard}/mark-delivered', [AdminNfcCardController::class, 'markDelivered'])->name('admin.nfc-cards.mark-delivered')->middleware('backoffice');
+    Route::post('/admin/nfc-cards/{nfcCard}/revoke', [AdminNfcCardController::class, 'revoke'])->name('admin.nfc-cards.revoke')->middleware('backoffice');
 
-    Route::get('/admin/ky-cards/ordini', [KyCardController::class, 'adminOrders'])->name('admin.ky-cards.orders');
+    Route::get('/admin/ky-cards/ordini', [KyCardController::class, 'adminOrders'])->name('admin.ky-cards.orders')->middleware('backoffice');
 
-        Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+        Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard')->middleware('backoffice');
 
-    Route::get('/admin/users', [UserController::class, 'users'])->name('admin.users.index');
-    Route::post('/admin/users', [UserController::class, 'storeUser'])->name('admin.users.store');
-    Route::post('/admin/users/verifica-tutti', [UserController::class, 'verifyAllUsers'])->name('admin.users.verify-all');
-    Route::get('/admin/users/{user}', [UserController::class, 'showUser'])->name('admin.users.show');
-    Route::post('/admin/users/{user}', [UserController::class, 'updateUser'])->name('admin.users.update');
-    Route::post('/admin/users/{user}/verifica-email', [UserController::class, 'verifyUserEmail'])->name('admin.users.verify-email');
-    Route::post('/admin/users/{user}/password', [UserController::class, 'changePasswordUser'])->name('admin.users.password');
-    Route::delete('/admin/users/{user}/sessioni/{sessionId}', [UserController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate');
-    Route::delete('/admin/users/{user}/sessioni', [UserController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all');
+    Route::get('/admin/users', [UserController::class, 'users'])->name('admin.users.index')->middleware('backoffice');
+    Route::post('/admin/users', [UserController::class, 'storeUser'])->name('admin.users.store')->middleware('backoffice');
+    Route::post('/admin/users/verifica-tutti', [UserController::class, 'verifyAllUsers'])->name('admin.users.verify-all')->middleware('backoffice');
+    Route::get('/admin/users/{user}', [UserController::class, 'showUser'])->name('admin.users.show')->middleware('backoffice');
+    Route::post('/admin/users/{user}', [UserController::class, 'updateUser'])->name('admin.users.update')->middleware('backoffice');
+    Route::post('/admin/users/{user}/verifica-email', [UserController::class, 'verifyUserEmail'])->name('admin.users.verify-email')->middleware('backoffice');
+    Route::post('/admin/users/{user}/password', [UserController::class, 'changePasswordUser'])->name('admin.users.password')->middleware('backoffice');
+    Route::delete('/admin/users/{user}/sessioni/{sessionId}', [UserController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate')->middleware('backoffice');
+    Route::delete('/admin/users/{user}/sessioni', [UserController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all')->middleware('backoffice');
 
-    Route::get('/admin/roles', [RoleController::class, 'roles'])->name('admin.roles.index');
-    Route::post('/admin/roles', [RoleController::class, 'storeRole'])->name('admin.roles.store');
-    Route::post('/admin/roles/{role}', [RoleController::class, 'updateRole'])->name('admin.roles.update');
+    Route::get('/admin/roles', [RoleController::class, 'roles'])->name('admin.roles.index')->middleware('backoffice');
+    Route::post('/admin/roles', [RoleController::class, 'storeRole'])->name('admin.roles.store')->middleware('backoffice');
+    Route::post('/admin/roles/{role}', [RoleController::class, 'updateRole'])->name('admin.roles.update')->middleware('backoffice');
 
-    Route::get('/admin/companies', [CompanyController::class, 'companies'])->name('admin.companies.index');
-    Route::get('/admin/companies/{company}', [CompanyController::class, 'showCompany'])->name('admin.companies.show');
-    Route::post('/admin/companies/{company}/broker', [CompanyController::class, 'assignBroker'])->name('admin.companies.broker');
-    Route::post('/admin/companies/{company}/credit-limit', [CreditLimitController::class, 'setCreditLimit'])->name('admin.companies.credit-limit');
-    Route::post('/admin/companies/{company}/max-balance', [CreditLimitController::class, 'setMaxBalance'])->name('admin.companies.max-balance');
-    Route::get('/admin/richieste-fido', [CreditLimitController::class, 'creditLimitRequests'])->name('admin.credit-requests.index');
-    Route::post('/admin/richieste-fido/{creditRequest}/approve', [CreditLimitController::class, 'approveCreditRequest'])->name('admin.credit-requests.approve');
-    Route::post('/admin/richieste-fido/{creditRequest}/reject', [CreditLimitController::class, 'rejectCreditRequest'])->name('admin.credit-requests.reject');
-    Route::post('/admin/companies/{company}/suspend', [CompanyController::class, 'suspendCompany'])->name('admin.companies.suspend');
-    Route::post('/admin/companies/{company}/unsuspend', [CompanyController::class, 'unsuspendCompany'])->name('admin.companies.unsuspend');
-    Route::post('/admin/companies/{company}/activate', [CompanyController::class, 'activateCompany'])->name('admin.companies.activate');
-    Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate');
-    Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan');
-    Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel');
-    Route::post('/admin/netting/{proposal}/cancel', [CompanyController::class, 'cancelNettingProposal'])->name('admin.netting.cancel');
-    Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries');
-    Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry');
+    Route::get('/admin/companies', [CompanyController::class, 'companies'])->name('admin.companies.index')->middleware('backoffice');
+    Route::get('/admin/companies/{company}', [CompanyController::class, 'showCompany'])->name('admin.companies.show')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/broker', [CompanyController::class, 'assignBroker'])->name('admin.companies.broker')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/credit-limit', [CreditLimitController::class, 'setCreditLimit'])->name('admin.companies.credit-limit')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/max-balance', [CreditLimitController::class, 'setMaxBalance'])->name('admin.companies.max-balance')->middleware('backoffice');
+    Route::get('/admin/richieste-fido', [CreditLimitController::class, 'creditLimitRequests'])->name('admin.credit-requests.index')->middleware('backoffice');
+    Route::post('/admin/richieste-fido/{creditRequest}/approve', [CreditLimitController::class, 'approveCreditRequest'])->name('admin.credit-requests.approve')->middleware('backoffice');
+    Route::post('/admin/richieste-fido/{creditRequest}/reject', [CreditLimitController::class, 'rejectCreditRequest'])->name('admin.credit-requests.reject')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/suspend', [CompanyController::class, 'suspendCompany'])->name('admin.companies.suspend')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/unsuspend', [CompanyController::class, 'unsuspendCompany'])->name('admin.companies.unsuspend')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/activate', [CompanyController::class, 'activateCompany'])->name('admin.companies.activate')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan')->middleware('backoffice');
+    Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');
+    Route::post('/admin/netting/{proposal}/cancel', [CompanyController::class, 'cancelNettingProposal'])->name('admin.netting.cancel')->middleware('backoffice');
+    Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries')->middleware('backoffice');
+    Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry')->middleware('backoffice');
 
-    Route::get('/admin/accounts', [AdminAccountController::class, 'accounts'])->name('admin.accounts.index');
-    Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show');
-    Route::post('/admin/accounts/{account}', [AdminAccountController::class, 'updateAccount'])->name('admin.accounts.update');
-    Route::post('/admin/accounts/{account}/sblocca', [AdminAccountController::class, 'unlockAccount'])->name('admin.accounts.unlock');
-    Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement');
+    Route::get('/admin/accounts', [AdminAccountController::class, 'accounts'])->name('admin.accounts.index')->middleware('backoffice');
+    Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show')->middleware('backoffice');
+    Route::post('/admin/accounts/{account}', [AdminAccountController::class, 'updateAccount'])->name('admin.accounts.update')->middleware('backoffice');
+    Route::post('/admin/accounts/{account}/sblocca', [AdminAccountController::class, 'unlockAccount'])->name('admin.accounts.unlock')->middleware('backoffice');
+    Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement')->middleware('backoffice');
 
     // Emissione KY sovrana (solo super admin)
-    Route::get('/admin/emissione-ky', [EmissionController::class, 'emitKyForm'])->name('admin.ky.emit');
-    Route::post('/admin/emissione-ky', [EmissionController::class, 'emitKy'])->name('admin.ky.emit.submit');
+    Route::get('/admin/emissione-ky', [EmissionController::class, 'emitKyForm'])->name('admin.ky.emit')->middleware('backoffice');
+    Route::post('/admin/emissione-ky', [EmissionController::class, 'emitKy'])->name('admin.ky.emit.submit')->middleware('backoffice');
 
     // Integrità contabile circuito
-    Route::get('/admin/integrita', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'index'])->name('admin.integrity.index');
-    Route::post('/admin/integrita/fix-all', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAll'])->name('admin.integrity.fix-all');
-    Route::post('/admin/integrita/fix/{accountId}', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAccount'])->name('admin.integrity.fix-account');
+    Route::get('/admin/integrita', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'index'])->name('admin.integrity.index')->middleware('backoffice');
+    Route::post('/admin/integrita/fix-all', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAll'])->name('admin.integrity.fix-all')->middleware('backoffice');
+    Route::post('/admin/integrita/fix/{accountId}', [\App\Http\Controllers\Admin\AdminIntegrityController::class, 'fixAccount'])->name('admin.integrity.fix-account')->middleware('backoffice');
 
-    Route::get('/admin/report', [AdminController::class, 'report'])->name('admin.report');
-    Route::get('/admin/audit', [AuditController::class, 'auditLog'])->name('admin.audit');
-    Route::get('/admin/audit/export-csv', [AuditController::class, 'exportAuditCsv'])->name('admin.audit.export-csv');
-    Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
-    Route::get('/admin/circuito', [AdminController::class, 'circuito'])->name('admin.circuito');
-    Route::get('/admin/branding', [BrandingController::class, 'branding'])->name('admin.branding');
-Route::get('/admin/contratto',   [AdminContractController::class, 'contractSettings'])->name('admin.contract-settings');
-Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update');
-Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update');
-Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures');
-Route::get('/admin/contratto/firme/export',      [AdminContractController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export');
-Route::get('/admin/contratto/firme/{signature}', [AdminContractController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show');
-Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::class, 'contractSignatureExportSingle'])->name('admin.contract-signatures.export-single');
-    Route::patch('/admin/branding', [BrandingController::class, 'brandingUpdate'])->name('admin.branding.update');
+    Route::get('/admin/report', [AdminController::class, 'report'])->name('admin.report')->middleware('backoffice');
+    Route::get('/admin/audit', [AuditController::class, 'auditLog'])->name('admin.audit')->middleware('backoffice');
+    Route::get('/admin/audit/export-csv', [AuditController::class, 'exportAuditCsv'])->name('admin.audit.export-csv')->middleware('backoffice');
+    Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics')->middleware('backoffice');
+    Route::get('/admin/circuito', [AdminController::class, 'circuito'])->name('admin.circuito')->middleware('backoffice');
+    Route::get('/admin/branding', [BrandingController::class, 'branding'])->name('admin.branding')->middleware('backoffice');
+Route::get('/admin/contratto',   [AdminContractController::class, 'contractSettings'])->name('admin.contract-settings')->middleware('backoffice');
+Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update')->middleware('backoffice');
+Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update')->middleware('backoffice');
+Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures')->middleware('backoffice');
+Route::get('/admin/contratto/firme/export',      [AdminContractController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export')->middleware('backoffice');
+Route::get('/admin/contratto/firme/{signature}', [AdminContractController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show')->middleware('backoffice');
+Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::class, 'contractSignatureExportSingle'])->name('admin.contract-signatures.export-single')->middleware('backoffice');
+    Route::patch('/admin/branding', [BrandingController::class, 'brandingUpdate'])->name('admin.branding.update')->middleware('backoffice');
 
     // Web Push subscriptions
     Route::get('/push/vapid-key', [PushSubscriptionController::class, 'vapidKey'])->name('push.vapid-key');
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
     Route::delete('/push/subscribe', [PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
-    Route::get('/admin/report/export-csv', [AdminController::class, 'exportCsv'])->name('admin.report.export-csv');
-    Route::get('/admin/transfers', [AdminController::class, 'transfers'])->name('admin.transfers.index');
-    Route::post('/admin/transfers/{transfer}/refund', [AdminController::class, 'refundTransfer'])->name('admin.transfers.refund');
+    Route::get('/admin/report/export-csv', [AdminController::class, 'exportCsv'])->name('admin.report.export-csv')->middleware('backoffice');
+    Route::get('/admin/transfers', [AdminController::class, 'transfers'])->name('admin.transfers.index')->middleware('backoffice');
+    Route::post('/admin/transfers/{transfer}/refund', [AdminController::class, 'refundTransfer'])->name('admin.transfers.refund')->middleware('backoffice');
 
-    Route::get('/admin/limits', [CreditLimitController::class, 'limits'])->name('admin.limits.index');
-    Route::post('/admin/limits', [CreditLimitController::class, 'updateLimitDefaults'])->name('admin.limits.update');
+    Route::get('/admin/limits', [CreditLimitController::class, 'limits'])->name('admin.limits.index')->middleware('backoffice');
+    Route::post('/admin/limits', [CreditLimitController::class, 'updateLimitDefaults'])->name('admin.limits.update')->middleware('backoffice');
 
-    Route::get('/admin/kyc', [KycController::class, 'adminIndex'])->name('admin.kyc.index');
-    Route::get('/admin/kyc/{company}', [KycController::class, 'adminShow'])->name('admin.kyc.show');
-    Route::post('/admin/kyc/{company}/approve', [KycController::class, 'approve'])->name('admin.kyc.approve');
-    Route::post('/admin/kyc/{company}/reject', [KycController::class, 'reject'])->name('admin.kyc.reject');
-    Route::post('/admin/kyc/{company}/request-docs', [KycController::class, 'requestMoreDocs'])->name('admin.kyc.request-docs');
+    Route::get('/admin/kyc', [KycController::class, 'adminIndex'])->name('admin.kyc.index')->middleware('backoffice');
+    Route::get('/admin/kyc/{company}', [KycController::class, 'adminShow'])->name('admin.kyc.show')->middleware('backoffice');
+    Route::post('/admin/kyc/{company}/approve', [KycController::class, 'approve'])->name('admin.kyc.approve')->middleware('backoffice');
+    Route::post('/admin/kyc/{company}/reject', [KycController::class, 'reject'])->name('admin.kyc.reject')->middleware('backoffice');
+    Route::post('/admin/kyc/{company}/request-docs', [KycController::class, 'requestMoreDocs'])->name('admin.kyc.request-docs')->middleware('backoffice');
 
-    Route::get('/admin/listings', [ListingController::class, 'adminIndex'])->name('admin.listings.index');
-    Route::post('/admin/listings/{listing}/status', [ListingController::class, 'adminUpdateStatus'])->name('admin.listings.status');
+    Route::get('/admin/listings', [ListingController::class, 'adminIndex'])->name('admin.listings.index')->middleware('backoffice');
+    Route::post('/admin/listings/{listing}/status', [ListingController::class, 'adminUpdateStatus'])->name('admin.listings.status')->middleware('backoffice');
 
-    Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index');
-    Route::post('/admin/announcements/{announcement}/status', [AnnouncementController::class, 'adminUpdateStatus'])->name('admin.announcements.status');
+    Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index')->middleware('backoffice');
+    Route::post('/admin/announcements/{announcement}/status', [AnnouncementController::class, 'adminUpdateStatus'])->name('admin.announcements.status')->middleware('backoffice');
 
     // Cashback rules (admin)
-    Route::get('/admin/cashback', [CashbackRuleController::class, 'index'])->name('admin.cashback.index');
-    Route::get('/admin/cashback/create', [CashbackRuleController::class, 'create'])->name('admin.cashback.create');
-    Route::post('/admin/cashback', [CashbackRuleController::class, 'store'])->name('admin.cashback.store');
-    Route::get('/admin/cashback/{cashbackRule}/edit', [CashbackRuleController::class, 'edit'])->name('admin.cashback.edit');
-    Route::put('/admin/cashback/{cashbackRule}', [CashbackRuleController::class, 'update'])->name('admin.cashback.update');
-    Route::delete('/admin/cashback/{cashbackRule}', [CashbackRuleController::class, 'destroy'])->name('admin.cashback.destroy');
-    Route::post('/admin/cashback/{cashbackRule}/toggle', [CashbackRuleController::class, 'toggleActive'])->name('admin.cashback.toggle');
+    Route::get('/admin/cashback', [CashbackRuleController::class, 'index'])->name('admin.cashback.index')->middleware('backoffice');
+    Route::get('/admin/cashback/create', [CashbackRuleController::class, 'create'])->name('admin.cashback.create')->middleware('backoffice');
+    Route::post('/admin/cashback', [CashbackRuleController::class, 'store'])->name('admin.cashback.store')->middleware('backoffice');
+    Route::get('/admin/cashback/{cashbackRule}/edit', [CashbackRuleController::class, 'edit'])->name('admin.cashback.edit')->middleware('backoffice');
+    Route::put('/admin/cashback/{cashbackRule}', [CashbackRuleController::class, 'update'])->name('admin.cashback.update')->middleware('backoffice');
+    Route::delete('/admin/cashback/{cashbackRule}', [CashbackRuleController::class, 'destroy'])->name('admin.cashback.destroy')->middleware('backoffice');
+    Route::post('/admin/cashback/{cashbackRule}/toggle', [CashbackRuleController::class, 'toggleActive'])->name('admin.cashback.toggle')->middleware('backoffice');
 
     // ── Commissioni transazioni (admin) ───────────────────────────────────────
-    Route::get('/admin/fees', [AdminFeeController::class, 'index'])->name('admin.fees.index');
-    Route::get('/admin/fees/create', [AdminFeeController::class, 'create'])->name('admin.fees.create');
-    Route::post('/admin/fees', [AdminFeeController::class, 'store'])->name('admin.fees.store');
-    Route::get('/admin/fees/{fee}/edit', [AdminFeeController::class, 'edit'])->name('admin.fees.edit');
-    Route::put('/admin/fees/{fee}', [AdminFeeController::class, 'update'])->name('admin.fees.update');
-    Route::delete('/admin/fees/{fee}', [AdminFeeController::class, 'destroy'])->name('admin.fees.destroy');
-    Route::post('/admin/fees/{fee}/toggle', [AdminFeeController::class, 'toggle'])->name('admin.fees.toggle');
+    Route::get('/admin/fees', [AdminFeeController::class, 'index'])->name('admin.fees.index')->middleware('backoffice');
+    Route::get('/admin/fees/create', [AdminFeeController::class, 'create'])->name('admin.fees.create')->middleware('backoffice');
+    Route::post('/admin/fees', [AdminFeeController::class, 'store'])->name('admin.fees.store')->middleware('backoffice');
+    Route::get('/admin/fees/{fee}/edit', [AdminFeeController::class, 'edit'])->name('admin.fees.edit')->middleware('backoffice');
+    Route::put('/admin/fees/{fee}', [AdminFeeController::class, 'update'])->name('admin.fees.update')->middleware('backoffice');
+    Route::delete('/admin/fees/{fee}', [AdminFeeController::class, 'destroy'])->name('admin.fees.destroy')->middleware('backoffice');
+    Route::post('/admin/fees/{fee}/toggle', [AdminFeeController::class, 'toggle'])->name('admin.fees.toggle')->middleware('backoffice');
 
     // ── Comunicazione massiva (admin) ─────────────────────────────────────────
-    Route::get('/admin/broadcast', [AdminBroadcastController::class, 'index'])->name('admin.broadcast.index');
-    Route::get('/admin/broadcast/preview', [AdminBroadcastController::class, 'preview'])->name('admin.broadcast.preview');
-    Route::post('/admin/broadcast', [AdminBroadcastController::class, 'send'])->name('admin.broadcast.send');
+    Route::get('/admin/broadcast', [AdminBroadcastController::class, 'index'])->name('admin.broadcast.index')->middleware('backoffice');
+    Route::get('/admin/broadcast/preview', [AdminBroadcastController::class, 'preview'])->name('admin.broadcast.preview')->middleware('backoffice');
+    Route::post('/admin/broadcast', [AdminBroadcastController::class, 'send'])->name('admin.broadcast.send')->middleware('backoffice');
 
     // ── Messaggi assistenza (admin) ───────────────────────────────────────────
-    Route::get('/admin/support', [AdminController::class, 'supportMessages'])->name('admin.support.index');
-    Route::post('/admin/support/{message}/resolve', [AdminController::class, 'resolveSupport'])->name('admin.support.resolve');
+    Route::get('/admin/support', [AdminController::class, 'supportMessages'])->name('admin.support.index')->middleware('backoffice');
+    Route::post('/admin/support/{message}/resolve', [AdminController::class, 'resolveSupport'])->name('admin.support.resolve')->middleware('backoffice');
 
     // ── Cache (admin) ─────────────────────────────────────────────────────────
-    Route::post('/admin/cache/clear', [AdminController::class, 'clearCache'])->name('admin.cache.clear');
+    Route::post('/admin/cache/clear', [AdminController::class, 'clearCache'])->name('admin.cache.clear')->middleware('backoffice');
 
     // ── Visibilità menu utenti (admin) ────────────────────────────────────────
-    Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index');
-    Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store');
-    Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy');
-    Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset');
+    Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index')->middleware('backoffice');
+    Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store')->middleware('backoffice');
+    Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy')->middleware('backoffice');
+    Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset')->middleware('backoffice');
 
 
     // ── Grafico storico saldo (AJAX) ─────────────────────────────────────────
