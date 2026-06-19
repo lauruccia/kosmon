@@ -178,10 +178,13 @@ class AdminBackofficeTest extends TestCase
         $this->actingAs($admin)
             ->get('/admin/users/' . $privateUser->id . '#user-update')
             ->assertOk()
-            ->assertSee('Saldo massimo conto principale', false);
+            ->assertSee('Saldo massimo (KY)', false);
 
         $this->actingAs($admin)
             ->post('/admin/users/' . $privateUser->id, [
+                'name' => $privateUser->name,
+                'email' => $privateUser->email,
+                'account_holder_type' => $privateUser->account_holder_type,
                 'company_id' => $privateUser->company_id,
                 'managed_account_id' => $privateUser->managed_account_id,
                 'phone' => $privateUser->phone,

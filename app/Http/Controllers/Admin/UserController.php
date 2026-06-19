@@ -25,6 +25,9 @@ class UserController extends Controller
     use AuthorizesBackoffice;
     use HandlesMovementFilters;
 
+    /** Default di paginazione per il listing utenti (recuperato dallo split di AdminController). */
+    private const USERS_PER_PAGE = 25;
+
     public function users(Request $request): View
     {
         $this->authorizeBackoffice($request->user());

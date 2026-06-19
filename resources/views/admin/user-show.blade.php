@@ -399,115 +399,153 @@
         @else
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
                 @foreach($activeSessions as $session)
-                @php $holderType = $userRecord->account_holder_type; @endphp
-
-        <div class=”uu-header”>
-            <div>
-                <span class=”eyebrow”>Aggiornamento backoffice</span>
-                <h3 class=”section-title” style=”margin:2px 0 0;”>Modifica utente</h3>
+                @php
+                    $ua       = $session->user_agent ?? '';
+                    $isMobile = stripos($ua, 'mobile') !== false || stripos($ua, 'android') !== false;
+                    $isTablet = stripos($ua, 'tablet') !== false || stripos($ua, 'ipad') !== false;
+                    $icon     = $isMobile ? '📱' : ($isTablet ? '📟' : '🖥️');
+                    $lastSeen = \Carbon\Carbon::createFromTimestamp($session->last_activity);
+                @endphp
+                <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:22px;">{{ $icon }}</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--ink);">
+                                {{ $session->ip_address ?? 'IP sconosciuto' }}
+                            </div>
+                            <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">
+                                Attiva {{ $lastSeen->diffForHumans() }} &middot; {{ $lastSeen->format('d/m/Y H:i') }}
+                            </div>
+                            @if($ua)
+                            <div style="font-size:11px;color:var(--ink-muted);margin-top:1px;max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $ua }}">
+                                {{ Str::limit($ua, 80) }}
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ route('admin.users.sessions.terminate', [$userRecord, $session->id]) }}"
+                          onsubmit="return confirm('Terminare questa sessione?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit"
+                                style="font-size:12px;font-weight:600;color:var(--danger);background:transparent;border:1.5px solid var(--danger);padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;">
+                            Disconnetti
+                        </button>
+                    </form>
+                </div>
+                @endforeach
             </div>
-            <span class=”pill”>{{ $roles->count() }} ruoli disponibili</span>
+        @endif
+
+        @php $holderType = $userRecord->account_holder_type; @endphp
+
+        <div class="uu-header">
+            <div>
+                <span class="eyebrow">Aggiornamento backoffice</span>
+                <h3 class="section-title" style="margin:2px 0 0;">Modifica utente</h3>
+            </div>
+            <span class="pill">{{ $roles->count() }} ruoli disponibili</span>
         </div>
 
-        <div class=”uu-body”>
-        <form method=”post” action=”{{ route('admin.users.update', $userRecord) }}”
-              id=”form-aggiorna-utente”
-              onsubmit=”return adminUpdateConfirm(this)”>
+        <div class="uu-body">
+        <form method="post" action="{{ route('admin.users.update', $userRecord) }}"
+              id="form-aggiorna-utente"
+              onsubmit="return adminUpdateConfirm(this)">
             @csrf
 
             {{-- ── 1. Anagrafica ────────────────────────────────────────────────── --}}
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><circle cx=”12” cy=”8” r=”4”/><path d=”M4 20c0-4 3.6-7 8-7s8 3 8 7”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                     Anagrafica
                 </div>
-                <div class=”uu-group-body cols-3”>
-                    <div class=”uu-field”>
+                <div class="uu-group-body cols-3">
+                    <div class="uu-field">
                         <label>Nome completo</label>
-                        <input name=”name” type=”text” required
-                               value=”{{ old('name', trim((string)($userRecord->name ?? ''), '"')) }}”
-                               placeholder=”Nome e cognome”>
+                        <input name="name" type="text" required
+                               value="{{ old('name', trim((string)($userRecord->name ?? ''), '"')) }}"
+                               placeholder="Nome e cognome">
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Indirizzo email</label>
-                        <input name=”email” type=”email” required
-                               value=”{{ old('email', trim((string)($userRecord->email ?? ''), '"')) }}”
-                               data-original-email=”{{ trim((string)($userRecord->email ?? ''), '"') }}”
-                               placeholder=”email@esempio.it”>
-                        <span class=”uu-hint”>Modificare reimposta la verifica email.</span>
+                        <input name="email" type="email" required
+                               value="{{ old('email', trim((string)($userRecord->email ?? ''), '"')) }}"
+                               data-original-email="{{ trim((string)($userRecord->email ?? ''), '"') }}"
+                               placeholder="email@esempio.it">
+                        <span class="uu-hint">Modificare reimposta la verifica email.</span>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Telefono</label>
-                        <input name=”phone” type=”text”
-                               value=”{{ old('phone', trim((string)($userRecord->phone ?? ''), '"')) }}”
-                               placeholder=”+39 000 0000000”>
+                        <input name="phone" type="text"
+                               value="{{ old('phone', trim((string)($userRecord->phone ?? ''), '"')) }}"
+                               placeholder="+39 000 0000000">
                     </div>
                 </div>
             </div>
 
             {{-- ── 2. Classificazione ───────────────────────────────────────────── --}}
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”2” y=”7” width=”20” height=”14” rx=”2”/><path d=”M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
                     Classificazione
                 </div>
-                <div class=”uu-group-body cols-4”>
-                    <div class=”uu-field”>
+                <div class="uu-group-body cols-4">
+                    <div class="uu-field">
                         <label>Tipologia</label>
-                        <select name=”account_holder_type” id=”tipologia-select”
-                                onchange=”toggleAziendaField(this.value)”>
-                            <option value=”company” @selected(old('account_holder_type', $holderType) === 'company')>Azienda</option>
-                            <option value=”private” @selected(old('account_holder_type', $holderType) === 'private')>Privato</option>
+                        <select name="account_holder_type" id="tipologia-select"
+                                onchange="toggleAziendaField(this.value)">
+                            <option value="company" @selected(old('account_holder_type', $holderType) === 'company')>Azienda</option>
+                            <option value="private" @selected(old('account_holder_type', $holderType) === 'private')>Privato</option>
                         </select>
                     </div>
-                    <div class=”uu-field” id=”field-azienda-collegata”>
+                    <div class="uu-field" id="field-azienda-collegata">
                         <label>Azienda collegata</label>
-                        <select name=”company_id”>
-                            <option value=””>— Nessuna —</option>
+                        <select name="company_id">
+                            <option value="">— Nessuna —</option>
                             @foreach ($companies as $company)
-                                <option value=”{{ $company->id }}”
+                                <option value="{{ $company->id }}"
                                         @selected((int) old('company_id', $userRecord->company_id) === $company->id)>
                                     {{ $company->name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Sottoconto gestito (ID)</label>
-                        <input name=”managed_account_id” type=”number” min=”1”
-                               value=”{{ old('managed_account_id', $userRecord->managed_account_id) }}”
-                               placeholder=”Vuoto se non applicabile”>
+                        <input name="managed_account_id" type="number" min="1"
+                               value="{{ old('managed_account_id', $userRecord->managed_account_id) }}"
+                               placeholder="Vuoto se non applicabile">
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Etichetta interna</label>
-                        <input name=”role_label” type=”text”
-                               value=”{{ old('role_label', trim((string)($userRecord->role ?? ''), '"')) }}”
-                               placeholder=”owner, manager, operatore…”>
+                        <input name="role_label" type="text"
+                               value="{{ old('role_label', trim((string)($userRecord->role ?? ''), '"')) }}"
+                               placeholder="owner, manager, operatore…">
                     </div>
                 </div>
             </div>
 
             {{-- ── 3. Stato e accessi ───────────────────────────────────────────── --}}
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”3” y=”11” width=”18” height=”11” rx=”2”/><path d=”M7 11V7a5 5 0 0 1 10 0v4”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     Stato e accessi
                 </div>
-                <div class=”uu-group-body cols-2”>
-                    <div class=”uu-field”>
+                <div class="uu-group-body cols-2">
+                    <div class="uu-field">
                         <label>Stato account</label>
-                        <select name=”is_active” id=”stato-select”
-                                onchange=”updateStatusStyle(this)”>
-                            <option value=”1” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo — accesso consentito</option>
-                            <option value=”0” @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo — accesso bloccato</option>
+                        <select name="is_active" id="stato-select"
+                                onchange="updateStatusStyle(this)">
+                            <option value="1" @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '1')>Attivo — accesso consentito</option>
+                            <option value="0" @selected((string) old('is_active', $userRecord->is_active ? '1' : '0') === '0')>Disattivo — accesso bloccato</option>
                         </select>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Privilegi speciali</label>
-                        <label class=”uu-toggle danger”>
-                            <input type=”checkbox” name=”is_super_admin” value=”1”
+                        <label class="uu-toggle danger">
+                            <input type="checkbox" name="is_super_admin" value="1"
                                    @checked(old('is_super_admin', $userRecord->is_super_admin))>
-                            <div class=”uu-toggle-text”>
+                            <div class="uu-toggle-text">
                                 <strong>Super Admin</strong>
                                 <span>Accesso illimitato a tutto il backoffice — assegnare con cautela.</span>
                             </div>
@@ -517,68 +555,68 @@
             </div>
 
             {{-- ── 4. Limiti transazionali ──────────────────────────────────────── --}}
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><line x1=”12” y1=”1” x2=”12” y2=”23”/><path d=”M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     Limiti transazionali personalizzati (KY) &mdash; lascia vuoto per usare il default admin
                 </div>
-                <div class=”uu-group-body cols-5”>
-                    <div class=”uu-field”>
+                <div class="uu-group-body cols-5">
+                    <div class="uu-field">
                         <label>Disponibilità commerciale</label>
-                        <input name=”circuit_capacity_limit” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}”
-                               placeholder=”Default admin”>
-                        <span class=”uu-hint”>Tetto massimo acquistabile.</span>
+                        <input name="circuit_capacity_limit" type="number" min="0" step="0.01"
+                               value="{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}"
+                               placeholder="Default admin">
+                        <span class="uu-hint">Tetto massimo acquistabile.</span>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Massimale / fido</label>
-                        <input name=”negative_balance_limit” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}”
-                               placeholder=”Default admin”>
-                        <span class=”uu-hint”><code>0</code> = nessun fido.</span>
+                        <input name="negative_balance_limit" type="number" min="0" step="0.01"
+                               value="{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}"
+                               placeholder="Default admin">
+                        <span class="uu-hint"><code>0</code> = nessun fido.</span>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Limite giornaliero</label>
-                        <input name=”daily_transaction_limit” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}”
-                               placeholder=”Default admin”>
+                        <input name="daily_transaction_limit" type="number" min="0" step="0.01"
+                               value="{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}"
+                               placeholder="Default admin">
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Limite mensile</label>
-                        <input name=”monthly_transaction_limit” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}”
-                               placeholder=”Default admin”>
+                        <input name="monthly_transaction_limit" type="number" min="0" step="0.01"
+                               value="{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}"
+                               placeholder="Default admin">
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Limite per movimento</label>
-                        <input name=”per_movement_limit” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}”
-                               placeholder=”Default admin”>
+                        <input name="per_movement_limit" type="number" min="0" step="0.01"
+                               value="{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}"
+                               placeholder="Default admin">
                     </div>
                 </div>
             </div>
 
             {{-- ── 5. Conto principale ──────────────────────────────────────────── --}}
             @if ($primaryAccount)
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><rect x=”2” y=”5” width=”20” height=”14” rx=”2”/><line x1=”2” y1=”10” x2=”22” y2=”10”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     Conto principale &mdash; {{ $primaryAccount->display_name ?? $primaryAccount->uuid }}
                 </div>
-                <div class=”uu-group-body cols-2”>
-                    <div class=”uu-field”>
+                <div class="uu-group-body cols-2">
+                    <div class="uu-field">
                         <label>Saldo massimo (KY)</label>
-                        <input name=”primary_account_max_balance” type=”number” min=”0” step=”0.01”
-                               value=”{{ old('primary_account_max_balance', ky_input($primaryAccount->max_balance)) }}”
-                               placeholder=”Vuoto = nessun tetto”>
-                        <span class=”uu-hint”>Tetto positivo del conto. Vive sul conto, non sull'utente.</span>
+                        <input name="primary_account_max_balance" type="number" min="0" step="0.01"
+                               value="{{ old('primary_account_max_balance', ky_input($primaryAccount->max_balance)) }}"
+                               placeholder="Vuoto = nessun tetto">
+                        <span class="uu-hint">Tetto positivo del conto. Vive sul conto, non sull'utente.</span>
                     </div>
-                    <div class=”uu-field”>
+                    <div class="uu-field">
                         <label>Fido / saldo negativo</label>
-                        <label class=”uu-toggle”>
-                            <input type=”checkbox” name=”primary_account_allow_negative” value=”1”
+                        <label class="uu-toggle">
+                            <input type="checkbox" name="primary_account_allow_negative" value="1"
                                    @checked(old('primary_account_allow_negative', $primaryAccount->allow_negative_balance))>
-                            <div class=”uu-toggle-text”>
+                            <div class="uu-toggle-text">
                                 <strong>Consenti saldo negativo</strong>
                                 <span>Il conto può scendere sotto zero (linea di credito attiva).</span>
                             </div>
@@ -589,31 +627,31 @@
             @endif
 
             {{-- ── 6. Ruoli ─────────────────────────────────────────────────────── --}}
-            <div class=”uu-group”>
-                <div class=”uu-group-head”>
-                    <svg width=”13” height=”13” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.5”><path d=”M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2”/><circle cx=”9” cy=”7” r=”4”/><path d=”M23 21v-2a4 4 0 0 0-3-3.87”/><path d=”M16 3.13a4 4 0 0 1 0 7.75”/></svg>
+            <div class="uu-group">
+                <div class="uu-group-head">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     Ruoli assegnati
                 </div>
-                <div style=”padding:16px;”>
-                    <div class=”role-grid”>
+                <div style="padding:16px;">
+                    <div class="role-grid">
                         @foreach ($roles as $role)
-                            <label class=”check-tile”>
-                                <input class=”check-mark” type=”checkbox” name=”roles[]” value=”{{ $role->id }}”
+                            <label class="check-tile">
+                                <input class="check-mark" type="checkbox" name="roles[]" value="{{ $role->id }}"
                                        @checked(collect(old('roles', $userRecord->roles->pluck('id')->all()))->contains($role->id))>
-                                <span class=”check-tile-copy”>
-                                    <span class=”check-tile-head”>
+                                <span class="check-tile-copy">
+                                    <span class="check-tile-head">
                                         <strong>{{ $role->name }}</strong>
-                                        <span class=”check-tile-meta”>{{ strtoupper($role->scope) }}</span>
+                                        <span class="check-tile-meta">{{ strtoupper($role->scope) }}</span>
                                     </span>
-                                    <span class=”subtle”>{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
-                                    <span class=”perm-badges”>
+                                    <span class="subtle">{{ $role->description ?: 'Ruolo operativo senza descrizione estesa.' }}</span>
+                                    <span class="perm-badges">
                                         @forelse ($role->permissions->take(4) as $permission)
-                                            <span class=”perm-badge”>{{ str_replace('.', ' · ', $permission->slug) }}</span>
+                                            <span class="perm-badge">{{ str_replace('.', ' · ', $permission->slug) }}</span>
                                         @empty
-                                            <span class=”perm-empty”>Nessun permesso collegato</span>
+                                            <span class="perm-empty">Nessun permesso collegato</span>
                                         @endforelse
                                         @if ($role->permissions->count() > 4)
-                                            <span class=”perm-more”>+{{ $role->permissions->count() - 4 }} altri</span>
+                                            <span class="perm-more">+{{ $role->permissions->count() - 4 }} altri</span>
                                         @endif
                                     </span>
                                 </span>
@@ -623,8 +661,8 @@
                 </div>
             </div>
 
-            <div class=”form-actions”>
-                <button type=”submit” class=”cta”>Salva modifiche</button>
+            <div class="form-actions">
+                <button type="submit" class="cta">Salva modifiche</button>
             </div>
         </form>
         </div>{{-- /.uu-body --}}
@@ -655,15 +693,15 @@
 
         function adminUpdateConfirm(form) {
             var warnings = [];
-            var emailInput = form.querySelector('[name=”email”]');
+            var emailInput = form.querySelector('[name="email"]');
             if (emailInput && emailInput.value !== emailInput.dataset.originalEmail) {
                 warnings.push('⚠️ Stai cambiando l\'email. La verifica email verrà reimpostata.');
             }
-            var isActive = form.querySelector('[name=”is_active”]');
+            var isActive = form.querySelector('[name="is_active"]');
             if (isActive && isActive.value === '0') {
                 warnings.push('⚠️ Stai DISATTIVANDO l\'account. L\'utente non potrà più accedere.');
             }
-            var isSA = form.querySelector('input[type=”checkbox”][name=”is_super_admin”]');
+            var isSA = form.querySelector('input[type="checkbox"][name="is_super_admin"]');
             if (isSA && isSA.checked) {
                 warnings.push('⚠️ Stai assegnando i privilegi SUPER ADMIN. Avrà accesso illimitato al backoffice.');
             }
