@@ -29,6 +29,40 @@ Lavorato a coppie io+Laura in più sessioni. Riepilogo di cosa è chiuso e cosa 
 - **Fix rotte morte `/admin/support`** (vedi sopra).
 - **Ridurre la baseline Larastan** (581 → ...) un po' alla volta.
 
+## Aggiornamento 2026-06-19 — #2 FormRequest, lotto 1 (CRUD admin/config)
+
+Estratte **16 FormRequest** (oltre alla `StoreSubAccountLimitRequest` gia' presente) da **8 controller** a basso rischio. Rimosse **15** `validate()` inline (102 -> 87).
+
+| Controller | FormRequest |
+|---|---|
+| CashbackRuleController | Store/UpdateCashbackRuleRequest |
+| AdminSectorController | Store/UpdateSectorRequest |
+| BeneficiaryController | StoreBeneficiaryRequest (solo `store`; `update`/`destroy` lasciate inline: auth dipende dall'account risolto nel corpo) |
+| AnnouncementController | Store/UpdateAnnouncementRequest + AdminUpdateAnnouncementStatusRequest (`reply` lasciata inline: i pre-check tornano redirect, non 403) |
+| Admin/RoleController | Store/UpdateRoleRequest |
+| Admin/ContractController | UpdateContractText/UpdateContractSettingsRequest |
+| Admin/AdminNfcCardController | Store/BulkStoreNfcCardRequest (`markShipped`/`revoke` lasciate inline: auth basata sullo stato della card + messaggi 403 custom) |
+| Admin/AdminMenuVisibilityController | Store/DestroyMenuVisibilityRequest |
+
+### Finding di sicurezza chiuso nello stesso lotto
+Le rotte admin di **cashback, settori, card NFC e visibilita' menu** stavano nel gruppo portale `['auth','verified','twofactor','onboarding','contract']` **senza guardia di backoffice**, e quei 4 controller non avevano alcun check inline. In pratica un utente onboardato e con contratto firmato poteva — via richiesta diretta — creare/modificare regole cashback (payout in KY), gestire settori, cambiare la visibilita' menu altrui ed emettere/revocare carte NFC, oltre a leggere le relative pagine admin (GET).
+
+**Fix:** nuovo middleware `EnsureCanAccessBackoffice` (alias `backoffice`), applicato ai 4 controller via `HasMiddleware` (copre GET + POST + metodi senza form). Difesa in profondita': anche le nuove FormRequest hanno `authorize() = canAccessBackoffice()`. Nuovo test `BackofficeAccessGuardTest` (403 per non-admin su GET/POST dei 4 controller + admin passa + regole di validazione attive).
+
+> **Nota:** suite e Larastan NON eseguibili nell'ambiente Cowork (manca PHP). Verifica via `composer test` in locale e/o CI sul push.
+
+### Bug preesistente stanato dai test (5°)
+`Admin/UserController` usava `self::USERS_PER_PAGE` ma la costante era rimasta nel vecchio `AdminController` (non portata nello split) → `/admin/users` con filtro/per_page andava in **500 fatale** in produzione. Fix: aggiunta `private const USERS_PER_PAGE = 25;` in `UserController`. Coperto da `AdminBackofficeTest::test_superadmin_can_filter_users_by_role`.
+
+### Bug preesistente (6°): view admin/user-show.blade.php rotta
+Il refactor UX "form utente sub-card" (`4bb59cd`/`85dec28`) aveva lasciato `@if`/`@foreach` sbilanciati — il form "Modifica utente" era finito DENTRO il `@foreach` delle sessioni attive, sovrascrivendone il corpo e i `@endforeach`/`@endif` → `/admin/users/{id}` in **500 in produzione**. Inoltre **119 attributi con virgolette tipografiche** (`class="..."` → smart quotes) che rompevano l'HTML del form. Fix: ripristinato il blocco "sessioni attive" dalla versione sana, richiuse le direttive, convertite le smart quotes in ASCII. Nesting verificato (stack vuoto). Inoltre asserzione **stale** nel test `AdminBackofficeTest::...max_balance_from_user_page`: cercava "Saldo massimo conto principale", label rinominato in "Saldo massimo (KY)" nel commit `8199c7c` → aggiornata la stringa nel test (non la UX). Commit separato dal lotto FormRequest.
+
+### Bug preesistente (7°): filteredChannels() inesistente in 3 notifiche
+`RespectsNotificationPreferences` espone `resolveChannels($notifiable, $eventKey, $default, $allowed)`, ma 3 notifiche chiamavano ancora il vecchio nome `filteredChannels()` (rimosso): `KycStatusChangedNotification`, `PaymentRequestExpiredForCreditorNotification`, `PaymentRequestExpiringNotification` → fatal error all'invio. Conseguenza in produzione: **approva/rifiuta KYC va in 500** (e le notifiche di scadenza richiesta crashano quando parte `ExpirePaymentRequests`). Le altre 18 notifiche usavano già `resolveChannels`. Fix: convertite le 3 con eventKey dedicati (kyc_status / payment_request_expired / payment_request_expiring) + canali default invariati. Emerso dalla suite completa (`KycControllerTest`). Lezione: dopo un rename di metodo condiviso, fare grep dell'intero progetto, non fidarsi dei soli file toccati.
+
+### Restano per i prossimi lotti #2
+Form che muovono denaro (SendPayment, CodePayment, Sonic, NfcCardPayment, ScheduledPayment, PaymentPlan, Netting, TextPaymentRequest), area auth (TwoFactor, Kyc, Onboarding, EmailChange, WebAuthn, StepUp), API e i restanti admin. ~87 `validate()` inline ancora da valutare.
+
 > **Nota tecnica per le prossime sessioni:** sul mount NTFS (Cowork → Windows) gli strumenti Edit/Write troncano i file (anche piccoli) lasciando byte NUL in coda. Usare scritture via Python (binario), e dopo ogni modifica verificare: parentesi graffe bilanciate, file che termina con `}`/`});`, e 0 byte NUL.
 
 ---

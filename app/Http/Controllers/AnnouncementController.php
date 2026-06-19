@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Mail\AnnouncementReplyNotification;
+use App\Http\Requests\AdminUpdateAnnouncementStatusRequest;
+use App\Http\Requests\StoreAnnouncementRequest;
+use App\Http\Requests\UpdateAnnouncementRequest;
 use App\Models\Account;
 use App\Models\Announcement;
 use App\Models\AnnouncementReply;
@@ -11,7 +14,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AnnouncementController extends Controller
@@ -134,15 +136,11 @@ class AnnouncementController extends Controller
 
     // ── Portale: salva nuovo annuncio ─────────────────────────────────────────
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreAnnouncementRequest $request): RedirectResponse
     {
         $user = $request->user();
 
-        if (! $user->canAccessMarketplace()) {
-            abort(403);
-        }
-
-        $validated = $this->validateAnnouncement($request);
+        $validated = $request->validated();
 
         Announcement::create(array_merge($validated, [
             'company_id'         => $user->company_id,
@@ -176,12 +174,9 @@ class AnnouncementController extends Controller
 
     // ── Portale: aggiorna annuncio ────────────────────────────────────────────
 
-    public function update(Request $request, Announcement $announcement): RedirectResponse
+    public function update(UpdateAnnouncementRequest $request, Announcement $announcement): RedirectResponse
     {
-        $user = $request->user();
-        abort_unless($user->is_super_admin || $announcement->company_id === $user->company_id, 403);
-
-        $validated = $this->validateAnnouncement($request);
+        $validated = $request->validated();
         $announcement->update($validated);
 
         return redirect()->route('portal.announcements')
@@ -275,30 +270,14 @@ class AnnouncementController extends Controller
 
     // ── Admin: cambia stato ───────────────────────────────────────────────────
 
-    public function adminUpdateStatus(Request $request, Announcement $announcement): RedirectResponse
+    public function adminUpdateStatus(AdminUpdateAnnouncementStatusRequest $request, Announcement $announcement): RedirectResponse
     {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-
-        $request->validate(['status' => ['required', Rule::in(Announcement::STATUSES)]]);
-        $announcement->update(['status' => $request->input('status')]);
+        $announcement->update(['status' => $request->validated()['status']]);
 
         return back()->with('portal_success', 'Stato annuncio aggiornato.');
     }
 
     // ── Helpers privati ───────────────────────────────────────────────────────
-
-    private function validateAnnouncement(Request $request): array
-    {
-        return $request->validate([
-            'type'         => ['required', Rule::in(array_keys(Announcement::TYPES))],
-            'title'        => ['required', 'string', 'max:160'],
-            'body'         => ['required', 'string', 'max:3000'],
-            'sector'       => ['required', Rule::in(array_keys(Announcement::SECTORS))],
-            'contact_info' => ['nullable', 'string', 'max:200'],
-            'expires_at'   => ['nullable', 'date', 'after:today'],
-            'featured'     => ['nullable', 'boolean'],
-        ]);
-    }
 
     private function resolveAccount($user): Account
     {

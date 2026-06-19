@@ -3,18 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateContractSettingsRequest;
+use App\Http\Requests\UpdateContractTextRequest;
 
 class ContractController extends Controller
 {
     // ── Impostazioni contratto di adesione ───────────────────────────────────
 
-    public function contractTextUpdate(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    public function contractTextUpdate(UpdateContractTextRequest $request): \Illuminate\Http\RedirectResponse
     {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-
-        $request->validate([
-            'contract_text' => ['nullable', 'string', 'max:100000'],
-        ]);
 
         $settings = \App\Models\SystemSetting::contractSettings();
         $settings->update([
@@ -59,13 +56,9 @@ class ContractController extends Controller
         ));
     }
 
-    public function contractSettingsUpdate(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    public function contractSettingsUpdate(UpdateContractSettingsRequest $request): \Illuminate\Http\RedirectResponse
     {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-        $validated = $request->validate([
-            'contract_force_sign'    => ['nullable', 'boolean'],
-            'contract_required_from' => ['required', 'date_format:Y-m-d'],
-        ]);
+        $validated = $request->validated();
 
         \App\Models\SystemSetting::contractSettings()->update([
             'contract_force_sign'    => $request->boolean('contract_force_sign'),

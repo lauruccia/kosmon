@@ -3,15 +3,22 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DestroyMenuVisibilityRequest;
+use App\Http\Requests\StoreMenuVisibilityRequest;
 use App\Models\Company;
 use App\Models\MenuVisibility;
 use App\Models\User;
 use App\Services\MenuVisibilityService;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Support\Facades\DB;
 
-class AdminMenuVisibilityController extends Controller
+class AdminMenuVisibilityController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return ['backoffice'];
+    }
+
     // -----------------------------------------------------------------------
     // Index — mostra tutte le regole raggruppate per voce di menu
     // -----------------------------------------------------------------------
@@ -41,15 +48,9 @@ class AdminMenuVisibilityController extends Controller
     // -----------------------------------------------------------------------
     // Store / toggle — salva una singola regola
     // -----------------------------------------------------------------------
-    public function store(Request $request)
+    public function store(StoreMenuVisibilityRequest $request)
     {
-        $data = $request->validate([
-            'menu_item_key' => ['required', 'string', 'max:64'],
-            'scope_type'    => ['required', 'in:global,account_type,company,user'],
-            'scope_id'      => ['nullable', 'integer', 'min:1'],
-            'account_type'  => ['nullable', 'in:private,company'],
-            'visible'       => ['required', 'in:0,1'],
-        ]);
+        $data = $request->validated();
 
         // Coerenza: rimuovi campi non pertinenti allo scope
         if ($data['scope_type'] === MenuVisibility::SCOPE_GLOBAL) {
@@ -77,14 +78,9 @@ class AdminMenuVisibilityController extends Controller
     // -----------------------------------------------------------------------
     // Destroy — elimina una regola (torna al default)
     // -----------------------------------------------------------------------
-    public function destroy(Request $request)
+    public function destroy(DestroyMenuVisibilityRequest $request)
     {
-        $data = $request->validate([
-            'menu_item_key' => ['required', 'string', 'max:64'],
-            'scope_type'    => ['required', 'in:global,account_type,company,user'],
-            'scope_id'      => ['nullable', 'integer'],
-            'account_type'  => ['nullable', 'in:private,company'],
-        ]);
+        $data = $request->validated();
 
         MenuVisibilityService::deleteRule(
             key:         $data['menu_item_key'],

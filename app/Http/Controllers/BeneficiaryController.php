@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBeneficiaryRequest;
 use App\Models\Account;
 use App\Models\SavedBeneficiary;
 use Illuminate\Support\Collection;
@@ -30,14 +31,8 @@ class BeneficiaryController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreBeneficiaryRequest $request): RedirectResponse
     {
-        $request->validate([
-            'beneficiary_account_id' => ['required', 'integer', 'exists:accounts,id'],
-            'alias' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:500'],
-        ]);
-
         $account = $this->resolveAccount($request->user());
 
         // Non può salvare sé stesso

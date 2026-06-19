@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreRoleRequest;
+use App\Http\Requests\UpdateRoleRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
@@ -27,17 +29,9 @@ class RoleController extends Controller
         ]);
     }
 
-    public function storeRole(Request $request): RedirectResponse
+    public function storeRole(StoreRoleRequest $request): RedirectResponse
     {
-        $this->authorizePermission($request->user(), 'roles.manage');
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'scope' => ['required', 'string', 'max:50'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id'],
-        ]);
+        $validated = $request->validated();
 
         $role = Role::updateOrCreate([
             'slug' => Str::slug($validated['name']),
@@ -52,15 +46,9 @@ class RoleController extends Controller
         return back()->with('portal_success', 'Ruolo creato correttamente.');
     }
 
-    public function updateRole(Request $request, Role $role): RedirectResponse
+    public function updateRole(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
-        $this->authorizePermission($request->user(), 'roles.manage');
-
-        $validated = $request->validate([
-            'description' => ['nullable', 'string', 'max:255'],
-            'permissions' => ['array'],
-            'permissions.*' => ['integer', 'exists:permissions,id'],
-        ]);
+        $validated = $request->validated();
 
         $role->forceFill([
             'description' => $validated['description'] ?? $role->description,

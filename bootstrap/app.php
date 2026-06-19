@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'not.suspended' => \App\Http\Middleware\EnsureCompanyNotSuspended::class,
             'step.up'       => \App\Http\Middleware\RequireStepUp::class,
             'contract'      => \App\Http\Middleware\EnsureContractSigned::class,
+            'backoffice'    => \App\Http\Middleware\EnsureCanAccessBackoffice::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

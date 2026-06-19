@@ -3,15 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkStoreNfcCardRequest;
+use App\Http\Requests\StoreNfcCardRequest;
 use App\Models\Company;
 use App\Models\NfcCard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\DB;
 
-class AdminNfcCardController extends Controller
+class AdminNfcCardController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return ['backoffice'];
+    }
+
     /** Lista tutte le card emesse. */
     public function index(Request $request): View
     {
@@ -50,12 +58,9 @@ class AdminNfcCardController extends Controller
     }
 
     /** Salva la nuova card (status: pending). */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreNfcCardRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'notes'      => ['nullable', 'string', 'max:500'],
-        ]);
+        $data = $request->validated();
 
         $card = NfcCard::create([
             'company_id'    => $data['company_id'],
@@ -84,13 +89,9 @@ class AdminNfcCardController extends Controller
     }
 
     /** Crea N card in una transazione atomica. */
-    public function bulkStore(Request $request): RedirectResponse
+    public function bulkStore(BulkStoreNfcCardRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'quantity'   => ['required', 'integer', 'min:1', 'max:50'],
-            'notes'      => ['nullable', 'string', 'max:500'],
-        ]);
+        $data = $request->validated();
 
         $created = DB::transaction(function () use ($data, $request) {
             $cards = [];

@@ -2,13 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCashbackRuleRequest;
+use App\Http\Requests\UpdateCashbackRuleRequest;
 use App\Models\CashbackRule;
 use App\Models\User;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Support\Facades\Auth;
 
-class CashbackRuleController extends Controller
+class CashbackRuleController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return ['backoffice'];
+    }
+
     public function index()
     {
         $rules = CashbackRule::with(['creator', 'targetUser'])
@@ -32,21 +39,9 @@ class CashbackRuleController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreCashbackRuleRequest $request)
     {
-        $data = $request->validate([
-            'name'             => 'required|string|max:100',
-            'min_amount'       => 'required|integer|min:0',
-            'percentage'       => 'required|numeric|min:0.01|max:100',
-            'max_cashback'     => 'nullable|integer|min:1',
-            'applicable_kinds' => 'required|array|min:1',
-            'applicable_kinds.*' => 'string',
-            'is_active'        => 'boolean',
-            'valid_from'       => 'nullable|date',
-            'valid_until'      => 'nullable|date|after_or_equal:valid_from',
-            'target_type'      => 'required|in:all,company,personal,specific_user',
-            'target_user_id'   => 'nullable|required_if:target_type,specific_user|exists:users,id',
-        ]);
+        $data = $request->validated();
 
         $data['is_active']      = $request->boolean('is_active', true);
         $data['target_user_id'] = $data['target_type'] === 'specific_user' ? $data['target_user_id'] : null;
@@ -71,21 +66,9 @@ class CashbackRuleController extends Controller
         ]);
     }
 
-    public function update(Request $request, CashbackRule $cashbackRule)
+    public function update(UpdateCashbackRuleRequest $request, CashbackRule $cashbackRule)
     {
-        $data = $request->validate([
-            'name'             => 'required|string|max:100',
-            'min_amount'       => 'required|integer|min:0',
-            'percentage'       => 'required|numeric|min:0.01|max:100',
-            'max_cashback'     => 'nullable|integer|min:1',
-            'applicable_kinds' => 'required|array|min:1',
-            'applicable_kinds.*' => 'string',
-            'is_active'        => 'boolean',
-            'valid_from'       => 'nullable|date',
-            'valid_until'      => 'nullable|date|after_or_equal:valid_from',
-            'target_type'      => 'required|in:all,company,personal,specific_user',
-            'target_user_id'   => 'nullable|required_if:target_type,specific_user|exists:users,id',
-        ]);
+        $data = $request->validated();
 
         $data['is_active']      = $request->boolean('is_active', false);
         $data['target_user_id'] = $data['target_type'] === 'specific_user' ? $data['target_user_id'] : null;

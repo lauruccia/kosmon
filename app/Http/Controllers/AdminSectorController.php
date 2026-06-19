@@ -2,25 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSectorRequest;
+use App\Http\Requests\UpdateSectorRequest;
 use App\Models\Sector;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\View\View;
 
-class AdminSectorController extends Controller
+class AdminSectorController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return ['backoffice'];
+    }
+
     public function index(): View
     {
         $sectors = Sector::orderBy('sort_order')->orderBy('name')->get();
         return view('admin.sectors', compact('sectors'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreSectorRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'name'       => ['required', 'string', 'max:120', 'unique:sectors,name'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-        ]);
+        $data = $request->validated();
 
         Sector::create([
             'name'       => $data['name'],
@@ -31,13 +35,9 @@ class AdminSectorController extends Controller
         return back()->with('success', "Settore \"{$data['name']}\" aggiunto.");
     }
 
-    public function update(Request $request, Sector $sector): RedirectResponse
+    public function update(UpdateSectorRequest $request, Sector $sector): RedirectResponse
     {
-        $data = $request->validate([
-            'name'       => ['required', 'string', 'max:120', 'unique:sectors,name,' . $sector->id],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active'  => ['nullable', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         $sector->update([
             'name'       => $data['name'],
