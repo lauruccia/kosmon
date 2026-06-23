@@ -171,6 +171,25 @@ Route::get('/health', function () {
         ? 'warning:debug_enabled_in_production'
         : 'ok';
 
+    // Dead-man's switch sulla rete di sicurezza contabile: la verifica integrità
+    // deve girare almeno ogni ora (scheduler). Se l'heartbeat manca o è più vecchio
+    // di 2h, il cron potrebbe essere fermo e gli invarianti non vengono più
+    // controllati in silenzio. Warning soft: segnalato ma non forza 503.
+    try {
+        $hbPath = storage_path('app/accounting-last-run.txt');
+        if (is_file($hbPath)) {
+            $lastRun = \Illuminate\Support\Carbon::parse(trim((string) @file_get_contents($hbPath)));
+            $ageMinutes = (int) $lastRun->diffInMinutes(now());
+            $checks['accounting_integrity_freshness'] = $ageMinutes > 120
+                ? 'warning:last_run_' . $ageMinutes . 'min_ago'
+                : 'ok';
+        } else {
+            $checks['accounting_integrity_freshness'] = 'unknown:no_heartbeat';
+        }
+    } catch (\Throwable) {
+        $checks['accounting_integrity_freshness'] = 'unknown';
+    }
+
     $status = $overallOk ? 'ok' : 'degraded';
     $payload = [
         'status'    => $status,
