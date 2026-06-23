@@ -23,14 +23,21 @@ use App\Notifications\AccountingIntegrityAlert;
 class VerifyAccountingIntegrity extends Command
 {
     protected $signature = 'accounting:verify-integrity
-                            {--fix-log : Solo logga i problemi senza notificare}';
+                            {--fix-log : Solo logga i problemi senza notificare}
+                            {--quick : Esegue solo l\'invariante globale somma-saldi (per il check orario)}';
 
     protected $description = 'Verifica gli invarianti contabili (quadratura, saldi, ledger)';
 
     public function handle(): int
     {
         $errors = [];
+        $quick  = (bool) $this->option('quick');
 
+        // I controlli pesanti (quadratura per-transfer e per-conto) girano solo
+        // nella verifica completa notturna. In modalità --quick (oraria) si esegue
+        // solo l'invariante globale somma-saldi, che è una query banale: così un
+        // disallineamento viene rilevato entro un'ora invece che a fine giornata.
+        if (! $quick) {
         // ── 1. Quadratura transfer: ogni booked transfer deve avere debit = credit ──
         $unbalancedTransfers = DB::select("
             SELECT t.id, t.uuid, t.amount, t.kind,
@@ -82,16 +89,23 @@ class VerifyAccountingIntegrity extends Command
             }
         }
 
+        } // fine controlli pesanti (! $quick)
+
         // ── 3. Somma di tutti i saldi non-sistema = opposto del saldo sistema ──
-        // In un circuito chiuso: somma(tutti i saldi) = 0
+        // In un circuito chiuso: somma(tutti i saldi) = 0. Invariante sempre verificato.
         $totalBalance = Account::query()->sum('available_balance');
         if (abs($totalBalance) > 100) { // tolleranza 1 KY per arrotondamenti
             $errors[] = "Somma globale dei saldi non è zero: {$totalBalance} centesimi";
         }
 
+        // Heartbeat: registra che la verifica è stata ESEGUITA (pass o fail), così
+        // /health può rilevare un cron fermo (dead-man's switch sulla rete di sicurezza).
+        $this->recordHeartbeat();
+
         if (empty($errors)) {
-            $this->info('✓ Tutti gli invarianti contabili sono verificati.');
-            Log::info('accounting.integrity_ok', ['checked_at' => now()->toIso8601String()]);
+            $mode = $quick ? 'quick' : 'full';
+            $this->info("✓ Invarianti contabili verificati ({$mode}).");
+            Log::info('accounting.integrity_ok', ['mode' => $mode, 'checked_at' => now()->toIso8601String()]);
             return self::SUCCESS;
         }
 
@@ -119,6 +133,22 @@ class VerifyAccountingIntegrity extends Command
         }
 
         return self::FAILURE;
+    }
+
+    /**
+     * Scrive un heartbeat con il timestamp dell'ultima esecuzione della verifica.
+     * Letto da /health per rilevare un cron fermo (la rete di sicurezza che smette
+     * di girare in silenzio). File semplice in storage: nessuna classe nuova né
+     * tabella, compatibile con deploy file-only e resistente a cache:clear.
+     */
+    private function recordHeartbeat(): void
+    {
+        try {
+            $path = storage_path('app/accounting-last-run.txt');
+            @file_put_contents($path, now()->toIso8601String());
+        } catch (\Throwable $e) {
+            Log::warning('accounting.heartbeat_failed', ['error' => $e->getMessage()]);
+        }
     }
 
     private function notifyAdmins(array $errors): void
