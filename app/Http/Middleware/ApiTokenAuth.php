@@ -39,14 +39,24 @@ class ApiTokenAuth
 
         $currentIp  = $request->ip();
         $previousIp = $token->last_used_ip;
+        $ipChanged  = $previousIp && $previousIp !== $currentIp;
 
-        $token->update([
-            'last_used_at' => now(),
-            'last_used_ip' => $currentIp,
-        ]);
+        // Evita una scrittura su DB a OGNI chiamata (write amplification su API
+        // ad alta frequenza). Aggiorna solo se: l'IP è cambiato (rilevante per
+        // sicurezza), oppure l'ultimo uso non è registrato o è più vecchio di 60s.
+        $stale = $token->last_used_at === null
+            || $token->last_used_at->lt(now()->subSeconds(60));
+
+        if ($ipChanged || $stale) {
+            // updateQuietly: niente eventi né touch di updated_at, solo i due campi.
+            $token->forceFill([
+                'last_used_at' => now(),
+                'last_used_ip' => $currentIp,
+            ])->saveQuietly();
+        }
 
         // Notifica se l'IP cambia rispetto all'ultima chiamata nota
-        if ($previousIp && $previousIp !== $currentIp) {
+        if ($ipChanged) {
             $creator = $token->creator ?? $token->company?->users()->where('role', 'owner')->first();
             if ($creator) {
                 $creator->notify(new ApiTokenNewIpNotification($token, $currentIp, $previousIp));
