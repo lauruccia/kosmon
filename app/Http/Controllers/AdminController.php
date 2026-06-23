@@ -90,6 +90,18 @@ class AdminController extends Controller
         $transfersQuery = $this->movementQuery();
         $this->applyMovementDateFilters($transfersQuery, $movementFilters);
 
+        // Filtro per tipo di movimento (kind)
+        $kind = trim((string) $request->query('kind', ''));
+        if ($kind !== '') {
+            $transfersQuery->where('kind', $kind);
+        }
+
+        // Filtro per stato (booked / pending / rejected)
+        $statusFilter = trim((string) $request->query('status', ''));
+        if (in_array($statusFilter, ['booked', 'pending', 'rejected'], true)) {
+            $transfersQuery->where('status', $statusFilter);
+        }
+
         // Ricerca per nome utente (mittente o destinatario)
         $search = trim((string) $request->query('search', ''));
         if ($search !== '') {
@@ -119,7 +131,32 @@ class AdminController extends Controller
             'supportsTransferRefunds' => $this->supportsTransferRefunds(),
             'activeNav' => 'transfers',
             'search' => $search,
+            'kindFilter' => $kind,
+            'statusFilter' => $statusFilter,
+            'movementKindOptions' => $this->movementKindOptions(),
+            'canDeleteMovements' => (bool) $request->user()->is_super_admin,
         ]);
+    }
+
+    /**
+     * Etichette leggibili dei tipi di movimento, per il filtro nel backoffice.
+     */
+    private function movementKindOptions(): array
+    {
+        return [
+            'trade_payment'             => 'Pag. commerciale',
+            'portal_payment'            => 'Pag. portale',
+            'portal_payment_request'    => 'Pag. richiesta',
+            'portal_collection_request' => 'Incasso richiesta',
+            'portal_refund'             => 'Rimborso',
+            'admin_refund'              => 'Storno amm.',
+            'portal_credit_note'        => 'Nota credito',
+            'portal_fee'                => 'Commissione',
+            'portal_cashback'           => 'Cashback',
+            'portal_installment'        => 'Rata',
+            'portal_netting'            => 'Netting',
+            'ky_emission'               => 'Emissione KY',
+        ];
     }
 
 
@@ -175,6 +212,174 @@ class AdminController extends Controller
         ]);
 
         return back()->with('portal_success', 'Movimento stornato correttamente.');
+    }
+
+    /**
+     * Cancellazione FISICA di un singolo movimento (e dei suoi collegati).
+     *
+     * A differenza dello storno (che crea un contromovimento e conserva lo storico),
+     * questa operazione rimuove davvero il Transfer e le sue LedgerEntry dal database,
+     * ripristinando i saldi dei conti coinvolti. È pensata per ripulire movimenti di
+     * prova/test. Il circuito resta a 0 perché ogni movimento eliminato è internamente
+     * bilanciato (1 debit + 1 credit di pari importo): annullando entrambe le partite
+     * la somma dei saldi non cambia.
+     *
+     * Solo super admin. L'emissione KY di sistema non è eliminabile da qui.
+     */
+    public function destroyTransfer(Request $request, Transfer $transfer): RedirectResponse
+    {
+        abort_unless($request->user()->is_super_admin, 403);
+
+        $result = DB::transaction(function () use ($request, $transfer) {
+            return $this->deleteTransferWithCascade($transfer, $request->user(), $request->ip());
+        });
+
+        $msg = "Eliminato il movimento {$transfer->reference}";
+        if ($result['deleted'] > 1) {
+            $msg .= " e {$result['linked']} movimenti collegati (commissioni/cashback/storni)";
+        }
+        $msg .= '. Saldi ripristinati, circuito ribilanciato.';
+
+        return redirect()->route('admin.transfers.index', $request->only(['period', 'from_date', 'to_date', 'search', 'kind', 'status']))
+            ->with('portal_success', $msg);
+    }
+
+    /**
+     * Cancellazione FISICA multipla: elimina tutti i movimenti selezionati (con cascata).
+     */
+    public function bulkDestroyTransfers(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->is_super_admin, 403);
+
+        $validated = $request->validate([
+            'transfer_ids'   => ['required', 'array', 'min:1'],
+            'transfer_ids.*' => ['integer'],
+        ]);
+
+        $deleted = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($request, $validated, &$deleted, &$skipped) {
+            foreach ($validated['transfer_ids'] as $id) {
+                $transfer = Transfer::find($id);
+
+                // Già eliminato (es. era collegato a un altro selezionato) → salta.
+                if ($transfer === null) {
+                    continue;
+                }
+
+                // Protezione: l'emissione KY di sistema non è eliminabile.
+                if ($transfer->kind === 'ky_emission') {
+                    $skipped++;
+                    continue;
+                }
+
+                $result = $this->deleteTransferWithCascade($transfer, $request->user(), $request->ip());
+                $deleted += $result['deleted'];
+            }
+        });
+
+        $msg = "Eliminati {$deleted} movimenti (collegati inclusi).";
+        if ($skipped > 0) {
+            $msg .= " {$skipped} emissioni KY di sistema sono state ignorate per sicurezza.";
+        }
+
+        return redirect()->route('admin.transfers.index', $request->only(['period', 'from_date', 'to_date', 'search', 'kind', 'status']))
+            ->with('portal_success', $msg);
+    }
+
+    /**
+     * Elimina fisicamente un movimento e i suoi collegati, ripristinando i saldi.
+     *
+     * Movimenti collegati eliminati a cascata:
+     *  - Commissioni (kind portal_fee, related_transfer_id = movimento)
+     *  - Cashback (idempotency_key = 'cashback_' . uuid del movimento)
+     *  - Storni / rimborsi figli (reversed_transfer_id = movimento)
+     *
+     * DEVE essere chiamato dentro una DB::transaction() dal chiamante.
+     * Per ogni LedgerEntry eliminata, applica al conto l'effetto inverso:
+     *  - credit (aveva aumentato il saldo) → sottrae l'importo
+     *  - debit  (aveva diminuito il saldo) → aggiunge l'importo
+     *
+     * @return array{deleted:int, linked:int, ids:int[]}
+     */
+    private function deleteTransferWithCascade(Transfer $transfer, User $actor, ?string $ip): array
+    {
+        abort_if($transfer->kind === 'ky_emission', 422, "L'emissione di KY non può essere eliminata da questa pagina.");
+
+        // ── Raccogli il set di movimenti da eliminare ──────────────────────────
+        $ids = collect([$transfer->id]);
+
+        // Commissioni collegate
+        $ids = $ids->merge(Transfer::where('related_transfer_id', $transfer->id)->pluck('id'));
+
+        // Cashback collegato (linkato solo via idempotency_key)
+        if (! empty($transfer->uuid)) {
+            $ids = $ids->merge(Transfer::where('idempotency_key', 'cashback_' . $transfer->uuid)->pluck('id'));
+        }
+
+        // Storni / rimborsi figli
+        $ids = $ids->merge(Transfer::where('reversed_transfer_id', $transfer->id)->pluck('id'));
+
+        $ids = $ids->unique()->values();
+
+        // Carica con i ledger. Ordina in modo che il movimento padre sia eliminato
+        // per ultimo (i figli lo referenziano via FK related/reversed).
+        $transfers = Transfer::whereIn('id', $ids)
+            ->with('ledgerEntries')
+            ->get()
+            ->sortBy(fn (Transfer $t) => $t->id === $transfer->id ? 1 : 0)
+            ->values();
+
+        $snapshot = [];
+
+        foreach ($transfers as $t) {
+            foreach ($t->ledgerEntries as $entry) {
+                // Ricarica con lock: legge il saldo già aggiornato dalle iterazioni
+                // precedenti (stesso conto può comparire più volte).
+                $account = Account::query()->lockForUpdate()->find($entry->account_id);
+                if ($account === null) {
+                    continue;
+                }
+
+                $delta = $entry->direction === 'credit' ? -$entry->amount : $entry->amount;
+                $account->forceFill([
+                    'available_balance' => (int) $account->available_balance + (int) $delta,
+                ])->save();
+            }
+
+            $snapshot[] = [
+                'id'              => $t->id,
+                'reference'       => $t->reference,
+                'kind'            => $t->kind,
+                'amount'          => $t->amount,
+                'from_account_id' => $t->from_account_id,
+                'to_account_id'   => $t->to_account_id,
+            ];
+
+            $t->ledgerEntries()->delete();
+            $t->delete();
+        }
+
+        AuditLog::create([
+            'actor_user_id'  => $actor->id,
+            'event'          => 'admin.transfer.deleted',
+            'auditable_type' => Transfer::class,
+            'auditable_id'   => $transfer->id,
+            'ip_address'     => $ip,
+            'context'        => [
+                'reason'             => 'cancellazione movimenti di test',
+                'primary_reference'  => $transfer->reference,
+                'deleted_transfers'  => $snapshot,
+                'count'              => count($snapshot),
+            ],
+        ]);
+
+        return [
+            'deleted' => count($snapshot),
+            'linked'  => max(0, count($snapshot) - 1),
+            'ids'     => $ids->all(),
+        ];
     }
 
     private function stats(): array

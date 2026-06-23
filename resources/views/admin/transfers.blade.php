@@ -29,7 +29,7 @@
         </div>
 
         <form method="get" action="{{ route('admin.transfers.index') }}" style="margin-bottom:10px;">
-            <div style="display:grid;grid-template-columns:160px 1fr 1fr 1fr auto;gap:8px;align-items:end;">
+            <div style="display:grid;grid-template-columns:150px 1fr 1fr 150px 130px auto;gap:8px;align-items:end;">
                 <div class="field">
                     <label>Periodo</label>
                     <select name="period">
@@ -40,18 +40,72 @@
                 </div>
                 <div class="field"><label>Da data</label><input type="date" name="from_date" value="{{ $movementFilters['from_date'] }}"></div>
                 <div class="field"><label>A data</label><input type="date" name="to_date" value="{{ $movementFilters['to_date'] }}"></div>
-                <div class="field"><label>Cerca utente / azienda</label><input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…"></div>
+                <div class="field">
+                    <label>Tipo movimento</label>
+                    <select name="kind">
+                        <option value="">Tutti i tipi</option>
+                        @foreach ($movementKindOptions as $value => $label)
+                            <option value="{{ $value }}" @selected(($kindFilter ?? '') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Stato</label>
+                    <select name="status">
+                        <option value="">Tutti</option>
+                        <option value="booked" @selected(($statusFilter ?? '') === 'booked')>Contabilizzato</option>
+                        <option value="pending" @selected(($statusFilter ?? '') === 'pending')>In elaborazione</option>
+                        <option value="rejected" @selected(($statusFilter ?? '') === 'rejected')>Respinto</option>
+                    </select>
+                </div>
                 <div style="padding-bottom:1px;"><button type="submit" class="cta secondary">Filtra</button></div>
+            </div>
+            <div class="field" style="margin-top:8px;max-width:420px;">
+                <label>Cerca utente / azienda</label>
+                <input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…">
             </div>
         </form>
 
         @if ($transfers->isEmpty())
             <div class="empty-state">Nessun movimento trovato per i filtri selezionati.</div>
         @else
+
+        @if ($canDeleteMovements)
+        <div style="background:#fff5f5;border:1px solid #f3c9c9;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#8a3a3a;">
+            <strong>Cancellazione movimenti di prova.</strong>
+            Seleziona i movimenti e usa “Elimina selezionati”, oppure elimina dalla riga.
+            La cancellazione è <strong>fisica</strong> (rimuove il movimento e ripristina i saldi);
+            le commissioni/cashback/storni collegati vengono eliminati insieme. Il circuito resta a 0.
+            Per le correzioni ufficiali usa invece lo <em>Storno</em>.
+        </div>
+        @endif
+
+        <form id="bulk-delete-form" method="post" action="{{ route('admin.transfers.bulk-destroy') }}"
+              onsubmit="return confirmBulkDelete();">
+            @csrf
+            @if ($canDeleteMovements)
+            <input type="hidden" name="period" value="{{ $movementFilters['period'] }}">
+            <input type="hidden" name="from_date" value="{{ $movementFilters['from_date'] }}">
+            <input type="hidden" name="to_date" value="{{ $movementFilters['to_date'] }}">
+            <input type="hidden" name="kind" value="{{ $kindFilter }}">
+            <input type="hidden" name="status" value="{{ $statusFilter }}">
+            <input type="hidden" name="search" value="{{ $search }}">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button type="submit" class="cta" id="bulk-delete-btn"
+                        style="background:#c0392b;border-color:#c0392b;font-size:12px;padding:5px 14px;" disabled>
+                    🗑 Elimina selezionati (<span id="bulk-count">0</span>)
+                </button>
+            </div>
+            @endif
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead>
                     <tr style="background:#f6f9fb;border-bottom:2px solid #e4edf2;text-align:left;">
+                        @if ($canDeleteMovements)
+                        <th style="padding:6px 10px;white-space:nowrap;width:28px;">
+                            <input type="checkbox" id="select-all" title="Seleziona tutti" onclick="toggleAllTransfers(this)">
+                        </th>
+                        @endif
                         <th style="padding:6px 10px;white-space:nowrap;">Data</th>
                         <th style="padding:6px 10px;">Riferimento</th>
                         <th style="padding:6px 10px;">Da</th>
@@ -112,6 +166,16 @@
                     $rowBg = $isAlreadyRefunded || $hasReversalChild ? '#fff8f0' : 'transparent';
                 @endphp
                 <tr style="border-bottom:1px solid #edf1f4;background:{{ $rowBg }};vertical-align:middle;">
+                    @if ($canDeleteMovements)
+                    <td style="padding:5px 10px;white-space:nowrap;text-align:center;">
+                        @if ($transfer->kind !== 'ky_emission')
+                            <input type="checkbox" name="transfer_ids[]" value="{{ $transfer->id }}"
+                                   class="transfer-check" onclick="updateBulkCount()">
+                        @else
+                            <span title="Emissione KY non eliminabile" style="color:#b0bac4;">🔒</span>
+                        @endif
+                    </td>
+                    @endif
                     <td style="padding:5px 10px;white-space:nowrap;color:#5a6474;font-size:12px;">
                         {{ $transfer->booked_at?->format('d/m/Y') ?? '—' }}<br>
                         <span style="font-size:11px;">{{ $transfer->booked_at?->format('H:i') }}</span>
@@ -160,12 +224,56 @@
                         @elseif ($supportsTransferRefunds)
                             <span style="font-size:11px;color:#b0bac4;">finestra scaduta</span>
                         @endif
+                        @if ($canDeleteMovements && $transfer->kind !== 'ky_emission')
+                            <button type="button"
+                                onclick="document.getElementById('delete-modal-{{ $transfer->id }}').showModal()"
+                                class="cta secondary"
+                                style="font-size:11px;padding:3px 10px;color:#c0392b;border-color:#e3b8b3;margin-left:4px;">
+                                Elimina
+                            </button>
+                        @endif
                     </td>
                 </tr>
                 @endforeach
                 </tbody>
             </table>
         </div>
+        </form>{{-- /bulk-delete-form --}}
+
+        {{-- Dialog di conferma eliminazione fisica (una per riga) --}}
+        @if ($canDeleteMovements)
+        @foreach ($transfers as $transfer)
+        @if ($transfer->kind !== 'ky_emission')
+        <dialog id="delete-modal-{{ $transfer->id }}" style="border:none;border-radius:16px;padding:28px 32px;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.15);">
+            <h4 style="margin:0 0 6px;color:#c0392b;">Eliminare definitivamente?</h4>
+            <p style="margin:0 0 16px;font-size:13px;color:#5a6474;">
+                Movimento <strong>{{ $transfer->reference }}</strong> —
+                {{ ky_format($transfer->amount) }} {{ $transfer->currency_code }}<br>
+                Da <strong>{{ $transfer->fromAccount?->display_name ?? 'N/D' }}</strong>
+                a <strong>{{ $transfer->toAccount?->display_name ?? 'N/D' }}</strong>
+            </p>
+            <p style="margin:0 0 16px;font-size:12px;color:#8a3a3a;background:#fff5f5;border:1px solid #f3c9c9;border-radius:8px;padding:8px 10px;">
+                Operazione <strong>irreversibile</strong>: il movimento e le sue partite contabili vengono rimossi,
+                i saldi dei due conti ripristinati e gli eventuali movimenti collegati
+                (commissione, cashback, storni) eliminati insieme.
+            </p>
+            <form method="post" action="{{ route('admin.transfers.destroy', $transfer) }}">
+                @csrf
+                <input type="hidden" name="period" value="{{ $movementFilters['period'] }}">
+                <input type="hidden" name="from_date" value="{{ $movementFilters['from_date'] }}">
+                <input type="hidden" name="to_date" value="{{ $movementFilters['to_date'] }}">
+                <input type="hidden" name="kind" value="{{ $kindFilter }}">
+                <input type="hidden" name="status" value="{{ $statusFilter }}">
+                <input type="hidden" name="search" value="{{ $search }}">
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" class="cta secondary" onclick="document.getElementById('delete-modal-{{ $transfer->id }}').close()">Annulla</button>
+                    <button type="submit" class="cta" style="background:#c0392b;border-color:#c0392b;">Elimina definitivamente</button>
+                </div>
+            </form>
+        </dialog>
+        @endif
+        @endforeach
+        @endif
 
         {{-- Modal storno per ogni riga refundable --}}
         @foreach ($transfers as $transfer)
@@ -202,4 +310,28 @@
 
         @endif
     </section>
+
+    @if ($canDeleteMovements)
+    <script>
+        function updateBulkCount() {
+            var checks = document.querySelectorAll('.transfer-check:checked');
+            var count = checks.length;
+            var btn = document.getElementById('bulk-delete-btn');
+            var span = document.getElementById('bulk-count');
+            if (span) span.textContent = count;
+            if (btn) btn.disabled = (count === 0);
+        }
+        function toggleAllTransfers(master) {
+            document.querySelectorAll('.transfer-check').forEach(function (cb) {
+                cb.checked = master.checked;
+            });
+            updateBulkCount();
+        }
+        function confirmBulkDelete() {
+            var count = document.querySelectorAll('.transfer-check:checked').length;
+            if (count === 0) return false;
+            return confirm('Eliminare definitivamente ' + count + ' movimenti selezionati (e i loro collegati)? L\'operazione è irreversibile.');
+        }
+    </script>
+    @endif
 @endsection

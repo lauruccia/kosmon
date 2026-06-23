@@ -702,6 +702,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/report/export-csv', [AdminController::class, 'exportCsv'])->name('admin.report.export-csv')->middleware('backoffice');
     Route::get('/admin/transfers', [AdminController::class, 'transfers'])->name('admin.transfers.index')->middleware('backoffice');
     Route::post('/admin/transfers/{transfer}/refund', [AdminController::class, 'refundTransfer'])->name('admin.transfers.refund')->middleware('backoffice');
+    Route::post('/admin/transfers/bulk-delete', [AdminController::class, 'bulkDestroyTransfers'])->name('admin.transfers.bulk-destroy')->middleware('backoffice');
+    Route::post('/admin/transfers/{transfer}/delete', [AdminController::class, 'destroyTransfer'])->name('admin.transfers.destroy')->middleware('backoffice');
 
     Route::get('/admin/limits', [CreditLimitController::class, 'limits'])->name('admin.limits.index')->middleware('backoffice');
     Route::post('/admin/limits', [CreditLimitController::class, 'updateLimitDefaults'])->name('admin.limits.update')->middleware('backoffice');
