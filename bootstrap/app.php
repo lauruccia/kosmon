@@ -15,8 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Proxy fidati per X-Forwarded-* — NON usare '*' (header falsificabile).
         // Default sicuro: loopback + reti private. Override via env TRUSTED_PROXIES.
-        // Vedi App\Support\TrustedProxies per la motivazione di sicurezza.
-        $middleware->trustProxies(at: \App\Support\TrustedProxies::resolve());
+        // trusted_proxies() è in app/helpers.php (autoloaded via "files"): nessuna
+        // classe nuova da autoricaricare → compatibile con deploy file-only.
+        $middleware->trustProxies(at: trusted_proxies());
         $middleware->web(append: [
             \App\Http\Middleware\ContentSecurityPolicy::class,
         ]);
@@ -33,4 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Sentry: attivo solo se DSN configurato E package installato
         // Per attivare: composer require sentry/sentry-laravel
-    
+        //               poi aggiungere SENTRY_LARAVEL_DSN=https://xxx@oXXX.ingest.sentry.io/XXX nel .env
+        if (config('sentry.dsn') && class_exists(\Sentry\Laravel\Integration::class)) {
+            \Sentry\Laravel\Integration::handles($exceptions);
+        }
+    })->create();

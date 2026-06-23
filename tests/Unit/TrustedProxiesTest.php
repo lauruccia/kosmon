@@ -2,9 +2,12 @@
 
 namespace Tests\Unit;
 
-use App\Support\TrustedProxies;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Copre la funzione helper trusted_proxies() (app/helpers.php) usata da
+ * bootstrap/app.php per configurare trustProxies in modo sicuro.
+ */
 class TrustedProxiesTest extends TestCase
 {
     protected function tearDown(): void
@@ -32,7 +35,7 @@ class TrustedProxiesTest extends TestCase
     {
         $this->setEnv(null);
 
-        $proxies = TrustedProxies::resolve();
+        $proxies = trusted_proxies();
 
         $this->assertIsArray($proxies);
         $this->assertContains('127.0.0.1', $proxies);
@@ -45,7 +48,7 @@ class TrustedProxiesTest extends TestCase
     {
         $this->setEnv('   ');
 
-        $this->assertIsArray(TrustedProxies::resolve());
+        $this->assertIsArray(trusted_proxies());
     }
 
     public function test_csv_viene_parsato_in_lista_pulita(): void
@@ -54,7 +57,7 @@ class TrustedProxiesTest extends TestCase
 
         $this->assertSame(
             ['173.245.48.0/20', '103.21.244.0/22', '127.0.0.1'],
-            TrustedProxies::resolve(),
+            trusted_proxies(),
         );
     }
 
@@ -62,6 +65,6 @@ class TrustedProxiesTest extends TestCase
     {
         $this->setEnv('*');
 
-        $this->assertSame('*', TrustedProxies::resolve());
+        $this->assertSame('*', trusted_proxies());
     }
 }

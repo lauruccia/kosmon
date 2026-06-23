@@ -43,3 +43,53 @@ if (! function_exists('ky_input')) {
         return number_format(((int) $cents) / 100, 2, '.', '');
     }
 }
+
+if (! function_exists('trusted_proxies')) {
+    /**
+     * Lista di proxy fidati per gli header X-Forwarded-* (IP reale del client).
+     *
+     * SICUREZZA: NON usare '*' come default. Fidarsi di tutti i proxy rende
+     * X-Forwarded-For falsificabile dal client, avvelenando rate limiter,
+     * anti-frode su IP e notifica "nuovo IP" sui token API.
+     *
+     * Default sicuro: loopback + reti private (adatto a cPanel/LiteSpeed dove
+     * PHP gira dietro il web server locale). Override via env TRUSTED_PROXIES
+     * (CSV, es. range Cloudflare) oppure "*" per opt-in esplicito.
+     *
+     * NB: definita qui in app/helpers.php (già autoloaded via composer "files")
+     * e non come classe, così funziona anche con deploy che pullano solo i file
+     * senza rigenerare l'autoloader.
+     *
+     * @return string|array<int, string>
+     */
+    function trusted_proxies(): string|array
+    {
+        $safeDefault = [
+            '127.0.0.1',
+            '::1',
+            '10.0.0.0/8',
+            '172.16.0.0/12',
+            '192.168.0.0/16',
+            'fc00::/7',
+        ];
+
+        $raw = env('TRUSTED_PROXIES');
+
+        if ($raw === null || trim((string) $raw) === '') {
+            return $safeDefault;
+        }
+
+        $raw = trim((string) $raw);
+
+        if ($raw === '*') {
+            return '*';
+        }
+
+        $proxies = array_values(array_filter(array_map(
+            static fn (string $p): string => trim($p),
+            explode(',', $raw),
+        ), static fn (string $p): bool => $p !== ''));
+
+        return $proxies !== [] ? $proxies : $safeDefault;
+    }
+}
