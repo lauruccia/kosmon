@@ -655,12 +655,6 @@ parameters:
 			path: app/Http/Controllers/KyCardController.php
 
 		-
-			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
-			identifier: larastan.noEnvCallsOutsideOfConfig
-			count: 3
-			path: app/Http/Controllers/KyCardController.php
-
-		-
 			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, string\|null given\.$#'
 			identifier: argument.type
 			count: 1

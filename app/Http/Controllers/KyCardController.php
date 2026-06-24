@@ -263,10 +263,11 @@ class KyCardController extends PortalController
             'currentUser'    => $currentUser,
             'pageTitle'      => 'Istruzioni bonifico',
             'activeNav'      => 'ky-cards',
-            // Dati bancari dal config
-            'bankIban'       => config('kmoney.bank_iban', env('BANK_IBAN', 'IT00 X000 0000 0000 0000 0000 000')),
-            'bankName'       => config('kmoney.bank_name', env('BANK_NAME', 'Banca di riferimento')),
-            'bankBeneficiary'=> config('kmoney.bank_beneficiary', env('BANK_BENEFICIARY', 'KMoney S.r.l.')),
+            // Dati bancari dal config (env() risiede in config/kmoney.php,
+            // così i valori restano corretti anche con la config in cache)
+            'bankIban'       => config('kmoney.bank_iban'),
+            'bankName'       => config('kmoney.bank_name'),
+            'bankBeneficiary'=> config('kmoney.bank_beneficiary'),
         ]);
     }
 
