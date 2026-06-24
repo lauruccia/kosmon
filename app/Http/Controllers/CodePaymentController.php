@@ -74,7 +74,7 @@ class CodePaymentController extends Controller
 
         // Genera codice 6 cifre univoco e non in uso
         do {
-            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         } while (
             PaymentRequest::where('token', $code)
                 ->where('status', 'pending')

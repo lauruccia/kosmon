@@ -378,6 +378,9 @@ class SubAccountService
                     'spending_limit_increase'  => 'spending_limit',
                     'daily_limit_increase'     => 'daily_outgoing_limit',
                     'monthly_limit_increase'   => 'monthly_outgoing_limit',
+                    // temporary_overdraft è gestito nel ramo if soprastante e non arriva qui;
+                    // default difensivo per esaustività (fail-fast su tipi imprevisti).
+                    default => throw new RuntimeException("Tipo limite non gestito: {$limitRequest->type}"),
                 };
 
                 $subAccount->forceFill([$field => $limitRequest->requested_amount])->save();

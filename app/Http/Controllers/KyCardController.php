@@ -105,7 +105,7 @@ class KyCardController extends PortalController
     public function stripeCheckout(Request $request, KyCard $kyCard): RedirectResponse
     {
         abort_unless($kyCard->is_active, 404);
-        abort_unless($kyCard->stripe_price_id, 422, 'Pagamento con carta non disponibile per questa card.');
+        abort_unless((bool) $kyCard->stripe_price_id, 422, 'Pagamento con carta non disponibile per questa card.');
         abort_unless(config('services.stripe.secret'), 503, 'Stripe non configurato.');
 
         [$currentAccount, $currentUser] = $this->resolveCurrentContext(

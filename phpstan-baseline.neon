@@ -151,12 +151,6 @@ parameters:
 			path: app/Http/Controllers/Admin/CreditLimitController.php
 
 		-
-			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Http/Controllers/Admin/CreditLimitController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$accounts\.$#'
 			identifier: property.notFound
 			count: 1
@@ -553,12 +547,6 @@ parameters:
 			path: app/Http/Controllers/CodePaymentController.php
 
 		-
-			message: '#^Parameter \#1 \$string of function str_pad expects string, int\<0, 999999\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 3
@@ -652,12 +640,6 @@ parameters:
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 2
-			path: app/Http/Controllers/KyCardController.php
-
-		-
-			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
 			path: app/Http/Controllers/KyCardController.php
 
 		-
@@ -2224,12 +2206,6 @@ parameters:
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 2
-			path: app/Services/SubAccountService.php
-
-		-
-			message: '#^Match expression does not handle remaining value\: ''temporary_overdraft''$#'
-			identifier: match.unhandled
-			count: 1
 			path: app/Services/SubAccountService.php
 
 		-

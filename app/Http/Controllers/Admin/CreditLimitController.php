@@ -22,7 +22,7 @@ class CreditLimitController extends Controller
         $this->authorizeBackoffice($request->user());
 
         $account = $company->accounts()->whereNull('parent_account_id')->where('status', 'active')->first();
-        abort_unless($account, 404, 'Nessun conto principale attivo per questa azienda.');
+        abort_unless($account !== null, 404, 'Nessun conto principale attivo per questa azienda.');
 
         foreach (['credit_limit', 'daily_outgoing_limit', 'single_transfer_limit'] as $field) {
             if ($request->filled($field)) {
@@ -58,7 +58,7 @@ class CreditLimitController extends Controller
         $this->authorizeBackoffice($request->user());
 
         $account = $company->accounts()->whereNull('parent_account_id')->where('status', 'active')->first();
-        abort_unless($account, 404, 'Nessun conto principale attivo per questa azienda.');
+        abort_unless($account !== null, 404, 'Nessun conto principale attivo per questa azienda.');
 
         if ($request->filled('max_balance')) {
             $request->merge(['max_balance' => str_replace(',', '.', (string) $request->input('max_balance'))]);
