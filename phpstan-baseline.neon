@@ -13,46 +13,16 @@ parameters:
 			path: app/Console/Commands/FixImportData.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Events/PaymentRequestUpdated.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Events/PaymentRequestUpdated.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Events/PaymentRequestUpdated.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:effectiveTransferLimits\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/AccountController.php
-
-		-
 			message: '#^Call to function abort_unless\(\) with arguments bool, 403 and ''Stato non valido\.'' will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 2
 			path: app/Http/Controllers/Admin/AdminNfcCardController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/AuditController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/AuditController.php
 
 		-
 			message: '#^Method App\\Http\\Controllers\\Admin\\AuditController\:\:exportAuditCsv\(\) has invalid return type Illuminate\\Http\\StreamedResponse\.$#'
@@ -79,36 +49,6 @@ parameters:
 			path: app/Http/Controllers/Admin/AuditController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Admin/CompanyController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Admin/ContractController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 5
-			path: app/Http/Controllers/Admin/ContractController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vat_number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/ContractController.php
-
-		-
-			message: '#^Cannot call method format\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: app/Http/Controllers/Admin/ContractController.php
-
-		-
 			message: '#^Method App\\Http\\Controllers\\Admin\\ContractController\:\:contractSettings\(\) should return Illuminate\\View\\View but returns Illuminate\\Http\\JsonResponse\.$#'
 			identifier: return.type
 			count: 1
@@ -133,46 +73,16 @@ parameters:
 			path: app/Http/Controllers/Admin/ContractController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Admin/CreditLimitController.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:creditLimits\(\)\.$#'
 			identifier: method.notFound
-			count: 4
+			count: 2
 			path: app/Http/Controllers/Admin/CreditLimitController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:massimale\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/CreditLimitController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$accounts\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/UserController.php
 
 		-
 			message: '#^Match arm comparison between ''allow_negative'' and ''allow_negative'' is always true\.$#'
 			identifier: match.alwaysTrue
 			count: 1
 			path: app/Http/Controllers/Admin/UserController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/WebhookController.php
-
-		-
-			message: '#^Parameter \#1 \$webhook of job class App\\Jobs\\SendWebhookJob constructor expects App\\Models\\Webhook in App\\Jobs\\SendWebhookJob\:\:dispatch\(\), Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/Admin/WebhookController.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\Transfer\:\:\$avg_daily_vol\.$#'
@@ -211,21 +121,9 @@ parameters:
 			path: app/Http/Controllers/AdminController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/AdminController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/AdminController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
 			identifier: property.notFound
-			count: 3
+			count: 1
 			path: app/Http/Controllers/AdminController.php
 
 		-
@@ -235,27 +133,9 @@ parameters:
 			path: app/Http/Controllers/AdminController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/AdminController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$direction\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/AdminController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Http/Controllers/AdminController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 5
 			path: app/Http/Controllers/AdminController.php
 
 		-
@@ -279,12 +159,6 @@ parameters:
 		-
 			message: '#^Method App\\Http\\Controllers\\AdminController\:\:exportCsv\(\) should return Illuminate\\Http\\StreamedResponse but returns Symfony\\Component\\HttpFoundation\\StreamedResponse\.$#'
 			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/AdminController.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\),App\\Models\\Account\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
 			count: 1
 			path: app/Http/Controllers/AdminController.php
 
@@ -331,250 +205,70 @@ parameters:
 			path: app/Http/Controllers/AdminController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/AnnouncementController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/AnnouncementController.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:unread\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Http/Controllers/AnnouncementController.php
 
 		-
-			message: '#^Parameter \$recipient of class App\\Mail\\AnnouncementReplyNotification constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/AnnouncementController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_number\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$installment_number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$processed_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_number\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$uuid\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type Illuminate\\Database\\Eloquent\\Model\. Use \-\> instead\.$#'
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Support\\Carbon\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
-			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
+			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_number\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/TransferController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/Api/V1/TransferController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/TransferController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:accounts\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/BalanceAlertController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/BeneficiaryController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Http/Controllers/BeneficiaryController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\BeneficiaryController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/BeneficiaryController.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Account\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Http/Controllers/BeneficiaryController.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 2
-			path: app/Http/Controllers/BeneficiaryController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/BrokerController.php
-
-		-
-			message: '#^Parameter \#1 \$groupBy of method Illuminate\\Support\\Collection\<int,App\\Models\\Transfer\>\:\:groupBy\(\) expects \(callable\(App\\Models\\Transfer, int\)\: \(int\|string\|Stringable\|UnitEnum\)\)\|list\<Closure\|string\>\|string, Closure\(App\\Models\\Transfer\)\: array\{int\<0, max\>, int\<0, max\>\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/BrokerController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/CardController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\CardController\:\:resolveRootAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/CardController.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Controllers/CardController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\CodePaymentController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 3
-			path: app/Http/Controllers/CodePaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/ContractController.php
-
-		-
-			message: '#^Cannot call method format\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: app/Http/Controllers/ContractController.php
-
-		-
-			message: '#^Parameter \#1 \$company of method App\\Models\\SystemSetting\:\:renderContractText\(\) expects App\\Models\\Company\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
 			count: 4
-			path: app/Http/Controllers/ContractController.php
+			path: app/Http/Controllers/Api/V1/PaymentPlanController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Support\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Http/Controllers/Api/V1/PaymentRequestController.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Http/Controllers/Api/V1/TransferController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Http/Controllers/BeneficiaryController.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/BeneficiaryController.php
+
+		-
+			message: '#^Parameter \#1 \$groupBy of method Illuminate\\Support\\Collection\<int,App\\Models\\Transfer\>\:\:groupBy\(\) expects \(callable\(App\\Models\\Transfer, int\)\: \(int\|string\|Stringable\|UnitEnum\)\)\|list\<Closure\|string\>\|string, Closure\(App\\Models\\Transfer\)\: array\{int, int\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/BrokerController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/CardController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Http/Controllers/CodePaymentController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>contract_html_snapshot" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -607,45 +301,15 @@ parameters:
 			path: app/Http/Controllers/ContractController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/IncassoQrController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\IncassoQrController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/IncassoQrController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Controllers/IncassoQrController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/KyCardController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Http/Controllers/KyCardController.php
-
-		-
 			message: '#^Access to an undefined property Stripe\\StripeObject\:\:\$payment_intent\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Http/Controllers/KyCardController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
-			identifier: method.notFound
-			count: 2
 			path: app/Http/Controllers/KyCardController.php
 
 		-
@@ -679,100 +343,16 @@ parameters:
 			path: app/Http/Controllers/KycController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/MerchantKitController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Controllers/MerchantKitController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/MerchantReportController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/MerchantReportController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 4
 			path: app/Http/Controllers/MerchantReportController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company_id\.$#'
-			identifier: property.notFound
-			count: 5
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 4
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pin_hash\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$users\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isPinLocked\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:logs\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:requiresPinFor\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:verifyPin\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\NfcCardPaymentController\:\:resolveMerchantAccount\(\) should return App\\Models\\Account\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
-
-		-
-			message: '#^Parameter \#2 \$merchant of class App\\Notifications\\NfcCardPinRequestNotification constructor expects App\\Models\\Company\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/NfcCardPaymentController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -787,40 +367,10 @@ parameters:
 			path: app/Http/Controllers/NfcCardPaymentController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/NfcPaymentController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\NfcPaymentController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/NfcPaymentController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Controllers/NfcPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/PaymentHandlerController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/PaymentHandlerController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\PaymentHandlerController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/PaymentHandlerController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -829,55 +379,19 @@ parameters:
 			path: app/Http/Controllers/PaymentHandlerController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\PaymentLinkController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/PaymentLinkController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_number\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/PaymentRequestController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Http/Controllers/PaymentRequestController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
+			identifier: method.notFound
 			count: 1
 			path: app/Http/Controllers/PaymentRequestController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/PaymentRequestController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/PaymentRequestController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\PaymentRequestController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/PaymentRequestController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentReceived constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PaymentRequestController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\PaymentReceivedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentReceived constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PaymentRequestController.php
@@ -889,181 +403,55 @@ parameters:
 			path: app/Http/Controllers/PaymentRequestController.php
 
 		-
-			message: '#^Using nullsafe property access on non\-nullable type Illuminate\\Database\\Eloquent\\Model\. Use \-\> instead\.$#'
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 2
+			count: 3
 			path: app/Http/Controllers/PaymentRequestController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_holder_type\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
 			identifier: property.notFound
-			count: 1
+			count: 6
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 5
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 5
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:allowedKyPercentages\(\)\.$#'
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
-			count: 1
+			count: 6
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isAtCeiling\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isInDebit\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Pagination\\AbstractPaginator\<int,App\\Models\\Company\>\:\:through\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$fromAccount of class App\\Mail\\PaymentReceived constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\CreditNoteIssued constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Parameter \$fromAccount of class App\\Mail\\PaymentRequestConfirmed constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentReceived constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Parameter \$fromAccount of class App\\Mail\\PaymentRequested constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentRequestConfirmed constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Parameter \$fromAccount of class App\\Notifications\\PaymentReceivedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentRequestRejected constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Parameter \$fromAccount of class App\\Notifications\\PaymentRequestConfirmedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentRequested constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Parameter \$fromAccount of class App\\Notifications\\PaymentRequestedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$originalTransfer of class App\\Mail\\CreditNoteIssued constructor expects App\\Models\\Transfer\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$originalTransfer of class App\\Notifications\\CreditNoteIssuedNotification constructor expects App\\Models\\Transfer\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\CreditNoteIssued constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentReceived constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentRequestConfirmed constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentRequested constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentSent constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\RefundIssued constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\CreditNoteIssuedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\PaymentReceivedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\PaymentRequestConfirmedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\PaymentRequestedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/PortalController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\RefundIssuedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\RefundIssued constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/PortalController.php
@@ -1093,10 +481,10 @@ parameters:
 			path: app/Http/Controllers/PortalController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\ReceiptController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/ReceiptController.php
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 5
+			path: app/Http/Controllers/PortalController.php
 
 		-
 			message: '#^Anonymous function has an unused use \$currentAccount\.$#'
@@ -1105,73 +493,25 @@ parameters:
 			path: app/Http/Controllers/ScheduledPaymentController.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$avatar_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SendPaymentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SendPaymentController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 1
-			path: app/Http/Controllers/ScheduledPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
-			identifier: property.notFound
-			count: 1
 			path: app/Http/Controllers/SendPaymentController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$avatar_url\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$logo_url\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Parameter \$fromAccount of class App\\Mail\\PaymentReceived constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Parameter \$fromAccount of class App\\Notifications\\PaymentReceivedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentReceived constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Mail\\PaymentSent constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
-			message: '#^Parameter \$toAccount of class App\\Notifications\\PaymentReceivedNotification constructor expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \$recipient of class App\\Mail\\PaymentReceived constructor expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/SendPaymentController.php
@@ -1195,28 +535,10 @@ parameters:
 			path: app/Http/Controllers/SendPaymentController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Http/Controllers/SonicPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SonicPaymentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SonicPaymentController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\SonicPaymentController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/SonicPaymentController.php
+			path: app/Http/Controllers/SendPaymentController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1231,40 +553,10 @@ parameters:
 			path: app/Http/Controllers/StatementController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\StatementController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/StatementController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/StaticNfcController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\StaticNfcController\:\:resolveRootAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/StaticNfcController.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Controllers/StaticNfcController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/SubAccountInvitationController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/SubAccountInvitationController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1279,28 +571,16 @@ parameters:
 			path: app/Http/Controllers/SubAccountLimitRequestController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/TextPaymentRequestController.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
-			count: 2
+			count: 1
 			path: app/Http/Controllers/TextPaymentRequestController.php
 
 		-
-			message: '#^Empty array passed to foreach\.$#'
-			identifier: foreach.emptyArray
-			count: 1
-			path: app/Http/Controllers/TwoFactorController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\WalletController\:\:resolveAccount\(\) should return App\\Models\\Account but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/WalletController.php
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Http/Controllers/TextPaymentRequestController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$created_at\.$#'
@@ -1329,7 +609,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 3
+			count: 1
 			path: app/Http/Controllers/WebAuthnController.php
 
 		-
@@ -1339,69 +619,27 @@ parameters:
 			path: app/Http/Controllers/WebAuthnController.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Http/Middleware/ApiTokenAuth.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$suspension_reason\.$#'
-			identifier: property.notFound
+			message: '#^Using nullsafe method call on non\-nullable type App\\Models\\Company\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Http/Middleware/EnsureCompanyNotSuspended.php
+			path: app/Http/Middleware/ApiTokenAuth.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isSuspended\(\)\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Jobs/ProcessDueInstallments.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
-			count: 1
-			path: app/Http/Middleware/EnsureCompanyNotSuspended.php
-
-		-
-			message: '#^Cannot call method isAfter\(\) on string\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Middleware/EnsureContractSigned.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Jobs/CheckBalanceAlerts.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Jobs/CheckBalanceAlerts.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Jobs/ExpirePaymentRequests.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$fromAccount\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Jobs/ProcessDueInstallments.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$toAccount\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Jobs/ProcessDueInstallments.php
-
-		-
-			message: '#^Parameter \#2 \$plan of class App\\Notifications\\InstallmentFailedNotification constructor expects App\\Models\\PaymentPlan, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Jobs/ProcessDueInstallments.php
-
-		-
-			message: '#^Parameter \#2 \$plan of class App\\Notifications\\InstallmentPaidNotification constructor expects App\\Models\\PaymentPlan, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 2
+			count: 4
 			path: app/Jobs/ProcessDueInstallments.php
 
 		-
@@ -1411,10 +649,10 @@ parameters:
 			path: app/Jobs/ProcessDueInstallments.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Jobs/RemindPaymentRequests.php
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Jobs/ProcessDueInstallments.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
@@ -1435,7 +673,7 @@ parameters:
 			path: app/Jobs/SendBroadcastMessageJob.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Jobs/SendMonthlyStatements.php
@@ -1513,18 +751,6 @@ parameters:
 			path: app/Mail/RegistrationConfirmation.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 4
-			path: app/Models/Account.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:effectiveTransferLimits\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/Account.php
-
-		-
 			message: '#^Method App\\Models\\Account\:\:activeCreditLimit\(\) should return App\\Models\\CreditLimit\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -1549,18 +775,6 @@ parameters:
 			path: app/Models/Account.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/CashbackRule.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/NettingProposal.php
-
-		-
 			message: '#^Method App\\Models\\NettingProposal\:\:counterpartyTransfers\(\) should return Illuminate\\Database\\Eloquent\\Collection but returns Illuminate\\Support\\Collection\<\(int\|string\), mixed\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1577,18 +791,6 @@ parameters:
 			identifier: staticClassAccess.privateMethod
 			count: 2
 			path: app/Models/NfcCard.php
-
-		-
-			message: '#^Method App\\Models\\PaymentPlan\:\:counterpartyAccount\(\) should return App\\Models\\Account\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Models/PaymentPlan.php
-
-		-
-			message: '#^Method App\\Models\\PaymentPlan\:\:proposerAccount\(\) should return App\\Models\\Account\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Models/PaymentPlan.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1657,64 +859,10 @@ parameters:
 			path: app/Models/SystemSetting.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner_type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner_user_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Parameter \#1 \$account of method App\\Models\\User\:\:canCreateSubaccountsFor\(\) expects App\\Models\\Account, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Parameter \#1 \$key of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:contains\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model\|int\|string, Closure\(App\\Models\\Permission\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Parameter \#1 \$key of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:contains\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model\|int\|string, Closure\(App\\Models\\Role\)\: bool given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/CreditLimitRequested.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/InstallmentFailedNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/InstallmentFailedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/MonthlyStatementNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1723,34 +871,16 @@ parameters:
 			path: app/Notifications/MonthlyStatementNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/NettingAcceptedNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/NettingAcceptedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Notifications/NettingProposedNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 3
 			path: app/Notifications/NettingProposedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/NettingRejectedNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1765,7 +895,7 @@ parameters:
 			path: app/Notifications/NfcCardPinRequestNotification.php
 
 		-
-			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Support\\Carbon\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/PaymentPlanApprovedNotification.php
@@ -1789,25 +919,13 @@ parameters:
 			path: app/Notifications/PaymentPlanRejectedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/PaymentRequestExpiredForCreditorNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/PaymentRequestExpiredForCreditorNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/PaymentRequestExpiringNotification.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Support\\Carbon\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/PaymentRequestExpiringNotification.php
@@ -1817,18 +935,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/PaymentRequestExpiringNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/ScheduledPaymentExecutedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/ScheduledPaymentExecutedNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1841,12 +947,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/ScheduledPaymentExecutedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SubAccountAccessGranted.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1855,22 +955,10 @@ parameters:
 			path: app/Notifications/SubAccountAccessGranted.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SubAccountAccessRevoked.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/SubAccountAccessRevoked.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SubAccountInvitationSent.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1879,42 +967,6 @@ parameters:
 			path: app/Notifications/SubAccountInvitationSent.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/SubAccountLimitDecided.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SubAccountLimitDecided.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/SubAccountLimitRequested.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SubAccountLimitRequested.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/SubAccountTransferNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/SubAccountTransferNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
@@ -1925,18 +977,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Notifications/SubAccountTransferNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TextPaymentRequestApprovedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/TextPaymentRequestApprovedNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1951,18 +991,6 @@ parameters:
 			path: app/Notifications/TextPaymentRequestApprovedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TextPaymentRequestRejectedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Notifications/TextPaymentRequestRejectedNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
@@ -1973,18 +1001,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/TextPaymentRequestRejectedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TextPaymentRequestSentNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Notifications/TextPaymentRequestSentNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1999,14 +1015,8 @@ parameters:
 			path: app/Notifications/TextPaymentRequestSentNotification.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/CashbackService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
-			identifier: method.notFound
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
 			count: 1
 			path: app/Services/CashbackService.php
 
@@ -2023,88 +1033,10 @@ parameters:
 			path: app/Services/MenuVisibilityService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available_balance\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/NettingService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/NettingService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
+			identifier: method.notFound
 			count: 3
 			path: app/Services/NettingService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/NettingService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$from_account_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 5
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$initiated_by\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$installment_number\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$installments_count\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$to_account_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PaymentPlanService.php
 
 		-
 			message: '#^Anonymous function has an unused use \$initiatorRole\.$#'
@@ -2113,7 +1045,7 @@ parameters:
 			path: app/Services/PaymentPlanService.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:users\(\)\.$#'
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 3
 			path: app/Services/PaymentPlanService.php
@@ -2139,43 +1071,13 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
-			count: 2
-			path: app/Services/ScheduledPaymentService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/ScheduledPaymentService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paymentPlan\.$#'
-			identifier: property.notFound
-			count: 1
+			count: 4
 			path: app/Services/ScheduledPaymentService.php
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
-			count: 1
-			path: app/Services/ScheduledPaymentService.php
-
-		-
-			message: '#^Parameter \#1 \$installment of class App\\Notifications\\InstallmentFailedNotification constructor expects App\\Models\\PaymentPlanInstallment, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Services/ScheduledPaymentService.php
-
-		-
-			message: '#^Parameter \#1 \$installment of class App\\Notifications\\InstallmentPaidNotification constructor expects App\\Models\\PaymentPlanInstallment, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Services/ScheduledPaymentService.php
-
-		-
-			message: '#^Parameter \#1 \$installment of method App\\Services\\PaymentPlanService\:\:processInstallment\(\) expects App\\Models\\PaymentPlanInstallment, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
+			count: 4
 			path: app/Services/ScheduledPaymentService.php
 
 		-
@@ -2185,39 +1087,15 @@ parameters:
 			path: app/Services/ScheduledPaymentService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company_id\.$#'
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Account\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Services/ScheduledPaymentService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Company\:\:\$owner\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Services/SubAccountService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner_user_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/SubAccountService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Services/SubAccountService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$broker_user_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TransferBookingService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TransferBookingService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 2
 			path: app/Services/TransferBookingService.php
 
 		-

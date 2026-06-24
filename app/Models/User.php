@@ -11,6 +11,115 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * @property int $id
+ * @property int|null $company_id
+ * @property string $name
+ * @property string $email
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property string $password
+ * @property string $role
+ * @property bool $is_active
+ * @property string|null $remember_token
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property bool $is_super_admin
+ * @property string $account_holder_type
+ * @property int|null $managed_account_id
+ * @property string|null $phone
+ * @property string|null $fiscal_code
+ * @property int|null $circuit_capacity_limit
+ * @property int|null $negative_balance_limit
+ * @property int|null $daily_transaction_limit
+ * @property int|null $monthly_transaction_limit
+ * @property int|null $per_movement_limit
+ * @property string|null $two_factor_secret
+ * @property \Illuminate\Support\Carbon|null $two_factor_confirmed_at
+ * @property array<array-key, mixed>|null $two_factor_recovery_codes
+ * @property bool $transfer_limits_use_defaults
+ * @property array<array-key, mixed>|null $notification_preferences
+ * @property string|null $pending_email
+ * @property string|null $email_change_token
+ * @property string|null $email_change_expires_at
+ * @property \Illuminate\Support\Carbon|null $contract_signed_at
+ * @property string|null $contract_otp
+ * @property \Illuminate\Support\Carbon|null $contract_otp_expires_at
+ * @property \Illuminate\Support\Carbon|null $contract_postponed_at
+ * @property string|null $email_change_cancel_token
+ * @property \Illuminate\Support\Carbon|null $tutorial_shown_at
+ * @property string|null $payment_pin_hash
+ * @property string|null $city
+ * @property string|null $bio
+ * @property string|null $avatar_path
+ * @property string|null $referral_code
+ * @property int|null $referred_by_user_id
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $assignedAccounts
+ * @property-read int|null $assigned_accounts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuditLog> $auditLogs
+ * @property-read int|null $audit_logs_count
+ * @property-read \App\Models\Company|null $company
+ * @property-read \App\Models\Account|null $managedAccount
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $managedSubAccounts
+ * @property-read int|null $managed_sub_accounts_count
+ * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
+ * @property-read int|null $notifications_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $ownedAccounts
+ * @property-read int|null $owned_accounts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $referrals
+ * @property-read int|null $referrals_count
+ * @property-read User|null $referredBy
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Role> $roles
+ * @property-read int|null $roles_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\WebAuthnCredential> $webAuthnCredentials
+ * @property-read int|null $web_authn_credentials_count
+ * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User unsignedContract()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereAccountHolderType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereAvatarPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereBio($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCircuitCapacityLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCity($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCompanyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereContractOtp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereContractOtpExpiresAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereContractPostponedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereContractSignedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereDailyTransactionLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailChangeCancelToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailChangeExpiresAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailChangeToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailVerifiedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereFiscalCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereIsSuperAdmin($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereManagedAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereMonthlyTransactionLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereNegativeBalanceLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereNotificationPreferences($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePassword($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePaymentPinHash($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePendingEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePerMovementLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereReferralCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereReferredByUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRememberToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTransferLimitsUseDefaults($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTutorialShownAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTwoFactorConfirmedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTwoFactorRecoveryCodes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTwoFactorSecret($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */

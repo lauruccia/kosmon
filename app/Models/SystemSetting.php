@@ -6,6 +6,62 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property int $id
+ * @property string $code
+ * @property int|null $default_circuit_capacity_limit
+ * @property int|null $default_negative_balance_limit
+ * @property int|null $default_daily_transaction_limit
+ * @property int|null $default_monthly_transaction_limit
+ * @property int|null $default_per_movement_limit
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string $circuit_name
+ * @property string|null $circuit_tagline
+ * @property string|null $contact_email
+ * @property string|null $contact_phone
+ * @property string|null $website_url
+ * @property string|null $logo_path
+ * @property string $primary_color
+ * @property string $accent_color
+ * @property string|null $footer_text
+ * @property bool $contract_force_sign
+ * @property \Illuminate\Support\Carbon|null $contract_required_from
+ * @property string|null $contract_text
+ * @property int $contract_version
+ * @property int|null $payment_confirm_totp_threshold
+ * @property int|null $payment_pin_threshold
+ * @property int $welcome_bonus_amount
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereAccentColor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereCircuitName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereCircuitTagline($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContactEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContactPhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContractForceSign($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContractRequiredFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContractText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereContractVersion($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereDefaultCircuitCapacityLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereDefaultDailyTransactionLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereDefaultMonthlyTransactionLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereDefaultNegativeBalanceLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereDefaultPerMovementLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereFooterText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereLogoPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting wherePaymentConfirmTotpThreshold($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting wherePaymentPinThreshold($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting wherePrimaryColor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereWebsiteUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting whereWelcomeBonusAmount($value)
+ * @mixin \Eloquent
+ */
 class SystemSetting extends Model
 {
     use HasFactory;

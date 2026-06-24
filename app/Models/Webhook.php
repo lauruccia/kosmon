@@ -7,6 +7,37 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $company_id
+ * @property string $url
+ * @property string $secret
+ * @property array<array-key, mixed> $events
+ * @property bool $is_active
+ * @property int $failure_count
+ * @property \Illuminate\Support\Carbon|null $last_triggered_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Company $company
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\WebhookDelivery> $deliveries
+ * @property-read int|null $deliveries_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereCompanyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereEvents($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereFailureCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereLastTriggeredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereSecret($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Webhook whereUuid($value)
+ * @mixin \Eloquent
+ */
 class Webhook extends Model
 {
     protected $fillable = [

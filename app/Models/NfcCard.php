@@ -8,6 +8,78 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $company_id
+ * @property int $issued_by
+ * @property string|null $serial_number
+ * @property string $status
+ * @property string|null $pin_hash
+ * @property int $pin_attempts
+ * @property \Illuminate\Support\Carbon|null $pin_locked_until
+ * @property int|null $limit_per_transaction
+ * @property int|null $limit_daily
+ * @property int|null $limit_monthly
+ * @property int $daily_spent
+ * @property int $monthly_spent
+ * @property \Illuminate\Support\Carbon|null $daily_reset_date
+ * @property string|null $monthly_reset_month
+ * @property string|null $nfc_payload
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $issued_at
+ * @property \Illuminate\Support\Carbon|null $delivered_at
+ * @property \Illuminate\Support\Carbon|null $activated_at
+ * @property \Illuminate\Support\Carbon|null $blocked_at
+ * @property \Illuminate\Support\Carbon|null $revoked_at
+ * @property \Illuminate\Support\Carbon|null $last_used_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $tracking_code
+ * @property string|null $shipping_carrier
+ * @property \Illuminate\Support\Carbon|null $shipped_at
+ * @property int|null $pin_threshold
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\NfcCardAuthSession> $authSessions
+ * @property-read int|null $auth_sessions_count
+ * @property-read \App\Models\Company $company
+ * @property-read \App\Models\User $issuer
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\NfcCardLog> $logs
+ * @property-read int|null $logs_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereActivatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereBlockedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereCompanyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereDailyResetDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereDailySpent($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereDeliveredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereIssuedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereIssuedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereLastUsedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereLimitDaily($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereLimitMonthly($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereLimitPerTransaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereMonthlyResetMonth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereMonthlySpent($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereNfcPayload($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard wherePinAttempts($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard wherePinHash($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard wherePinLockedUntil($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard wherePinThreshold($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereRevokedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereSerialNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereShippedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereShippingCarrier($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereTrackingCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NfcCard whereUuid($value)
+ * @mixin \Eloquent
+ */
 class NfcCard extends Model
 {
     protected $fillable = [

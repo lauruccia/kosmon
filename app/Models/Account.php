@@ -11,6 +11,92 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use App\Models\SubAccountInvitation;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int|null $company_id
+ * @property string $type
+ * @property string $currency_code
+ * @property string $status
+ * @property bool $allow_negative_balance
+ * @property int $available_balance
+ * @property int $pending_balance
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $owner_user_id
+ * @property string $owner_type
+ * @property int|null $parent_account_id
+ * @property int|null $assigned_by_user_id
+ * @property string|null $account_name
+ * @property int|null $spending_limit
+ * @property int|null $daily_outgoing_limit
+ * @property bool $is_system_account
+ * @property int|null $max_balance
+ * @property int|null $monthly_outgoing_limit
+ * @property \Illuminate\Support\Carbon|null $locked_until
+ * @property string $card_status
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SubAccountInvitation> $activeInvitations
+ * @property-read int|null $active_invitations_count
+ * @property-read \App\Models\User|null $assignedByUser
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, BalanceAlert> $balanceAlerts
+ * @property-read int|null $balance_alerts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Account> $childAccounts
+ * @property-read int|null $child_accounts_count
+ * @property-read \App\Models\Company|null $company
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CreditLimitRequest> $creditLimitRequests
+ * @property-read int|null $credit_limit_requests_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CreditLimit> $creditLimits
+ * @property-read int|null $credit_limits_count
+ * @property-read string $account_number
+ * @property-read string $account_type
+ * @property-read string $display_name
+ * @property-read bool $is_subaccount
+ * @property-read string $owner_label
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Transfer> $incomingTransfers
+ * @property-read int|null $incoming_transfers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SubAccountInvitation> $invitations
+ * @property-read int|null $invitations_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LedgerEntry> $ledgerEntries
+ * @property-read int|null $ledger_entries_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $managedUsers
+ * @property-read int|null $managed_users_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $managers
+ * @property-read int|null $managers_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Transfer> $outgoingTransfers
+ * @property-read int|null $outgoing_transfers_count
+ * @property-read \App\Models\User|null $ownerUser
+ * @property-read Account|null $parentAccount
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $pendingManagers
+ * @property-read int|null $pending_managers_count
+ * @method static \Database\Factories\AccountFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereAccountName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereAllowNegativeBalance($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereAssignedByUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereAvailableBalance($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereCardStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereCompanyId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereCurrencyCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereDailyOutgoingLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereIsSystemAccount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereLockedUntil($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereMaxBalance($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereMonthlyOutgoingLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereOwnerType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereOwnerUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereParentAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account wherePendingBalance($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereSpendingLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Account whereUuid($value)
+ * @mixin \Eloquent
+ */
 class Account extends Model
 {
     use HasFactory;

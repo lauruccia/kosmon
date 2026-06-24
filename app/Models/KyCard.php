@@ -6,6 +6,45 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $name
+ * @property string|null $description
+ * @property int $price_eur_cents
+ * @property string $bonus_type
+ * @property int $ky_base_amount
+ * @property numeric $bonus_value
+ * @property bool $is_active
+ * @property string|null $stripe_price_id
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read string $bonus_label
+ * @property-read int $ky_bonus
+ * @property-read int $ky_total
+ * @property-read float $price_eur
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\KyCardPurchase> $purchases
+ * @property-read int|null $purchases_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereBonusType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereBonusValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereKyBaseAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard wherePriceEurCents($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereStripePriceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCard whereUuid($value)
+ * @mixin \Eloquent
+ */
 class KyCard extends Model
 {
     protected $fillable = [

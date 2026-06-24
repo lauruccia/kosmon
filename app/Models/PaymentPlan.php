@@ -7,6 +7,50 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int|null $initiated_by
+ * @property int $from_account_id
+ * @property int $to_account_id
+ * @property int $total_amount
+ * @property string $currency_code
+ * @property-read int|null $installments_count
+ * @property string $frequency
+ * @property \Illuminate\Support\Carbon $first_due_date
+ * @property string|null $description
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string $initiator_role
+ * @property-read \App\Models\Account $fromAccount
+ * @property-read \App\Models\User|null $initiator
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PaymentPlanInstallment> $installments
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PaymentPlanInstallment> $paidInstallments
+ * @property-read int|null $paid_installments_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PaymentPlanInstallment> $pendingInstallments
+ * @property-read int|null $pending_installments_count
+ * @property-read \App\Models\Account $toAccount
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereCurrencyCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereFirstDueDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereFrequency($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereFromAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereInitiatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereInitiatorRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereInstallmentsCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereToAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereTotalAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlan whereUuid($value)
+ * @mixin \Eloquent
+ */
 class PaymentPlan extends Model
 {
     protected $fillable = [

@@ -4,6 +4,32 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $operation_kind
+ * @property string $fee_type
+ * @property numeric $fee_value
+ * @property int $min_fee
+ * @property int|null $max_fee
+ * @property bool $is_active
+ * @property string|null $description
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereFeeType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereFeeValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereMaxFee($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereMinFee($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereOperationKind($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TransactionFee whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class TransactionFee extends Model
 {
     protected $fillable = [

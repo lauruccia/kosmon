@@ -6,6 +6,47 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $from_account_id
+ * @property int $to_account_id
+ * @property int $amount
+ * @property string $causale
+ * @property string|null $note
+ * @property \Illuminate\Support\Carbon|null $due_date
+ * @property string $status
+ * @property int|null $transfer_id
+ * @property int $created_by
+ * @property int|null $actioned_by
+ * @property \Illuminate\Support\Carbon|null $actioned_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User|null $actioner
+ * @property-read \App\Models\User $creator
+ * @property-read \App\Models\Account $fromAccount
+ * @property-read \App\Models\Account $toAccount
+ * @property-read \App\Models\Transfer|null $transfer
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereActionedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereActionedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereCausale($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereDueDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereFromAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereNote($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereToAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TextPaymentRequest whereUuid($value)
+ * @mixin \Eloquent
+ */
 class TextPaymentRequest extends Model
 {
     protected $fillable = [

@@ -6,6 +6,37 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property int $id
+ * @property int $payment_plan_id
+ * @property int $installment_number
+ * @property int $amount
+ * @property \Illuminate\Support\Carbon $due_date
+ * @property string $status
+ * @property int|null $transfer_id
+ * @property \Illuminate\Support\Carbon|null $processed_at
+ * @property string|null $failure_reason
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\PaymentPlan $paymentPlan
+ * @property-read \App\Models\ScheduledPayment|null $scheduledPayment
+ * @property-read \App\Models\Transfer|null $transfer
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereDueDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereFailureReason($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereInstallmentNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment wherePaymentPlanId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereProcessedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentPlanInstallment whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class PaymentPlanInstallment extends Model
 {
     protected $fillable = [

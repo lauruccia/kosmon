@@ -6,6 +6,54 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $ky_card_id
+ * @property int $account_id
+ * @property int $user_id
+ * @property int $price_eur_cents
+ * @property int $ky_amount
+ * @property string $status
+ * @property string|null $stripe_checkout_session_id
+ * @property string|null $stripe_payment_intent_id
+ * @property int|null $transfer_id
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string $payment_method
+ * @property string|null $paypal_order_id
+ * @property string|null $admin_notes
+ * @property int|null $confirmed_by
+ * @property-read \App\Models\Account $account
+ * @property-read string $bank_transfer_reference
+ * @property-read float $price_eur
+ * @property-read \App\Models\KyCard $kyCard
+ * @property-read \App\Models\Transfer|null $transfer
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereAdminNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereCompletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereConfirmedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereKyAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereKyCardId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase wherePaymentMethod($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase wherePaypalOrderId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase wherePriceEurCents($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereStripeCheckoutSessionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereStripePaymentIntentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|KyCardPurchase whereUuid($value)
+ * @mixin \Eloquent
+ */
 class KyCardPurchase extends Model
 {
     protected $fillable = [

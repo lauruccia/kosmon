@@ -6,6 +6,42 @@ use App\Models\Account;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property int $min_amount
+ * @property numeric $percentage
+ * @property int|null $max_cashback
+ * @property array<array-key, mixed> $applicable_kinds
+ * @property bool $is_active
+ * @property \Illuminate\Support\Carbon|null $valid_from
+ * @property \Illuminate\Support\Carbon|null $valid_until
+ * @property int $created_by
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string $target_type
+ * @property int|null $target_user_id
+ * @property-read \App\Models\User $creator
+ * @property-read \App\Models\User|null $targetUser
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereApplicableKinds($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereMaxCashback($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereMinAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule wherePercentage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereTargetType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereTargetUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereValidFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CashbackRule whereValidUntil($value)
+ * @mixin \Eloquent
+ */
 class CashbackRule extends Model
 {
     protected $fillable = [

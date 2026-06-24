@@ -8,6 +8,98 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $name
+ * @property string $slug
+ * @property string|null $email
+ * @property string|null $vat_number
+ * @property string|null $fiscal_code
+ * @property string $status
+ * @property string $kyc_status
+ * @property string $currency_code
+ * @property array<array-key, mixed>|null $settings
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $sector
+ * @property string|null $kyc_notes
+ * @property int|null $kyc_reviewed_by
+ * @property \Illuminate\Support\Carbon|null $kyc_reviewed_at
+ * @property string|null $description
+ * @property string|null $website
+ * @property string|null $phone
+ * @property int|null $broker_user_id
+ * @property \Illuminate\Support\Carbon|null $suspended_at
+ * @property string|null $suspension_reason
+ * @property string|null $subscription_plan
+ * @property string|null $tagline
+ * @property string|null $city
+ * @property string|null $linkedin_url
+ * @property string|null $instagram_url
+ * @property string|null $facebook_url
+ * @property string|null $logo_path
+ * @property string|null $banner_path
+ * @property string|null $payments_paused_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $accounts
+ * @property-read int|null $accounts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Announcement> $announcements
+ * @property-read int|null $announcements_count
+ * @property-read \App\Models\User|null $broker
+ * @property-read string|null $banner_url
+ * @property-read bool $kyc_is_approved
+ * @property-read bool $kyc_is_pending
+ * @property-read string $kyc_status_label
+ * @property-read string|null $logo_url
+ * @property-read int $plan_order
+ * @property-read string $subscription_plan_label
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\KycDocument> $kycDocuments
+ * @property-read int|null $kyc_documents_count
+ * @property-read \App\Models\User|null $kycReviewedBy
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Listing> $listings
+ * @property-read int|null $listings_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $users
+ * @property-read int|null $users_count
+ * @method static \Database\Factories\CompanyFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereApprovedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereBannerPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereBrokerUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCity($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCurrencyCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereFacebookUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereFiscalCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereInstagramUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycReviewedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycReviewedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereLinkedinUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereLogoPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company wherePaymentsPausedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company wherePhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSector($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSettings($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSubscriptionPlan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSuspendedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSuspensionReason($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereTagline($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUuid($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereVatNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereWebsite($value)
+ * @mixin \Eloquent
+ */
 class Company extends Model
 {
     use HasFactory;

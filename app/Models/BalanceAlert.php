@@ -6,6 +6,37 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $account_id
+ * @property int $threshold_amount
+ * @property bool $notify_email
+ * @property bool $notify_inapp
+ * @property int $cooldown_hours
+ * @property \Illuminate\Support\Carbon|null $last_triggered_at
+ * @property bool $is_active
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property bool $is_in_alert
+ * @property-read \App\Models\Account $account
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereCooldownHours($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereIsInAlert($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereLastTriggeredAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereNotifyEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereNotifyInapp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereThresholdAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BalanceAlert whereUuid($value)
+ * @mixin \Eloquent
+ */
 class BalanceAlert extends Model
 {
     protected $fillable = [

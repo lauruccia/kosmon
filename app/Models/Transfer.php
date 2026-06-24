@@ -8,6 +8,65 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $reference
+ * @property int|null $initiated_by
+ * @property int $from_account_id
+ * @property int $to_account_id
+ * @property int $amount
+ * @property string $currency_code
+ * @property string $status
+ * @property string $kind
+ * @property string $idempotency_key
+ * @property string|null $description
+ * @property \Illuminate\Support\Carbon|null $booked_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $reversed_transfer_id
+ * @property \Illuminate\Support\Carbon|null $refunded_at
+ * @property string|null $admin_action
+ * @property int|null $related_transfer_id
+ * @property int|null $confirmed_by
+ * @property-read \App\Models\User|null $confirmer
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Transfer> $feeTransfers
+ * @property-read int|null $fee_transfers_count
+ * @property-read \App\Models\Account $fromAccount
+ * @property-read \App\Models\User|null $initiator
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LedgerEntry> $ledgerEntries
+ * @property-read int|null $ledger_entries_count
+ * @property-read Transfer|null $relatedTransfer
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Transfer> $reversalChildren
+ * @property-read int|null $reversal_children_count
+ * @property-read Transfer|null $reversedTransfer
+ * @property-read \App\Models\Account $toAccount
+ * @method static \Database\Factories\TransferFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereAdminAction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereBookedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereConfirmedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereCurrencyCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereFromAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereIdempotencyKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereInitiatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereKind($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereRefundedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereRelatedTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereReversedTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereToAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transfer whereUuid($value)
+ * @mixin \Eloquent
+ */
 class Transfer extends Model
 {
     use HasFactory;

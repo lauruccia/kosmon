@@ -8,6 +8,51 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $company_id
+ * @property int $uploaded_by_user_id
+ * @property string $type
+ * @property string $file_path
+ * @property string $original_name
+ * @property string|null $mime_type
+ * @property int|null $file_size
+ * @property string $status
+ * @property string|null $admin_notes
+ * @property int|null $reviewed_by_user_id
+ * @property \Illuminate\Support\Carbon|null $reviewed_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Company $company
+ * @property-read string $download_url
+ * @property-read string $file_size_human
+ * @property-read string $status_label
+ * @property-read string $type_label
+ * @property-read \App\Models\User|null $reviewedByUser
+ * @property-read \App\Models\User $uploadedByUser
+ * @method static Builder<static>|KycDocument accepted()
+ * @method static Builder<static>|KycDocument newModelQuery()
+ * @method static Builder<static>|KycDocument newQuery()
+ * @method static Builder<static>|KycDocument pending()
+ * @method static Builder<static>|KycDocument query()
+ * @method static Builder<static>|KycDocument whereAdminNotes($value)
+ * @method static Builder<static>|KycDocument whereCompanyId($value)
+ * @method static Builder<static>|KycDocument whereCreatedAt($value)
+ * @method static Builder<static>|KycDocument whereFilePath($value)
+ * @method static Builder<static>|KycDocument whereFileSize($value)
+ * @method static Builder<static>|KycDocument whereId($value)
+ * @method static Builder<static>|KycDocument whereMimeType($value)
+ * @method static Builder<static>|KycDocument whereOriginalName($value)
+ * @method static Builder<static>|KycDocument whereReviewedAt($value)
+ * @method static Builder<static>|KycDocument whereReviewedByUserId($value)
+ * @method static Builder<static>|KycDocument whereStatus($value)
+ * @method static Builder<static>|KycDocument whereType($value)
+ * @method static Builder<static>|KycDocument whereUpdatedAt($value)
+ * @method static Builder<static>|KycDocument whereUploadedByUserId($value)
+ * @method static Builder<static>|KycDocument whereUuid($value)
+ * @mixin \Eloquent
+ */
 class KycDocument extends Model
 {
     public const TYPES = [

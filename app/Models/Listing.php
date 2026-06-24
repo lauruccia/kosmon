@@ -9,6 +9,62 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $company_id
+ * @property int $created_by_user_id
+ * @property string $title
+ * @property string $description
+ * @property string $category
+ * @property int $price_ky
+ * @property array<array-key, mixed>|null $images
+ * @property string $status
+ * @property bool $featured
+ * @property string|null $contact_info
+ * @property string|null $delivery_note
+ * @property \Illuminate\Support\Carbon|null $expires_at
+ * @property int $views_count
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int $ky_percentage
+ * @property-read \App\Models\Company $company
+ * @property-read \App\Models\User $createdByUser
+ * @property-read string $category_label
+ * @property-read int $euro_amount
+ * @property-read string|null $first_image
+ * @property-read string|null $first_image_url
+ * @property-read array $image_urls
+ * @property-read bool $is_expired
+ * @property-read int $ky_amount
+ * @property-read string $ky_badge_color
+ * @property-read string $ky_badge_label
+ * @method static Builder<static>|Listing active()
+ * @method static Builder<static>|Listing featured()
+ * @method static Builder<static>|Listing inCategory(string $category)
+ * @method static Builder<static>|Listing newModelQuery()
+ * @method static Builder<static>|Listing newQuery()
+ * @method static Builder<static>|Listing query()
+ * @method static Builder<static>|Listing whereCategory($value)
+ * @method static Builder<static>|Listing whereCompanyId($value)
+ * @method static Builder<static>|Listing whereContactInfo($value)
+ * @method static Builder<static>|Listing whereCreatedAt($value)
+ * @method static Builder<static>|Listing whereCreatedByUserId($value)
+ * @method static Builder<static>|Listing whereDeliveryNote($value)
+ * @method static Builder<static>|Listing whereDescription($value)
+ * @method static Builder<static>|Listing whereExpiresAt($value)
+ * @method static Builder<static>|Listing whereFeatured($value)
+ * @method static Builder<static>|Listing whereId($value)
+ * @method static Builder<static>|Listing whereImages($value)
+ * @method static Builder<static>|Listing whereKyPercentage($value)
+ * @method static Builder<static>|Listing wherePriceKy($value)
+ * @method static Builder<static>|Listing whereStatus($value)
+ * @method static Builder<static>|Listing whereTitle($value)
+ * @method static Builder<static>|Listing whereUpdatedAt($value)
+ * @method static Builder<static>|Listing whereUuid($value)
+ * @method static Builder<static>|Listing whereViewsCount($value)
+ * @mixin \Eloquent
+ */
 class Listing extends Model
 {
     use HasFactory;

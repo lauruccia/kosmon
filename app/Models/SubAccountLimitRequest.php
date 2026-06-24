@@ -6,6 +6,49 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $id
+ * @property int $sub_account_id
+ * @property int $requested_by_user_id
+ * @property int|null $decided_by_user_id
+ * @property string $type
+ * @property int $requested_amount
+ * @property string $reason
+ * @property string $status
+ * @property string|null $decision_note
+ * @property \Illuminate\Support\Carbon|null $overdraft_expires_at
+ * @property bool $overdraft_used
+ * @property int|null $overdraft_transfer_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\User|null $decidedBy
+ * @property-read \App\Models\Transfer|null $overdraftTransfer
+ * @property-read \App\Models\User $requestedBy
+ * @property-read \App\Models\Account $subAccount
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest onlyTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereDecidedByUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereDecisionNote($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereOverdraftExpiresAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereOverdraftTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereOverdraftUsed($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereReason($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereRequestedAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereRequestedByUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereSubAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest withTrashed(bool $withTrashed = true)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SubAccountLimitRequest withoutTrashed()
+ * @mixin \Eloquent
+ */
 class SubAccountLimitRequest extends Model
 {
     use SoftDeletes;

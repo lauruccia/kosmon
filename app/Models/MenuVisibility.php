@@ -4,6 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $menu_item_key
+ * @property string $scope_type
+ * @property string|null $account_type
+ * @property int|null $scope_id
+ * @property bool $visible
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereAccountType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereMenuItemKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereScopeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereScopeType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MenuVisibility whereVisible($value)
+ * @mixin \Eloquent
+ */
 class MenuVisibility extends Model
 {
     protected $fillable = [

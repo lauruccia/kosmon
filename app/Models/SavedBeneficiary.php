@@ -6,6 +6,31 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $owner_account_id
+ * @property int $beneficiary_account_id
+ * @property string|null $alias
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Account $beneficiaryAccount
+ * @property-read string $display_name
+ * @property-read \App\Models\Account $ownerAccount
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereAlias($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereBeneficiaryAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereOwnerAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|SavedBeneficiary whereUuid($value)
+ * @mixin \Eloquent
+ */
 class SavedBeneficiary extends Model
 {
     protected $fillable = [

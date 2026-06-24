@@ -7,6 +7,58 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $proposer_account_id
+ * @property int $counterparty_account_id
+ * @property array<array-key, mixed> $proposer_transfer_ids
+ * @property array<array-key, mixed> $counterparty_transfer_ids
+ * @property int $proposer_total
+ * @property int $counterparty_total
+ * @property string $currency_code
+ * @property int|null $net_payer_account_id
+ * @property int $net_amount
+ * @property string|null $description
+ * @property string $status
+ * @property int|null $net_transfer_id
+ * @property int|null $actioned_by
+ * @property \Illuminate\Support\Carbon|null $actioned_at
+ * @property int $proposed_by
+ * @property \Illuminate\Support\Carbon|null $expires_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User|null $actionedBy
+ * @property-read \App\Models\Account $counterpartyAccount
+ * @property-read \App\Models\Account|null $netPayerAccount
+ * @property-read \App\Models\Transfer|null $netTransfer
+ * @property-read \App\Models\User $proposedBy
+ * @property-read \App\Models\Account $proposerAccount
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereActionedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereActionedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereCounterpartyAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereCounterpartyTotal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereCounterpartyTransferIds($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereCurrencyCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereExpiresAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereNetAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereNetPayerAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereNetTransferId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereProposedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereProposerAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereProposerTotal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereProposerTransferIds($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|NettingProposal whereUuid($value)
+ * @mixin \Eloquent
+ */
 class NettingProposal extends Model
 {
     protected $fillable = [
