@@ -146,60 +146,72 @@ class SystemSetting extends Model
     public static function defaultContractText(): string
     {
         return <<<'HTML'
-<h2>Art. 1 – Termini e condizioni</h2>
-<p>Nel testo del presente contratto si intende indicare con il termine <strong>KMoney</strong> la società che gestisce l'intero Circuito KMoney. <strong>KY</strong>: il simbolo monetario del Circuito KMoney (come &euro; per l'Euro), con valore nominale pari a 1 euro, utilizzato all'interno del Circuito per indicare il valore degli acquisti e delle vendite. <strong>Cliente</strong>: la persona giuridica che richiede di usufruire dei servizi oggetto del presente contratto. <strong>Portale</strong>: il sito e l'applicazione del Circuito.</p>
+<p><strong>KOSMOS NETWORK MARKETING — Contratto di adesione al Circuito KSM</strong></p>
+<p>Il Gestore del Circuito è <strong>KOSMOS S.r.l.</strong>, con sede legale in C.so Vittorio Emanuele II, 36 — 62032 Camerino (MC), C.F./P.IVA 01768560433, Reg. Imprese MC-179933, Codice Univoco M5UXCR1, PEC e contatti come indicati sul Portale. Con la sottoscrizione della richiesta di adesione il Cliente dichiara di aver letto e accettato integralmente le seguenti condizioni generali.</p>
 
-<h2>Art. 2 – I servizi del Circuito</h2>
-<p>KMoney offre al Cliente servizi finalizzati a fornire la possibilità di effettuare acquisti o vendite di beni e servizi da e ad altri Clienti tramite scambi multilaterali in compensazione, e a tal fine: a) mette a disposizione un Portale con le aziende suddivise per categoria; b) inserisce ogni Cliente nel Portale rendendo visibile l'adesione; c) mette a disposizione uno spazio vetrina virtuale con beni e servizi offerti; d) redige l'estratto conto e aggiorna il saldo contabile di ciascun Cliente; e) notifica le richieste di acquisto da altri Clienti.</p>
-
-<h2>Art. 3 – Corrispettivi</h2>
-<p>Il Cliente riconoscerà a KMoney un canone fisso annuale anticipato e un compenso in percentuale sul venduto così come quantificato nella richiesta di adesione.</p>
-
-<h2>Art. 4 – Responsabilità del Cliente</h2>
-<p>Acquisti e vendite tramite KMoney avvengono direttamente tra un Cliente e l'altro; KMoney non è mai acquirente o fornitore. Il Cliente che effettua una vendita si impegna ad eseguirla a regola d'arte. Ciascun Cliente è responsabile degli atti compiuti nell'ambito del Circuito ed esonera espressamente KMoney da ogni responsabilità.</p>
-
-<h2>Art. 5 – Unità di conto</h2>
-<p>I KY indicano esclusivamente il valore degli acquisti e delle vendite effettuate tramite KMoney. KMoney non agisce quale istituto di credito; i KY non sono rappresentativi di depositi bancari, di valuta corrente o di titoli. In nessun caso il Cliente potrà chiedere la conversione in valuta corrente delle unità di conto.</p>
-
-<h2>Art. 6 – Estratto Conto</h2>
-<p>Le operazioni di acquisto e vendita saranno trascritte nell'Estratto Conto disponibile nell'area riservata del Portale. Trascorsi 15 giorni dall'aggiornamento senza che il Cliente abbia denunciato inesattezze, la posizione contabile sarà considerata accettata.</p>
-
-<h2>Art. 7 – Procedure di acquisto e di vendita</h2>
-<p>I Clienti negozieranno liberamente tra di loro. Raggiunto un accordo, l'acquirente accederà alla sezione Portale o App per compilare il modulo di pagamento indicando il venditore, il corrispettivo totale e l'importo in KY. La percentuale di compensazione potrà essere 0%, 25%, 50%, 75% o 100%.</p>
-
-<h2>Art. 8 – Limite di spesa (Fido)</h2>
-<p>KMoney potrà concedere al Cliente la possibilità di effettuare acquisti anche senza disponibilità di KY derivanti da precedenti vendite, entro un limite di spesa definito. Tale limite è subordinato all'esito positivo dell'istruttoria e potrà essere modificato o revocato in qualsiasi momento.</p>
-
-<h2>Art. 9 – Compensazione</h2>
-<p>Qualora l'Estratto Conto del Cliente evidenzi un saldo negativo, il Cliente sarà tenuto ad eseguire vendite in compensazione 100% fino al pareggio della propria posizione. In caso di mancata compensazione entro 12 mesi o di recesso, il Cliente dovrà versare in denaro un importo equivalente al proprio debito.</p>
-
-<h2>Art. 10 – Accettazione del Contratto</h2>
-<p>Il rapporto tra KMoney e il Cliente è regolato dalle presenti condizioni generali, nonché dalla richiesta di adesione compilata dal richiedente. KMoney accetterà le richieste a propria discrezione.</p>
-
-<h2>Art. 11 – Durata del contratto</h2>
-<p>Il contratto ha efficacia dalla data di sottoscrizione. Ha durata di 12 mesi e si rinnova automaticamente salvo disdetta inviata 60 giorni prima della scadenza tramite raccomandata A/R o PEC.</p>
-
-<h2>Art. 12 – Risoluzione anticipata</h2>
-<p>KMoney ha facoltà di risolvere anticipatamente il contratto senza preavviso in caso di: apertura di procedura concorsuale; cessazione dell'attività; violazione degli artt. 3, 4 o 9; venir meno dei requisiti riscontrati all'atto dell'accettazione; mancata comunicazione di modifiche strutturali.</p>
-
-<h2>Art. 13 – Effetti del recesso</h2>
-<p>Alla cessazione del contratto, eventuali KY residui continueranno a sussistere come credito di fornitura; se non utilizzati entro 1 anno si intenderanno rinunciati. In nessun caso il Cliente potrà richiedere la conversione in denaro.</p>
-
-<h2>Art. 14 – Modifiche del contratto</h2>
-<p>KMoney ha il diritto di modificare le presenti condizioni in qualunque momento, comunicandolo via PEC. Il Cliente che non intende aderire alle modifiche dovrà comunicare il recesso entro 15 giorni; trascorso tale termine ogni modifica si intenderà accettata.</p>
-
-<h2>Art. 15 – Clausola arbitrale</h2>
-<p>Eventuali controversie tra venditore e acquirente saranno regolate tramite arbitro nominato da KMoney. La decisione è vincolante solo se sottoscritta per accettazione da entrambe le parti.</p>
-
-<h2>Art. 16 – Elezione di domicilio</h2>
-<p>Il Cliente elegge domicilio presso la sede indicata nel contratto. Le variazioni dovranno essere comunicate tramite raccomandata A/R o PEC per essere opponibili a KMoney.</p>
-
-<h2>Art. 17 – Foro competente</h2>
-<p>Qualunque controversia sarà di competenza esclusiva del Foro indicato nella sede legale del Gestore, con esclusione di qualsiasi altro foro.</p>
+<h2>Informativa e consenso ai sensi del D.Lgs 196/03</h2>
+<p>In relazione ai trattamenti di dati personali conseguenti l'esecuzione del presente contratto, la Kosmos S.r.l., Titolare ai sensi del D.Lgs 196/03, precisa quanto segue:</p>
+<p>a) I dati forniti saranno utilizzati dal Titolare solo per le finalità contrattuali sopra dichiarate e concordate nonché per tutti gli adempimenti collegati.<br>
+b) Essi potranno essere trattati con modalità cartacee e con strumenti elettronici, e potranno, se previsto tra le finalità, essere comunicati e diffusi a terzi, quali organi istituzionali, enti, società, collaboratori e professionisti, sempre in conformità con la finalità espressa.<br>
+c) Il conferimento di quanto sopra richiesto è facoltativo per il perseguimento della finalità predetta e la mancanza o la successiva revoca del consenso comporterà per il Titolare l'impossibilità di svolgere i suddetti trattamenti e di perseguire le finalità concordate.<br>
+d) Titolare del trattamento dei dati è la Kosmos S.r.l., avente sede legale a Camerino in C.so Vittorio Emanuele II, 36 — 62032, presso cui si potrà rivolgere in qualunque momento per l'esercizio dei suoi diritti ai sensi dell'articolo 7 del D.Lgs 196/03: diritto in qualunque momento di ottenere la conferma dell'esistenza o meno dei medesimi dati, di conoscerne il contenuto, l'origine, di verificarne l'esattezza e/o chiederne l'integrazione e/o l'aggiornamento, oppure la rettificazione.</p>
 
 <hr>
-<p><strong>Clausole specialmente approvate ai sensi degli artt. 1341–1342 c.c.:</strong><br>
-Art. 3 (Corrispettivi), Art. 4 (Responsabilità del Cliente), Art. 7 (Procedure di acquisto e vendita), Art. 8 (Limite di spesa), Art. 9 (Compensazione), Art. 11 (Durata), Art. 12 (Risoluzione anticipata), Art. 13 (Effetti del recesso), Art. 15 (Clausola arbitrale), Art. 16 (Elezione di domicilio), Art. 17 (Foro competente).</p>
+<p><strong>Condizioni generali del contratto di fornitura servizi</strong></p>
+
+<h2>Art. 1 – Termini e condizioni</h2>
+<p>Nel testo del presente contratto si intende indicare con il termine <strong>Kosmos</strong> la società Kosmos S.r.l. domiciliata presso la propria sede legale, società che gestisce l'intero Circuito KSM. <strong>KSM</strong>: il Circuito che permette ai propri Clienti di effettuare acquisti e vendite anche con il meccanismo degli scambi multilaterali attraverso operazioni in compensazione. <strong>Portale</strong>: il sito del Circuito. <strong>Cliente</strong>: la persona fisica o giuridica che richiede di usufruire dei servizi oggetto del presente contratto. <strong>Estratto Conto</strong>: l'insieme delle registrazioni, tenute a cura di Kosmos, degli acquisti e delle vendite effettuate da ciascun Cliente all'interno del Circuito. <strong>Kmoney</strong>: l'unità di conto, il cui valore è pari ad un euro, utilizzata all'interno del Circuito per indicare il valore degli acquisti e delle vendite. <strong>App</strong>: l'applicazione che consente di fruire dei servizi offerti utilizzando telefoni cellulari smartphone.</p>
+
+<h2>Art. 2 – I servizi di Kosmos</h2>
+<p>Kosmos offre al Cliente servizi e supporti finalizzati a fornire la possibilità di effettuare acquisti o vendite di beni e servizi da e ad altri Clienti tramite scambi multilaterali in compensazione e a tal fine: a) mette a disposizione dei Clienti un Portale con elencate le Aziende suddivise per categoria; b) inserisce ogni Cliente nel Portale, rendendo così l'adesione al Circuito più visibile; c) mette a disposizione delle Aziende uno spazio, all'interno del Portale, per allestire una vetrina virtuale con la propria presentazione, i beni e i servizi offerti; d) coordina le offerte di vendita e gli ordini di acquisto ricevuti; e) redige l'estratto conto ed aggiorna il saldo contabile di ciascun Cliente in base alle operazioni di acquisto e/o vendita effettuate e lo rende disponibile al Cliente, nella sezione all'interno dell'area riservata; f) notifica nell'area riservata le richieste di acquisto di beni o servizi che altri Clienti dovessero effettuare; g) consente a ciascun Cliente di effettuare richieste di acquisto, promozioni e offerte speciali; h) aggiorna i Clienti su nuove attività disponibili all'interno del Portale.</p>
+
+<h2>Art. 3 – Corrispettivi</h2>
+<p>Il Cliente riconoscerà a Kosmos un canone fisso annuale anticipato e un compenso in percentuale sul venduto così come quantificato nella richiesta di adesione.</p>
+
+<h2>Art. 4 – Responsabilità del Cliente</h2>
+<p>a) Acquisti e vendite realizzati tramite KSM avvengono direttamente tra un Cliente e l'altro e pertanto Kosmos non è mai acquirente o fornitore e non fornisce alcuna garanzia in merito ad eventuali vizi o alla qualità delle forniture; b) il Cliente che effettua una vendita si impegna ad eseguirla a regola d'arte, in conformità a quanto stabilito dalla legge e dagli usi e comunque alle medesime condizioni economiche normalmente praticate al di fuori di KSM; c) ciascun Cliente è responsabile degli atti e fatti a lui ascrivibili nell'ambito del Circuito, pertanto Kosmos non potrà mai essere ritenuta responsabile e non risponderà di eventuali danni a questi ascrivibili; in ogni caso ciascun Cliente esonera espressamente Kosmos e i suoi collaboratori da ogni responsabilità che possa emergere a riguardo; d) ferma la responsabilità diretta del Cliente in merito a ciascuna vendita effettuata, questi manleverà Kosmos da ogni perdita, danno, responsabilità, costo, onere o spesa, ivi comprese le spese legali, che dovessero essere subite o sostenute in relazione ad una fornitura, nonché da ogni pretesa di risarcimento danni avanzata da terzi o da altro Cliente nei confronti di Kosmos quale conseguenza diretta o indiretta del comportamento del Cliente stesso.</p>
+
+<h2>Art. 5 – Unità di conto</h2>
+<p>I Kmoney indicano esclusivamente il valore degli acquisti e delle vendite effettuate tramite KSM. Kosmos non agisce quale istituto di credito, i Kmoney non sono rappresentativi di depositi bancari, di valuta corrente o di titoli, ancorché rappresentativi di merci, non possono essere trasformati in denaro e non producono interessi. In nessun caso il Cliente potrà chiedere a Kosmos la conversione in valuta corrente delle unità di conto indicate dal saldo contabile dell'Estratto Conto.</p>
+
+<h2>Art. 6 – Estratto Conto</h2>
+<p>a) Le operazioni di acquisto e di vendita effettuate da ciascun Cliente saranno trascritte a cura di Kosmos nell'Estratto Conto del Cliente stesso disponibile nell'area riservata del Portale. Trascorsi 15 giorni dall'aggiornamento dell'Estratto Conto del Cliente senza che questi abbia denunciato a Kosmos eventuali inesattezze, la relativa posizione contabile sarà considerata accettata; b) l'Estratto Conto del Cliente sarà aggiornato solo successivamente alla conclusione della vendita ed una volta adempiute tutte le formalità indicate nel successivo articolo "Procedure di acquisto e di vendita".</p>
+
+<h2>Art. 7 – Procedure di acquisto e di vendita</h2>
+<p>a) I Clienti negozieranno liberamente tra di loro ed in assoluta autonomia i termini di ciascuna fornitura; b) raggiunto l'accordo relativo ad una fornitura ed alla percentuale di compensazione che potrà essere pari a 0%, 25%, 50%, 75%, 100%, al fine di rendere possibile il pagamento in compensazione, l'acquirente dovrà accedere alla apposita sezione del Portale o dell'App e compilare il modulo di pagamento con il nominativo del venditore, del corrispettivo totale della compravendita e dell'importo da pagarsi in Kmoney attraverso il Portale. Dopo aver inserito i dati indicati, dovrà confermare l'operazione selezionando il tasto di conferma e inserendo il proprio codice univoco (password); c) Kosmos invierà ad acquirente e fornitore un messaggio riepilogativo della transazione, con indicazione del valore totale della fornitura e dell'importo in Kmoney; d) la ricezione dell'importo da parte del venditore determinerà la conclusione della transazione; e) venditore e acquirente riceveranno notifica dell'avvenuta transazione; f) ferme le procedure di acquisto e di vendita di cui al precedente punto 7.a., il venditore potrà richiedere che il corrispettivo di ciascuna vendita venga regolato dall'acquirente per la parte prevista in Kmoney attraverso il Portale, mentre per la rimanente parte venga saldato con i termini e le modalità pattuite di concerto con l'acquirente; g) qualora il venditore reputi conveniente evitare di pattuire con l'acquirente di volta in volta per ciascuna vendita la porzione di pagamento richiesta in Kmoney, potrà predefinire in percentuale fissa tale ammontare. In tal caso la percentuale in Kmoney proposta dal venditore sarà pubblicata all'interno dell'area riservata del Portale e nell'App; h) la percentuale in Kmoney definita ai sensi del punto precedente sarà applicata su ciascuna vendita effettuata dal Cliente sino ad eventuale modifica. Tale modifica avrà efficacia immediatamente. Non è previsto alcun limite al numero di variazioni che è possibile richiedere in vigenza di adesione; i) completata la procedura di acquisto e di vendita ed accreditato il relativo ammontare di Kmoney nella posizione contabile del Cliente che ha effettuato la vendita, questi rinuncia espressamente a qualunque azione diretta nei confronti dell'acquirente per ottenere il pagamento dell'importo accreditatogli in Kmoney; l) per ciascuna fornitura, il fornitore emetterà regolare documento fiscale nei confronti dell'acquirente.</p>
+
+<h2>Art. 8 – Limite di spesa</h2>
+<p>Al fine di consentire al Cliente la possibilità di effettuare acquisti, anche prima di aver effettuato vendite, Kosmos potrà concedere al Cliente stesso la possibilità di effettuare acquisti attraverso KSM anche senza avere nella propria Posizione Contabile la disponibilità di Kmoney derivanti da precedenti vendite. Tale possibilità sarà compresa entro un dato limite di spesa che Kosmos si riserva di concedere a ciascun Cliente. La capacità di acquisto in compensazione di ciascun Cliente all'interno del Circuito è data da tale importo a cui va di volta in volta aggiunto il valore totale delle vendite e detratto il valore totale degli acquisti effettuati in compensazione. La concessione del limite di spesa è subordinata all'esito positivo dell'istruttoria che Kosmos eseguirà circa l'affidabilità del Cliente e pertanto resta inteso che Kosmos potrà sempre accettare la sottoscrizione dell'adesione da parte del Cliente anche assegnandogli un limite di spesa pari a zero Kmoney. In tal caso il Cliente potrà effettuare operazioni in acquisto solo se dal suo Estratto Conto risulti un saldo contabile positivo. Il limite di spesa concesso potrà sempre essere modificato o revocato qualora Kosmos ritenga, a suo insindacabile giudizio, cambiati o venuti meno i requisiti riscontrati al momento della sua eventuale concessione.</p>
+
+<h2>Art. 9 – Compensazione</h2>
+<p>Qualora a seguito dell'utilizzo del limite di spesa eventualmente concesso, l'Estratto Conto del Cliente evidenzi un saldo contabile negativo, il Cliente stesso sarà tenuto ad eseguire nei confronti di altri Clienti che ne facciano richiesta e di volta in volta indicati da Kosmos una o più vendite in compensazione 100%, fino al pareggio della propria posizione contabile. Nonostante quanto previsto al paragrafo che precede, qualora l'Estratto Conto del Cliente evidenzi un saldo contabile negativo, il Cliente dovrà pareggiare immediatamente la propria posizione contabile, versando in denaro un importo equivalente al proprio debito di Kmoney direttamente a Kosmos nei seguenti casi: il Cliente si rifiuti di eseguire le vendite all'interno del Circuito come richieste da Kosmos; il Cliente non compensi, per qualsivoglia motivo, un debito per acquisti effettuati nel termine di 12 mesi a decorrere dalla conclusione dell'operazione; gli effetti del contratto di adesione al Circuito di Kosmos vengano meno per disdetta, recesso o per qualsivoglia altra causa; il contratto venga disdetto dal Cliente, ovvero disattivato ad opera di Kosmos per il mancato pagamento dei corrispettivi di cui all'articolo 3. Una volta ricevuto il pagamento Kosmos provvederà ad annotare il relativo versamento nell'Estratto Conto del Cliente liberandolo. A fronte delle somme ricevute ai sensi del capoverso precedente, nei limiti dell'importo effettivamente ricevuto, Kosmos provvederà ad immettere nel Circuito prodotti e servizi per un valore equivalente.</p>
+
+<h2>Art. 10 – Accettazione del Contratto</h2>
+<p>Il rapporto tra Kosmos e il Cliente è regolato dalle presenti condizioni generali di contratto, nonché dalla richiesta di adesione debitamente compilata dal richiedente ed inviata a Kosmos, anche in modalità telematica. Kosmos accetterà le richieste di adesione pervenute a sua sola ed insindacabile discrezione, comunicando al richiedente l'eventuale non accettazione a mezzo PEC o altro strumento equivalente.</p>
+
+<h2>Art. 11 – Durata del contratto</h2>
+<p>Il presente contratto e quindi l'obbligo di rispettarne tutte le clausole ha effetto a partire dal suo perfezionamento. Il contratto si intenderà valido sin dalla data della sua sottoscrizione da parte del Cliente così come riportato in frontespizio, qualora entro giorni 60 dalla sottoscrizione dello stesso la Kosmos non abbia manifestato la volontà di non accettarlo. Il presente contratto avrà la durata di mesi 12, se non diversamente indicato in frontespizio, e si rinnoverà, in mancanza di disdetta inviata 60 giorni prima della scadenza tramite raccomandata A/R o PEC, per un ulteriore periodo di pari durata e senza soluzione di continuità, e analogamente avverrà ad ogni successiva scadenza.</p>
+
+<h2>Art. 12 – Risoluzione anticipata</h2>
+<p>Kosmos ha la facoltà di risolvere anticipatamente il presente contratto senza necessità di preavviso o di preventiva costituzione in mora quando: a carico del Cliente sia stata richiesta l'apertura di una procedura concorsuale; il Cliente abbia cessato la sua attività o versi in stato di liquidazione; il Cliente sia incorso nella violazione anche di una sola delle clausole previste dai seguenti articoli: articolo 3 (corrispettivi), articolo 4 (responsabilità del Cliente), articolo 9 (compensazione); siano venuti meno, ad insindacabile giudizio di Kosmos, i requisiti del Cliente riscontrati all'atto dell'accettazione della richiesta di adesione; il Cliente non abbia comunicato a mezzo PEC o lettera A/R la modifica della propria struttura giuridica, lo spostamento della sede, la cessione d'azienda o di ramo d'azienda.</p>
+
+<h2>Art. 13 – Effetti del recesso o dell'estinzione</h2>
+<p>Resta inteso che qualora al momento della cessazione degli effetti del presente contratto, da qualsivoglia causa determinata, risulti che il Cliente abbia conservato una provvista di Kmoney, questa continuerà a sussistere come credito di fornitura; qualora però tale provvista non venga utilizzata dal Cliente per un periodo di anni 1 si intenderà rinunciata e null'altro potrà essere chiesto dal Cliente a Kosmos, KSM o ai singoli aderenti a KSM. In nessun caso il Cliente potrà chiedere a Kosmos di integrare detta provvista con denaro.</p>
+
+<h2>Art. 14 – Modifiche del contratto</h2>
+<p>Kosmos ha il diritto di modificare o integrare in qualunque momento le presenti condizioni generali di contratto, il contenuto del suo sito internet, nonché il contenuto e le modalità di erogazione di uno o più servizi. In tali casi ogni modifica verrà comunicata al Cliente a mezzo posta elettronica certificata all'indirizzo indicato nella richiesta di adesione. Qualora il Cliente non intenda aderire alle modifiche dovrà comunicare a mezzo raccomandata A/R o a mezzo PEC il proprio recesso entro quindici (15) giorni dalla comunicazione; trascorso tale termine ogni modifica verrà considerata accettata. Qualsivoglia modifica, deroga o integrazione alle condizioni particolari di contratto convenuta tra le parti dovrà essere provata per iscritto.</p>
+
+<h2>Art. 15 – Clausola arbitrale</h2>
+<p>Qualora dovessero sorgere controversie tra venditore e acquirente, gli stessi si impegnano a regolare i rapporti tra loro sorti facendo ricorso ad un arbitro nominato annualmente da Kosmos il quale, sentite le parti e i loro consulenti se necessario, deciderà senza formalità. La decisione dell'arbitro è vincolante tra le parti qualora le stesse ne sottoscrivano per accettazione la decisione resa. Resta inteso che le parti, esperita tale procedura, saranno libere di adire l'autorità giudiziaria.</p>
+
+<h2>Art. 16 – Elezione di domicilio</h2>
+<p>Il Cliente elegge domicilio ad ogni effetto presso la sede indicata nel contratto. Eventuali variazioni del domicilio non avranno effetto e non potranno essere opposte a Kosmos fino a che non siano state comunicate a mezzo lettera raccomandata A/R o PEC.</p>
+
+<h2>Art. 17 – Foro competente</h2>
+<p>Qualunque controversia dovesse insorgere tra il Cliente e Kosmos in dipendenza diretta o indiretta del presente contratto sarà di competenza esclusiva del Foro di Macerata, con l'espressa esclusione di qualsivoglia altro Foro potesse essere competente.</p>
+
+<hr>
+<p>Ai sensi e per gli effetti degli artt. 1341 e 1342 Cod. Civ., il Cliente dichiara di approvare le seguenti clausole: Art. 3 (Corrispettivi); Art. 4 (Responsabilità del Cliente); Art. 7 (Procedure di acquisto e di vendita); Art. 8 (Limite di spesa); Art. 9 (Compensazione); Art. 11 (Durata del contratto); Art. 12 (Risoluzione anticipata); Art. 13 (Effetti del recesso e dell'estinzione); Art. 15 (Clausola arbitrale); Art. 16 (Elezione di domicilio); Art. 17 (Foro competente).</p>
 HTML;
     }
 
