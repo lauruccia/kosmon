@@ -1085,8 +1085,14 @@ class TransferBookingService
         $ownerUser = $parentAccount->ownerUser;
 
         if ($ownerUser === null && $parentAccount->company_id !== null) {
-            // Fallback: cerca il proprietario dell'azienda associata al conto padre
-            $ownerUser = $parentAccount->company?->owner;
+            // Fallback: proprietario del conto principale (root) dell'azienda;
+            // in mancanza, il primo utente collegato all'azienda.
+            // (Prima: $company->owner, relazione inesistente => sempre null.)
+            $company   = $parentAccount->company;
+            $ownerUser = $company?->accounts()
+                    ->whereNull('parent_account_id')
+                    ->first()?->ownerUser
+                ?? $company?->users()->first();
         }
 
         if ($ownerUser === null || $ownerUser->id === $initiator->id) {

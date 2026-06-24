@@ -189,6 +189,17 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    /**
+     * URL pubblico dell'avatar (null se non impostato).
+     * Speculare a Company::getLogoUrlAttribute().
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar_path
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->avatar_path)
+            : null;
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

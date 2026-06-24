@@ -493,12 +493,6 @@ parameters:
 			path: app/Http/Controllers/ScheduledPaymentController.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\User\:\:\$avatar_url\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/SendPaymentController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1093,13 +1087,19 @@ parameters:
 			path: app/Services/ScheduledPaymentService.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Company\:\:\$owner\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ownerUser\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/TransferBookingService.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>credit_limit" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/TransferBookingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>ownerUser" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/TransferBookingService.php
