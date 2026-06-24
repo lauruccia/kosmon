@@ -157,12 +157,6 @@ parameters:
 			path: app/Http/Controllers/Admin/UserController.php
 
 		-
-			message: '#^Access to undefined constant App\\Http\\Controllers\\Admin\\UserController\:\:USERS_PER_PAGE\.$#'
-			identifier: classConstant.notFound
-			count: 1
-			path: app/Http/Controllers/Admin/UserController.php
-
-		-
 			message: '#^Match arm comparison between ''allow_negative'' and ''allow_negative'' is always true\.$#'
 			identifier: match.alwaysTrue
 			count: 1
@@ -217,6 +211,12 @@ parameters:
 			path: app/Http/Controllers/AdminController.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AdminController.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account_name\.$#'
 			identifier: property.notFound
 			count: 2
@@ -225,7 +225,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
 			identifier: property.notFound
-			count: 1
+			count: 3
 			path: app/Http/Controllers/AdminController.php
 
 		-
@@ -238,6 +238,12 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
 			identifier: property.notFound
 			count: 2
+			path: app/Http/Controllers/AdminController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$direction\.$#'
+			identifier: property.notFound
+			count: 1
 			path: app/Http/Controllers/AdminController.php
 
 		-
@@ -1417,6 +1423,12 @@ parameters:
 			path: app/Jobs/SendBroadcastMessageJob.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/SendBroadcastMessageJob.php
+
+		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -1699,12 +1711,6 @@ parameters:
 			path: app/Notifications/InstallmentFailedNotification.php
 
 		-
-			message: '#^Call to an undefined method App\\Notifications\\KycStatusChangedNotification\:\:filteredChannels\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Notifications/KycStatusChangedNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1789,12 +1795,6 @@ parameters:
 			path: app/Notifications/PaymentRequestExpiredForCreditorNotification.php
 
 		-
-			message: '#^Call to an undefined method App\\Notifications\\PaymentRequestExpiredForCreditorNotification\:\:filteredChannels\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Notifications/PaymentRequestExpiredForCreditorNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>display_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
@@ -1804,12 +1804,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$display_name\.$#'
 			identifier: property.notFound
 			count: 2
-			path: app/Notifications/PaymentRequestExpiringNotification.php
-
-		-
-			message: '#^Call to an undefined method App\\Notifications\\PaymentRequestExpiringNotification\:\:filteredChannels\(\)\.$#'
-			identifier: method.notFound
-			count: 1
 			path: app/Notifications/PaymentRequestExpiringNotification.php
 
 		-
@@ -2261,3 +2255,9 @@ parameters:
 			identifier: staticClassAccess.privateMethod
 			count: 2
 			path: app/Support/Totp.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 1
+			path: app/helpers.php
