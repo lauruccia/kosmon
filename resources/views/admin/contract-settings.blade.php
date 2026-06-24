@@ -116,9 +116,12 @@
 
 {{-- Editor testo contratto --}}
 <div class="card">
-    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:8px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:.95rem;">&#x270D;&#xFE0F; Testo contratto <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">v{{ $contractVersion }}</span></h2>
-        <button onclick="togglePreview()" class="btn btn-secondary btn-sm" id="previewBtn">&#x1F441; Anteprima</button>
+        <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;">
+            <button type="button" onclick="setMode('visual')" id="tabVisual" class="mode-tab mode-tab-active">&#x1F441; Visuale</button>
+            <button type="button" onclick="setMode('html')" id="tabHtml" class="mode-tab">&lt;/&gt; HTML</button>
+        </div>
     </div>
     <div class="card-body" style="padding:12px 16px;">
 
@@ -148,14 +151,30 @@
             </div>
         </div>
 
-        <form method="POST" action="{{ route('admin.contract-text.update') }}">
+        <form method="POST" action="{{ route('admin.contract-text.update') }}" onsubmit="syncToTextarea();">
             @csrf
-            <div id="editorArea">
-                <textarea id="contract_text" name="contract_text" rows="22"
-                    style="width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
-                    placeholder="Incolla qui il testo HTML del contratto...">{{ old('contract_text', $contractText) }}</textarea>
+
+            {{-- Toolbar formattazione (solo modalità visuale) --}}
+            <div id="visualToolbar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;background:#fafafa;">
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('bold')" class="fmt-btn" title="Grassetto" style="font-weight:700;">B</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('italic')" class="fmt-btn" title="Corsivo" style="font-style:italic;">I</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('h2')" class="fmt-btn" title="Titolo articolo">Titolo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('p')" class="fmt-btn" title="Paragrafo">Paragrafo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('insertUnorderedList')" class="fmt-btn" title="Elenco puntato">&bull; Elenco</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="insertHr()" class="fmt-btn" title="Linea separatrice">&horbar; Separatore</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('removeFormat')" class="fmt-btn" title="Rimuovi formattazione">&#x232B; Pulisci</button>
             </div>
-            <div id="previewArea" style="display:none;background:#fafafa;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;max-height:460px;overflow-y:auto;"></div>
+
+            {{-- Editor visuale (WYSIWYG) --}}
+            <div id="visualEditor" contenteditable="true" oninput="syncToTextarea()"
+                 style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! old('contract_text', $contractText) !!}</div>
+
+            {{-- Editor HTML grezzo --}}
+            <textarea id="contract_text" name="contract_text" rows="22"
+                style="display:none;width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
+                placeholder="Incolla qui il testo HTML del contratto...">{{ old('contract_text', $contractText) }}</textarea>
 
             <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
                 <button type="submit" class="btn btn-primary btn-sm">&#x1F4BE; Salva testo</button>
@@ -167,33 +186,79 @@
 </div>
 
 <style>
-#previewArea h2 { font-size:.9rem;font-weight:700;margin:16px 0 6px;color:#0f766e; }
-#previewArea p  { font-size:13px;margin:0 0 10px;line-height:1.7; }
-#previewArea hr { border:none;border-top:1px solid #e2e8f0;margin:16px 0; }
-#previewArea ul,#previewArea ol { padding-left:18px;font-size:13px; }
+.mode-tab { border:none;background:transparent;color:#64748b;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer; }
+.mode-tab-active { background:#fff;color:#0f766e;box-shadow:0 1px 2px rgba(0,0,0,.08); }
+.fmt-btn { border:1px solid #e2e8f0;background:#fff;color:#374151;font-size:12px;padding:4px 9px;border-radius:5px;cursor:pointer;line-height:1; }
+.fmt-btn:hover { background:#f1f5f9;border-color:#cbd5e1; }
+#visualEditor h2 { font-size:.95rem;font-weight:700;margin:18px 0 6px;color:#0f766e; }
+#visualEditor p  { margin:0 0 12px; }
+#visualEditor hr { border:none;border-top:1px solid #e2e8f0;margin:18px 0; }
+#visualEditor ul,#visualEditor ol { padding-left:20px; }
+#visualEditor li { margin-bottom:6px; }
+#visualEditor:focus { border-color:#0f766e; }
 </style>
 
 <script>
-function togglePreview() {
-    const ed = document.getElementById('editorArea');
-    const pr = document.getElementById('previewArea');
-    const bt = document.getElementById('previewBtn');
-    if (pr.style.display === 'none') {
-        pr.innerHTML = document.getElementById('contract_text').value;
-        pr.style.display = 'block'; ed.style.display = 'none';
-        bt.textContent = '✏️ Modifica';
+let editMode = 'visual';
+
+function setMode(mode) {
+    const visual = document.getElementById('visualEditor');
+    const toolbar = document.getElementById('visualToolbar');
+    const ta = document.getElementById('contract_text');
+    if (mode === 'html') {
+        // visuale -> html
+        ta.value = visual.innerHTML;
+        visual.style.display = 'none'; toolbar.style.display = 'none';
+        ta.style.display = 'block';
     } else {
-        pr.style.display = 'none'; ed.style.display = 'block';
-        bt.textContent = '👁 Anteprima';
+        // html -> visuale
+        visual.innerHTML = ta.value;
+        ta.style.display = 'none';
+        visual.style.display = 'block'; toolbar.style.display = 'flex';
+    }
+    editMode = mode;
+    document.getElementById('tabVisual').classList.toggle('mode-tab-active', mode === 'visual');
+    document.getElementById('tabHtml').classList.toggle('mode-tab-active', mode === 'html');
+}
+
+// Tiene il campo inviato sempre allineato all'editor attivo
+function syncToTextarea() {
+    if (editMode === 'visual') {
+        document.getElementById('contract_text').value = document.getElementById('visualEditor').innerHTML;
     }
 }
-function insertPH(ph) {
-    const ta = document.getElementById('contract_text');
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    ta.value = ta.value.slice(0,s) + ph + ta.value.slice(e);
-    ta.selectionStart = ta.selectionEnd = s + ph.length;
-    ta.focus();
+
+function fmt(cmd) {
+    document.getElementById('visualEditor').focus();
+    document.execCommand(cmd, false, null);
+    syncToTextarea();
 }
+function fmtBlock(tag) {
+    document.getElementById('visualEditor').focus();
+    document.execCommand('formatBlock', false, tag);
+    syncToTextarea();
+}
+function insertHr() {
+    document.getElementById('visualEditor').focus();
+    document.execCommand('insertHorizontalRule', false, null);
+    syncToTextarea();
+}
+
+function insertPH(ph) {
+    if (editMode === 'visual') {
+        const ed = document.getElementById('visualEditor');
+        ed.focus();
+        document.execCommand('insertText', false, ph);
+        syncToTextarea();
+    } else {
+        const ta = document.getElementById('contract_text');
+        const s = ta.selectionStart, e = ta.selectionEnd;
+        ta.value = ta.value.slice(0,s) + ph + ta.value.slice(e);
+        ta.selectionStart = ta.selectionEnd = s + ph.length;
+        ta.focus();
+    }
+}
+
 function resetDefault() {
     if (!confirm('Sostituire il testo attuale con quello di default?')) return;
     fetch('{{ route("admin.contract-settings") }}?default_text=1').then(() => location.reload());
