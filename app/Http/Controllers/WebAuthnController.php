@@ -102,6 +102,10 @@ class WebAuthnController extends Controller
                 // quando una passkey esiste già. I duplicati sono gestiti lato server in registerVerify().
                 authenticatorSelection: AuthenticatorSelectionCriteria::create(
                     userVerification: 'required',
+                    // residentKey richiesto => passkey DISCOVERABLE: il browser la propone
+                    // da solo nel login conditional/autofill (impronta senza scrivere l'email).
+                    // Senza, la credenziale è non-discoverable e il login automatico non la trova.
+                    residentKey: AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
                 ),
                 attestation: 'none',
             );
