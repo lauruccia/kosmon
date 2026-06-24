@@ -13,12 +13,6 @@ parameters:
 			path: app/Console/Commands/FixImportData.php
 
 		-
-			message: '#^Call to an undefined static method Sentry\\Severity\:\:critical\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: app/Console/Commands/VerifyAccountingIntegrity.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
 			identifier: property.notFound
 			count: 1

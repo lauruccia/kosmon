@@ -124,7 +124,7 @@ class VerifyAccountingIntegrity extends Command
         if (app()->bound('sentry')) {
             \Sentry\captureMessage(
                 'Accounting integrity failure: ' . count($errors) . ' anomalie',
-                \Sentry\Severity::critical()
+                \Sentry\Severity::fatal()
             );
         }
 
