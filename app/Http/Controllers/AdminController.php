@@ -17,6 +17,7 @@ use App\Models\Listing;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SystemSetting;
+use App\Models\SupportMessage;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
@@ -1055,5 +1056,40 @@ class AdminController extends Controller
             // Anomalie
             'anomalies'         => $anomalies,
         ]);
+    }
+
+    public function supportMessages(Request $request): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $messages  = SupportMessage::with('user')->latest()->paginate(20);
+        $openCount = SupportMessage::where('status', 'open')->count();
+
+        return view('admin.support.index', [
+            'pageTitle' => 'Messaggi assistenza',
+            'activeNav' => 'support',
+            'messages'  => $messages,
+            'openCount' => $openCount,
+        ]);
+    }
+
+    public function resolveSupport(Request $request, SupportMessage $message): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        if ($message->isOpen()) {
+            $message->forceFill(['status' => 'resolved'])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $request->user()->id,
+                'event'          => 'admin.support.resolved',
+                'auditable_type' => SupportMessage::class,
+                'auditable_id'   => $message->id,
+                'ip_address'     => $request->ip(),
+            ]);
+        }
+
+        return redirect()->route('admin.support.index')
+            ->with('success', "Messaggio #{$message->id} segnato come risolto.");
     }
 }

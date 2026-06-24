@@ -1,17 +1,6 @@
 {
-  "_pusher-I9vu0Zz6.js": {
-    "file": "assets/pusher-I9vu0Zz6.js",
-    "name": "pusher",
-    "isDynamicEntry": true
-  },
-  "node_modules/laravel-echo/dist/echo.js": {
-    "file": "assets/echo-BeStjm5W.js",
-    "name": "echo",
-    "src": "node_modules/laravel-echo/dist/echo.js",
-    "isDynamicEntry": true
-  },
   "resources/css/app.css": {
-    "file": "assets/app-Ba7FroUZ.css",
+    "file": "assets/app-B47xkZv2.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -20,16 +9,12 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CP9n17n5.js",
+    "file": "assets/app-CSaai1qC.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
       "resources/js/ky-payment-request.js"
-    ],
-    "dynamicImports": [
-      "node_modules/laravel-echo/dist/echo.js",
-      "_pusher-I9vu0Zz6.js"
     ]
   },
   "resources/js/ky-payment-request.js": {
