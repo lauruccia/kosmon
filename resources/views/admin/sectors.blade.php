@@ -27,10 +27,14 @@
 
     .badge-active   { background:#d1fae5; color:#065f46; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
     .badge-inactive { background:#f3f4f6; color:#6b7280; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
+    .badge-group    { background:#e0e7ff; color:#3730a3; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 
-    .inline-edit-form { display:flex; gap:8px; align-items:center; }
-    .inline-edit-form input[type=text] { flex:1; min-width:0; font-size:13px; padding:5px 9px; }
-    .inline-edit-form input[type=number] { width:64px; font-size:13px; padding:5px 9px; }
+    .tree-prefix { color:var(--ink-muted); font-family:monospace; white-space:pre; user-select:none; }
+
+    .inline-edit-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .inline-edit-form input[type=text] { flex:1; min-width:120px; font-size:13px; padding:5px 9px; }
+    .inline-edit-form input[type=number] { width:60px; font-size:13px; padding:5px 9px; }
+    .inline-edit-form select { font-size:12.5px; padding:5px 8px; max-width:180px; }
     .inline-edit-form .cta { font-size:12px; padding:5px 12px; min-height:0; }
 </style>
 
@@ -43,7 +47,7 @@
 
 <div class="sectors-grid">
 
-    {{-- Lista settori --}}
+    {{-- Lista settori (gerarchica) --}}
     <div class="card" style="padding:0;overflow:hidden;">
         <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;">
             <h2 style="margin:0;font-size:15px;font-weight:700;">Settori del circuito</h2>
@@ -53,7 +57,7 @@
             <thead>
                 <tr>
                     <th>Ord.</th>
-                    <th>Nome</th>
+                    <th>Nome / gerarchia</th>
                     <th>Stato</th>
                     <th>Azioni</th>
                 </tr>
@@ -65,14 +69,27 @@
                     <td>
                         <form method="POST" action="{{ route('admin.sectors.update', $sector) }}" class="inline-edit-form">
                             @csrf @method('PUT')
+                            @if($sector->depth > 0)
+                                <span class="tree-prefix">{{ str_repeat('   ', $sector->depth - 1) }}└─</span>
+                            @endif
                             <input type="text" name="name" value="{{ $sector->name }}" required maxlength="120">
                             <input type="number" name="sort_order" value="{{ $sector->sort_order }}" min="0" title="Ordine">
+                            <select name="parent_id" title="Settore padre">
+                                <option value="">— Nessuno (radice) —</option>
+                                @foreach($sectors as $opt)
+                                    @if($opt->id !== $sector->id)
+                                        <option value="{{ $opt->id }}" @selected($sector->parent_id === $opt->id)>{{ $opt->path_label }}</option>
+                                    @endif
+                                @endforeach
+                            </select>
                             <input type="hidden" name="is_active" value="{{ $sector->is_active ? 1 : 0 }}">
                             <button class="cta secondary" type="submit">Salva</button>
                         </form>
                     </td>
                     <td>
-                        @if($sector->is_active)
+                        @if(! $sector->is_leaf)
+                            <span class="badge-group" title="Ha sotto-settori: non selezionabile dalle aziende">Categoria</span>
+                        @elseif($sector->is_active)
                             <span class="badge-active">Attivo</span>
                         @else
                             <span class="badge-inactive">Disattivo</span>
@@ -80,7 +97,6 @@
                     </td>
                     <td>
                         <div style="display:flex;gap:6px;flex-wrap:nowrap;">
-                            {{-- Toggle attivo/disattivo --}}
                             <form method="POST" action="{{ route('admin.sectors.toggle', $sector) }}">
                                 @csrf
                                 <button class="cta secondary" type="submit" style="font-size:11px;padding:4px 10px;min-height:0;"
@@ -88,7 +104,6 @@
                                     {{ $sector->is_active ? 'Disattiva' : 'Riattiva' }}
                                 </button>
                             </form>
-                            {{-- Elimina --}}
                             <form method="POST" action="{{ route('admin.sectors.destroy', $sector) }}"
                                   onsubmit="return confirm('Eliminare il settore «{{ $sector->name }}»?')">
                                 @csrf @method('DELETE')
@@ -106,7 +121,7 @@
         </table>
     </div>
 
-    {{-- Aggiungi nuovo settore --}}
+    {{-- Aggiungi nuovo settore / sotto-settore --}}
     <div class="card" style="position:sticky;top:24px;">
         <h3 style="margin:0 0 16px;font-size:14px;font-weight:700;">Aggiungi settore</h3>
         <form method="POST" action="{{ route('admin.sectors.store') }}">
@@ -118,6 +133,16 @@
                        placeholder="es. Benessere animali"
                        maxlength="120" required>
                 @error('name')<span class="field-error">{{ $message }}</span>@enderror
+            </div>
+            <div class="field" style="margin-top:12px;">
+                <label for="new_parent">Settore padre <span style="font-weight:400;color:var(--ink-muted)">(opzionale)</span></label>
+                <select id="new_parent" name="parent_id" style="width:100%;">
+                    <option value="">— Nessuno (settore principale) —</option>
+                    @foreach($parents as $p)
+                        <option value="{{ $p->id }}" @selected((string) old('parent_id') === (string) $p->id)>{{ $p->path_label }}</option>
+                    @endforeach
+                </select>
+                @error('parent_id')<span class="field-error">{{ $message }}</span>@enderror
             </div>
             <div class="field" style="margin-top:12px;">
                 <label for="new_sort">Ordine <span style="font-weight:400;color:var(--ink-muted)">(0 = primo)</span></label>
@@ -132,7 +157,8 @@
 
         <hr style="margin:20px 0;border:none;border-top:1px solid var(--line);">
         <p style="font-size:12px;color:var(--ink-muted);margin:0;line-height:1.6;">
-            I settori <strong>attivi</strong> appaiono nella selezione durante l'onboarding e nella pagina "Profilo azienda".<br>
+            Puoi creare <strong>settori</strong> e <strong>sotto-settori</strong> su più livelli scegliendo un settore padre.<br>
+            Solo i settori <strong>foglia</strong> (senza sotto-settori) sono selezionabili dalle aziende: i settori con figli fanno da <strong>categoria</strong> di raggruppamento.<br>
             I settori <strong>disattivi</strong> non sono selezionabili ma vengono preservati per le aziende che li usano già.
         </p>
     </div>

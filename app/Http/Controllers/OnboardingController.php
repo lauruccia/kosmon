@@ -219,6 +219,6 @@ class OnboardingController extends Controller
 
     private function sectorOptions(): array
     {
-        return Sector::activeList()->toArray();
+        return Sector::selectableOptions();
     }
 }

@@ -63,13 +63,17 @@
         <label class="ob-label" for="sector">
             Settore di attività <span>*</span>
         </label>
+        @php($currentSector = old('sector', $company->sector))
         <select name="sector" id="sector" class="ob-select" required>
             <option value="">— Scegli il settore —</option>
             @foreach($sectors as $s)
-                <option value="{{ $s }}" @selected(old('sector', $company->sector) === $s)>
-                    {{ $s }}
+                <option value="{{ $s['name'] }}" @selected($currentSector === $s['name'])>
+                    {{ $s['label'] }}
                 </option>
             @endforeach
+            @if($currentSector && ! collect($sectors)->contains('name', $currentSector))
+                <option value="{{ $currentSector }}" selected>{{ $currentSector }}</option>
+            @endif
         </select>
     </div>
 

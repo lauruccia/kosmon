@@ -133,7 +133,7 @@ class BackofficeAccessGuardTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.nfc-cards.store'), [])
-            ->assertSessionHasErrors('company_id');
+            ->assertSessionHasErrors('participant');
     }
 
     public function test_menu_visibility_store_validation_fires_for_admin(): void

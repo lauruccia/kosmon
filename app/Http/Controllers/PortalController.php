@@ -267,7 +267,7 @@ class PortalController extends Controller
             'currentAccount' => $currentAccount,
             'currentUser'    => $currentUser,
             'company'        => $company,
-            'sectors'        => Sector::activeList(),
+            'sectors'        => Sector::selectableOptions(),
             'activeNav'      => 'profile',
         ]);
     }

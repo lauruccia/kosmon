@@ -114,4 +114,78 @@ class AdminSectorControllerTest extends TestCase
 
         $this->assertDatabaseMissing('sectors', ['id' => $sector->id]);
     }
+
+    // ───────────────────────── Gerarchia (sotto-settori) ─────────────────────────
+
+    public function test_admin_can_create_subsector_with_parent(): void
+    {
+        $admin  = $this->makeAdmin();
+        $parent = Sector::create(['name' => 'Commercio', 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sectors.store'), [
+                'name'      => 'Abbigliamento',
+                'parent_id' => $parent->id,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('sectors', ['name' => 'Abbigliamento', 'parent_id' => $parent->id]);
+    }
+
+    public function test_store_rejects_nonexistent_parent(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.sectors.store'), ['name' => 'Orfano', 'parent_id' => 999999])
+            ->assertSessionHasErrors('parent_id');
+    }
+
+    public function test_cannot_delete_sector_with_children(): void
+    {
+        $admin  = $this->makeAdmin();
+        $parent = Sector::create(['name' => 'Padre', 'is_active' => true]);
+        Sector::create(['name' => 'Figlio', 'is_active' => true, 'parent_id' => $parent->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.sectors.destroy', $parent))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('sectors', ['id' => $parent->id]);
+    }
+
+    public function test_update_prevents_cycle(): void
+    {
+        $admin  = $this->makeAdmin();
+        $parent = Sector::create(['name' => 'Radice', 'is_active' => true]);
+        $child  = Sector::create(['name' => 'Ramo', 'is_active' => true, 'parent_id' => $parent->id]);
+
+        // Tentativo: rendere il padre figlio del proprio figlio → ciclo
+        $this->actingAs($admin)
+            ->put(route('admin.sectors.update', $parent), [
+                'name'      => 'Radice',
+                'parent_id' => $child->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertNull($parent->fresh()->parent_id);
+    }
+
+    public function test_selectable_options_only_includes_active_leaves(): void
+    {
+        $parent = Sector::create(['name' => 'Categoria', 'is_active' => true]);
+        $leaf   = Sector::create(['name' => 'Foglia attiva', 'is_active' => true, 'parent_id' => $parent->id]);
+        Sector::create(['name' => 'Foglia spenta', 'is_active' => false, 'parent_id' => $parent->id]);
+
+        $names = collect(Sector::selectableOptions())->pluck('name');
+
+        $this->assertTrue($names->contains('Foglia attiva'));
+        $this->assertFalse($names->contains('Categoria'));      // ha figli → non selezionabile
+        $this->assertFalse($names->contains('Foglia spenta'));  // inattiva
+
+        $option = collect(Sector::selectableOptions())->firstWhere('name', 'Foglia attiva');
+        $this->assertSame('Categoria › Foglia attiva', $option['label']);
+    }
 }

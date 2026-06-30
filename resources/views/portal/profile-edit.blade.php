@@ -222,11 +222,15 @@
                     <div class="field-row">
                         <div class="field">
                             <label for="sector">Settore / categoria</label>
+                            @php($currentSector = old('sector', $company->sector))
                             <select id="sector" name="sector">
                                 <option value="">— Seleziona un settore —</option>
                                 @foreach($sectors as $s)
-                                    <option value="{{ $s }}" @selected(old('sector', $company->sector) === $s)>{{ $s }}</option>
+                                    <option value="{{ $s['name'] }}" @selected($currentSector === $s['name'])>{{ $s['label'] }}</option>
                                 @endforeach
+                                @if($currentSector && ! collect($sectors)->contains('name', $currentSector))
+                                    <option value="{{ $currentSector }}" selected>{{ $currentSector }}</option>
+                                @endif
                             </select>
                             @error('sector')<span class="field-error">{{ $message }}</span>@enderror
                         </div>
