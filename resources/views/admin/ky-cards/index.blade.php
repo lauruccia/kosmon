@@ -39,7 +39,7 @@
                     </div>
                     <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
                         <span style="font-size:11px;background:#f0fdf4;color:#166534;padding:2px 7px;border-radius:20px;font-weight:600;">{{ number_format($card->price_eur, 2, ',', '.') }} €</span>
-                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-weight:600;">{{ number_format($card->ky_total, 0, ',', '.') }} KY</span>
+                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-weight:600;">{{ ky_format($card->ky_total) }} KY</span>
                         <span style="font-size:11px;background:{{ $card->bonus_type === 'percentage' ? '#ede9fe' : '#fef9c3' }};color:{{ $card->bonus_type === 'percentage' ? '#6d28d9' : '#854d0e' }};padding:2px 7px;border-radius:20px;font-weight:600;">{{ $card->bonus_label }}</span>
                         @if(!$card->stripe_price_id)
                             <span style="font-size:11px;background:#fef2f2;color:#991b1b;padding:2px 7px;border-radius:20px;">Stripe non conf.</span>

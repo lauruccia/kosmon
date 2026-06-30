@@ -25,7 +25,7 @@
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border);">
                 <div style="font-size:14px;font-weight:700;color:var(--ink);">KY accreditati</div>
-                <div style="font-size:22px;font-weight:800;color:#1d4ed8;">+{{ number_format($purchase->ky_amount, 0, ',', '.') }} KY</div>
+                <div style="font-size:22px;font-weight:800;color:#1d4ed8;">+{{ ky_format($purchase->ky_amount) }} KY</div>
             </div>
         </div>
 

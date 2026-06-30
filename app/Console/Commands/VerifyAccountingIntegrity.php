@@ -94,7 +94,7 @@ class VerifyAccountingIntegrity extends Command
         // ── 3. Somma di tutti i saldi non-sistema = opposto del saldo sistema ──
         // In un circuito chiuso: somma(tutti i saldi) = 0. Invariante sempre verificato.
         $totalBalance = Account::query()->sum('available_balance');
-        if (abs($totalBalance) > 100) { // tolleranza 1 KY per arrotondamenti
+        if (abs($totalBalance) > 1) { // tolleranza 1 cent, allineata alla pagina admin Integrità
             $errors[] = "Somma globale dei saldi non è zero: {$totalBalance} centesimi";
         }
 

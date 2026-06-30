@@ -35,7 +35,7 @@
         </div>
         <div class="card" style="padding:16px;text-align:center;border-top:3px solid #1d4ed8;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">KY accreditati</div>
-            <div style="font-size:26px;font-weight:800;color:#1d4ed8;">{{ number_format($stats['ky_total'],0,',','.') }}</div>
+            <div style="font-size:26px;font-weight:800;color:#1d4ed8;">{{ ky_format($stats['ky_total']) }}</div>
         </div>
         <div class="card" style="padding:16px;text-align:center;border-top:3px solid #7c3aed;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Incassato</div>
@@ -114,7 +114,7 @@
                     @endif
                 </td>
                 <td style="padding:12px 16px;text-align:right;font-weight:600;">{{ number_format($order->price_eur,2,',','.') }} &euro;</td>
-                <td style="padding:12px 16px;text-align:right;font-weight:700;color:#1d4ed8;">+{{ number_format($order->ky_amount,0,',','.') }} KY</td>
+                <td style="padding:12px 16px;text-align:right;font-weight:700;color:#1d4ed8;">+{{ ky_format($order->ky_amount) }} KY</td>
                 <td style="padding:12px 16px;text-align:center;">
                     @if($order->isCompleted())
                         <span style="font-size:12px;background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-weight:700;">&#10003; Completato</span>

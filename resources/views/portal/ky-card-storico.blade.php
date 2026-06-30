@@ -29,7 +29,7 @@
     <div class="card" style="padding:14px 18px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:5px;">KY ricevuti</div>
         <div style="font-size:26px;font-weight:800;color:#1d4ed8;line-height:1;">
-            {{ number_format($totals->ky_total ?? 0, 0, ',', '.') }}<span style="font-size:14px;font-weight:600;"> KY</span>
+            {{ ky_format($totals->ky_total ?? 0) }}<span style="font-size:14px;font-weight:600;"> KY</span>
         </div>
         <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">totale storico</div>
     </div>
@@ -213,7 +213,7 @@
 
             <div style="text-align:right;">
                 @if($p->isCompleted())
-                    <div style="font-size:14px;font-weight:800;color:#1d4ed8;">+{{ number_format($p->ky_amount, 0, ',', '.') }}</div>
+                    <div style="font-size:14px;font-weight:800;color:#1d4ed8;">+{{ ky_format($p->ky_amount) }}</div>
                     <div style="font-size:10px;font-weight:700;color:#1d4ed8;">KY</div>
                 @else
                     <div style="font-size:13px;color:var(--ink-muted);">—</div>

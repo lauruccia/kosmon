@@ -64,13 +64,13 @@
                     <div style="font-size:18px;color:var(--ink-muted);flex-shrink:0;">→</div>
                     <div>
                         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:1px;">Ricevi</div>
-                        <div style="font-size:24px;font-weight:800;color:#1d4ed8;line-height:1;">{{ number_format($card->ky_total, 0, ',', '.') }}<span style="font-size:13px;font-weight:600;"> KY</span></div>
+                        <div style="font-size:24px;font-weight:800;color:#1d4ed8;line-height:1;">{{ ky_format($card->ky_total) }}<span style="font-size:13px;font-weight:600;"> KY</span></div>
                     </div>
                 </div>
 
                 @if($card->ky_bonus > 0)
                 <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:6px 11px;margin-bottom:12px;font-size:12px;color:#166534;">
-                    🎁 <strong>{{ number_format($card->ky_base_amount, 0, ',', '.') }} KY</strong> + <strong>{{ number_format($card->ky_bonus, 0, ',', '.') }} KY</strong> cashback
+                    🎁 <strong>{{ ky_format($card->ky_base_amount) }} KY</strong> + <strong>{{ ky_format($card->ky_bonus) }} KY</strong> cashback
                 </div>
                 @endif
 
@@ -118,7 +118,7 @@
             </div>
             <div style="text-align:right;">
                 @if($p->isCompleted())
-                    <div style="font-size:14px;font-weight:800;color:#1d4ed8;">+{{ number_format($p->ky_amount, 0, ',', '.') }} KY</div>
+                    <div style="font-size:14px;font-weight:800;color:#1d4ed8;">+{{ ky_format($p->ky_amount) }} KY</div>
                 @elseif($p->isPendingBankTransfer())
                     <div style="font-size:12.5px;font-weight:700;color:#d97706;">In attesa bonifico</div>
                 @elseif($p->isFailed())

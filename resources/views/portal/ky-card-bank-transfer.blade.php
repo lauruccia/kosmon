@@ -28,7 +28,7 @@
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
                 <span style="font-size:14px;color:var(--ink-soft);">KY che riceverai</span>
-                <span style="font-size:14px;font-weight:700;color:#1d4ed8;">{{ number_format($kyCard->ky_total, 0, ',', '.') }} KY</span>
+                <span style="font-size:14px;font-weight:700;color:#1d4ed8;">{{ ky_format($kyCard->ky_total) }} KY</span>
             </div>
             <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);">
                 <span style="font-size:15px;font-weight:700;">Importo da pagare</span>

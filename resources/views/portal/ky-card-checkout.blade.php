@@ -131,12 +131,12 @@
                     <span style="font-size:18px;color:var(--ink-muted);">→</span>
                     <div style="text-align:right;">
                         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:2px;">Ricevi</div>
-                        <div style="font-size:22px;font-weight:800;color:#1d4ed8;">{{ number_format($card->ky_total, 0, ',', '.') }} <span style="font-size:13px;">KY</span></div>
+                        <div style="font-size:22px;font-weight:800;color:#1d4ed8;">{{ ky_format($card->ky_total) }} <span style="font-size:13px;">KY</span></div>
                     </div>
                 </div>
                 @if($card->ky_bonus > 0)
                 <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:6px 11px;font-size:12px;color:#166534;">
-                    🎁 Include <strong>+{{ number_format($card->ky_bonus, 0, ',', '.') }} KY</strong> cashback
+                    🎁 Include <strong>+{{ ky_format($card->ky_bonus) }} KY</strong> cashback
                 </div>
                 @endif
             </div>
@@ -153,7 +153,7 @@
             @if($card->ky_bonus > 0)
             <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#16a34a;margin-bottom:7px;">
                 <span>Cashback incluso</span>
-                <span>+{{ number_format($card->ky_bonus, 0, ',', '.') }} KY</span>
+                <span>+{{ ky_format($card->ky_bonus) }} KY</span>
             </div>
             @endif
 
@@ -163,7 +163,7 @@
                 <span style="font-size:13.5px;font-weight:700;color:var(--ink);">Totale</span>
                 <div style="text-align:right;">
                     <div style="font-size:15px;font-weight:800;color:var(--ink);">{{ number_format($card->price_eur, 2, ',', '.') }} €</div>
-                    <div style="font-size:12.5px;font-weight:700;color:#1d4ed8;">= {{ number_format($card->ky_total, 0, ',', '.') }} KY</div>
+                    <div style="font-size:12.5px;font-weight:700;color:#1d4ed8;">= {{ ky_format($card->ky_total) }} KY</div>
                 </div>
             </div>
         </div>

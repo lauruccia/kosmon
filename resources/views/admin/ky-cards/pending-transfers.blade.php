@@ -30,7 +30,7 @@
                         <span style="font-size:13px;font-weight:700;color:var(--ink);">{{ $purchase->kyCard->name ?? '—' }}</span>
                         <span style="font-size:11px;background:#fffbeb;color:#92400e;padding:1px 7px;border-radius:20px;font-weight:600;">&#9203; Attende conferma</span>
                         <span style="font-size:11px;background:#f0fdf4;color:#166534;padding:1px 7px;border-radius:20px;font-weight:600;">{{ number_format($purchase->price_eur, 2, ',', '.') }} &euro;</span>
-                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:20px;font-weight:600;">+{{ number_format($purchase->ky_amount, 0, ',', '.') }} KY</span>
+                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:20px;font-weight:600;">+{{ ky_format($purchase->ky_amount) }} KY</span>
                     </div>
                     <div style="margin-top:3px;font-size:11px;color:var(--ink-soft);">
                         <strong>Cliente:</strong> {{ $purchase->user->name ?? '—' }} — {{ $purchase->account->display_name ?? '—' }} &nbsp;|&nbsp;
