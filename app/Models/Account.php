@@ -588,4 +588,7 @@ class Account extends Model
     }
     public function balanceAlerts(): HasMany
     {
-      
+        return $this->hasMany(BalanceAlert::class);
+    }
+
+}
