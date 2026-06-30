@@ -103,7 +103,9 @@
     {{-- Utenti del conto --}}
     <section class="card light-card card-pad">
         <div class="eyebrow" style="margin-bottom:10px;">Utenti associati</div>
-        @php($companyUsers = $company->users ?? collect())
+        @php
+            $companyUsers = $company->users ?? collect();
+        @endphp
         @if($companyUsers->isEmpty())
             <p class="table-muted" style="font-size:13px;">Nessun utente associato.</p>
         @else

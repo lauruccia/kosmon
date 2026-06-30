@@ -65,8 +65,11 @@ class VerifyAccountingIntegrity extends Command
         }
 
         // ── 2. Verifica available_balance vs somma ledger per ogni conto ──
+        // NB: il numero conto KY e' memorizzato nella colonna `uuid` (l'accessor
+        // `account_number` esiste solo lato Eloquent, non come colonna fisica):
+        // nel SQL raw va usato `a.uuid`, come nell'AdminIntegrityController.
         $mismatchedAccounts = DB::select("
-            SELECT a.id, a.account_number, a.available_balance,
+            SELECT a.id, a.uuid, a.available_balance,
                    COALESCE(SUM(
                        CASE le.direction
                            WHEN 'credit' THEN  le.amount
@@ -76,7 +79,7 @@ class VerifyAccountingIntegrity extends Command
                    ), 0) AS ledger_balance
             FROM accounts a
             LEFT JOIN ledger_entries le ON le.account_id = a.id
-            GROUP BY a.id, a.account_number, a.available_balance
+            GROUP BY a.id, a.uuid, a.available_balance
             HAVING ABS(a.available_balance - ledger_balance) > 1
             LIMIT 50
         ");
@@ -84,7 +87,7 @@ class VerifyAccountingIntegrity extends Command
         if (! empty($mismatchedAccounts)) {
             foreach ($mismatchedAccounts as $row) {
                 $diff = $row->available_balance - $row->ledger_balance;
-                $errors[] = "Conto #{$row->id} ({$row->account_number}) saldo non quadra: "
+                $errors[] = "Conto #{$row->id} ({$row->uuid}) saldo non quadra: "
                     . "available_balance={$row->available_balance}, ledger={$row->ledger_balance}, diff={$diff}";
             }
         }

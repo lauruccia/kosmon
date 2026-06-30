@@ -345,7 +345,7 @@ class KyCardController extends PortalController
         $this->creditKy($purchase);
 
         return redirect()->route('admin.ky-cards.pending-transfers')
-            ->with('success', 'Bonifico confermato. ' . $purchase->ky_amount . ' KY accreditati.');
+            ->with('success', 'Bonifico confermato. ' . ky_format($purchase->ky_amount) . ' KY accreditati.');
     }
 
     // ── Admin: rifiuta bonifico ────────────────────────────────────────────
@@ -415,7 +415,7 @@ class KyCardController extends PortalController
         $purchase->refresh();
 
         $msg = $purchase->isCompleted()
-            ? 'Accredito riuscito: +' . $purchase->ky_amount . ' KY accreditati.'
+            ? 'Accredito riuscito: +' . ky_format($purchase->ky_amount) . ' KY accreditati.'
             : 'Accredito ancora fallito. Controlla i log.';
 
         return redirect()->route('admin.ky-cards.orders')->with('success', $msg);
@@ -425,6 +425,11 @@ class KyCardController extends PortalController
 
     private function creditKy(KyCardPurchase $purchase): void
     {
+        // (B) Guard idempotenza: se l'accredito e' gia' avvenuto non rifare nulla.
+        if ($purchase->isCompleted() || $purchase->transfer_id) {
+            return;
+        }
+
         try {
             $systemAccount = \App\Models\Account::systemAccount();
             if (!$systemAccount) {
@@ -433,39 +438,56 @@ class KyCardController extends PortalController
                 return;
             }
 
-            $toAccount = $purchase->account;
-            $amount    = (int) $purchase->ky_amount;
+            $amount         = (int) $purchase->ky_amount;
+            $idempotencyKey = 'kycard_' . $purchase->uuid;
 
             // Creazione diretta (bypass check stato azienda e limiti):
             // il cliente ha gia' pagato in euro, l'accredito KY e' dovuto.
-            // Pattern identico a NettingService.
-            \Illuminate\Support\Facades\DB::transaction(function () use ($systemAccount, $toAccount, $amount, $purchase) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($systemAccount, $purchase, $amount, $idempotencyKey) {
+
+                // (A) Lock pessimistico: blocco prima il conto madre — questo serializza
+                // tutti gli accrediti KYCard concorrenti ed evita lost-update sul saldo KNM.
+                $fromAccount = \App\Models\Account::whereKey($systemAccount->id)->lockForUpdate()->first();
+
+                // (B) Se il transfer esiste gia' (es. corsa webhook Stripe + pagina success),
+                // allinea lo stato senza riaccreditare.
+                $existing = \App\Models\Transfer::where('idempotency_key', $idempotencyKey)->first();
+                if ($existing) {
+                    $purchase->update([
+                        'status'       => 'completed',
+                        'transfer_id'  => $existing->id,
+                        'completed_at' => $existing->booked_at ?? $existing->created_at,
+                    ]);
+                    return;
+                }
+
+                $toAccount = \App\Models\Account::whereKey($purchase->account_id)->lockForUpdate()->first();
 
                 $bookedAt           = \Carbon\CarbonImmutable::now();
-                $debitBalanceAfter  = $systemAccount->available_balance - $amount;
+                $debitBalanceAfter  = $fromAccount->available_balance - $amount;
                 $creditBalanceAfter = $toAccount->available_balance + $amount;
 
-                $systemAccount->forceFill(['available_balance' => $debitBalanceAfter])->save();
-                $toAccount->forceFill(['available_balance'     => $creditBalanceAfter])->save();
+                $fromAccount->forceFill(['available_balance' => $debitBalanceAfter])->save();
+                $toAccount->forceFill(['available_balance'   => $creditBalanceAfter])->save();
 
                 $superAdminId = User::where('is_super_admin', true)->value('id') ?? 1;
 
                 $transfer = \App\Models\Transfer::create([
-                    'initiated_by'    => $superAdminId,
-                    'from_account_id' => $systemAccount->id,
+                    'initiated_by'    => $purchase->confirmed_by ?? $superAdminId,
+                    'from_account_id' => $fromAccount->id,
                     'to_account_id'   => $toAccount->id,
                     'amount'          => $amount,
-                    'currency_code'   => $systemAccount->currency_code ?? 'KY',
+                    'currency_code'   => $fromAccount->currency_code ?? 'KY',
                     'status'          => 'booked',
                     'kind'            => 'kycard_topup',
-                    'idempotency_key' => 'kycard_' . $purchase->uuid,
+                    'idempotency_key' => $idempotencyKey,
                     'description'     => 'Ricarica KYCard: ' . ($purchase->kyCard->name ?? 'Card #' . $purchase->ky_card_id),
                     'booked_at'       => $bookedAt,
                 ]);
 
                 \App\Models\LedgerEntry::create([
                     'transfer_id'  => $transfer->id,
-                    'account_id'   => $systemAccount->id,
+                    'account_id'   => $fromAccount->id,
                     'direction'    => 'debit',
                     'amount'       => $amount,
                     'balance_after'=> $debitBalanceAfter,
@@ -480,7 +502,7 @@ class KyCardController extends PortalController
                     'amount'       => $amount,
                     'balance_after'=> $creditBalanceAfter,
                     'posted_at'    => $bookedAt,
-                    'meta'         => ['counterparty_account_id' => $systemAccount->id],
+                    'meta'         => ['counterparty_account_id' => $fromAccount->id],
                 ]);
 
                 $purchase->update([
@@ -488,15 +510,39 @@ class KyCardController extends PortalController
                     'transfer_id'  => $transfer->id,
                     'completed_at' => $bookedAt,
                 ]);
+
+                // (D) AuditLog dell'emissione dal conto madre.
+                \App\Models\AuditLog::create([
+                    'actor_user_id'  => $purchase->confirmed_by ?? $superAdminId,
+                    'event'          => 'kycard.credited',
+                    'auditable_type' => \App\Models\Transfer::class,
+                    'auditable_id'   => $transfer->id,
+                    'ip_address'     => request()->ip(),
+                    'context'        => [
+                        'purchase_uuid'   => $purchase->uuid,
+                        'ky_card_id'      => $purchase->ky_card_id,
+                        'from_account_id' => $fromAccount->id,
+                        'to_account_id'   => $toAccount->id,
+                        'amount'          => $amount,
+                        'payment_method'  => $purchase->payment_method,
+                    ],
+                ]);
             });
 
+            $purchase->refresh();
+
             try {
-                $purchase->user->notify(new \App\Notifications\KyCardCredited($purchase));
+                if ($purchase->isCompleted()) {
+                    $purchase->user->notify(new \App\Notifications\KyCardCredited($purchase));
+                }
             } catch (\Exception) {}
 
         } catch (\Exception $e) {
             Log::error('KyCard credit failed', ['purchase' => $purchase->uuid, 'error' => $e->getMessage()]);
-            $purchase->update(['status' => 'failed']);
+            // (B) Non sovrascrivere uno stato 'completed' gia' raggiunto da una corsa concorrente.
+            if (!optional($purchase->fresh())->isCompleted()) {
+                $purchase->update(['status' => 'failed']);
+            }
         }
     }
 
