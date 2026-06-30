@@ -37,15 +37,20 @@
         <div style="display:grid;grid-template-columns:1fr 200px 1.4fr;gap:20px;align-items:start;">
 
             <div class="field" style="margin:0;">
-                <label for="company_id">Azienda / partecipante <span style="color:#dc2626;">*</span></label>
-                <select id="company_id" name="company_id" required style="width:100%;">
-                    <option value="">— Seleziona azienda —</option>
-                    @foreach($companies as $company)
-                        <option value="{{ $company->id }}" @selected(old('company_id') == $company->id)>
-                            {{ $company->name }}
-                        </option>
-                    @endforeach
-                </select>
+                <label for="company-search">Azienda / partecipante <span style="color:#dc2626;">*</span></label>
+                @php $selectedCompany = $companies->firstWhere('id', old('company_id')); @endphp
+                <div class="combo" data-combo style="position:relative;">
+                    <input type="hidden" name="company_id" value="{{ old('company_id') }}" required>
+                    <input type="text" id="company-search" class="combo-input" autocomplete="off" placeholder="Cerca azienda per nome..."
+                           value="{{ $selectedCompany?->name }}" style="width:100%;">
+                    <div class="combo-list" style="display:none;position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.12);">
+                        @foreach($companies as $company)
+                            <div class="combo-opt" data-id="{{ $company->id }}" data-name="{{ \Illuminate\Support\Str::lower($company->name) }}"
+                                 style="padding:9px 12px;font-size:14px;color:var(--ink);cursor:pointer;">{{ $company->name }}</div>
+                        @endforeach
+                        <div class="combo-empty" style="display:none;padding:12px;font-size:13px;color:var(--ink-muted);">Nessuna azienda trovata.</div>
+                    </div>
+                </div>
             </div>
 
             <div class="field" style="margin:0;">
@@ -97,6 +102,64 @@
     }
     qtyInput.addEventListener('input', update);
     update();
+})();
+
+(function () {
+    var combo  = document.querySelector('[data-combo]');
+    if (!combo) return;
+    var input  = combo.querySelector('.combo-input');
+    var hidden = combo.querySelector('input[type=hidden]');
+    var list   = combo.querySelector('.combo-list');
+    var empty  = combo.querySelector('.combo-empty');
+    var opts   = Array.prototype.slice.call(combo.querySelectorAll('.combo-opt'));
+    var active = -1;
+
+    function open()  { list.style.display = 'block'; }
+    function close() { list.style.display = 'none'; active = -1; paintActive(); }
+    function visibleOpts() { return opts.filter(function (o) { return o.style.display !== 'none'; }); }
+
+    function paintActive() {
+        opts.forEach(function (o) { o.style.background = ''; });
+        var vis = visibleOpts();
+        if (active >= 0 && active < vis.length) {
+            vis[active].style.background = 'var(--surface-soft)';
+            vis[active].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function filter() {
+        var q = input.value.trim().toLowerCase();
+        var shown = 0;
+        opts.forEach(function (o) {
+            var match = o.getAttribute('data-name').indexOf(q) !== -1;
+            o.style.display = match ? 'block' : 'none';
+            if (match) shown++;
+        });
+        empty.style.display = shown === 0 ? 'block' : 'none';
+        active = -1;
+        paintActive();
+    }
+
+    function choose(o) {
+        hidden.value = o.getAttribute('data-id');
+        input.value  = o.textContent.trim();
+        close();
+    }
+
+    input.addEventListener('focus', function () { filter(); open(); });
+    input.addEventListener('input', function () { hidden.value = ''; open(); filter(); });
+    input.addEventListener('keydown', function (e) {
+        var vis = visibleOpts();
+        if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paintActive(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paintActive(); }
+        else if (e.key === 'Enter') { if (active >= 0 && vis[active]) { e.preventDefault(); choose(vis[active]); } }
+        else if (e.key === 'Escape') { close(); }
+    });
+    opts.forEach(function (o) {
+        o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); });
+        o.addEventListener('mouseover', function () { active = visibleOpts().indexOf(o); paintActive(); });
+    });
+    document.addEventListener('click', function (e) { if (!combo.contains(e.target)) close(); });
 })();
 </script>
 @endsection
