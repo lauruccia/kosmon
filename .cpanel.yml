@@ -1,8 +1,25 @@
 ---
+# Deploy cPanel — Git Version Control
+#
+# Modello: il repo viene CLONATO in una cartella separata e vuota
+# (es. /home/kmoney/kosmon_git) e questo script copia il codice
+# aggiornato nella cartella live dell'app (DEPLOYPATH).
+#
+# NON tocca: .env, vendor/, storage/, public/storage  (non sono nel repo,
+# quindi restano quelli di produzione).
 deployment:
   tasks:
-    - export DEPLOYPATH=/home2/kosmopay/kosmon
+    - export DEPLOYPATH=/home/kmoney/kosmon
+
+    # 1. Copia il codice aggiornato dalla checkout git alla cartella live.
+    #    cp -Rf sovrascrive i file modificati senza cancellare .env/storage/vendor.
+    - /bin/cp -Rf app bootstrap config database public resources routes $DEPLOYPATH/
+    - /bin/cp -f artisan composer.json composer.lock $DEPLOYPATH/
+
+    # 2. Dipendenze PHP di produzione (rigenera vendor/ nella cartella live).
     - cd $DEPLOYPATH && if [ -x /opt/cpanel/composer/bin/composer ]; then /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader --no-interaction; else composer install --no-dev --optimize-autoloader --no-interaction; fi
+
+    # 3. Pulisce le cache (config/route/view) così le modifiche hanno effetto.
     - /usr/bin/php $DEPLOYPATH/artisan view:clear
     - /usr/bin/php $DEPLOYPATH/artisan cache:clear
     - /usr/bin/php $DEPLOYPATH/artisan config:clear
