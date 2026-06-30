@@ -9,8 +9,8 @@
     <a href="{{ route('admin.nfc-cards.index') }}" class="cta secondary">← Torna alla lista</a>
 </div>
 
-<div class="summary-grid" style="max-width:100%;">
-<section class="card card-pad">
+<div style="width:100%;">
+<section class="card card-pad" style="width:100%;">
     <div class="section-head" style="margin-bottom:20px;">
         <div>
             <span class="eyebrow">Produzione</span>
