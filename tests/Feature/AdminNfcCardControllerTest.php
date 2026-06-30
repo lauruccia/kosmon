@@ -72,24 +72,52 @@ class AdminNfcCardControllerTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.nfc-cards.store'), [
-                'company_id' => $company->id,
-                'notes'      => 'Carta per il titolare',
+                'participant' => 'company:' . $company->id,
+                'notes'       => 'Carta per il titolare',
             ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('nfc_cards', [
-            'company_id' => $company->id,
-            'status'     => 'pending',
+            'company_id'    => $company->id,
+            'owner_user_id' => null,
+            'status'        => 'pending',
         ]);
     }
 
-    public function test_store_validates_company_id_required(): void
+    public function test_admin_can_create_nfc_card_for_private_user(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $privateUser = User::create([
+            'name'                => 'Mario Rossi',
+            'email'               => 'mario-' . Str::random(6) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'is_active'           => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.nfc-cards.store'), [
+                'participant' => 'user:' . $privateUser->id,
+                'notes'       => 'Carta per privato',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('nfc_cards', [
+            'company_id'    => null,
+            'owner_user_id' => $privateUser->id,
+            'status'        => 'pending',
+        ]);
+    }
+
+    public function test_store_validates_participant_required(): void
     {
         $admin = $this->makeAdmin();
 
         $this->actingAs($admin)
             ->post(route('admin.nfc-cards.store'), [])
-            ->assertSessionHasErrors('company_id');
+            ->assertSessionHasErrors('participant');
     }
 
     public function test_admin_can_view_nfc_card_detail(): void

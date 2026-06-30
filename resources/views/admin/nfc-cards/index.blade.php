@@ -79,7 +79,7 @@
                         <td style="padding:12px 16px;font-weight:600;color:var(--ink);font-family:monospace;white-space:nowrap;">
                             {{ $card->serial_number ?? substr($card->uuid, 0, 8) }}
                         </td>
-                        <td style="padding:12px 16px;color:var(--ink);">{{ $card->company->name ?? '—' }}</td>
+                        <td style="padding:12px 16px;color:var(--ink);">{{ $card->ownerName() }}</td>
                         <td style="padding:12px 16px;white-space:nowrap;">
                             <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:{{ $sc['bg'] }};color:{{ $sc['color'] }};">
                                 {{ strtoupper($card->status) }}

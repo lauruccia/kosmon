@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Account;
 use App\Models\NfcCard;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,25 +19,20 @@ class NfcCardController extends Controller
     /** Lista card del cliente. */
     public function index(Request $request): View
     {
-        $user  = $request->user();
-        $cards = collect();
-        $pendingSessions = collect();
+        $user = $request->user();
 
-        if ($user->company_id) {
-            $company = $this->resolveCompany($user);
-            $cards = NfcCard::where('company_id', $company->id)
-                ->whereNotIn('status', ['pending', 'issued'])
-                ->latest()
-                ->get();
+        $cards = NfcCard::ownedByUser($user)
+            ->whereNotIn('status', ['pending', 'issued'])
+            ->latest()
+            ->get();
 
-            // Richieste di pagamento pendenti sulle card del cliente
-            $pendingSessions = \App\Models\NfcCardAuthSession::with(['card', 'merchant', 'merchantAccount'])
-                ->whereHas('card', fn ($q) => $q->where('company_id', $company->id))
-                ->where('status', 'pending')
-                ->where('expires_at', '>', now())
-                ->latest()
-                ->get();
-        }
+        // Richieste di pagamento pendenti sulle card del cliente
+        $pendingSessions = \App\Models\NfcCardAuthSession::with(['card', 'merchant', 'merchantAccount'])
+            ->whereHas('card', fn ($q) => $q->ownedByUser($user))
+            ->where('status', 'pending')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->get();
 
         return view('portal.nfc-cards.index', [
             'pageTitle'       => 'Le mie Card NFC',
@@ -52,8 +45,7 @@ class NfcCardController extends Controller
     /** Dettaglio singola card (limiti + blocco). */
     public function show(Request $request, string $uuid): View
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         return view('portal.nfc-cards.show', [
             'pageTitle' => 'Card ' . ($card->serial_number ?? substr($card->uuid, 0, 8)),
@@ -65,8 +57,7 @@ class NfcCardController extends Controller
     /** Form attivazione PIN. */
     public function activateForm(Request $request, string $uuid): View|RedirectResponse
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         if ($card->status === 'active') {
             return redirect()->route('portal.nfc-cards.show', $uuid)
@@ -85,8 +76,7 @@ class NfcCardController extends Controller
     /** Imposta PIN e attiva card. */
     public function activate(Request $request, string $uuid): RedirectResponse
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         abort_unless($card->status === 'delivered', 403);
 
@@ -112,8 +102,7 @@ class NfcCardController extends Controller
     /** Aggiorna limiti card. */
     public function updateLimits(Request $request, string $uuid): RedirectResponse
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         abort_unless($card->status === 'active', 403, 'Card non attiva.');
 
@@ -145,8 +134,7 @@ class NfcCardController extends Controller
     /** Blocca card. */
     public function block(Request $request, string $uuid): RedirectResponse
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         abort_unless($card->status === 'active', 403);
 
@@ -159,20 +147,12 @@ class NfcCardController extends Controller
     /** Sblocca card. */
     public function unblock(Request $request, string $uuid): RedirectResponse
     {
-        $company = $this->resolveCompany($request->user());
-        $card    = NfcCard::where('uuid', $uuid)->where('company_id', $company->id)->firstOrFail();
+        $card = NfcCard::ownedByUser($request->user())->where('uuid', $uuid)->firstOrFail();
 
         abort_unless($card->status === 'blocked', 403);
 
         $card->update(['status' => 'active', 'blocked_at' => null]);
 
         return back()->with('portal_success', 'Card sbloccata.');
-    }
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────
-
-    private function resolveCompany(User $user): \App\Models\Company
-    {
-        return \App\Models\Company::where('id', $user->company_id)->firstOrFail();
     }
 }

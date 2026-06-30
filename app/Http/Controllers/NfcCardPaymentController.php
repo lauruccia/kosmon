@@ -53,7 +53,7 @@ class NfcCardPaymentController extends Controller
             return response()->json(['error' => 'Firma card non valida.'], 422);
         }
 
-        $card = NfcCard::with('company')->where('uuid', $data['uuid'])->first();
+        $card = NfcCard::with(['company', 'ownerUser'])->where('uuid', $data['uuid'])->first();
 
         if (! $card) {
             return response()->json(['error' => 'Card non trovata.'], 404);
@@ -77,7 +77,7 @@ class NfcCardPaymentController extends Controller
 
         return response()->json([
             'card_uuid'    => $card->uuid,
-            'owner_name'   => $card->company->name,
+            'owner_name'   => $card->ownerName(),
             'card_label'   => $card->serial_number ?? substr($card->uuid, 0, 8),
             'limits'       => [
                 'per_transaction' => $card->limit_per_transaction,
@@ -99,7 +99,7 @@ class NfcCardPaymentController extends Controller
 
         $amountCents = ky_to_cents($data['amount']);
 
-        $card = NfcCard::with('company.users')->where('uuid', $data['card_uuid'])->firstOrFail();
+        $card = NfcCard::with(['company.users', 'ownerUser'])->where('uuid', $data['card_uuid'])->firstOrFail();
 
         if (! $card->isActive()) {
             return response()->json(['error' => 'Card non attiva.'], 403);
@@ -131,8 +131,7 @@ class NfcCardPaymentController extends Controller
 
         // ── Contactless: sotto la soglia PIN il pagamento parte subito, ──────
         // ── senza notifica né conferma del titolare (come carte di credito) ──
-        if ($card->company_id !== null
-            && $card->pin_threshold !== null
+        if ($card->pin_threshold !== null
             && ! $card->requiresPinFor($amountCents)) {
             return $this->bookContactless($request, $card, $merchantAccount, $amountCents, $data['description'] ?? null);
         }
@@ -165,7 +164,7 @@ class NfcCardPaymentController extends Controller
                 ky_format($session->amount),
             );
 
-            $card->company->users->each(function ($user) use ($session, $merchant, $signedUrl, $pushService, $pushTitle, $pushBody) {
+            $card->ownerUsersToNotify()->each(function ($user) use ($session, $merchant, $signedUrl, $pushService, $pushTitle, $pushBody) {
                 // Notifica database + mail + broadcast (via coda)
                 $user->notify(new NfcCardPinRequestNotification($session, $merchant, $signedUrl));
 
@@ -192,10 +191,8 @@ class NfcCardPaymentController extends Controller
      */
     private function bookContactless(Request $request, NfcCard $card, Account $merchantAccount, int $amountCents, ?string $description): JsonResponse
     {
-        // Account del titolare della card
-        $customerAccount = Account::where('company_id', $card->company_id)
-            ->whereNull('parent_account_id')
-            ->first();
+        // Account del titolare della card (azienda o privato)
+        $customerAccount = $card->ownerAccount();
 
         if (! $customerAccount) {
             return response()->json(['error' => 'Conto del titolare della card non trovato.'], 422);
@@ -206,7 +203,7 @@ class NfcCardPaymentController extends Controller
         }
 
         // Utente del titolare autorizzato a inviare pagamenti (per initiated_by/audit)
-        $initiator = $card->company->users
+        $initiator = $card->ownerUsersToNotify()
             ->first(fn ($u) => $u->is_active && $u->canSendFromAccount($customerAccount));
 
         if (! $initiator) {
@@ -281,7 +278,7 @@ class NfcCardPaymentController extends Controller
                 ?? 'un commerciante';
             $pushService = app(\App\Services\WebPushService::class);
 
-            $card->company->users->each(function ($user) use ($pushService, $session, $merchantName) {
+            $card->ownerUsersToNotify()->each(function ($user) use ($pushService, $session, $merchantName) {
                 $pushService->notifyUser(
                     $user,
                     'Pagamento contactless',
@@ -337,7 +334,7 @@ class NfcCardPaymentController extends Controller
      */
     public function authorizeForm(Request $request, string $nonce): View|RedirectResponse
     {
-        $session = NfcCardAuthSession::with(['card.company', 'merchant', 'merchantAccount'])
+        $session = NfcCardAuthSession::with(['card.company', 'card.ownerUser', 'merchant', 'merchantAccount'])
             ->where('nonce', $nonce)
             ->firstOrFail();
 
@@ -355,17 +352,8 @@ class NfcCardPaymentController extends Controller
             return redirect()->guest(route('login'));
         }
 
-        // Verifica che l'utente loggato sia il titolare della card:
-        // per conti business (company_id) o per conti privati (owner_user_id)
-        $cardOwnerAccount = Account::where(function ($q) use ($session) {
-            $q->where('company_id', $session->card->company_id)
-              ->orWhere('owner_user_id', $session->card->company_id); // fallback privati
-        })->whereNull('parent_account_id')->first();
-
-        $userOwnsCard = ($session->card->company_id && $session->card->company_id === $user->company_id)
-            || ($cardOwnerAccount && $cardOwnerAccount->owner_user_id === $user->id);
-
-        abort_unless($userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
+        // Verifica che l'utente loggato sia il titolare della card (azienda o privato)
+        abort_unless($session->card->isOwnedByUser($user), 403, 'Non sei autorizzato a confermare questo pagamento.');
 
         return view('portal.nfc-cards.authorize', [
             'pageTitle' => 'Conferma pagamento',
@@ -380,18 +368,15 @@ class NfcCardPaymentController extends Controller
      */
     public function authorize(Request $request, string $nonce, TransferBookingService $svc): RedirectResponse
     {
-        $session = NfcCardAuthSession::with(['card', 'merchant', 'merchantAccount'])
+        $session = NfcCardAuthSession::with(['card.company', 'card.ownerUser', 'merchant', 'merchantAccount'])
             ->where('nonce', $nonce)
             ->firstOrFail();
 
         abort_unless($session->isPending(), 403, 'Sessione non valida o scaduta.');
 
         $user = $request->user();
-        // Stesso check del GET: titolare card per KYB (company_id) o KYP (owner_user_id)
-        $userOwnsCard = ($session->card->company_id && $session->card->company_id === $user->company_id)
-            || (Account::where('owner_user_id', $user->id)->whereNull('parent_account_id')->exists()
-                && $session->card->company_id === null);
-        abort_unless($user && $userOwnsCard, 403, 'Non sei autorizzato a confermare questo pagamento.');
+        // Stesso check del GET: titolare card (azienda o privato)
+        abort_unless($user && $session->card->isOwnedByUser($user), 403, 'Non sei autorizzato a confermare questo pagamento.');
 
         // Verifica che la card sia attivata (PIN impostato in fase di attivazione)
         abort_unless($session->card->pin_hash !== null, 403, 'Card non attivata: imposta il PIN della card prima di usarla.');
@@ -421,10 +406,9 @@ class NfcCardPaymentController extends Controller
             }
         }
 
-        // Risolvi account cliente (titolare della card)
-        $customerAccount = Account::where('company_id', $user->company_id)
-            ->whereNull('parent_account_id')
-            ->firstOrFail();
+        // Risolvi account cliente (titolare della card, azienda o privato)
+        $customerAccount = $session->card->ownerAccount();
+        abort_unless($customerAccount, 422, 'Conto del titolare della card non trovato.');
 
         // Risolvi account merchant
         $merchantAccount = $session->merchant_account_id
@@ -538,15 +522,15 @@ class NfcCardPaymentController extends Controller
             abort(403, 'Card non valida.');
         }
 
-        $card = NfcCard::with('company')->where('uuid', $uuid)->firstOrFail();
+        $card = NfcCard::with(['company', 'ownerUser'])->where('uuid', $uuid)->firstOrFail();
 
         $user = $request->user();
 
-        if ($user && ! $user->canAccessBackoffice() && $user->company_id) {
+        if ($user && ! $user->canAccessBackoffice()) {
             // Il TITOLARE ha avvicinato la PROPRIA card: non può incassare/pagare
             // se stesso. Lo mando alla gestione della card invece che al form di
             // incasso (che genererebbe il vicolo cieco "paga il tuo stesso conto").
-            if ($user->company_id === $card->company_id) {
+            if ($card->isOwnedByUser($user)) {
                 return redirect()->route('portal.nfc-cards.show', $card->uuid)
                     ->with('portal_info', 'Questa è la tua card. Per ricevere un pagamento con essa è il commerciante a doverla avvicinare dal proprio dispositivo.');
             }

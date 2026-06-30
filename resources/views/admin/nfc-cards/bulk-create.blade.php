@@ -37,18 +37,23 @@
         <div style="display:grid;grid-template-columns:1fr 200px 1.4fr;gap:20px;align-items:start;">
 
             <div class="field" style="margin:0;">
-                <label for="company-search">Azienda / partecipante <span style="color:#dc2626;">*</span></label>
-                @php $selectedCompany = $companies->firstWhere('id', old('company_id')); @endphp
+                <label for="company-search">Titolare (azienda o privato) <span style="color:#dc2626;">*</span></label>
+                @php
+                    $selected = $participants->first(fn ($p) => $p['type'] . ':' . $p['id'] === old('participant'));
+                @endphp
                 <div class="combo" data-combo style="position:relative;">
-                    <input type="hidden" name="company_id" value="{{ old('company_id') }}" required>
-                    <input type="text" id="company-search" class="combo-input" autocomplete="off" placeholder="Cerca azienda per nome..."
-                           value="{{ $selectedCompany?->name }}" style="width:100%;">
+                    <input type="hidden" name="participant" value="{{ old('participant') }}" required>
+                    <input type="text" id="company-search" class="combo-input" autocomplete="off" placeholder="Cerca azienda o privato per nome..."
+                           value="{{ $selected['name'] ?? '' }}" style="width:100%;">
                     <div class="combo-list" style="display:none;position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.12);">
-                        @foreach($companies as $company)
-                            <div class="combo-opt" data-id="{{ $company->id }}" data-name="{{ \Illuminate\Support\Str::lower($company->name) }}"
-                                 style="padding:9px 12px;font-size:14px;color:var(--ink);cursor:pointer;">{{ $company->name }}</div>
+                        @foreach($participants as $p)
+                            <div class="combo-opt" data-value="{{ $p['type'] }}:{{ $p['id'] }}" data-name="{{ \Illuminate\Support\Str::lower($p['name']) }}"
+                                 style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;font-size:14px;color:var(--ink);cursor:pointer;">
+                                <span>{{ $p['name'] }}</span>
+                                <span style="flex-shrink:0;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;{{ $p['type'] === 'user' ? 'background:#ede9fe;color:#6d28d9;' : 'background:#dbeafe;color:#1d4ed8;' }}">{{ $p['label'] }}</span>
+                            </div>
                         @endforeach
-                        <div class="combo-empty" style="display:none;padding:12px;font-size:13px;color:var(--ink-muted);">Nessuna azienda trovata.</div>
+                        <div class="combo-empty" style="display:none;padding:12px;font-size:13px;color:var(--ink-muted);">Nessun titolare trovato.</div>
                     </div>
                 </div>
             </div>
@@ -141,8 +146,9 @@
     }
 
     function choose(o) {
-        hidden.value = o.getAttribute('data-id');
-        input.value  = o.textContent.trim();
+        hidden.value = o.getAttribute('data-value');
+        var nameEl   = o.querySelector('span');
+        input.value  = nameEl ? nameEl.textContent.trim() : o.textContent.trim();
         close();
     }
 

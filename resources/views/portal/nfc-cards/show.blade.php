@@ -9,7 +9,7 @@
             'revoked'   => ['bg' => '#6b7280', 'text' => '#fff', 'label' => 'Revocata'],
         ];
         $st = $statusMap[$card->status] ?? ['bg' => '#6b7280', 'text' => '#fff', 'label' => ucfirst($card->status)];
-        $holderName = $card->company->name ?? auth()->user()->name ?? 'Titolare';
+        $holderName = $card->ownerName();
         $serial = $card->serial_number ?? 'KMY-????-??????-?';
     @endphp
 

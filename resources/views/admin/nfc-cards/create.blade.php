@@ -16,23 +16,29 @@
 
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:8px;">
-                        Cliente *
+                        Titolare * <span style="text-transform:none;font-weight:400;">(azienda o privato)</span>
                     </label>
-                    @php $selectedCompany = $companies->firstWhere('id', old('company_id')); @endphp
+                    @php
+                        $selected = $participants->first(fn ($p) => $p['type'] . ':' . $p['id'] === old('participant'));
+                    @endphp
                     <div class="combo" data-combo style="position:relative;">
-                        <input type="hidden" name="company_id" value="{{ old('company_id') }}" required>
-                        <input type="text" class="combo-input" autocomplete="off" placeholder="Cerca cliente per nome..."
-                               value="{{ $selectedCompany?->name }}"
+                        <input type="hidden" name="participant" value="{{ old('participant') }}" required>
+                        <input type="text" class="combo-input" autocomplete="off" placeholder="Cerca azienda o privato per nome..."
+                               value="{{ $selected['name'] ?? '' }}"
                                style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--surface-soft);color:var(--ink);">
                         <div class="combo-list" style="display:none;position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.12);">
-                            @foreach($companies as $co)
-                                <div class="combo-opt" data-id="{{ $co->id }}" data-name="{{ \Illuminate\Support\Str::lower($co->name) }}"
-                                     style="padding:9px 12px;font-size:14px;color:var(--ink);cursor:pointer;">{{ $co->name }}</div>
+                            @foreach($participants as $p)
+                                <div class="combo-opt" data-value="{{ $p['type'] }}:{{ $p['id'] }}" data-name="{{ \Illuminate\Support\Str::lower($p['name']) }}"
+                                     style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;font-size:14px;color:var(--ink);cursor:pointer;">
+                                    <span>{{ $p['name'] }}</span>
+                                    <span style="flex-shrink:0;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;{{ $p['type'] === 'user' ? 'background:#ede9fe;color:#6d28d9;' : 'background:#dbeafe;color:#1d4ed8;' }}">{{ $p['label'] }}</span>
+                                </div>
                             @endforeach
-                            <div class="combo-empty" style="display:none;padding:12px;font-size:13px;color:var(--ink-muted);">Nessun cliente trovato.</div>
+                            <div class="combo-empty" style="display:none;padding:12px;font-size:13px;color:var(--ink-muted);">Nessun titolare trovato.</div>
                         </div>
                     </div>
-                    @error('company_id')<p style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</p>@enderror
+                    @error('participant')<p style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</p>@enderror
+                    @error('participant_id')<p style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -112,8 +118,9 @@
     }
 
     function choose(o) {
-        hidden.value  = o.getAttribute('data-id');
-        input.value   = o.textContent.trim();
+        hidden.value = o.getAttribute('data-value');
+        var nameEl   = o.querySelector('span');
+        input.value  = nameEl ? nameEl.textContent.trim() : o.textContent.trim();
         close();
     }
 

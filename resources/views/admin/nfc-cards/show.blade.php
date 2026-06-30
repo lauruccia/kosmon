@@ -10,7 +10,7 @@
                 &#128246; {{ $card->serial_number ?? substr($card->uuid, 0, 8) }}
             </h1>
             <div style="font-size:13px;color:var(--ink-muted);">
-                Cliente: <strong>{{ $card->company->name }}</strong>
+                Titolare: <strong>{{ $card->ownerName() }}</strong>
             </div>
         </div>
         <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:12px;">
@@ -76,7 +76,7 @@
         <section class="card card-pad">
             <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px;">&#128230; Consegna al cliente</div>
             <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">
-                Il chip è stato scritto. Consegna fisicamente la card a <strong>{{ $card->company->name }}</strong>, poi segna la consegna.
+                Il chip è stato scritto. Consegna fisicamente la card a <strong>{{ $card->ownerName() }}</strong>, poi segna la consegna.
                 Il cliente riceverà una notifica per attivare la card impostando il PIN.
             </p>
             <form method="POST" action="{{ route('admin.nfc-cards.mark-delivered', $card) }}">

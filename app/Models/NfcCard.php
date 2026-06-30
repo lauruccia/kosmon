@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
 /**
  * @property int $id
  * @property string $uuid
- * @property int $company_id
+ * @property int|null $company_id
+ * @property int|null $owner_user_id
  * @property int $issued_by
  * @property string|null $serial_number
  * @property string $status
@@ -83,7 +84,7 @@ use Illuminate\Support\Str;
 class NfcCard extends Model
 {
     protected $fillable = [
-        'uuid', 'company_id', 'issued_by', 'serial_number', 'status',
+        'uuid', 'company_id', 'owner_user_id', 'issued_by', 'serial_number', 'status',
         'pin_hash', 'pin_attempts', 'pin_locked_until',
         'limit_per_transaction', 'pin_threshold', 'limit_daily', 'limit_monthly',
         'daily_spent', 'monthly_spent', 'daily_reset_date', 'monthly_reset_month',
@@ -124,9 +125,95 @@ class NfcCard extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function ownerUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
     public function issuer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by');
+    }
+
+    // ─── Titolare (azienda o privato) ────────────────────────────────────────
+
+    /**
+     * Conto principale del titolare della card.
+     * Supporta sia partecipanti business (company_id) sia privati (owner_user_id).
+     */
+    public function ownerAccount(): ?Account
+    {
+        $query = Account::whereNull('parent_account_id');
+
+        if ($this->company_id !== null) {
+            return $query->where('company_id', $this->company_id)->orderBy('id')->first();
+        }
+
+        if ($this->owner_user_id !== null) {
+            return $query->whereNull('company_id')
+                ->where('owner_user_id', $this->owner_user_id)
+                ->orderBy('id')
+                ->first();
+        }
+
+        return null;
+    }
+
+    /** Nome leggibile del titolare (azienda o persona). */
+    public function ownerName(): string
+    {
+        if ($this->company_id !== null) {
+            return $this->company?->name ?? '—';
+        }
+
+        return $this->ownerUser?->name ?? $this->ownerAccount()?->display_name ?? '—';
+    }
+
+    /**
+     * Utenti abilitati ad agire / da notificare per il titolare della card.
+     * Business → tutti gli utenti della company. Privato → owner + manager del conto.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     */
+    public function ownerUsersToNotify(): \Illuminate\Support\Collection
+    {
+        if ($this->company_id !== null) {
+            return collect($this->company?->users ?? []);
+        }
+
+        $users = collect();
+
+        if ($this->ownerUser) {
+            $users->push($this->ownerUser);
+        }
+
+        if ($account = $this->ownerAccount()) {
+            $users = $users->merge($account->managers);
+        }
+
+        return $users->filter()->unique('id')->values();
+    }
+
+    /** L'utente è il titolare di questa card? */
+    public function isOwnedByUser(User $user): bool
+    {
+        if ($this->company_id !== null) {
+            return $user->company_id !== null && $this->company_id === $user->company_id;
+        }
+
+        return $this->owner_user_id !== null && $this->owner_user_id === $user->id;
+    }
+
+    /** Scope: card possedute dall'utente (business o privato). */
+    public function scopeOwnedByUser($query, User $user)
+    {
+        return $query->where(function ($q) use ($user) {
+            if ($user->company_id !== null) {
+                $q->where('company_id', $user->company_id);
+            } else {
+                $q->whereNull('company_id')->where('owner_user_id', $user->id);
+            }
+        });
     }
 
     public function logs(): HasMany
