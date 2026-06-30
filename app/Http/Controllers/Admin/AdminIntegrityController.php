@@ -36,56 +36,65 @@ class AdminIntegrityController extends Controller
         $kyInCirculation = $systemAccount ? abs((int) $systemAccount->available_balance) : 0;
 
         // ── 2. Conti con saldo disallineato rispetto al ledger ─────────────
+        // NB: l'aggregato (ledger_balance) e' calcolato in una sottoquery e poi
+        // filtrato/ordinato dalla query esterna. MySQL non consente di usare un
+        // alias di funzione aggregata dentro un'espressione in HAVING/ORDER BY
+        // (errore 1247), mentre wrappandolo in una derived table diventa una
+        // colonna normale: portabile sia su MySQL (prod) sia su SQLite (dev).
         $mismatchedAccounts = DB::select("
-            SELECT
-                a.id,
-                a.uuid,
-                a.account_name,
-                a.available_balance,
-                a.is_system_account,
-                COALESCE(SUM(
-                    CASE le.direction
-                        WHEN 'credit' THEN  le.amount
-                        WHEN 'debit'  THEN -le.amount
-                        ELSE 0
-                    END
-                ), 0) AS ledger_balance
-            FROM accounts a
-            LEFT JOIN ledger_entries le ON le.account_id = a.id
-            GROUP BY a.id, a.uuid, a.account_name, a.available_balance, a.is_system_account
-            HAVING ABS(a.available_balance - ledger_balance) > 1
-            ORDER BY ABS(a.available_balance - ledger_balance) DESC
+            SELECT * FROM (
+                SELECT
+                    a.id,
+                    a.uuid,
+                    a.account_name,
+                    a.available_balance,
+                    a.is_system_account,
+                    COALESCE(SUM(
+                        CASE le.direction
+                            WHEN 'credit' THEN  le.amount
+                            WHEN 'debit'  THEN -le.amount
+                            ELSE 0
+                        END
+                    ), 0) AS ledger_balance
+                FROM accounts a
+                LEFT JOIN ledger_entries le ON le.account_id = a.id
+                GROUP BY a.id, a.uuid, a.account_name, a.available_balance, a.is_system_account
+            ) AS sub
+            WHERE ABS(sub.available_balance - sub.ledger_balance) > 1
+            ORDER BY ABS(sub.available_balance - sub.ledger_balance) DESC
             LIMIT 100
         ");
 
         // ── 3. Transfer booked sbilanciati ────────────────────────────────
         $unbalancedTransfers = DB::select("
-            SELECT
-                t.id,
-                t.uuid,
-                t.amount,
-                t.kind,
-                t.status,
-                t.booked_at,
-                fa.account_name AS from_name,
-                ta.account_name AS to_name,
-                COALESCE(SUM(CASE WHEN le.direction = 'debit'  THEN le.amount ELSE 0 END), 0) AS total_debit,
-                COALESCE(SUM(CASE WHEN le.direction = 'credit' THEN le.amount ELSE 0 END), 0) AS total_credit,
-                COUNT(le.id) AS entry_count
-            FROM transfers t
-            LEFT JOIN ledger_entries le ON le.transfer_id = t.id
-            LEFT JOIN accounts fa ON fa.id = t.from_account_id
-            LEFT JOIN accounts ta ON ta.id = t.to_account_id
-            WHERE t.status = 'booked'
-              -- Esenta i record di migrazione legacy (reference 'KM-MIG-*'): sono lo storico
-              -- importato dal vecchio sistema, privo di partita doppia per natura. I saldi
-              -- sono gia' allineati al ledger tramite i movimenti di apertura.
-              AND t.reference NOT LIKE 'KM-MIG-%'
-            GROUP BY t.id, t.uuid, t.amount, t.kind, t.status, t.booked_at, fa.account_name, ta.account_name
-            HAVING total_debit  != t.amount
-                OR total_credit != t.amount
-                OR entry_count  != 2
-            ORDER BY t.booked_at DESC
+            SELECT * FROM (
+                SELECT
+                    t.id,
+                    t.uuid,
+                    t.amount,
+                    t.kind,
+                    t.status,
+                    t.booked_at,
+                    fa.account_name AS from_name,
+                    ta.account_name AS to_name,
+                    COALESCE(SUM(CASE WHEN le.direction = 'debit'  THEN le.amount ELSE 0 END), 0) AS total_debit,
+                    COALESCE(SUM(CASE WHEN le.direction = 'credit' THEN le.amount ELSE 0 END), 0) AS total_credit,
+                    COUNT(le.id) AS entry_count
+                FROM transfers t
+                LEFT JOIN ledger_entries le ON le.transfer_id = t.id
+                LEFT JOIN accounts fa ON fa.id = t.from_account_id
+                LEFT JOIN accounts ta ON ta.id = t.to_account_id
+                WHERE t.status = 'booked'
+                  -- Esenta i record di migrazione legacy (reference 'KM-MIG-*'): sono lo storico
+                  -- importato dal vecchio sistema, privo di partita doppia per natura. I saldi
+                  -- sono gia' allineati al ledger tramite i movimenti di apertura.
+                  AND t.reference NOT LIKE 'KM-MIG-%'
+                GROUP BY t.id, t.uuid, t.amount, t.kind, t.status, t.booked_at, fa.account_name, ta.account_name
+            ) AS sub
+            WHERE sub.total_debit  != sub.amount
+               OR sub.total_credit != sub.amount
+               OR sub.entry_count  != 2
+            ORDER BY sub.booked_at DESC
             LIMIT 50
         ");
 
@@ -165,21 +174,23 @@ class AdminIntegrityController extends Controller
         abort_unless($request->user()->is_super_admin, 403);
 
         $mismatched = DB::select("
-            SELECT
-                a.id,
-                a.uuid,
-                a.available_balance,
-                COALESCE(SUM(
-                    CASE le.direction
-                        WHEN 'credit' THEN  le.amount
-                        WHEN 'debit'  THEN -le.amount
-                        ELSE 0
-                    END
-                ), 0) AS ledger_balance
-            FROM accounts a
-            LEFT JOIN ledger_entries le ON le.account_id = a.id
-            GROUP BY a.id, a.uuid, a.available_balance
-            HAVING ABS(a.available_balance - ledger_balance) > 1
+            SELECT * FROM (
+                SELECT
+                    a.id,
+                    a.uuid,
+                    a.available_balance,
+                    COALESCE(SUM(
+                        CASE le.direction
+                            WHEN 'credit' THEN  le.amount
+                            WHEN 'debit'  THEN -le.amount
+                            ELSE 0
+                        END
+                    ), 0) AS ledger_balance
+                FROM accounts a
+                LEFT JOIN ledger_entries le ON le.account_id = a.id
+                GROUP BY a.id, a.uuid, a.available_balance
+            ) AS sub
+            WHERE ABS(sub.available_balance - sub.ledger_balance) > 1
         ");
 
         if (empty($mismatched)) {
