@@ -276,7 +276,13 @@ class CompanyController extends Controller
                 );
             })
             ->when($filters['sector'] !== '', fn ($q) => $q->where('sector', $filters['sector']))
-            ->when($filters['status'] !== '', fn ($q) => $q->where('status', $filters['status']))
+            // Stato allineato ai badge della vista:
+            //  - Attiva  : status = 'active' e non sospesa
+            //  - Sospesa : suspended_at valorizzato (qualsiasi status)
+            //  - Non attiva: tutto il resto (status != 'active' e non sospesa)
+            ->when($filters['status'] === 'active', fn ($q) => $q->where('status', 'active')->whereNull('suspended_at'))
+            ->when($filters['status'] === 'pending', fn ($q) => $q->where('status', '!=', 'active')->whereNull('suspended_at'))
+            ->when($filters['status'] === 'suspended', fn ($q) => $q->whereNotNull('suspended_at'))
             ->when($filters['kyc_status'] !== '', fn ($q) => $q->where('kyc_status', $filters['kyc_status']))
             ->when($filters['plan'] !== '', fn ($q) => $q->where('subscription_plan', $filters['plan']))
             ->orderByRaw("CASE
@@ -292,7 +298,7 @@ class CompanyController extends Controller
 
         $stats = [
             'total'    => Company::count(),
-            'active'   => Company::where('status', 'active')->count(),
+            'active'   => Company::where('status', 'active')->whereNull('suspended_at')->count(),
             'verified' => Company::where('kyc_status', 'approved')->count(),
             'plans'    => Company::whereNotNull('subscription_plan')->count(),
         ];
