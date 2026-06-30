@@ -550,7 +550,7 @@ class Account extends Model
     public function getDisplayNameAttribute(): string
     {
         if ($this->account_name) {
-            return $this->account_name;
+            return preg_replace('/^Conto (principale|personale) /u', '', $this->account_name);
         }
 
         if ($this->owner_type === 'private') {
@@ -588,7 +588,4 @@ class Account extends Model
     }
     public function balanceAlerts(): HasMany
     {
-        return $this->hasMany(BalanceAlert::class);
-    }
-
-}
+      
