@@ -68,8 +68,10 @@
                     <thead><tr><th>Data</th><th>Controparte</th><th>Tipo</th><th>Importo</th></tr></thead>
                     <tbody>
                         @forelse ($recentTransfers as $transfer)
-                            @php($isOutgoing = $transfer->from_account_id === $currentAccount->id)
-                            @php($counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount)
+                            @php
+                                $isOutgoing = $transfer->from_account_id === $currentAccount->id;
+                                $counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount;
+                            @endphp
                             <tr><td><div class="date-block">{{ optional($transfer->booked_at)->format('d') }}<span>{{ optional($transfer->booked_at)->format('M') }}</span></div></td><td>{{ $counterparty?->display_name }}<div class="subtle">{{ $transfer->description ?: 'Movimento circuito' }}</div></td><td class="flow {{ $isOutgoing ? 'out' : 'in' }}">{{ $isOutgoing ? 'Spesa delegata' : 'Budget ricevuto' }}<small>{{ $transfer->kind }}</small></td><td>{{ $isOutgoing ? '-' : '+' }}{{ ky_format($transfer->amount) }} KY</td></tr>
                         @empty
                             <tr><td colspan="4" class="subtle">Nessun movimento disponibile.</td></tr>

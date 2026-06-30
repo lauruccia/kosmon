@@ -150,8 +150,10 @@
         </thead>
         <tbody>
             @foreach($transfers as $transfer)
-                @php($isOutgoing = $transfer->from_account_id === $account->id)
-                @php($counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount)
+                @php
+                    $isOutgoing = $transfer->from_account_id === $account->id;
+                    $counterparty = $isOutgoing ? $transfer->toAccount : $transfer->fromAccount;
+                @endphp
                 <tr>
                     <td style="padding:10px 12px;white-space:nowrap;">
                         <div class="date-block" style="font-size:16px;">

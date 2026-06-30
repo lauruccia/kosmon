@@ -392,8 +392,10 @@
                 </thead>
                 <tbody>
                     @foreach($recentTransfers as $t)
-                        @php($isOut = $t->from_account_id === $account->id)
-                        @php($cp = $isOut ? $t->toAccount : $t->fromAccount)
+                        @php
+                            $isOut = $t->from_account_id === $account->id;
+                            $cp = $isOut ? $t->toAccount : $t->fromAccount;
+                        @endphp
                         <tr>
                             <td style="white-space:nowrap;font-size:12px;">
                                 {{ optional($t->booked_at)->format('d/m/Y') }}
