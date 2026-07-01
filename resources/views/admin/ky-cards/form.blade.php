@@ -107,14 +107,15 @@
                 <div>
                     <label class="form-label" style="margin-bottom:4px;">
                         Stripe Price ID
-                        <span style="font-weight:400;color:var(--ink-muted);">(per checkout online)</span>
+                        <span style="font-weight:400;color:var(--ink-muted);">(opzionale — auto-generato)</span>
                     </label>
                     <input type="text" name="stripe_price_id"
                            value="{{ old('stripe_price_id', $card->stripe_price_id) }}"
-                           placeholder="price_1AbcXXXX…"
+                           placeholder="Lascia vuoto: generato automaticamente su Stripe"
                            class="form-control">
                     <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">
-                        <a href="https://dashboard.stripe.com/products" target="_blank">Crea su Stripe Dashboard</a>
+                        Lascialo vuoto per generare/aggiornare il prezzo su Stripe in automatico al salvataggio.
+                        Compilalo solo se vuoi collegare manualmente un Price già esistente.
                     </div>
                 </div>
                 <div>

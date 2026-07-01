@@ -26,9 +26,19 @@ class AdminKyCardController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+
+        $warning = null;
+        if (empty($data['stripe_price_id']) && config('services.stripe.secret')) {
+            $data['stripe_price_id'] = $this->createStripePrice($data['name'], $data['price_eur_cents']);
+            if (empty($data['stripe_price_id'])) {
+                $warning = ' Attenzione: creazione automatica del prezzo Stripe non riuscita (controlla i log) — per ora la card è pagabile solo con bonifico.';
+            }
+        }
+
         KyCard::create($data);
+
         return redirect()->route('admin.ky-cards.index')
-            ->with('success', 'KYCard creata con successo.');
+            ->with('success', 'KYCard creata con successo.' . $warning);
     }
 
     public function edit(KyCard $kyCard): View
@@ -42,9 +52,36 @@ class AdminKyCardController extends Controller
     public function update(Request $request, KyCard $kyCard): RedirectResponse
     {
         $data = $this->validated($request, $kyCard);
+
+        $warning       = null;
+        $manualPriceId = $data['stripe_price_id'];
+        $needsNewPrice = empty($manualPriceId) && (
+            empty($kyCard->stripe_price_id)
+            || $kyCard->price_eur_cents !== $data['price_eur_cents']
+            || $kyCard->name !== $data['name']
+        );
+
+        if ($needsNewPrice && config('services.stripe.secret')) {
+            $newPriceId = $this->createStripePrice($data['name'], $data['price_eur_cents']);
+            if ($newPriceId) {
+                // Il prezzo vecchio non è più agganciato a questa card: lo disattiviamo
+                // su Stripe per non lasciare prezzi "orfani" attivi nel dashboard.
+                $this->archiveStripePrice($kyCard->stripe_price_id);
+                $data['stripe_price_id'] = $newPriceId;
+            } else {
+                // Generazione fallita: manteniamo il prezzo precedente per non
+                // disattivare un metodo di pagamento già funzionante.
+                $data['stripe_price_id'] = $kyCard->stripe_price_id;
+                $warning = ' Attenzione: aggiornamento automatico del prezzo Stripe non riuscito (controlla i log) — è rimasto attivo il prezzo precedente.';
+            }
+        } elseif (empty($manualPriceId)) {
+            $data['stripe_price_id'] = $kyCard->stripe_price_id;
+        }
+
         $kyCard->update($data);
+
         return redirect()->route('admin.ky-cards.index')
-            ->with('success', 'KYCard aggiornata.');
+            ->with('success', 'KYCard aggiornata.' . $warning);
     }
 
     public function destroy(KyCard $kyCard): RedirectResponse
@@ -73,6 +110,67 @@ class AdminKyCardController extends Controller
             ->get();
 
         return view('admin.ky-cards.pending-transfers', compact('pending'));
+    }
+
+    // ── Stripe: sincronizzazione automatica del prezzo ──────────────────────
+
+    /**
+     * Crea un Price su Stripe (con Product inline) per la card e ne
+     * restituisce l'id, oppure null se la chiamata fallisce.
+     */
+    private function createStripePrice(string $name, int $priceEurCents): ?string
+    {
+        try {
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+
+            $price = \Stripe\Price::create([
+                'unit_amount'  => $priceEurCents,
+                'currency'     => 'eur',
+                'product_data' => ['name' => 'KYCard: ' . $name],
+            ]);
+
+            return $price->id;
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Stripe price auto-create failed', [
+                'error' => $e->getMessage(),
+                'name'  => $name,
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Disattiva un vecchio Price (+ il suo Product dedicato) su Stripe.
+     * Best-effort: non blocca mai il flusso di salvataggio della card.
+     *
+     * Nota: un Price non si può archiviare finché è il "default price" del
+     * suo Product (caso normale qui, dato che ogni Price viene creato con
+     * un Product inline dedicato via product_data). Va quindi archiviato
+     * prima il Product — a quel punto anche il Price si lascia archiviare,
+     * e lo facciamo per non lasciarlo elencato tra i prezzi attivi.
+     */
+    private function archiveStripePrice(?string $priceId): void
+    {
+        if (!$priceId) {
+            return;
+        }
+
+        try {
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+
+            $price = \Stripe\Price::retrieve($priceId);
+
+            if ($price->product) {
+                \Stripe\Product::update(is_string($price->product) ? $price->product : $price->product->id, ['active' => false]);
+            }
+
+            \Stripe\Price::update($priceId, ['active' => false]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Stripe price archive failed', [
+                'error'    => $e->getMessage(),
+                'price_id' => $priceId,
+            ]);
+        }
     }
 
     // ── Validation ─────────────────────────────────────────────────────────
