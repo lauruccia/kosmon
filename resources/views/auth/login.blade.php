@@ -348,13 +348,12 @@ document.getElementById('btn-cambia-account').addEventListener('click', function
 });
 
 // Salva email al submit dei form password
+// Legge l'email dal form effettivamente inviato (non con priorità globale,
+// altrimenti un campo nascosto stale sovrascrive il nuovo account).
 document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', function () {
-        const e = (
-            document.getElementById('email-sel').value ||
-            document.getElementById('email-step2').value ||
-            ''
-        ).trim();
+        const input = this.querySelector('input[name="email"]');
+        const e = (input && input.value || '').trim();
         if (e) saveAccount(e);
     });
 });
