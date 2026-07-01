@@ -67,17 +67,10 @@ class StatementController extends Controller
     {
         [$start, $end] = $this->parsePeriod($meseInput);
 
-        // Saldo all'inizio del periodo — ultimo ledger entry PRIMA del periodo
-        $openingEntry = $account->ledgerEntries()
-            ->where('posted_at', '<', $start)
-            ->latest('posted_at')
-            ->latest('id')
-            ->first();
-
-        $openingBalance = $openingEntry ? (int) $openingEntry->balance_after : 0;
-
-        // Movimenti del periodo
+        // Movimenti del periodo — escluse le correzioni tecniche di apertura ledger
+        // (TRX-OPEN), che non devono comparire nell'estratto conto del cliente.
         $transfers = Transfer::query()
+            ->excludeLedgerCorrections()
             ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser'])
             ->where(function ($q) use ($account) {
                 $q->where('from_account_id', $account->id)
@@ -89,14 +82,23 @@ class StatementController extends Controller
             ->orderBy('id')
             ->get();
 
-        // Saldo finale
+        // Saldo finale — dal ledger (include l'effetto della correzione di apertura)
         $closingEntry = $account->ledgerEntries()
             ->where('posted_at', '<=', $end)
             ->latest('posted_at')
             ->latest('id')
             ->first();
 
-        $closingBalance = $closingEntry ? (int) $closingEntry->balance_after : $openingBalance;
+        $closingBalance = $closingEntry ? (int) $closingEntry->balance_after : 0;
+
+        // Saldo iniziale ricostruito così che: iniziale + movimenti visibili = finale.
+        // In questo modo l'eventuale apertura ledger nascosta viene assorbita nel
+        // saldo iniziale ("Saldo iniziale") e l'estratto resta quadrato.
+        $periodNet = $transfers->sum(function (Transfer $t) use ($account): int {
+            return $t->to_account_id === $account->id ? (int) $t->amount : -(int) $t->amount;
+        });
+
+        $openingBalance = $closingBalance - $periodNet;
 
         $pdf = Pdf::loadView('pdf.statement', [
             'account'        => $account,

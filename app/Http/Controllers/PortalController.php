@@ -66,8 +66,8 @@ class PortalController extends Controller
                     $month = CarbonImmutable::now()->subMonths($offset);
                     return [
                         'label'   => $month->locale('it')->translatedFormat('M'),
-                        'income'  => Transfer::query()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
-                        'expense' => Transfer::query()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
+                        'income'  => Transfer::query()->excludeLedgerCorrections()->where('to_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
+                        'expense' => Transfer::query()->excludeLedgerCorrections()->where('from_account_id', $currentAccount->id)->where('status', 'booked')->whereYear('booked_at', $month->year)->whereMonth('booked_at', $month->month)->sum('amount'),
                     ];
                 });
             }
@@ -139,6 +139,7 @@ class PortalController extends Controller
                     FROM transfers
                     WHERE status = 'booked'
                       AND booked_at >= :cutoff_global
+                      AND (admin_action IS NULL OR admin_action <> :ledger_marker)
                       AND (to_account_id = :a7 OR from_account_id = :a8)
                 ", [
                     'a1' => $acctId, 'c30a' => $cutoff30,
@@ -148,6 +149,7 @@ class PortalController extends Controller
                     'a5' => $acctId, 'td_s' => $todayStart, 'td_e' => $todayEnd,
                     'a6' => $acctId, 'tm_s' => $monthStart, 'tm_e' => $monthEnd,
                     'cutoff_global' => $cutoff60,
+                    'ledger_marker' => \App\Models\Transfer::LEDGER_OPENING_ACTION,
                     'a7' => $acctId, 'a8' => $acctId,
                 ]);
 
@@ -1600,6 +1602,7 @@ class PortalController extends Controller
     {
         return \App\Models\Transfer::query()
             ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'initiator'])
+            ->excludeLedgerCorrections()
             ->where(function ($query) use ($accountIds) {
                 $query->whereIn('from_account_id', $accountIds)
                       ->orWhereIn('to_account_id', $accountIds);

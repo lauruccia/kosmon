@@ -96,6 +96,27 @@ class Transfer extends Model
         'refunded_at' => 'datetime',
     ];
 
+    /**
+     * Marker (admin_action) dei transfer tecnici di "apertura ledger" generati dal
+     * backfill di integrità del 2026-06-17 (reference TRX-OPEN-*, kind ky_emission).
+     * Non sono movimenti reali: allineano il ledger al saldo importato usando il
+     * conto sistema (KNM) come contropartita. Vanno nascosti ai clienti.
+     * Vedi _dev-tools/fix_ledger_apertura_prod.sql.
+     */
+    public const LEDGER_OPENING_ACTION = 'fix_ledger_apertura_20260617';
+
+    /**
+     * Esclude le correzioni tecniche di apertura ledger dalle viste rivolte al cliente.
+     * Restano visibili nel backoffice admin (che non usa questo scope).
+     */
+    public function scopeExcludeLedgerCorrections(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(function (\Illuminate\Database\Eloquent\Builder $q): void {
+            $q->whereNull('admin_action')
+              ->orWhere('admin_action', '!=', self::LEDGER_OPENING_ACTION);
+        });
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Transfer $transfer): void {
