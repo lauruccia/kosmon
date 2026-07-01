@@ -52,3 +52,12 @@ Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=60')
     ->name('queue-worker')
     ->withoutOverlapping(2)
     ->appendOutputTo(storage_path('logs/queue-worker.log'));
+
+// Monitora la contesa sul lock del conto sistema (fee/cashback) — segnala via
+// log+Sentry quando ci si avvicina alla soglia di serializzazione documentata in
+// TransferBookingService::bookFee(). Sola lettura: nessun impatto su saldi/lock.
+Schedule::command('accounting:check-contention')
+    ->everyFifteenMinutes()
+    ->name('accounting-contention-check')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/accounting-contention.log'));
