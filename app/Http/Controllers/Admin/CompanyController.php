@@ -10,8 +10,10 @@ use App\Models\NettingProposal;
 use App\Models\PaymentPlan;
 use App\Models\Transfer;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CompanyController extends Controller
@@ -155,6 +157,111 @@ class CompanyController extends Controller
         return back()->with('portal_success', 'Azienda ' . $company->name . ' attivata nel circuito.');
     }
 
+    /**
+     * POST /admin/companies/bulk
+     * Azione in blocco su piu' aziende: attiva / disattiva / sospendi / cambia piano.
+     * Target: aziende selezionate (scope=selected) o tutte quelle che rispettano
+     * i filtri correnti (scope=all_filtered).
+     */
+    public function bulkAction(Request $request): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'action'        => ['required', 'in:activate,deactivate,suspend,plan'],
+            'scope'         => ['required', 'in:selected,all_filtered'],
+            'company_ids'   => ['array'],
+            'company_ids.*' => ['integer'],
+            'plan'          => ['nullable', 'in:ecommerce,vetrina,biglietto,anagrafica,none'],
+        ]);
+
+        $action = $validated['action'];
+
+        // Query di base: aziende selezionate oppure tutte quelle filtrate.
+        if ($validated['scope'] === 'all_filtered') {
+            $query = $this->companyDirectoryQuery($this->companyDirectoryFilters($request));
+        } else {
+            $ids = $validated['company_ids'] ?? [];
+            if ($ids === []) {
+                return back()->with('portal_error', 'Nessuna azienda selezionata.');
+            }
+            $query = Company::query()->whereKey($ids);
+        }
+
+        // Per ogni azione: sottoinsieme rilevante, payload di update, evento audit e messaggi.
+        if ($action === 'plan') {
+            $planValue = $validated['plan'] ?? null;
+            if ($planValue === null) {
+                return back()->with('portal_error', 'Seleziona un piano da applicare.');
+            }
+            $planValue = $planValue === 'none' ? null : $planValue;
+
+            $query->where(fn ($q) => $planValue === null
+                ? $q->whereNotNull('subscription_plan')
+                : $q->where('subscription_plan', '!=', $planValue)->orWhereNull('subscription_plan'));
+
+            $payload  = ['subscription_plan' => $planValue];
+            $event    = 'admin.company.plan';
+            $auditCtx = ['bulk' => true, 'plan' => $planValue];
+            $emptyMsg = 'Nessuna azienda da aggiornare: avevano già questo piano.';
+            $doneMsg  = fn (int $n) => $planValue === null
+                ? ($n === 1 ? 'Piano rimosso da 1 azienda.' : "Piano rimosso da {$n} aziende.")
+                : ($n === 1
+                    ? '1 azienda aggiornata al piano ' . Company::SUBSCRIPTION_PLANS[$planValue] . '.'
+                    : "{$n} aziende aggiornate al piano " . Company::SUBSCRIPTION_PLANS[$planValue] . '.');
+        } elseif ($action === 'activate') {
+            $query->where(fn ($q) => $q->where('status', '!=', 'active')->orWhereNotNull('suspended_at'));
+            $payload  = ['status' => 'active', 'suspended_at' => null, 'suspension_reason' => null];
+            $event    = 'admin.company.activate';
+            $auditCtx = ['bulk' => true];
+            $emptyMsg = 'Nessuna azienda da attivare: erano già tutte attive.';
+            $doneMsg  = fn (int $n) => $n === 1 ? '1 azienda attivata nel circuito.' : "{$n} aziende attivate nel circuito.";
+        } elseif ($action === 'suspend') {
+            $query->whereNull('suspended_at');
+            $payload  = ['suspended_at' => now(), 'suspension_reason' => null];
+            $event    = 'admin.company.suspend';
+            $auditCtx = ['bulk' => true];
+            $emptyMsg = 'Nessuna azienda da sospendere: erano già tutte sospese.';
+            $doneMsg  = fn (int $n) => $n === 1 ? '1 azienda sospesa.' : "{$n} aziende sospese.";
+        } else { // deactivate
+            $query->where('status', '!=', 'pending');
+            $payload  = ['status' => 'pending'];
+            $event    = 'admin.company.deactivate';
+            $auditCtx = ['bulk' => true];
+            $emptyMsg = 'Nessuna azienda da disattivare.';
+            $doneMsg  = fn (int $n) => $n === 1 ? '1 azienda disattivata.' : "{$n} aziende disattivate.";
+        }
+
+        $companies = $query->get();
+
+        if ($companies->isEmpty()) {
+            return back()->with('portal_success', $emptyMsg);
+        }
+
+        $actorId = $request->user()->id;
+
+        DB::transaction(function () use ($companies, $payload, $event, $auditCtx, $actorId): void {
+            foreach ($companies as $company) {
+                $data = $payload;
+                // Preserva approved_at alla prima attivazione.
+                if (($data['status'] ?? null) === 'active') {
+                    $data['approved_at'] = $company->approved_at ?? now();
+                }
+                $company->update($data);
+
+                AuditLog::create([
+                    'actor_user_id'  => $actorId,
+                    'event'          => $event,
+                    'auditable_type' => Company::class,
+                    'auditable_id'   => $company->id,
+                    'context'        => $auditCtx,
+                ]);
+            }
+        });
+
+        return back()->with('portal_success', $doneMsg($companies->count()));
+    }
+
     /** POST /admin/companies/{company}/deactivate */
     public function deactivateCompany(Request $request, Company $company): RedirectResponse
     {
@@ -254,18 +361,13 @@ class CompanyController extends Controller
         ];
     }
 
-    private function buildAdminCompanyList(array $filters): array
+    /**
+     * Query aziende con i filtri della directory applicati (senza ordinamento/paginazione).
+     * Riutilizzata sia dalla lista sia dall'attivazione in blocco "tutte le filtrate".
+     */
+    private function companyDirectoryQuery(array $filters): Builder
     {
-        $sectorOptions = Company::query()
-            ->selectRaw('sector')
-            ->whereNotNull('sector')
-            ->where('sector', '!=', '')
-            ->distinct()
-            ->orderBy('sector')
-            ->pluck('sector');
-
-        $companies = Company::query()
-            ->withCount(['users', 'listings', 'announcements'])
+        return Company::query()
             ->when($filters['q'] !== '', function ($query) use ($filters): void {
                 $s = $filters['q'];
                 $query->where(fn ($q) =>
@@ -284,7 +386,21 @@ class CompanyController extends Controller
             ->when($filters['status'] === 'pending', fn ($q) => $q->where('status', '!=', 'active')->whereNull('suspended_at'))
             ->when($filters['status'] === 'suspended', fn ($q) => $q->whereNotNull('suspended_at'))
             ->when($filters['kyc_status'] !== '', fn ($q) => $q->where('kyc_status', $filters['kyc_status']))
-            ->when($filters['plan'] !== '', fn ($q) => $q->where('subscription_plan', $filters['plan']))
+            ->when($filters['plan'] !== '', fn ($q) => $q->where('subscription_plan', $filters['plan']));
+    }
+
+    private function buildAdminCompanyList(array $filters): array
+    {
+        $sectorOptions = Company::query()
+            ->selectRaw('sector')
+            ->whereNotNull('sector')
+            ->where('sector', '!=', '')
+            ->distinct()
+            ->orderBy('sector')
+            ->pluck('sector');
+
+        $companies = $this->companyDirectoryQuery($filters)
+            ->withCount(['users', 'listings', 'announcements'])
             ->orderByRaw("CASE
                 WHEN subscription_plan = 'ecommerce'  THEN 0
                 WHEN subscription_plan = 'vetrina'    THEN 1

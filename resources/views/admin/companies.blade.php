@@ -108,6 +108,21 @@
     .cnt-0 { color:#9ca3af; }
     .cnt-pos-green { color:#059669; }
     .cnt-pos-blue  { color:#1d4ed8; }
+
+    /* barra azioni in blocco */
+    .bulk-bar {
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        margin:0 0 12px; padding:10px 14px;
+        background:var(--surface); border:1px solid var(--line);
+        border-radius:var(--radius-sm); box-shadow:var(--shadow);
+    }
+    .bulk-info { font-size:13px; color:var(--ink-soft); margin-right:auto; }
+    .bulk-info strong { color:var(--ink); font-variant-numeric:tabular-nums; }
+    .bulk-bar .adm-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .bulk-select {
+        padding:7px 10px; border:1.5px solid var(--line); border-radius:8px;
+        font-size:13px; font-weight:700; background:var(--surface); color:var(--ink);
+    }
 </style>
 
 <div class="adm-co-wrap">
@@ -116,6 +131,9 @@
 
     @if(session('portal_success'))
         <div class="alert-banner success">{{ session('portal_success') }}</div>
+    @endif
+    @if(session('portal_error'))
+        <div class="alert-banner error">{{ session('portal_error') }}</div>
     @endif
 
     {{-- KPI --}}
@@ -212,10 +230,44 @@
                 <p>Prova a modificare i filtri di ricerca.</p>
             </div>
         @else
+        {{-- Barra azioni in blocco --}}
+        <form id="bulkForm" method="POST"
+              action="{{ route('admin.companies.bulk') }}{{ request()->getQueryString() ? '?'.request()->getQueryString() : '' }}"
+              class="bulk-bar">
+            @csrf
+            <input type="hidden" name="scope" id="bulk-scope" value="selected">
+
+            <select name="action" id="bulk-action" class="bulk-select">
+                <option value="activate">Attiva</option>
+                <option value="deactivate">Disattiva</option>
+                <option value="suspend">Sospendi</option>
+                <option value="plan">Cambia piano…</option>
+            </select>
+
+            <select name="plan" id="bulk-plan" class="bulk-select" style="display:none;">
+                @foreach(\App\Models\Company::SUBSCRIPTION_PLANS as $key => $label)
+                    <option value="{{ $key }}">{{ $label }}</option>
+                @endforeach
+                <option value="none">Nessun piano</option>
+            </select>
+
+            <span class="bulk-info"><strong id="bulk-count">0</strong> selezionate</span>
+
+            <button type="submit" id="btn-apply-selected" class="adm-btn adm-btn-green" disabled>
+                Applica a selezionate
+            </button>
+            <button type="submit" id="btn-apply-all" class="adm-btn adm-btn-blue">
+                Applica a tutte le filtrate
+            </button>
+        </form>
+
         <div class="adm-table-wrap">
             <table class="adm-table">
                 <thead>
                     <tr>
+                        <th style="width:38px;text-align:center;">
+                            <input type="checkbox" id="cb-all" title="Seleziona tutte (in pagina)">
+                        </th>
                         <th>Azienda</th>
                         <th>Piano</th>
                         <th>Stato</th>
@@ -234,6 +286,10 @@
                         $suspended = $company->suspended_at !== null;
                     @endphp
                     <tr>
+                        <td style="text-align:center;">
+                            <input type="checkbox" class="bulk-cb" value="{{ $company->id }}"
+                                   aria-label="Seleziona {{ $company->name }}">
+                        </td>
                         <td style="min-width:200px;max-width:280px;">
                             <div class="adm-name">{{ $company->name }}</div>
                             @if($company->email)
@@ -323,4 +379,78 @@
     </div>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form    = document.getElementById('bulkForm');
+    if (!form) return;
+
+    var master   = document.getElementById('cb-all');
+    var counter  = document.getElementById('bulk-count');
+    var scope    = document.getElementById('bulk-scope');
+    var actionEl = document.getElementById('bulk-action');
+    var planEl   = document.getElementById('bulk-plan');
+    var btnSel   = document.getElementById('btn-apply-selected');
+    var btnAll   = document.getElementById('btn-apply-all');
+    var boxes    = Array.prototype.slice.call(document.querySelectorAll('.bulk-cb'));
+
+    var LABELS = { activate: 'Attivare', deactivate: 'Disattivare', suspend: 'Sospendere', plan: 'Cambiare piano a' };
+
+    function refresh() {
+        var n = boxes.filter(function (b) { return b.checked; }).length;
+        counter.textContent = n;
+        btnSel.disabled = n === 0;
+        if (master) {
+            master.checked = n > 0 && n === boxes.length;
+            master.indeterminate = n > 0 && n < boxes.length;
+        }
+    }
+
+    // Mostra il selettore piano solo quando l'azione è "Cambia piano".
+    function togglePlan() {
+        planEl.style.display = actionEl.value === 'plan' ? '' : 'none';
+    }
+    actionEl.addEventListener('change', togglePlan);
+
+    if (master) {
+        master.addEventListener('change', function () {
+            boxes.forEach(function (b) { b.checked = master.checked; });
+            refresh();
+        });
+    }
+    boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+
+    function clearIds() {
+        form.querySelectorAll('input[name="company_ids[]"]').forEach(function (i) { i.remove(); });
+    }
+
+    // Applica a selezionate: inietta gli id scelti come hidden nel form.
+    btnSel.addEventListener('click', function (e) {
+        var selected = boxes.filter(function (b) { return b.checked; });
+        if (selected.length === 0) { e.preventDefault(); return; }
+        if (!confirm(LABELS[actionEl.value] + ' ' + selected.length + ' aziende selezionate?')) {
+            e.preventDefault(); return;
+        }
+        scope.value = 'selected';
+        clearIds();
+        selected.forEach(function (b) {
+            var h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'company_ids[]'; h.value = b.value;
+            form.appendChild(h);
+        });
+    });
+
+    // Applica a tutte le aziende che rispettano i filtri correnti.
+    btnAll.addEventListener('click', function (e) {
+        if (!confirm(LABELS[actionEl.value] + ' TUTTE le aziende che rispettano i filtri correnti? Operazione potenzialmente estesa.')) {
+            e.preventDefault(); return;
+        }
+        scope.value = 'all_filtered';
+        clearIds();
+    });
+
+    togglePlan();
+    refresh();
+});
+</script>
 @endsection

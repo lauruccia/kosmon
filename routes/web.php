@@ -667,6 +667,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/roles/{role}', [RoleController::class, 'updateRole'])->name('admin.roles.update')->middleware('backoffice');
 
     Route::get('/admin/companies', [CompanyController::class, 'companies'])->name('admin.companies.index')->middleware('backoffice');
+    Route::post('/admin/companies/bulk', [CompanyController::class, 'bulkAction'])->name('admin.companies.bulk')->middleware('backoffice');
     Route::get('/admin/companies/{company}', [CompanyController::class, 'showCompany'])->name('admin.companies.show')->middleware('backoffice');
     Route::post('/admin/companies/{company}/broker', [CompanyController::class, 'assignBroker'])->name('admin.companies.broker')->middleware('backoffice');
     Route::post('/admin/companies/{company}/credit-limit', [CreditLimitController::class, 'setCreditLimit'])->name('admin.companies.credit-limit')->middleware('backoffice');
