@@ -49,7 +49,7 @@
             font-size: 20px; font-weight: 800; color: var(--white);
             text-decoration: none;
         }
-        .topbar-logo svg { width: 30px; height: 30px; }
+        .topbar-logo svg, .topbar-logo img { width: 30px; height: 30px; object-fit: contain; }
         .topbar-link {
             font-size: 13px; font-weight: 600;
             color: rgba(255,255,255,0.65);
@@ -297,9 +297,7 @@
 <!-- TOP BAR -->
 <header class="topbar">
     <a href="/" class="topbar-logo">
-        <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 10 L15 110 L35 110 L35 70 L75 110 L100 110 L55 60 L95 10 L70 10 L35 52 L35 10 Z" fill="url(#kG)"/>
-        </svg>
+        <img src="{{ asset('assets/brand/kmoney-logo.png') }}" alt="KMoney">
         KMoney
     </a>
     <a href="{{ route('login') }}" class="topbar-link">Hai già un account? Accedi</a>

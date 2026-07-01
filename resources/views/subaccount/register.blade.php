@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="card">
-        <div class="logo">KY</div>
+        <div class="logo"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#fff;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);"><span style="width:26px;height:32px;display:block;">@include('partials.brand-k')</span></span></div>
         <h1>Crea il tuo accesso</h1>
         <p class="subtext">
             Stai per diventare gestore del sottoconto

@@ -5,7 +5,7 @@
     <div style="width:100%;max-width:440px;">
 
         <div style="text-align:center;margin-bottom:32px;">
-            <div style="width:56px;height:56px;background:#0c4a86;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;letter-spacing:.02em;margin-bottom:16px;">KY</div>
+            <div style="width:56px;height:56px;background:#fff;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 4px 16px rgba(15,34,58,.12);"><span style="width:30px;height:36px;display:block;">@include('partials.brand-k')</span></div>
             <h1 style="font-size:26px;font-weight:700;color:#10263d;margin-bottom:6px;">Nuova password</h1>
             <p style="color:#64748b;font-size:15px;">Scegli una password sicura per il tuo conto KMoney.</p>
         </div>

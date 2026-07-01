@@ -9,7 +9,7 @@
         :root { --navy:#1d3344; --navy-deep:#11222f; --mist:#eef3f5; --line:#d9e2e8; --sage:#718b5c; --rose:#f8ecef; --ink:#142431; --muted:#557082; }
         *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Tahoma,sans-serif;background:linear-gradient(180deg,var(--navy) 0 45%, #f5f8f9 45% 100%);color:var(--ink)}
         .wrap{min-height:100vh;display:grid;place-items:center;padding:36px 16px}.card{width:min(100%,1120px);display:grid;grid-template-columns:minmax(340px,.9fr) minmax(420px,1.1fr);background:#fff;border-radius:34px;overflow:hidden;box-shadow:0 26px 70px rgba(10,27,39,.18)}
-        .brand{padding:42px 38px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-deep) 100%);color:#fff;display:grid;gap:22px}.brand img{width:72px}.brand h1{margin:0;font-size:48px;font-family:Georgia,"Times New Roman",serif}.brand p{margin:0;color:rgba(255,255,255,.76);line-height:1.7}.feature{padding:16px 18px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
+        .brand{padding:42px 38px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-deep) 100%);color:#fff;display:grid;gap:22px}.brand img{width:72px}.brand .brand-k{display:block;width:60px;height:72px}.brand h1{margin:0;font-size:48px;font-family:Georgia,"Times New Roman",serif}.brand p{margin:0;color:rgba(255,255,255,.76);line-height:1.7}.feature{padding:16px 18px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
         .feature strong{display:block;margin-bottom:8px}.panel{padding:42px 38px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.panel h2{margin:10px 0 8px;font-size:42px;font-family:Georgia,"Times New Roman",serif}.sub{color:var(--muted);font-size:17px;line-height:1.6}.err{margin:20px 0 0;padding:14px 16px;border-radius:16px;background:var(--rose);color:#7a4250;font-weight:700}
         .field{margin-top:18px}.field label{display:block;margin-bottom:8px;font-weight:700;color:#2f5063}.field input{width:100%;min-height:54px;padding:0 16px;border:1px solid var(--line);border-radius:16px;font-size:17px}
         .cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}.cta,.ghost{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:0 18px;border-radius:16px;font-weight:800;text-decoration:none}.cta{border:0;background:linear-gradient(135deg,#4d7386,#718b5c);color:#fff;cursor:pointer}.ghost{border:1px solid var(--line);color:var(--ink);background:#f7fafb}
@@ -32,6 +32,7 @@
             .card{grid-template-columns:1fr;grid-template-rows:auto 1fr;border-radius:0;box-shadow:none;min-height:100vh}
             .brand{order:2;padding:24px 20px;gap:12px;display:flex;flex-direction:row;align-items:center;flex-wrap:wrap}
             .brand img{width:36px}
+            .brand .brand-k{width:30px;height:36px}
             .brand>div{flex:1}
             .brand h1{font-size:18px;margin:0}
             .brand p,.feature{display:none}
@@ -46,7 +47,7 @@
     <div class="wrap">
         <div class="card">
             <section class="brand">
-                <img src="/assets/brand/kmoney-logo.png" alt="KMoney logo">
+                <span class="brand-k" aria-label="KMoney">@include('partials.brand-k')</span>
                 <div>
                     <div class="eyebrow" style="color:rgba(255,255,255,.68);">Circuito KY</div>
                     <h1>Accedi a KMoney</h1>

@@ -44,7 +44,7 @@
     nav.scrolled{background:rgba(12,21,24,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);padding:12px 0}
     .nav-inner{display:flex;align-items:center;justify-content:space-between}
     .nav-logo{display:flex;align-items:center;gap:12px;font-family:'Playfair Display',serif;font-size:22px;font-weight:800}
-    .nav-logo svg{width:34px;height:34px}
+    .nav-logo svg,.nav-logo img{width:34px;height:34px;object-fit:contain}
     .nav-links{display:flex;align-items:center;gap:36px;list-style:none}
     .nav-links a{font-size:14px;font-weight:500;color:rgba(255,255,255,0.7);transition:color .2s}
     .nav-links a:hover{color:var(--green-2)}
@@ -115,7 +115,7 @@
     .about{padding:100px 0;background:var(--bg-2);position:relative;overflow:hidden}
     .about-inner{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
     .about-img-bg{width:100%;height:460px;border-radius:28px;background:linear-gradient(135deg,#172830,#1e3530);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-    .about-k svg{width:160px;height:160px;opacity:.9}
+    .about-k svg,.about-k img{width:160px;height:160px;object-fit:contain;opacity:.9}
     .about-img-badge{position:absolute;bottom:-16px;right:-16px;background:var(--grad);border-radius:20px;padding:20px 24px;box-shadow:0 12px 32px rgba(77,122,82,0.4)}
     .about-img-badge-num{font-family:'Playfair Display',serif;font-size:32px;font-weight:800;color:var(--white)}
     .about-img-badge-text{font-size:12px;color:rgba(255,255,255,0.7);font-weight:600}
@@ -192,7 +192,7 @@
     footer{background:#080f12;border-top:1px solid var(--glass-border);padding:72px 0 40px}
     .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr;gap:48px;margin-bottom:56px}
     .footer-logo{display:flex;align-items:center;gap:12px;font-family:'Playfair Display',serif;font-size:20px;font-weight:800;margin-bottom:16px}
-    .footer-logo svg{width:30px;height:30px}
+    .footer-logo svg,.footer-logo img{width:30px;height:30px;object-fit:contain}
     .footer-desc{font-size:13px;color:var(--gray-3);line-height:1.75;margin-bottom:24px}
     .footer-socials{display:flex;gap:10px}
     .social-btn{width:38px;height:38px;background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s}
@@ -243,9 +243,7 @@
   <div class="container">
     <div class="nav-inner">
       <a href="{{ url('/') }}" class="nav-logo">
-        <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15 10 L15 110 L35 110 L35 70 L75 110 L100 110 L55 60 L95 10 L70 10 L35 52 L35 10 Z" fill="url(#kGrad)"/>
-        </svg>
+        <img src="{{ asset('assets/brand/kmoney-logo.png') }}" alt="KMoney">
         KMoney
       </a>
       <ul class="nav-links">
@@ -442,9 +440,7 @@
       <div class="about-image-wrap reveal">
         <div class="about-img-bg">
           <div class="about-k">
-            <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 10 L15 110 L35 110 L35 70 L75 110 L100 110 L55 60 L95 10 L70 10 L35 52 L35 10 Z" fill="url(#kGrad)"/>
-            </svg>
+            <img src="{{ asset('assets/brand/kmoney-logo.png') }}" alt="KMoney">
           </div>
         </div>
         <div class="about-img-badge">
@@ -667,9 +663,7 @@
     <div class="footer-grid">
       <div>
         <div class="footer-logo">
-          <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 10 L15 110 L35 110 L35 70 L75 110 L100 110 L55 60 L95 10 L70 10 L35 52 L35 10 Z" fill="url(#kGrad)"/>
-          </svg>
+          <img src="{{ asset('assets/brand/kmoney-logo.png') }}" alt="KMoney">
           KMoney
         </div>
         <p class="footer-desc">Kosmos Group opera nel settore del marketing e della comunicazione da oltre 30 anni. La nostra mission &egrave; accrescere la competitivit&agrave; di aziende e imprese attraverso soluzioni innovative come KMoney.</p>

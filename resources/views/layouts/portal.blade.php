@@ -318,6 +318,7 @@
             box-shadow: 0 4px 14px rgba(0,0,0,.22);
         }
         .brand-mark img { width: 26px; height: 36px; object-fit: contain; display: block; }
+        .brand-mark .brand-k { width: 26px; height: 32px; display: block; }
         .brand-copy strong { display: block; font-size: 20px; letter-spacing: -.01em; color: #fff; }
         .brand-copy small {
             display: block; margin-top: 2px;
@@ -1270,7 +1271,7 @@
         <aside class="sidebar">
             <div class="sidebar-inner">
                 <a href="{{ $isBackoffice ? route('admin.dashboard') : route('portal.dashboard') }}" class="brand-lockup">
-                    <span class="brand-mark"><img src="/assets/brand/kmoney-logo.png" alt="KMoney logo"></span>
+                    <span class="brand-mark"><span class="brand-k">@include('partials.brand-k')</span></span>
                     <span class="brand-copy">
                         <strong>KMoney</strong>
                         <small>{{ $isBackoffice ? 'Backoffice bancario' : ($isDelegate ? 'Console delegato' : 'Conti privati e aziendali') }}</small>

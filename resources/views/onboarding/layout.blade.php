@@ -57,9 +57,11 @@
         }
         .ob-brand-mark {
             width: 40px; height: 40px; border-radius: 12px;
-            background: var(--navy); display: grid; place-items: center;
+            background: #fff; display: grid; place-items: center;
+            box-shadow: 0 4px 14px rgba(0,0,0,.12);
         }
         .ob-brand-mark img { width: 22px; height: 30px; object-fit: contain; }
+        .ob-brand-mark .brand-k { width: 22px; height: 26px; display: block; }
         .ob-brand-name { font-size: 20px; font-weight: 700; color: var(--navy); letter-spacing: -.01em; }
         .ob-logout { font-size: 13px; color: var(--ink-muted); }
         .ob-logout:hover { color: var(--ink); }
@@ -219,7 +221,7 @@
     <header class="ob-header">
         <div class="ob-brand">
             <div class="ob-brand-mark">
-                <img src="/assets/brand/logo.svg" alt="KMoney" onerror="this.style.display='none'">
+                <span class="brand-k">@include('partials.brand-k')</span>
             </div>
             <span class="ob-brand-name">KMoney</span>
         </div>
