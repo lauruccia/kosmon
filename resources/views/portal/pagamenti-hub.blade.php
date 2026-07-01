@@ -205,13 +205,6 @@
         <span class="hub-card__badge hub-card__badge--amber">Contactless</span>
     </a>
 
-    <a href="{{ route('portal.incasso-sonic.form') }}" class="hub-card" data-method="sonic">
-        <div class="hub-card__icon hub-card__icon--violet">🔊</div>
-        <div class="hub-card__title">Sonic Pay</div>
-        <div class="hub-card__desc">Trasferimento via ultrasuoni con il microfono del telefono.</div>
-        <span class="hub-card__badge hub-card__badge--violet">Audio token</span>
-    </a>
-
     <a href="{{ route('portal.incasso-codice.form') }}" class="hub-card" data-method="codice">
         <div class="hub-card__icon hub-card__icon--slate">🔑</div>
         <div class="hub-card__title">Codice di pagamento</div>

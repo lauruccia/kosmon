@@ -30,6 +30,15 @@ use Illuminate\View\View;
  */
 class SonicPaymentController extends Controller
 {
+    /**
+     * Funzione disattivata: audio detection troppo inaffidabile in produzione.
+     * Le route restano registrate (non rompere i vecchi link/route() nelle view),
+     * ma ogni azione reindirizza/rifiuta con messaggio esplicito.
+     */
+    private const ENABLED = false;
+
+    private const DISABLED_MESSAGE = 'Il pagamento Sonic è stato disattivato.';
+
     public function __construct(private readonly TransferBookingService $transferService) {}
 
     // =========================================================================
@@ -38,6 +47,10 @@ class SonicPaymentController extends Controller
 
     public function form(Request $request): View|RedirectResponse
     {
+        if (! self::ENABLED) {
+            return redirect()->route('portal.pagamenti-hub')->with('portal_error', self::DISABLED_MESSAGE);
+        }
+
         $user = $request->user();
 
         if ($user->canAccessBackoffice()) {
@@ -60,6 +73,10 @@ class SonicPaymentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! self::ENABLED) {
+            return redirect()->route('portal.pagamenti-hub')->with('portal_error', self::DISABLED_MESSAGE);
+        }
+
         $user = $request->user();
 
         if ($user->canAccessBackoffice()) {
@@ -103,6 +120,10 @@ class SonicPaymentController extends Controller
 
     public function show(Request $request, string $token): View|RedirectResponse
     {
+        if (! self::ENABLED) {
+            return redirect()->route('portal.pagamenti-hub')->with('portal_error', self::DISABLED_MESSAGE);
+        }
+
         $user = $request->user();
 
         if ($user->canAccessBackoffice()) {
@@ -127,6 +148,10 @@ class SonicPaymentController extends Controller
 
     public function status(Request $request, string $token): JsonResponse
     {
+        if (! self::ENABLED) {
+            return response()->json(['error' => self::DISABLED_MESSAGE], 503);
+        }
+
         $user = $request->user();
 
         $pr = PaymentRequest::with(['fromAccount.company', 'fromAccount.ownerUser'])
@@ -159,6 +184,10 @@ class SonicPaymentController extends Controller
 
     public function cancel(Request $request, string $token): RedirectResponse
     {
+        if (! self::ENABLED) {
+            return redirect()->route('portal.pagamenti-hub')->with('portal_error', self::DISABLED_MESSAGE);
+        }
+
         $user = $request->user();
 
         $pr = PaymentRequest::where('token', $token)->where('kind', 'sonic')->firstOrFail();
@@ -180,6 +209,10 @@ class SonicPaymentController extends Controller
 
     public function receiveForm(Request $request): View|RedirectResponse
     {
+        if (! self::ENABLED) {
+            return redirect()->route('portal.pagamenti-hub')->with('portal_error', self::DISABLED_MESSAGE);
+        }
+
         $user = $request->user();
 
         if ($user->canAccessBackoffice()) {
@@ -202,6 +235,10 @@ class SonicPaymentController extends Controller
 
     public function verify(Request $request): JsonResponse
     {
+        if (! self::ENABLED) {
+            return response()->json(['error' => self::DISABLED_MESSAGE], 503);
+        }
+
         $user = $request->user();
 
         $validated = $request->validate([

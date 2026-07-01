@@ -1387,11 +1387,6 @@
                                     <span class="nav-icon">💸</span><span>Invia KY</span>
                                 </a>
                                 @endif
-                                @if($mv('paga-sonic'))
-                                <a class="sidebar-link {{ $an === 'paga-sonic' ? 'active' : '' }}" href="{{ route('portal.paga-sonic.form') }}">
-                                    <span class="nav-icon">🔊</span><span>Paga Sonic</span>
-                                </a>
-                                @endif
                                 @if($mv('paga-codice'))
                                 <a class="sidebar-link {{ $an === 'paga-codice' ? 'active' : '' }}" href="{{ route('portal.paga-codice.form') }}">
                                     <span class="nav-icon">🔢</span><span>Paga Codice</span>
@@ -1434,11 +1429,6 @@
                                 @if($mv('incasso-nfc'))
                                 <a class="sidebar-link {{ $an === 'incasso-nfc' ? 'active' : '' }}" href="{{ route('portal.incasso-nfc.form') }}">
                                     <span class="nav-icon">NFC</span><span>NFC</span>
-                                </a>
-                                @endif
-                                @if($mv('incasso-sonic'))
-                                <a class="sidebar-link {{ $an === 'incasso-sonic' ? 'active' : '' }}" href="{{ route('portal.incasso-sonic.form') }}">
-                                    <span class="nav-icon">🔊</span><span>Sonic</span>
                                 </a>
                                 @endif
                                 @if($mv('incasso-codice'))
