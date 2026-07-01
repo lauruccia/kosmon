@@ -182,20 +182,27 @@ class AdminKyCardController extends Controller
             'description'      => 'nullable|string|max:500',
             'price_eur'        => 'required|numeric|min:0.01|max:99999',
             'bonus_type'       => 'required|in:fixed,percentage',
-            'ky_base_amount'   => 'required|integer|min:1',
+            'ky_base_amount'   => 'required|numeric|min:0.01|max:999999',
             'bonus_value'      => 'required|numeric|min:0',
             'stripe_price_id'  => 'nullable|string|max:100',
             'sort_order'       => 'nullable|integer|min:0',
             'is_active'        => 'nullable|boolean',
         ]);
 
+        // Il form lavora sempre in "KY umani" (come per price_eur -> price_eur_cents):
+        // "Fisso" è KY extra nella stessa unità di ky_base_amount, quindi va convertito
+        // anch'esso in centesimi; "Percentuale" è un numero puro (es. 25 = 25%), non si tocca.
+        $bonusValueCents = $raw['bonus_type'] === 'fixed'
+            ? (float) round($raw['bonus_value'] * 100)
+            : (float) $raw['bonus_value'];
+
         return [
             'name'            => $raw['name'],
             'description'     => $raw['description'] ?? null,
             'price_eur_cents' => (int) round($raw['price_eur'] * 100),
             'bonus_type'      => $raw['bonus_type'],
-            'ky_base_amount'  => (int) $raw['ky_base_amount'],
-            'bonus_value'     => (float) $raw['bonus_value'],
+            'ky_base_amount'  => (int) round($raw['ky_base_amount'] * 100),
+            'bonus_value'     => $bonusValueCents,
             'stripe_price_id' => $raw['stripe_price_id'] ?? null,
             'sort_order'      => (int) ($raw['sort_order'] ?? 0),
             'is_active'       => (bool) ($raw['is_active'] ?? true),

@@ -51,8 +51,8 @@
                     <label class="form-label" style="margin-bottom:4px;">KY nominali <span style="font-weight:400;color:var(--ink-muted);">(prima del bonus)</span> *</label>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <input type="number" name="ky_base_amount" id="ky_base_amount"
-                               value="{{ old('ky_base_amount', $card->ky_base_amount ?? '') }}"
-                               placeholder="es. 100" step="1" min="1"
+                               value="{{ old('ky_base_amount', $card->exists ? $card->ky_base_amount / 100 : '') }}"
+                               placeholder="es. 100" step="0.01" min="0.01"
                                class="form-control" required oninput="updatePreview()">
                         <span style="font-size:13px;font-weight:700;color:var(--ink-muted);">KY</span>
                     </div>
@@ -84,8 +84,18 @@
                 <div>
                     <label class="form-label" id="bonus-label" style="margin-bottom:4px;">Valore bonus *</label>
                     <div style="display:flex;align-items:center;gap:8px;">
+                        @php
+                            $bonusValueDisplay = 0;
+                            if ($card->exists) {
+                                // "Fisso" è espresso nella stessa unità di ky_base_amount (centesimi di KY
+                                // in DB, KY interi nel form) — "Percentuale" è un numero puro, nessuna conversione.
+                                $bonusValueDisplay = $card->bonus_type === 'fixed'
+                                    ? $card->bonus_value / 100
+                                    : $card->bonus_value;
+                            }
+                        @endphp
                         <input type="number" name="bonus_value" id="bonus_value"
-                               value="{{ old('bonus_value', $card->bonus_value ?? 0) }}"
+                               value="{{ old('bonus_value', $bonusValueDisplay) }}"
                                placeholder="0" step="0.01" min="0"
                                class="form-control" required oninput="updatePreview()">
                         <span id="bonus-unit" style="font-size:13px;font-weight:700;color:var(--ink-muted);white-space:nowrap;">KY extra</span>
@@ -157,7 +167,7 @@ function switchBonusType(type) {
 
 function updatePreview() {
     const eur        = parseFloat(document.getElementById('price_eur').value) || 0;
-    const kyBase     = parseInt(document.getElementById('ky_base_amount').value) || 0;
+    const kyBase     = parseFloat(document.getElementById('ky_base_amount').value) || 0;
     const bonusVal   = parseFloat(document.getElementById('bonus_value').value) || 0;
     const bonusType  = document.querySelector('input[name="bonus_type"]:checked')?.value || 'fixed';
 
@@ -166,12 +176,12 @@ function updatePreview() {
         kyTotal   = kyBase + bonusVal;
         badgeText = bonusVal > 0 ? '+' + bonusVal.toLocaleString('it-IT') + ' KY cashback' : 'Nessun bonus';
     } else {
-        kyTotal   = Math.round(kyBase * (1 + bonusVal / 100));
+        kyTotal   = kyBase * (1 + bonusVal / 100);
         badgeText = bonusVal > 0 ? '+' + bonusVal + '% cashback' : 'Nessun bonus';
     }
 
     document.getElementById('prev-eur').textContent  = eur > 0 ? eur.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-    document.getElementById('prev-ky').textContent   = kyTotal > 0 ? kyTotal.toLocaleString('it-IT') : '—';
+    document.getElementById('prev-ky').textContent   = kyTotal > 0 ? kyTotal.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
     document.getElementById('prev-badge').textContent = badgeText;
 }
 
