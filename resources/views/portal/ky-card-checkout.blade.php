@@ -28,7 +28,7 @@
 
             @if($hasStripe)
             <button type="button" id="tab-stripe" onclick="switchTab('stripe')"
-                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;
+                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;outline:none;
                            border:2px solid #2563eb;background:#eff6ff;
                            font-size:13px;font-weight:700;cursor:pointer;color:#1d4ed8;transition:all .15s;">
                 💳 Carta di credito
@@ -37,7 +37,7 @@
 
             @if($hasPaypal)
             <button type="button" id="tab-paypal" onclick="switchTab('paypal')"
-                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;
+                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;outline:none;
                            border:2px solid var(--border);background:var(--card-bg);
                            font-size:13px;font-weight:700;cursor:pointer;color:var(--ink);transition:all .15s;">
                 🅿 PayPal
@@ -45,7 +45,7 @@
             @endif
 
             <button type="button" id="tab-bank" onclick="switchTab('bank')"
-                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;
+                    style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;outline:none;
                            border:2px solid var(--border);background:var(--card-bg);
                            font-size:13px;font-weight:700;cursor:pointer;color:var(--ink);transition:all .15s;">
                 🏦 Bonifico
