@@ -3,7 +3,7 @@
  * Strategie: Cache-first per asset statici, Network-first per pagine HTML.
  */
 
-const CACHE_VERSION = 'kmoney-v3';
+const CACHE_VERSION = 'kmoney-v4';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const PAGE_CACHE    = `${CACHE_VERSION}-pages`;
 
@@ -43,6 +43,7 @@ const BYPASS_PATTERNS = [
     /\/onboarding/,
     /\/push\//,
     /\/health/,      // health check sempre live
+    /\/ricarica/,    // pagina KYCard: form di pagamento con CSRF token + integrazione Stripe live
 ];
 
 // ── Install ─────────────────────────────────────────────────────────
