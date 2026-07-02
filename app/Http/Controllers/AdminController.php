@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\ApiToken;
+use App\Models\KyCardPurchase;
 use App\Models\NettingProposal;
 use App\Models\PaymentPlan;
+use App\Models\PaymentPlanInstallment;
+use App\Models\PaymentRequest;
 use App\Models\ScheduledPayment;
+use App\Models\SubAccountLimitRequest;
 use App\Models\TextPaymentRequest;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
@@ -305,6 +309,15 @@ class AdminController extends Controller
      *  - Cashback (idempotency_key = 'cashback_' . uuid del movimento)
      *  - Storni / rimborsi figli (reversed_transfer_id = movimento)
      *
+     * Protetta contro un caso limite: i movimenti generati da una compensazione
+     * (netting) accettata non sono eliminabili da qui (FK restrictOnDelete su
+     * netting_proposals.net_transfer_id) — vedi abort_if sotto.
+     *
+     * Prima di toccare i saldi, riporta a uno stato coerente anche i record
+     * esterni collegati via FK nullOnDelete (richieste di pagamento, rate,
+     * pagamenti programmati, sforamenti sub-conto) — vedi
+     * revertRecordsLinkedToDeletedTransfers().
+     *
      * DEVE essere chiamato dentro una DB::transaction() dal chiamante.
      * Per ogni LedgerEntry eliminata, applica al conto l'effetto inverso:
      *  - credit (aveva aumentato il saldo) → sottrae l'importo
@@ -331,6 +344,21 @@ class AdminController extends Controller
         $ids = $ids->merge(Transfer::where('reversed_transfer_id', $transfer->id)->pluck('id'));
 
         $ids = $ids->unique()->values();
+
+        // Protezione: un movimento generato da una compensazione (netting) accettata
+        // è referenziato da netting_proposals.net_transfer_id con vincolo FK
+        // restrictOnDelete — eliminarlo qui lascerebbe la proposta orfana e farebbe
+        // fallire la query con un errore SQL grezzo. Blocchiamo prima di toccare i saldi.
+        abort_if(
+            NettingProposal::whereIn('net_transfer_id', $ids)->exists(),
+            422,
+            'Questo movimento è il saldo di una compensazione (netting) accettata e non può essere eliminato da qui.'
+        );
+
+        // Ripristina PRIMA lo stato dei record collegati (richieste di pagamento,
+        // rate, pagamenti programmati...): le loro FK verso transfers sono
+        // nullOnDelete, quindi dopo la delete perderemmo il modo di individuarli.
+        $linkedReverted = $this->revertRecordsLinkedToDeletedTransfers($ids);
 
         // Carica con i ledger. Ordina in modo che il movimento padre sia eliminato
         // per ultimo (i figli lo referenziano via FK related/reversed).
@@ -381,6 +409,7 @@ class AdminController extends Controller
                 'primary_reference'  => $transfer->reference,
                 'deleted_transfers'  => $snapshot,
                 'count'              => count($snapshot),
+                'linked_reverted'    => $linkedReverted,
             ],
         ]);
 
@@ -389,6 +418,90 @@ class AdminController extends Controller
             'linked'  => max(0, count($snapshot) - 1),
             'ids'     => $ids->all(),
         ];
+    }
+
+    /**
+     * Le FK verso transfers su richieste/rate/pagamenti programmati sono
+     * nullOnDelete: dopo la cancellazione del movimento restava un record con
+     * status "pagato/eseguito" ma transfer_id NULL — un'incongruenza nell'audit
+     * trail (il record giurava che un pagamento era avvenuto, ma non esisteva
+     * più nulla a dimostrarlo). Qui riportiamo esplicitamente questi record a
+     * uno stato "annullato" coerente, PRIMA che la FK li spezzi.
+     *
+     * Nessuno di questi giri tocca available_balance: i saldi sono già stati
+     * ripristinati dal ciclo sui ledger entries in deleteTransferWithCascade().
+     *
+     * `KyCardPurchase` è escluso di proposito: il pagamento reale (Stripe/
+     * PayPal) è avvenuto FUORI dal circuito KY. Il suo status "completed"
+     * resta l'unica verità corretta anche se il transfer KY collegato viene
+     * eliminato — cambiarlo rischierebbe un doppio accredito se un webhook
+     * duplicato dovesse ripassare di lì (creditKy() si affida a isCompleted()
+     * come guardia di idempotenza). Ci limitiamo ad annotare admin_notes.
+     *
+     * Nessuno stato viene riportato a "pending": un ripristino automatico
+     * rimetterebbe questi record nella coda dei job schedulati (es.
+     * ProcessDueInstallments), innescando un nuovo movimento di denaro reale
+     * senza che nessuno l'abbia deciso esplicitamente. Se serve, l'admin
+     * ricrea la richiesta/rata a mano.
+     *
+     * @param \Illuminate\Support\Collection<int,int> $transferIds
+     * @return array<string,int> conteggio dei record ripristinati per tipo (solo chiavi > 0)
+     */
+    private function revertRecordsLinkedToDeletedTransfers($transferIds): array
+    {
+        $note = 'Movimento collegato eliminato da un amministratore il ' . CarbonImmutable::now()->format('d/m/Y H:i') . '.';
+
+        $counts = [];
+
+        $counts['payment_requests'] = PaymentRequest::query()
+            ->whereIn('transfer_id', $transferIds)
+            ->update(['status' => 'cancelled', 'paid_at' => null]);
+
+        $counts['text_payment_requests'] = TextPaymentRequest::query()
+            ->whereIn('transfer_id', $transferIds)
+            ->update(['status' => 'cancelled']);
+
+        $counts['scheduled_payments'] = ScheduledPayment::query()
+            ->whereIn('transfer_id', $transferIds)
+            ->update(['status' => 'cancelled', 'executed_at' => null, 'failure_reason' => $note]);
+
+        $revertedInstallments = PaymentPlanInstallment::query()
+            ->whereIn('transfer_id', $transferIds)
+            ->get(['id', 'payment_plan_id']);
+
+        foreach ($revertedInstallments as $installment) {
+            $installment->forceFill([
+                'status'         => 'cancelled',
+                'processed_at'   => null,
+                'failure_reason' => $note,
+            ])->save();
+
+            // Se il piano era stato marcato "completed" solo grazie a questa rata, riaprilo:
+            // non è più vero che tutte le rate sono state incassate.
+            $plan = PaymentPlan::find($installment->payment_plan_id);
+            if ($plan !== null && $plan->status === 'completed') {
+                $plan->forceFill(['status' => 'active'])->save();
+            }
+        }
+        $counts['payment_plan_installments'] = $revertedInstallments->count();
+
+        // Sforamento (overdraft) sub-conto: il transfer che lo aveva consumato
+        // non esiste più, quindi il credito concesso torna disponibile.
+        $counts['sub_account_overdrafts'] = SubAccountLimitRequest::query()
+            ->whereIn('overdraft_transfer_id', $transferIds)
+            ->update(['overdraft_used' => false]);
+
+        $annotatedPurchases = KyCardPurchase::query()
+            ->whereIn('transfer_id', $transferIds)
+            ->get(['id', 'admin_notes']);
+        foreach ($annotatedPurchases as $purchase) {
+            $purchase->forceFill([
+                'admin_notes' => trim(($purchase->admin_notes ? $purchase->admin_notes . ' ' : '') . $note),
+            ])->save();
+        }
+        $counts['ky_card_purchases_annotated'] = $annotatedPurchases->count();
+
+        return array_filter($counts);
     }
 
     private function stats(): array
