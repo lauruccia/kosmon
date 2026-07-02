@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CreateNfcCardPaymentRequest;
 use App\Http\Requests\IdentifyNfcCardRequest;
 use App\Models\Account;
-use App\Models\Company;
 use App\Models\NfcCard;
 use App\Models\NfcCardAuthSession;
 use App\Notifications\NfcCardPinRequestNotification;
@@ -156,17 +155,17 @@ class NfcCardPaymentController extends Controller
 
         // Notifica tutti gli utenti della company titolare della card
         try {
-            $merchant     = $merchantAccount->company ?? Company::find($merchantAccount->company_id);
-            $pushService  = app(\App\Services\WebPushService::class);
-            $pushTitle    = 'Richiesta di pagamento';
-            $pushBody     = sprintf('%s richiede %s KY. Tocca per confermare.',
-                $merchant?->name ?? 'Un commerciante',
+            $requesterName = $merchantAccount->owner_label ?? 'Un commerciante';
+            $pushService   = app(\App\Services\WebPushService::class);
+            $pushTitle     = 'Richiesta di pagamento';
+            $pushBody      = sprintf('%s richiede %s KY. Tocca per confermare.',
+                $requesterName,
                 ky_format($session->amount),
             );
 
-            $card->ownerUsersToNotify()->each(function ($user) use ($session, $merchant, $signedUrl, $pushService, $pushTitle, $pushBody) {
+            $card->ownerUsersToNotify()->each(function ($user) use ($session, $requesterName, $signedUrl, $pushService, $pushTitle, $pushBody) {
                 // Notifica database + mail + broadcast (via coda)
-                $user->notify(new NfcCardPinRequestNotification($session, $merchant, $signedUrl));
+                $user->notify(new NfcCardPinRequestNotification($session, $requesterName, $signedUrl));
 
                 // Push inviato direttamente dal contesto web (evita limitazioni CLI del cron)
                 $pushService->notifyUser($user, $pushTitle, $pushBody, [
@@ -273,9 +272,7 @@ class NfcCardPaymentController extends Controller
 
         // Notifica informativa al titolare (nessuna azione richiesta)
         try {
-            $merchantName = $merchantAccount->company?->name
-                ?? Company::find($merchantAccount->company_id)?->name
-                ?? 'un commerciante';
+            $merchantName = $merchantAccount->owner_label ?? 'un commerciante';
             $pushService = app(\App\Services\WebPushService::class);
 
             $card->ownerUsersToNotify()->each(function ($user) use ($pushService, $session, $merchantName) {
