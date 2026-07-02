@@ -266,11 +266,11 @@
                         <th>#</th>
                         <th>UUID</th>
                         <th>Da / A</th>
-                        <th>Kind</th>
-                        <th style="text-align:right">Amount</th>
-                        <th style="text-align:right">Debit LE</th>
-                        <th style="text-align:right">Credit LE</th>
-                        <th style="text-align:right">Entry</th>
+                        <th>Tipo</th>
+                        <th style="text-align:right">Importo</th>
+                        <th style="text-align:right">Voce debito</th>
+                        <th style="text-align:right">Voce credito</th>
+                        <th style="text-align:right">N. voci</th>
                         <th>Data</th>
                         <th></th>
                     </tr>

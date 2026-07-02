@@ -134,7 +134,7 @@
         <div class="users-command-title">
             <span class="users-command-mark">VIP</span>
             <div>
-                <span class="eyebrow">User control room</span>
+                <span class="eyebrow">Centro di controllo utenti</span>
                 <h2>Utenti e profili operativi</h2>
                 <p>Directory compatta per controllo accessi, profili e disponibilità KY.</p>
             </div>

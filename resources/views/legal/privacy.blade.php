@@ -32,7 +32,7 @@
 <p>Hai diritto di accesso, rettifica, cancellazione (nei limiti legali), portabilità, opposizione e limitazione del trattamento. Per esercitare i tuoi diritti scrivi all'indirizzo email del titolare.</p>
 
 <h2>7. Cookie</h2>
-<p>La piattaforma utilizza esclusivamente cookie tecnici necessari al funzionamento (sessione, preferenze tema). Non utilizziamo cookie di profilazione o di terze parti a fini pubblicitari. Maggiori informazioni nella nostra <a href="{{ route('legal.cookies') }}">Cookie Policy</a>.</p>
+<p>La piattaforma utilizza esclusivamente cookie tecnici necessari al funzionamento (sessione, preferenze tema). Non utilizziamo cookie di profilazione o di terze parti a fini pubblicitari. Maggiori informazioni nella nostra <a href="{{ route('legal.cookies') }}">Informativa sui Cookie</a>.</p>
 
 <h2>8. Contatti</h2>
 <p>Per qualsiasi domanda relativa al trattamento dei tuoi dati personali contatta il titolare tramite i canali indicati nel contratto di adesione al circuito KMoney.</p>

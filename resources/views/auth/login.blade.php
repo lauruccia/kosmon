@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login KMoney</title>
+    <title>Accedi - KMoney</title>
     <style>
         :root { --navy:#1d3344; --navy-deep:#11222f; --mist:#eef3f5; --line:#d9e2e8; --sage:#718b5c; --rose:#f8ecef; --ink:#142431; --muted:#557082; }
         *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Tahoma,sans-serif;background:linear-gradient(180deg,var(--navy) 0 45%, #f5f8f9 45% 100%);color:var(--ink)}
@@ -58,7 +58,7 @@
             </section>
             <section class="panel">
                 <div class="eyebrow">Accesso</div>
-                <h2>Login</h2>
+                <h2>Accedi</h2>
 
                 {{-- ── Vista: nessun account salvato — step 1 email / step 2 auth ─────── --}}
                 <div id="view-default" style="display:none;">

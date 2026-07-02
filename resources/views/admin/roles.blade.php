@@ -24,7 +24,7 @@
     </section>
 
     <section class="card light-card">
-        <div class="section-head"><div><span class="eyebrow">Matrix</span><h3 class="section-title">Ruoli esistenti</h3></div><span class="pill">{{ $roles->count() }}</span></div>
+        <div class="section-head"><div><span class="eyebrow">Matrice</span><h3 class="section-title">Ruoli esistenti</h3></div><span class="pill">{{ $roles->count() }}</span></div>
         <div class="timeline-list">
             @foreach ($roles as $role)
                 <article class="timeline-item">

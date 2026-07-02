@@ -147,7 +147,7 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Creditor</th>
+                        <th>Creditore</th>
                         <th>Totale</th>
                         <th>Progresso</th>
                         <th>Rate</th>

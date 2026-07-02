@@ -66,7 +66,7 @@
                 <th style="text-align:left;padding:8px 10px;">Azienda</th>
                 <th style="text-align:left;padding:8px 10px;">URL</th>
                 <th style="text-align:left;padding:8px 10px;">Evento</th>
-                <th style="text-align:center;padding:8px 10px;">Status HTTP</th>
+                <th style="text-align:center;padding:8px 10px;">Codice HTTP</th>
                 <th style="text-align:center;padding:8px 10px;">Esito</th>
                 <th style="text-align:center;padding:8px 10px;">Azione</th>
             </tr>

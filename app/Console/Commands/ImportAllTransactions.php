@@ -644,15 +644,54 @@ class ImportAllTransactions extends Command
     {
         $parts = [];
         if (! empty($row['details'])) {
-            $parts[] = $row['details'];
+            $parts[] = $this->translateLegacyText($row['details']);
         }
         if (! empty($row['remark'])) {
-            $parts[] = '(' . $row['remark'] . ')';
+            $parts[] = '(' . $this->translateLegacyText($row['remark']) . ')';
         }
         if (! empty($row['trx'])) {
             $parts[] = 'Rif: ' . $row['trx'];
         }
         return implode(' — ', $parts) ?: 'Transazione storica';
+    }
+
+    // Traduzioni note dei testi inglesi presenti nel dump legacy kosmomoney
+    // (details/remark). I dati storici arrivano in inglese: qui li normalizziamo
+    // in italiano prima di salvarli come description del Transfer.
+    private const LEGACY_TEXT_TRANSLATIONS = [
+        'purchase product from marketplace' => 'Acquisto prodotto dal marketplace',
+        'sold product from marketplace'     => 'Vendita prodotto sul marketplace',
+        'own bank transfer'                 => 'Bonifico bancario proprio',
+        'received transferred money'        => 'Denaro ricevuto tramite bonifico',
+        'buy kycard'                        => 'Acquisto KyCard',
+        'buy product'                       => 'Acquisto prodotto',
+        'sell product'                      => 'Vendita prodotto',
+        'deposit via bonifico'              => 'Deposito tramite bonifico',
+        'send from admin'                   => 'Invio da admin',
+        'cut from admin'                    => 'Prelievo da admin',
+        'test'                              => 'Prova',
+    ];
+
+    private function translateLegacyText(string $text): string
+    {
+        $trimmed = trim($text);
+        $lower   = mb_strtolower($trimmed);
+
+        if (isset(self::LEGACY_TEXT_TRANSLATIONS[$lower])) {
+            return self::LEGACY_TEXT_TRANSLATIONS[$lower];
+        }
+
+        // Pattern "Deposit Via X" generico (es. "Deposit Via KyCard10")
+        if (preg_match('/^deposit via (.+)$/i', $trimmed, $m)) {
+            return 'Deposito tramite ' . $m[1];
+        }
+
+        // Pattern "Nth level referral commission from X"
+        if (preg_match('/^(\d+)(st|nd|rd|th) level referral commission from (.+)$/i', $trimmed, $m)) {
+            return 'Commissione referral ' . $m[1] . '° livello da ' . $m[3];
+        }
+
+        return $text;
     }
 
     // =========================================================================

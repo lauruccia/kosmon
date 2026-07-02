@@ -1,9 +1,9 @@
 @extends('legal.layout')
 
-@section('title', 'Cookie Policy')
+@section('title', 'Informativa sui Cookie')
 
 @section('content')
-<h1>Cookie Policy</h1>
+<h1>Informativa sui Cookie</h1>
 <p class="legal-meta">Ultimo aggiornamento: 27 maggio 2026</p>
 
 <h2>Cookie utilizzati</h2>

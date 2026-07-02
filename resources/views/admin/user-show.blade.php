@@ -199,7 +199,7 @@
                     </div>
                     <div class="field-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;">
                         <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Disponibile</div><strong>{{ ky_format($primaryAccount->available_balance) }} {{ $primaryAccount->currency_code }}</strong></div>
-                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ ky_format($primaryAccount->pending_balance) }} {{ $primaryAccount->currency_code }}</strong></div>
+                        <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">In attesa</div><strong>{{ ky_format($primaryAccount->pending_balance) }} {{ $primaryAccount->currency_code }}</strong></div>
                         <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $primaryAccount->daily_outgoing_limit ? ky_format($primaryAccount->daily_outgoing_limit) . ' ' . $primaryAccount->currency_code : 'non impostato' }}</strong></div>
                     </div>
                 </div>
@@ -280,7 +280,7 @@
                         </div>
                         <div class="field-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;">
                             <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Saldo</div><strong>{{ ky_format($account->available_balance) }} {{ $account->currency_code }}</strong></div>
-                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Pending</div><strong>{{ ky_format($account->pending_balance) }} {{ $account->currency_code }}</strong></div>
+                            <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">In attesa</div><strong>{{ ky_format($account->pending_balance) }} {{ $account->currency_code }}</strong></div>
                             <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite singolo conto</div><strong>{{ $account->spending_limit ? ky_format($account->spending_limit) . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
                             <div class="card-pad" style="padding:14px;border-radius:18px;background:#f6f9fb;border:1px solid #e4edf2;"><div class="eyebrow">Limite giornaliero conto</div><strong>{{ $account->daily_outgoing_limit ? ky_format($account->daily_outgoing_limit) . ' ' . $account->currency_code : 'non impostato' }}</strong></div>
                         </div>
