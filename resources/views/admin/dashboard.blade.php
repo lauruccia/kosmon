@@ -553,6 +553,33 @@
                     </div>
                     <button type="submit" class="cta secondary">Applica filtri</button>
                 </form>
+        <script>
+        (function () {
+            var select = document.currentScript.closest('section, div').querySelector('select[name="period"]')
+                || document.querySelector('select[name="period"]');
+            if (!select) return;
+            var form = select.closest('form');
+            if (!form) return;
+            var fromInput = form.querySelector('input[name="from_date"]');
+            var toInput = form.querySelector('input[name="to_date"]');
+            if (!fromInput || !toInput) return;
+            function sync() {
+                var isCustom = select.value === 'custom';
+                [fromInput, toInput].forEach(function (input) {
+                    input.disabled = !isCustom;
+                    input.classList.toggle('is-locked', !isCustom);
+                });
+            }
+            select.addEventListener('change', function () {
+                sync();
+                if (select.value !== 'custom') {
+                    form.submit();
+                }
+            });
+            sync();
+        })();
+        </script>
+
             </div>
 
             @if ($dashboardTransfers->isEmpty())
