@@ -163,6 +163,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'payment_pin_hash',
         'referral_code',
         'referred_by_user_id',
+        'mlm_role',
+        'mlm_rank',
+        'mlm_rank_updated_at',
+        'mlm_activated_at',
+        'mlm_basiq_at',
+        'mlm_basiq_bonus_eligible',
+        'mlm_client_agent_id',
     ];
 
     protected $hidden = [
@@ -186,6 +193,11 @@ class User extends Authenticatable implements MustVerifyEmail
             'tutorial_shown_at'       => 'datetime',
 
             'two_factor_recovery_codes' => 'array',
+
+            'mlm_rank_updated_at'      => 'datetime',
+            'mlm_activated_at'         => 'datetime',
+            'mlm_basiq_at'             => 'datetime',
+            'mlm_basiq_bonus_eligible' => 'boolean',
         ];
     }
 
@@ -560,6 +572,99 @@ class User extends Authenticatable implements MustVerifyEmail
     public function referralUrl(): string
     {
         return route('register', ['ref' => $this->referralCode()]);
+    }
+
+    // --- MLM ---
+
+    /** Ordine crescente delle qualifiche agente (indice = "livello" numerico). */
+    public const MLM_RANK_ORDER = ['start', 'basic', 'key', 'senior', 'top', 'supervisor', 'manager'];
+
+    public function isMlmAgent(): bool
+    {
+        return $this->mlm_role === 'agente';
+    }
+
+    public function isMlmClient(): bool
+    {
+        return $this->mlm_role === 'cliente';
+    }
+
+    /** Indice numerico della qualifica attuale (0 = start ... 6 = manager). */
+    public function mlmRankLevel(): int
+    {
+        $index = array_search($this->mlm_rank, self::MLM_RANK_ORDER, true);
+
+        return $index === false ? 0 : $index;
+    }
+
+    /** Agente "risolto" a cui e' collegato questo cliente (null se questo utente e' un agente). */
+    public function mlmClientAgent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'mlm_client_agent_id');
+    }
+
+    /** Clienti attribuiti a questo agente. */
+    public function mlmClients(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'mlm_client_agent_id');
+    }
+
+    public function mlmPointLedgerEntries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmPointLedgerEntry::class, 'agent_user_id');
+    }
+
+    public function mlmRankHistory(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmRankHistory::class, 'agent_user_id');
+    }
+
+    public function mlmBonusPayouts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmBonusPayout::class, 'beneficiary_user_id');
+    }
+
+    /** Righe del ledger "importo mensile" generate dai MIEI clienti diretti. */
+    public function mlmCommissionBaseLedgerEntries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmCommissionBaseLedgerEntry::class, 'direct_agent_id');
+    }
+
+    /** Importo mensile commissionabile attivo oggi sui MIEI clienti diretti (EUR centesimi). */
+    public function mlmActiveCommissionBase(?\Illuminate\Support\Carbon $asOf = null): int
+    {
+        $asOf ??= now();
+
+        return (int) $this->mlmCommissionBaseLedgerEntries()
+            ->whereDate('valid_from', '<=', $asOf->toDateString())
+            ->whereDate('valid_until', '>=', $asOf->toDateString())
+            ->sum('monthly_amount_eur_cents');
+    }
+
+    public function mlmCommissions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmCommission::class, 'agent_user_id');
+    }
+
+    public function mlmPayouts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmPayout::class, 'agent_user_id');
+    }
+
+    public function mlmPaymentDetail(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\MlmPaymentDetail::class, 'agent_user_id');
+    }
+
+    /** Punti cliente (PC) attivi oggi (somma del ledger non ancora scaduto). */
+    public function mlmActivePoints(?\Illuminate\Support\Carbon $asOf = null): int
+    {
+        $asOf ??= now();
+
+        return (int) $this->mlmPointLedgerEntries()
+            ->whereDate('valid_from', '<=', $asOf->toDateString())
+            ->whereDate('valid_until', '>=', $asOf->toDateString())
+            ->sum('points');
     }
 
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */

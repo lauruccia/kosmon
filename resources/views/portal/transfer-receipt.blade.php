@@ -159,7 +159,7 @@
     {{-- Condivisione ──────────────────────────────────────────────────────── --}}
     @if($isOutgoing)
     @php
-        $shareText = 'Ho inviato ' . ky_format($transfer->amount) . ' KY a ' . ($counterparty->display_name ?? 'un contatto') . ' tramite KosmoPay! 🟢';
+        $shareText = 'Ho inviato ' . ky_format($transfer->amount) . ' KY a ' . ($counterparty->display_name ?? 'un contatto') . ' tramite KMoney! 🟢';
         $waText    = urlencode($shareText);
     @endphp
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:18px;">
@@ -201,7 +201,7 @@
 
         window.shareReceipt = function () {
             navigator.share({
-                title: 'Ricevuta KosmoPay',
+                title: 'Ricevuta KMoney',
                 text:  shareText,
                 url:   shareUrl,
             }).catch(() => { /* utente ha annullato */ });

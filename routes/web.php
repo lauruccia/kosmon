@@ -19,6 +19,7 @@ use App\Http\Controllers\CodePaymentController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
+use App\Http\Controllers\MlmPaymentDetailController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\TextPaymentRequestController;
@@ -55,6 +56,8 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
+use App\Http\Controllers\Admin\MlmController;
+use App\Http\Controllers\Admin\MlmPayoutController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
@@ -591,6 +594,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/webhook/{webhook}', [WebhookController::class, 'destroy'])->name('portal.webhooks.destroy')->middleware('step.up');
 
     // Token API
+    // Dati bancari agente KNM (liquidazione EUR)
+    Route::get('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'edit'])->name('portal.mlm.payment-details.edit');
+    Route::post('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'update'])->name('portal.mlm.payment-details.update')->middleware('step.up');
+
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
     Route::get('/api-tokens/nuovo', [ApiTokenController::class, 'create'])->name('portal.api-tokens.create');
     Route::post('/api-tokens', [ApiTokenController::class, 'store'])->name('portal.api-tokens.store')->middleware('step.up');
@@ -777,6 +784,17 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
 
     // ── Visibilità menu utenti (admin) ────────────────────────────────────────
     Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index')->middleware('backoffice');
+
+    // MLM (KNM) — albero agenti, punti, qualifiche, bonus, commissioni
+    Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
+    Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
+
+    Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
+    Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');
+    Route::get('/admin/mlm-payouts/{mlmPayout}', [MlmPayoutController::class, 'show'])->name('admin.mlm.payouts.show')->middleware('backoffice');
+    Route::post('/admin/mlm-payouts/{mlmPayout}/approva', [MlmPayoutController::class, 'approve'])->name('admin.mlm.payouts.approve')->middleware('backoffice');
+    Route::post('/admin/mlm-payouts/{mlmPayout}/paga', [MlmPayoutController::class, 'markPaid'])->name('admin.mlm.payouts.mark-paid')->middleware('backoffice');
+    Route::post('/admin/mlm-payouts/{mlmPayout}/rifiuta', [MlmPayoutController::class, 'reject'])->name('admin.mlm.payouts.reject')->middleware('backoffice');
     Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store')->middleware('backoffice');
     Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy')->middleware('backoffice');
     Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset')->middleware('backoffice');

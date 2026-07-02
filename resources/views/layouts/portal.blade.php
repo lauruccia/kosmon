@@ -1312,6 +1312,7 @@
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'report' ? 'active' : '' }}" href="{{ route('admin.report') }}"><span class="subnav-icon">RP</span><span>Rapporti</span></a>
                             </div>
                             @if(auth()->user()?->is_super_admin)
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'mlm' ? 'active' : '' }}" href="{{ route('admin.mlm.index') }}"><span class="nav-icon">MLM</span><span>MLM Agenti</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}"><span class="nav-icon">&#128202;</span><span>Analytics</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'circuito' ? 'active' : '' }}" href="{{ route('admin.circuito') }}"><span class="nav-icon">&#128280;</span><span>Circuito KY</span></a>
@@ -1558,6 +1559,11 @@
                                 @if($mv('operatore') && (($currentUser??$authUser)?->hasRole('broker') || $isBackoffice))
                                 <a class="sidebar-link {{ $an === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}">
                                     <span class="nav-icon">BR</span><span>Operatore</span>
+                                </a>
+                                @endif
+                                @if(($currentUser??$authUser)?->isMlmAgent())
+                                <a class="sidebar-link {{ $an === 'mlm-payment-details' ? 'active' : '' }}" href="{{ route('portal.mlm.payment-details.edit') }}">
+                                    <span class="nav-icon">KY</span><span>Dati bancari KNM</span>
                                 </a>
                                 @endif
                                 @if($mv('help'))

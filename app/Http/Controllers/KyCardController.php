@@ -531,6 +531,21 @@ class KyCardController extends PortalController
 
             $purchase->refresh();
 
+            // MLM: assegna i punti deposito al cliente/agente risolto (fascia EUR).
+            // Isolato in try/catch proprio: l'accredito KY e' gia' avvenuto, un
+            // eventuale errore qui non deve intaccare la risposta all'utente.
+            if ($purchase->isCompleted()) {
+                try {
+                    app(\App\Services\MlmPointsService::class)->awardDepositPoints(
+                        $purchase->user,
+                        (int) $purchase->price_eur_cents,
+                        $purchase->transfer_id,
+                    );
+                } catch (\Exception $mlmException) {
+                    Log::error('MLM points award failed', ['purchase' => $purchase->uuid, 'error' => $mlmException->getMessage()]);
+                }
+            }
+
             try {
                 if ($purchase->isCompleted()) {
                     $purchase->user->notify(new \App\Notifications\KyCardCredited($purchase));

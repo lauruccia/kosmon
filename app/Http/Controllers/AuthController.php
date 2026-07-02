@@ -43,7 +43,10 @@ class AuthController extends Controller
             'vat_number' => ['nullable', 'string', 'max:50', 'unique:companies,vat_number'],
             'company_email' => ['nullable', 'email', 'max:120'],
             'ref' => ['nullable', 'string', 'max:12'],
+            'become_agent' => ['nullable', 'boolean'],
         ]);
+
+        $becomeAgent = $request->boolean('become_agent');
 
         // Risolvi chi ha invitato questo utente (se presente)
         $referrer = null;
@@ -51,9 +54,14 @@ class AuthController extends Controller
             $referrer = \App\Models\User::where('referral_code', strtoupper(trim($validated['ref'])))->first();
         }
 
-        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer) {
+        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer, $becomeAgent) {
             $company = null;
             $legacyRoleLabel = $holderType === 'company' ? 'registered-company' : 'registered-private';
+
+            // MLM: risolve il primo agente antenato nella catena di chi ha invitato
+            // (se il referrer e' un cliente, si risale al SUO agente gia' risolto).
+            $mlmTree = app(\App\Services\MlmTreeService::class);
+            $nearestAgentAncestor = $mlmTree->resolveAgentForNewClient($referrer);
 
             if ($holderType === 'company') {
                 $company = Company::create([
@@ -83,7 +91,16 @@ class AuthController extends Controller
                 'is_active' => true,
                 'is_super_admin' => false,
                 'referred_by_user_id' => $referrer?->id,
+                'mlm_role' => $becomeAgent ? 'agente' : 'cliente',
+                'mlm_activated_at' => $becomeAgent ? now() : null,
+                'mlm_client_agent_id' => $becomeAgent ? null : $nearestAgentAncestor?->id,
             ]);
+
+            if ($becomeAgent) {
+                $mlmTree->attachAgent($user, $nearestAgentAncestor);
+            } else {
+                app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
+            }
 
             $account = Account::create([
                 'company_id' => $company?->id,

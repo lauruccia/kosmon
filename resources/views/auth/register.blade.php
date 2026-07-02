@@ -426,6 +426,17 @@
                 </div>
             </div>
 
+            {{-- Programma agenti (opzionale) --}}
+            <div class="field-group" style="margin-bottom:28px;">
+                <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:16px 18px; border:1.5px solid var(--line); border-radius:14px; background:var(--glass);">
+                    <input type="checkbox" name="become_agent" value="1" style="margin-top:3px; width:18px; height:18px; accent-color: var(--green); flex-shrink:0;" {{ old('become_agent') ? 'checked' : '' }}>
+                    <span>
+                        <span style="display:block; font-weight:700; font-size:14px; margin-bottom:4px;">Voglio diventare agente KNM</span>
+                        <span style="display:block; font-size:12px; color:var(--muted); line-height:1.6;">Potrai invitare clienti e altri agenti, maturare punti, salire di qualifica e guadagnare commissioni e bonus. Lasciando la casella vuota ti registri come semplice cliente.</span>
+                    </span>
+                </label>
+            </div>
+
             {{-- Codice referral (nascosto, pre-compilato se presente nell'URL) --}}
             @if(request('ref'))
                 <input type="hidden" name="ref" value="{{ request('ref') }}">
