@@ -88,12 +88,19 @@ class AdminController extends Controller
         $this->authorizeBackoffice($request->user());
 
         $movementFilters = $this->movementFilters($request, 'current_quarter');
-        $transfersQuery = $this->movementQuery();
+
+        // Filtro per tipo di movimento (kind). Il valore sentinella LEDGER_OPENING_FILTER
+        // seleziona la vista dedicata alle correzioni tecniche di apertura ledger, normalmente
+        // escluse da tutte le liste del backoffice (vedi Transfer::excludeLedgerCorrections()).
+        $kind = trim((string) $request->query('kind', ''));
+        $isLedgerCorrectionsView = $kind === Transfer::LEDGER_OPENING_FILTER;
+
+        $transfersQuery = $this->movementQuery($isLedgerCorrectionsView);
         $this->applyMovementDateFilters($transfersQuery, $movementFilters);
 
-        // Filtro per tipo di movimento (kind)
-        $kind = trim((string) $request->query('kind', ''));
-        if ($kind !== '') {
+        if ($isLedgerCorrectionsView) {
+            $transfersQuery->where('admin_action', Transfer::LEDGER_OPENING_ACTION);
+        } elseif ($kind !== '') {
             $transfersQuery->where('kind', $kind);
         }
 
@@ -136,6 +143,7 @@ class AdminController extends Controller
             'statusFilter' => $statusFilter,
             'movementKindOptions' => $this->movementKindOptions(),
             'canDeleteMovements' => (bool) $request->user()->is_super_admin,
+            'isLedgerCorrectionsView' => $isLedgerCorrectionsView,
         ]);
     }
 
@@ -392,7 +400,7 @@ class AdminController extends Controller
             'superAdmins'  => User::query()->where('is_super_admin', true)->count(),
             'companies'    => Company::query()->count(),
             'accounts'     => Account::query()->count(),
-            'transfers'    => Transfer::query()->count(),
+            'transfers'    => Transfer::query()->excludeLedgerCorrections()->count(),
             'companyUsers' => User::query()->where('account_holder_type', 'company')->count(),
             'privateUsers' => User::query()->where('account_holder_type', 'private')->count(),
         ];
@@ -414,6 +422,7 @@ class AdminController extends Controller
 
         // Volume movimentato nel mese corrente (solo booked)
         $volumeThisMonth = Transfer::query()
+            ->excludeLedgerCorrections()
             ->where('status', 'booked')
             ->where('booked_at', '>=', $startOfMonth)
             ->sum('amount');
@@ -422,6 +431,7 @@ class AdminController extends Controller
         $startPrevMonth = $now->startOfMonth()->subMonth();
         $endPrevMonth   = $now->startOfMonth()->subSecond();
         $volumePrevMonth = Transfer::query()
+            ->excludeLedgerCorrections()
             ->where('status', 'booked')
             ->whereBetween('booked_at', [$startPrevMonth, $endPrevMonth])
             ->sum('amount');
@@ -437,6 +447,7 @@ class AdminController extends Controller
 
         // Movimenti oggi
         $transfersToday = Transfer::query()
+            ->excludeLedgerCorrections()
             ->where('status', 'booked')
             ->where('booked_at', '>=', $now->startOfDay())
             ->count();
@@ -447,6 +458,7 @@ class AdminController extends Controller
 
         // Movimento medio per transazione (mese corrente)
         $avgMovement = Transfer::query()
+            ->excludeLedgerCorrections()
             ->where('status', 'booked')
             ->where('booked_at', '>=', $startOfMonth)
             ->avg('amount');
@@ -482,6 +494,7 @@ class AdminController extends Controller
 
         // Recupera i dati dal DB con un'unica query
         $rows = Transfer::query()
+            ->excludeLedgerCorrections()
             ->select(
                 DB::raw("{$periodExpression} as ym"),
                 DB::raw('SUM(amount) as total_volume'),
@@ -518,6 +531,7 @@ class AdminController extends Controller
 
         // Raggruppa per azienda mittente
         $outgoing = Transfer::query()
+            ->excludeLedgerCorrections()
             ->join('accounts', 'transfers.from_account_id', '=', 'accounts.id')
             ->join('companies', 'accounts.company_id', '=', 'companies.id')
             ->select('companies.name', DB::raw('SUM(transfers.amount) as volume'))
@@ -639,6 +653,7 @@ class AdminController extends Controller
             : "strftime('{$fmt}', booked_at)";
 
         $rows = Transfer::query()
+            ->excludeLedgerCorrections()
             ->select(
                 DB::raw("{$periodExpression} as period_key"),
                 DB::raw('SUM(amount) as total_volume'),
@@ -665,6 +680,7 @@ class AdminController extends Controller
     private function topCompaniesByVolumeForPeriod(?CarbonImmutable $from, ?CarbonImmutable $to, int $limit = 10): \Illuminate\Support\Collection
     {
         $query = Transfer::query()
+            ->excludeLedgerCorrections()
             ->join('accounts', 'transfers.from_account_id', '=', 'accounts.id')
             ->join('companies', 'accounts.company_id', '=', 'companies.id')
             ->select(
@@ -774,12 +790,16 @@ class AdminController extends Controller
             ->where('is_system_account', false)
             ->sum('available_balance');
 
-        $volumePeriod = (int) Transfer::where('status', 'booked')
+        $volumePeriod = (int) Transfer::query()
+            ->excludeLedgerCorrections()
+            ->where('status', 'booked')
             ->where('booked_at', '>=', $from)
             ->whereNotIn('kind', ['portal_fee', 'portal_cashback'])
             ->sum('amount');
 
-        $transactionCount = Transfer::where('status', 'booked')
+        $transactionCount = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->where('status', 'booked')
             ->where('booked_at', '>=', $from)
             ->whereNotIn('kind', ['portal_fee', 'portal_cashback'])
             ->count();
@@ -794,11 +814,15 @@ class AdminController extends Controller
             : null;
 
         // Partecipanti attivi nel periodo (unique from + to account IDs)
-        $fromIds = Transfer::where('status', 'booked')
+        $fromIds = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->where('status', 'booked')
             ->where('booked_at', '>=', $from)
             ->distinct()
             ->pluck('from_account_id');
-        $toIds = Transfer::where('status', 'booked')
+        $toIds = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->where('status', 'booked')
             ->where('booked_at', '>=', $from)
             ->distinct()
             ->pluck('to_account_id');
@@ -817,7 +841,9 @@ class AdminController extends Controller
             ? "DATE_FORMAT(booked_at, '%Y-%m')"
             : "strftime('%Y-%m', booked_at)";
 
-        $velocityTrend = Transfer::select(
+        $velocityTrend = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->select(
                 DB::raw("{$periodExpr} as ym"),
                 DB::raw('SUM(amount) as volume'),
                 DB::raw('COUNT(*) as cnt')
@@ -835,7 +861,9 @@ class AdminController extends Controller
             ->avg('available_balance');
 
         // ── Rete transazioni (top coppie per volume) ──────────────────────────
-        $networkEdges = Transfer::select(
+        $networkEdges = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->select(
                 'from_account_id',
                 'to_account_id',
                 DB::raw('SUM(amount) as volume'),
@@ -884,7 +912,9 @@ class AdminController extends Controller
 
         if ($avgAmount > 0) {
             $threshold = $avgAmount * 5;
-            $largeTxs = Transfer::with(['fromAccount.company', 'toAccount.company'])
+            $largeTxs = Transfer::query()
+                ->excludeLedgerCorrections()
+                ->with(['fromAccount.company', 'toAccount.company'])
                 ->where('status', 'booked')
                 ->where('booked_at', '>=', $from)
                 ->where('amount', '>', $threshold)
@@ -914,7 +944,9 @@ class AdminController extends Controller
         $last24h  = now()->subDay();
         $last7d   = now()->subDays(7);
 
-        $burst24h = Transfer::select(
+        $burst24h = Transfer::query()
+            ->excludeLedgerCorrections()
+            ->select(
                 'from_account_id',
                 DB::raw('SUM(amount) as vol24h'),
                 DB::raw('COUNT(*) as cnt24h')
@@ -927,7 +959,9 @@ class AdminController extends Controller
             ->keyBy('from_account_id');
 
         if ($burst24h->isNotEmpty()) {
-            $weekly = Transfer::select(
+            $weekly = Transfer::query()
+                ->excludeLedgerCorrections()
+                ->select(
                     'from_account_id',
                     DB::raw('SUM(amount)/7.0 as avg_daily_vol')
                 )
@@ -999,7 +1033,11 @@ class AdminController extends Controller
             ->join('transfers', function ($j) use ($from) {
                 $j->on('accounts.id', '=', 'transfers.from_account_id')
                   ->where('transfers.status', 'booked')
-                  ->where('transfers.booked_at', '>=', $from);
+                  ->where('transfers.booked_at', '>=', $from)
+                  ->where(function ($q) {
+                      $q->whereNull('transfers.admin_action')
+                        ->orWhere('transfers.admin_action', '!=', \App\Models\Transfer::LEDGER_OPENING_ACTION);
+                  });
             })
             ->whereHas('company', function ($q) {
                 $q->whereDoesntHave('kycDocuments', fn ($d) => $d->where('status', 'approved'))

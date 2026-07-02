@@ -55,6 +55,7 @@ class CompanyController extends Controller
 
         $recentTransfers = $account
             ? Transfer::query()
+                ->excludeLedgerCorrections()
                 ->with(['fromAccount.company', 'toAccount.company', 'initiator'])
                 ->where(fn ($q) => $q->where('from_account_id', $account->id)->orWhere('to_account_id', $account->id))
                 ->where('status', 'booked')

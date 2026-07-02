@@ -92,7 +92,12 @@ class EmissionController extends Controller
             ->orderBy('account_name')
             ->get();
 
+        // Esclude le 167 correzioni tecniche di apertura ledger (TRX-OPEN, stessa data
+        // 2026-06-17): altrimenti riempirebbero da sole le "ultime 20" nascondendo le
+        // emissioni reali. Restano consultabili nel backoffice tramite il filtro dedicato
+        // "Correzioni tecniche" nella pagina Movimenti.
         $recentEmissions = Transfer::query()
+            ->excludeLedgerCorrections()
             ->with(['toAccount.company:id,name', 'toAccount.ownerUser:id,name', 'initiator:id,name'])
             ->where('from_account_id', $systemAccount->id)
             ->where('status', 'booked')

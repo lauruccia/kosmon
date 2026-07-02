@@ -42,6 +42,7 @@ class AccountController extends Controller
         ]);
 
         $recentTransfers = Transfer::query()
+            ->excludeLedgerCorrections()
             ->with(['fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser', 'initiator'])
             ->where(function ($query) use ($account): void {
                 $query

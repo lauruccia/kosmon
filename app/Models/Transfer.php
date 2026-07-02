@@ -106,8 +106,17 @@ class Transfer extends Model
     public const LEDGER_OPENING_ACTION = 'fix_ledger_apertura_20260617';
 
     /**
-     * Esclude le correzioni tecniche di apertura ledger dalle viste rivolte al cliente.
-     * Restano visibili nel backoffice admin (che non usa questo scope).
+     * Valore sentinella usato SOLO nel filtro "Tipo movimento" del backoffice admin
+     * (select `kind`) per selezionare la vista dedicata alle correzioni tecniche di
+     * apertura ledger. Non corrisponde a un valore reale della colonna `kind`.
+     */
+    public const LEDGER_OPENING_FILTER = '__ledger_opening__';
+
+    /**
+     * Esclude le correzioni tecniche di apertura ledger dalle viste rivolte al cliente
+     * E, dal 2026-07-02, anche dalle liste/KPI generali del backoffice admin. Restano
+     * consultabili nel backoffice solo tramite il filtro dedicato "Correzioni tecniche"
+     * (vedi AdminController::transfers() e Transfer::LEDGER_OPENING_FILTER).
      */
     public function scopeExcludeLedgerCorrections(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {

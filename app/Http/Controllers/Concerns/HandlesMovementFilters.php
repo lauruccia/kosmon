@@ -15,7 +15,12 @@ use Illuminate\Support\Facades\Schema;
  */
 trait HandlesMovementFilters
 {
-    protected function movementQuery(): Builder
+    /**
+     * @param bool $includeLedgerCorrections Se true, include anche le correzioni tecniche
+     *   di apertura ledger (Transfer::LEDGER_OPENING_ACTION). Di default sono escluse anche
+     *   dal backoffice: restano consultabili solo tramite il filtro dedicato "Correzioni tecniche".
+     */
+    protected function movementQuery(bool $includeLedgerCorrections = false): Builder
     {
         $relations = [
             'fromAccount.company',
@@ -30,7 +35,13 @@ trait HandlesMovementFilters
             $relations[] = 'reversalChildren';
         }
 
-        return Transfer::query()->with($relations);
+        $query = Transfer::query()->with($relations);
+
+        if (! $includeLedgerCorrections) {
+            $query->excludeLedgerCorrections();
+        }
+
+        return $query;
     }
 
     protected function movementFilters(Request $request, string $defaultPeriod = 'current_quarter'): array

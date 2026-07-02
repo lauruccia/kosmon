@@ -22,6 +22,12 @@
         <article class="stat-card"><div class="eyebrow">Storni</div><div class="section-title">{{ $movementTotals['refunds'] }}</div></article>
     </section>
 
+    @if ($isLedgerCorrectionsView ?? false)
+        <section class="card light-card" style="border-left:4px solid #b58900;margin-bottom:12px;">
+            <strong>Correzioni tecniche di apertura ledger</strong> — questi movimenti (rif. <code>TRX-OPEN-*</code>, tutti datati 17/06/2026) non sono transazioni reali: allineano il ledger ai saldi importati dal vecchio sito usando il conto sistema come contropartita. Sono esclusi da tutte le altre viste (liste, KPI, grafici, export) e dalle viste cliente.
+        </section>
+    @endif
+
     <section class="card light-card">
         <div class="section-head">
             <div><span class="eyebrow">Registro movimenti</span><h3 class="section-title">Movimenti registrati</h3></div>
@@ -47,6 +53,7 @@
                         @foreach ($movementKindOptions as $value => $label)
                             <option value="{{ $value }}" @selected(($kindFilter ?? '') === $value)>{{ $label }}</option>
                         @endforeach
+                        <option value="{{ \App\Models\Transfer::LEDGER_OPENING_FILTER }}" @selected(($kindFilter ?? '') === \App\Models\Transfer::LEDGER_OPENING_FILTER)>— Correzioni tecniche (apertura ledger)</option>
                     </select>
                 </div>
                 <div class="field">
