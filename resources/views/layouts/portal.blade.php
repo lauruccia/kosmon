@@ -900,6 +900,10 @@
             box-shadow: 0 0 0 3px rgba(15,82,196,.12);
         }
         .field textarea { min-height: 100px; resize: vertical; }
+        .field input.is-locked, .field input:disabled {
+            background: var(--line, #eef0f3); color: var(--ink-soft);
+            cursor: not-allowed; opacity: .75;
+        }
         .field-inline { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 14px; }
         /* ── PASSWORD TOGGLE ─────────────────────────────────────────── */
         .pw-wrap { position: relative; }

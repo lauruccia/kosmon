@@ -39,3 +39,27 @@ function _applyPasswordToggle(input) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[type=password]').forEach(_applyPasswordToggle);
 });
+
+// ── Filtro periodo: date "Da"/"A" modificabili solo su intervallo personalizzato ──
+function _applyPeriodDateLock(select) {
+    const form = select.closest('form');
+    if (!form) return;
+    const fromInput = form.querySelector('input[name="from_date"]');
+    const toInput = form.querySelector('input[name="to_date"]');
+    if (!fromInput || !toInput) return;
+
+    const sync = () => {
+        const isCustom = select.value === 'custom';
+        [fromInput, toInput].forEach((input) => {
+            input.disabled = !isCustom;
+            input.classList.toggle('is-locked', !isCustom);
+        });
+    };
+
+    select.addEventListener('change', sync);
+    sync();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('select[name="period"]').forEach(_applyPeriodDateLock);
+});
