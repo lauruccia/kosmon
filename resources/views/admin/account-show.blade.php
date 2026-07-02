@@ -266,4 +266,20 @@
             </div>
         @endif
     </section>
+
+    {{-- ── Zona pericolosa: eliminazione dati di test ──────────────────────── --}}
+    @if(auth()->user()->is_super_admin && ! $accountRecord->is_system_account && $accountRecord->company_id === null)
+    <section class="card card-pad" style="border: 1.5px solid #fca5a5;margin-top:20px;">
+        <div class="eyebrow" style="margin-bottom:8px;color:#dc2626;">⚠️ Zona pericolosa</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+            Elimina definitivamente e fisicamente questo conto privato e il suo utente proprietario, insieme a
+            tutti i movimenti collegati (comprese le ricadute sui saldi delle controparti reali coinvolte).
+            Pensata per ripulire <strong>account/movimenti di prova</strong>, non per uso ordinario.
+            Operazione irreversibile.
+        </p>
+        <a href="{{ route('admin.accounts.purge-test', $accountRecord) }}" class="cta" style="background:#dc2626;">
+            Elimina definitivamente (dati di test)
+        </a>
+    </section>
+    @endif
 @endsection

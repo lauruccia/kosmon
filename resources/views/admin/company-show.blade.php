@@ -541,5 +541,20 @@
             @endif
         </section>
 
+        {{-- ── Zona pericolosa: eliminazione dati di test ──────────────────── --}}
+        @if(auth()->user()->is_super_admin)
+        <section class="card card-pad" style="border: 1.5px solid #fca5a5;">
+            <div class="eyebrow" style="margin-bottom:8px;color:#dc2626;">⚠️ Zona pericolosa</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+                Elimina definitivamente e fisicamente questa azienda: tutti i suoi conti, utenti e movimenti
+                (comprese le ricadute sui saldi delle controparti reali coinvolte). Pensata per ripulire
+                <strong>account/movimenti di prova</strong>, non per uso ordinario. Operazione irreversibile.
+            </p>
+            <a href="{{ route('admin.companies.purge-test', $company) }}" class="cta" style="background:#dc2626;">
+                Elimina definitivamente (dati di test)
+            </a>
+        </section>
+        @endif
+
 </div>
 @endsection

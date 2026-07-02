@@ -65,6 +65,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\WebhookController as AdminWebhookController;
+use App\Http\Controllers\Admin\TestDataPurgeController;
 use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
 use App\Http\Controllers\StaticNfcController;
@@ -680,6 +681,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/companies/{company}/activate', [CompanyController::class, 'activateCompany'])->name('admin.companies.activate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan')->middleware('backoffice');
+    Route::get('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'confirmCompany'])->name('admin.companies.purge-test')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');
     Route::post('/admin/netting/{proposal}/cancel', [CompanyController::class, 'cancelNettingProposal'])->name('admin.netting.cancel')->middleware('backoffice');
     Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries')->middleware('backoffice');
@@ -689,6 +692,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show')->middleware('backoffice');
     Route::post('/admin/accounts/{account}', [AdminAccountController::class, 'updateAccount'])->name('admin.accounts.update')->middleware('backoffice');
     Route::post('/admin/accounts/{account}/sblocca', [AdminAccountController::class, 'unlockAccount'])->name('admin.accounts.unlock')->middleware('backoffice');
+    Route::get('/admin/accounts/{account}/purge-test', [TestDataPurgeController::class, 'confirmAccount'])->name('admin.accounts.purge-test')->middleware('backoffice');
+    Route::post('/admin/accounts/{account}/purge-test', [TestDataPurgeController::class, 'purgeAccount'])->name('admin.accounts.purge-test.destroy')->middleware('backoffice');
     Route::get('/admin/accounts/{account}/statement', [StatementController::class, 'adminDownload'])->name('admin.accounts.statement')->middleware('backoffice');
 
     // Emissione KY sovrana (solo super admin)
