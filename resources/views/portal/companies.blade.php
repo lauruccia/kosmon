@@ -376,12 +376,14 @@
                         {{-- Badge KY --}}
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% KY">⚡ Vende 100% KY</span>
+                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% Kmoney</span>
                             @elseif($isAtCeiling)
                                 <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Al massimale</span>
+                            @elseif($maxKyPct === 100)
+                                <span class="ky-badge ky-badge--full" title="Questa azienda accetta pagamenti al 100% in Kmoney">✓ 100% Kmoney</span>
                             @elseif($maxKyPct !== null)
-                                <span class="ky-badge {{ $maxKyPct === 100 ? 'ky-badge--full' : 'ky-badge--mix' }}">
-                                    ✓ KY {{ $maxKyPct }}%
+                                <span class="ky-badge ky-badge--mix">
+                                    ✓ Kmoney {{ $maxKyPct }}%
                                 </span>
                             @endif
                         @endif
@@ -475,12 +477,14 @@
                         {{-- Badge KY --}}
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% KY — ha bisogno di vendere">⚡ Vende 100% KY</span>
+                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100% Kmoney</span>
                             @elseif($isAtCeiling)
                                 <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Al massimale</span>
+                            @elseif($maxKyPct === 100)
+                                <span class="ky-badge ky-badge--full" title="Questa azienda accetta pagamenti al 100% in Kmoney">✓ 100% Kmoney</span>
                             @elseif($maxKyPct !== null)
-                                <span class="ky-badge {{ $maxKyPct === 100 ? 'ky-badge--full' : 'ky-badge--mix' }}">
-                                    ✓ KY {{ $maxKyPct }}%
+                                <span class="ky-badge ky-badge--mix">
+                                    ✓ Kmoney {{ $maxKyPct }}%
                                 </span>
                             @endif
                         @endif
