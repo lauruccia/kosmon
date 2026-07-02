@@ -53,6 +53,8 @@ class CompanyController extends Controller
 
         $account = $company->accounts->whereNull('parent_account_id')->where('status', 'active')->first();
 
+        $staticNfcUrl = $account ? route('nfc.static.pay', $account->account_number) : null;
+
         $recentTransfers = $account
             ? Transfer::query()
                 ->excludeLedgerCorrections()
@@ -68,6 +70,7 @@ class CompanyController extends Controller
             'pageTitle'       => $company->name,
             'company'         => $company,
             'account'         => $account,
+            'staticNfcUrl'    => $staticNfcUrl,
             'brokerUsers'     => $brokerUsers,
             'recentTransfers' => $recentTransfers,
             'activeNav'       => 'companies',
@@ -402,6 +405,7 @@ class CompanyController extends Controller
 
         $companies = $this->companyDirectoryQuery($filters)
             ->withCount(['users', 'listings', 'announcements'])
+            ->with(['accounts' => fn ($q) => $q->whereNull('parent_account_id')->where('status', 'active')->select('id', 'company_id', 'uuid')])
             ->orderByRaw("CASE
                 WHEN subscription_plan = 'ecommerce'  THEN 0
                 WHEN subscription_plan = 'vetrina'    THEN 1

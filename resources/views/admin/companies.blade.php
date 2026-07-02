@@ -348,6 +348,17 @@
                                 <a href="{{ route('admin.companies.show', $company) }}"
                                    class="adm-btn adm-btn-blue">Gestisci</a>
 
+                                @php
+                                    $rowAccount = $company->accounts->first();
+                                    $rowNfcUrl  = $rowAccount ? route('nfc.static.pay', $rowAccount->account_number) : null;
+                                @endphp
+                                @if($rowNfcUrl)
+                                    <button type="button" class="adm-btn" style="background:#fff;color:#374151;border-color:#d1d5db;"
+                                            data-nfc-url="{{ $rowNfcUrl }}" onclick="copyNfcLink(this)">
+                                        🔗 Link NFC
+                                    </button>
+                                @endif
+
                                 @if(!$isActive && !$suspended)
                                     <form method="POST" action="{{ route('admin.companies.activate', $company) }}" style="margin:0;">
                                         @csrf
@@ -452,5 +463,14 @@ document.addEventListener('DOMContentLoaded', function () {
     togglePlan();
     refresh();
 });
+
+function copyNfcLink(btn) {
+    var url = btn.getAttribute('data-nfc-url');
+    navigator.clipboard.writeText(url).then(function () {
+        var orig = btn.textContent;
+        btn.textContent = '✓ Copiato';
+        setTimeout(function () { btn.textContent = orig; }, 1800);
+    });
+}
 </script>
 @endsection

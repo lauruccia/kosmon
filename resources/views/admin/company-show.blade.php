@@ -272,6 +272,41 @@
             </div>
         </section>
 
+        {{-- Link NFC statico esercente --}}
+        @if($staticNfcUrl)
+        <section class="card light-card card-pad">
+            <div class="eyebrow" style="margin-bottom:10px;">Link NFC statico (esercente)</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">
+                Scrivi questo URL su un tag NFC vuoto (NTAG) con un'app tipo "NFC Tools" e consegna la card
+                all'esercente. Il cliente avvicina il telefono, inserisce l'importo e paga direttamente su questo conto.
+            </p>
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+                <div style="background:#fff;padding:10px;border:1px solid var(--line);border-radius:10px;flex-shrink:0;">
+                    {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(120)->errorCorrection('H')->generate($staticNfcUrl) !!}
+                </div>
+                <div style="flex:1;min-width:220px;">
+                    <div style="display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;">
+                        <span id="static-nfc-url" style="flex:1;font-size:12px;font-family:monospace;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">{{ $staticNfcUrl }}</span>
+                        <button type="button" class="cta secondary" style="padding:6px 12px;font-size:12px;min-height:auto;" onclick="copyStaticNfcUrl(this)">Copia</button>
+                    </div>
+                    <p style="font-size:11px;color:var(--text-muted);margin:8px 0 0;">
+                        Inquadra il QR con lo smartphone per verificare che il link porti al form di pagamento corretto prima di scrivere la card.
+                    </p>
+                </div>
+            </div>
+        </section>
+        <script>
+        function copyStaticNfcUrl(btn) {
+            var url = document.getElementById('static-nfc-url').textContent.trim();
+            navigator.clipboard.writeText(url).then(function () {
+                var orig = btn.textContent;
+                btn.textContent = '✓ Copiato';
+                setTimeout(function () { btn.textContent = orig; }, 1800);
+            });
+        }
+        </script>
+        @endif
+
         {{-- Utenti --}}
         <section class="card light-card card-pad">
             <div class="eyebrow" style="margin-bottom:10px;">Utenti associati</div>
