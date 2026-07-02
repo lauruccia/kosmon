@@ -1100,8 +1100,15 @@ function loadBalanceChart(days) {
     loading.style.display = 'block';
 
     fetch('{{ route("portal.balance-history") }}?days=' + days)
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            return r.json();
+        })
         .then(function(data) {
+            if (typeof Chart === 'undefined') {
+                throw new Error('Chart.js non caricato');
+            }
+
             loading.style.display = 'none';
             canvas.style.display = 'block';
 
@@ -1162,8 +1169,11 @@ function loadBalanceChart(days) {
             });
             canvas.style.maxHeight = '200px';
         })
-        .catch(function() {
+        .catch(function(err) {
+            canvas.style.display = 'none';
+            loading.style.display = 'block';
             loading.textContent = 'Errore caricamento dati.';
+            if (window.console) { console.error('balanceHistoryChart:', err); }
         });
 }
 

@@ -83,7 +83,10 @@ class ContentSecurityPolicy
             $wsOrigin .= ' ws://localhost:* wss://localhost:*';
         }
 
-        $scriptSrc = "'self' 'unsafe-inline' https://js.stripe.com";
+        // cdn.jsdelivr.net e cdnjs.cloudflare.com: Chart.js caricato via CDN nei grafici
+        // (dashboard portale, analytics/report admin, merchant-report) — senza questi host
+        // il browser blocca lo script e i grafici restano vuoti senza errore visibile.
+        $scriptSrc = "'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com";
         if ($isLocal) {
             // Vite HMR usa eval() per source maps
             $scriptSrc .= " 'unsafe-eval' http://localhost:* https://localhost:*";
