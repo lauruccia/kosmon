@@ -60,11 +60,12 @@
                 <div class="eyebrow">Accesso</div>
                 <h2>Accedi</h2>
 
+                {{-- Feedback server SEMPRE visibile (anche con il selettore account attivo) --}}
+                @if (session('status'))<div class="err" style="background:#eef3f5;color:#2f5063;">{{ session('status') }}</div>@endif
+                @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
+
                 {{-- ── Vista: nessun account salvato — step 1 email / step 2 auth ─────── --}}
                 <div id="view-default" style="display:none;">
-
-                    @if (session('status'))<div class="err" style="background:#eef3f5;color:#2f5063;">{{ session('status') }}</div>@endif
-                    @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
                     {{-- Step 1: solo il campo email --}}
                     <div id="step1">
@@ -359,8 +360,15 @@ document.querySelectorAll('form').forEach(form => {
     });
 });
 
-// Inizializza
-renderSavedAccounts();
+// Inizializza: dopo un tentativo fallito riapri il form password
+// sull'email appena usata, cosi' l'errore qui sopra ha contesto.
+const serverHasError = {{ $errors->any() ? 'true' : 'false' }};
+const oldEmailServer = @json(old('email', ''));
+if (serverHasError && oldEmailServer) {
+    selectAccount(oldEmailServer);
+} else {
+    renderSavedAccounts();
+}
 
 // ── Shared: ottieni opzioni + verifica assertion ───────────────────────────────
 async function getLoginOptions(email) {
@@ -482,12 +490,4 @@ document.getElementById('btn-biometric-sel').addEventListener('click', () => {
         btn.addEventListener('click', function () {
             var visible = input.type === 'text';
             input.type = visible ? 'password' : 'text';
-            btn.innerHTML = visible ? eyeShow : eyeHide;
-        });
-        wrap.appendChild(btn);
-    });
-})();
-</script>
-@include('partials.password-toggle')
-</body>
-</html>
+            btn.innerHTML = visible ? e
