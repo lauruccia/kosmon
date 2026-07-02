@@ -59,6 +59,7 @@ class Webhook extends Model
     public const EVENTS = [
         'transfer.booked'                 => 'Pagamento eseguito',
         'transfer.failed'                 => 'Pagamento fallito',
+        'payment_request.paid'            => 'Richiesta di pagamento (QR/link/e-commerce) pagata',
         'payment_request.approved'        => 'Richiesta testo approvata',
         'payment_request.rejected'        => 'Richiesta testo rifiutata',
         'scheduled_payment.executed'      => 'Pagamento programmato eseguito',

@@ -16,7 +16,11 @@
                 <div style="font-size:56px;margin-bottom:12px;">✅</div>
                 <h3 style="margin-bottom:8px;">Già pagato</h3>
                 <p style="color:var(--text-muted);margin-bottom:24px;">Questa richiesta di pagamento è già stata saldata.</p>
-                <a href="{{ route('portal.dashboard') }}" class="cta">Vai al conto</a>
+                @if($pr->return_url)
+                    <a href="{{ $pr->return_url }}" class="cta">Torna al negozio</a>
+                @else
+                    <a href="{{ route('portal.dashboard') }}" class="cta">Vai al conto</a>
+                @endif
             </section>
 
         @elseif($pr->isExpired())
@@ -98,6 +102,9 @@
                             Paga {{ ky_format($pr->amount) }} KY ora
                         </button>
                     </form>
+                    @if($pr->cancel_url)
+                        <a href="{{ $pr->cancel_url }}" class="cta secondary" style="width:100%;justify-content:center;margin-top:10px;">Annulla e torna al negozio</a>
+                    @endif
                 @else
                     <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;margin-bottom:12px;">
                         <strong style="color:#dc2626;">Saldo insufficiente</strong>

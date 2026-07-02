@@ -108,10 +108,12 @@ class DocsController extends Controller
                             'uuid'          => ['type' => 'string', 'format' => 'uuid'],
                             'status'        => ['type' => 'string', 'enum' => ['pending', 'paid', 'expired', 'cancelled']],
                             'direction'     => ['type' => 'string', 'enum' => ['incoming', 'outgoing']],
-                            'kind'          => ['type' => 'string', 'enum' => ['qr_dynamic', 'nfc', 'link', 'text']],
+                            'kind'          => ['type' => 'string', 'enum' => ['qr_dynamic', 'nfc', 'link', 'text', 'ecommerce']],
                             'amount'        => ['type' => 'integer'],
                             'currency'      => ['type' => 'string', 'example' => 'KY'],
                             'description'   => ['type' => 'string'],
+                            'external_reference' => ['type' => 'string', 'nullable' => true, 'description' => 'Riferimento ordine lato negoziante (es. numero ordine WooCommerce/Magento)'],
+                            'pay_url'       => ['type' => 'string', 'nullable' => true, 'description' => 'URL hosted checkout a cui reindirizzare il cliente; presente solo se status=pending'],
                             'expires_at'    => ['type' => 'string', 'format' => 'date-time'],
                             'paid_at'       => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                             'creditor'      => ['type' => 'object'],
@@ -196,6 +198,38 @@ class DocsController extends Controller
                         ],
                         'responses' => [
                             '200' => ['description' => 'Lista paginata richieste di pagamento'],
+                            '401' => ['description' => 'Non autenticato'],
+                        ],
+                    ],
+                    'post' => [
+                        'summary'     => 'Crea una richiesta di pagamento hosted (e-commerce)',
+                        'description' => 'Crea una PaymentRequest a carico del conto del negoziante autenticato e restituisce pay_url, l\'URL su cui reindirizzare il cliente per completare il pagamento con le proprie credenziali KMoney (2FA/passkey inclusi). L\'esito arriva via webhook payment_request.paid oppure interrogando GET /payment-requests/{uuid}.',
+                        'operationId' => 'createPaymentRequest',
+                        'tags'        => ['PaymentRequests'],
+                        'requestBody' => [
+                            'required' => true,
+                            'content'  => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type'       => 'object',
+                                        'required'   => ['amount'],
+                                        'properties' => [
+                                            'amount'              => ['type' => 'integer', 'minimum' => 1, 'description' => 'Importo in centesimi di KY'],
+                                            'description'         => ['type' => 'string', 'maxLength' => 255],
+                                            'external_reference'  => ['type' => 'string', 'maxLength' => 191, 'description' => 'Numero ordine lato negoziante, usato per idempotenza sui retry'],
+                                            'return_url'          => ['type' => 'string', 'format' => 'uri', 'maxLength' => 500],
+                                            'cancel_url'          => ['type' => 'string', 'format' => 'uri', 'maxLength' => 500],
+                                            'expires_in_minutes'  => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1440, 'default' => 30],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '201' => ['description' => 'Richiesta creata', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/PaymentRequest']]]],
+                            '200' => ['description' => 'Richiesta pending già esistente con lo stesso external_reference + amount (idempotenza)'],
+                            '403' => ['description' => 'Token senza ability write'],
+                            '422' => ['description' => 'Errore di validazione', 'content' => ['application/json' => ['schema' => ['\$ref' => '#/components/schemas/ErrorResponse']]]],
                             '401' => ['description' => 'Non autenticato'],
                         ],
                     ],

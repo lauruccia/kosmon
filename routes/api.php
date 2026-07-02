@@ -35,4 +35,7 @@ Route::prefix('v1')->middleware([ApiTokenAuth::class, 'throttle:60,1'])->group(f
     // Richieste di pagamento
     Route::get('/payment-requests', [PaymentRequestController::class, 'index'])->name('api.v1.payment-requests.index');
     Route::get('/payment-requests/{uuid}', [PaymentRequestController::class, 'show'])->name('api.v1.payment-requests.show');
+    Route::post('/payment-requests', [PaymentRequestController::class, 'store'])
+        ->name('api.v1.payment-requests.store')
+        ->middleware([ApiTokenAuth::class . ':write', 'throttle:10,1']);
 });

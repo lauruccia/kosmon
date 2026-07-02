@@ -13,6 +13,9 @@ use Illuminate\Support\Str;
  * @property int $to_account_id
  * @property int $amount
  * @property string|null $description
+ * @property string|null $external_reference
+ * @property string|null $return_url
+ * @property string|null $cancel_url
  * @property string $status
  * @property \Illuminate\Support\Carbon $expires_at
  * @property \Illuminate\Support\Carbon|null $paid_at
@@ -61,6 +64,9 @@ class PaymentRequest extends Model
         'from_account_id',
         'amount',
         'description',
+        'external_reference',
+        'return_url',
+        'cancel_url',
         'status',
         'expires_at',
         'paid_at',
@@ -136,6 +142,15 @@ class PaymentRequest extends Model
     public function isClosed(): bool
     {
         return in_array($this->status, ['paid', 'expired', 'cancelled'], true);
+    }
+
+    /**
+     * URL assoluto della pagina di conferma pagamento (hosted checkout).
+     * Il cliente si autentica su questo dominio (2FA/passkey inclusi) e conferma l'importo.
+     */
+    public function payUrl(): string
+    {
+        return route('portal.pay-request.show', $this->token);
     }
 
     public static function generateUniqueToken(): string

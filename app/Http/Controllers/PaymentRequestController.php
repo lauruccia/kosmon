@@ -8,9 +8,11 @@ use App\Models\PaymentRequest;
 use App\Models\User;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\TransferBookingService;
+use App\Services\WebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Events\PaymentRequestUpdated;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -65,7 +67,8 @@ class PaymentRequestController extends Controller
     public function pay(
         Request $request,
         string $token,
-        TransferBookingService $bookingService
+        TransferBookingService $bookingService,
+        WebhookService $webhookService
     ): RedirectResponse {
         $user = $request->user();
 
@@ -137,7 +140,35 @@ class PaymentRequestController extends Controller
         ]);
 
         // Broadcast real-time al merchant (aggiorna UI senza polling)
-        broadcast(new PaymentRequestUpdated($pr->fresh()))->toOthers();
+        $prFresh = $pr->fresh();
+        broadcast(new PaymentRequestUpdated($prFresh))->toOthers();
+
+        // Webhook al commerciante (destinatario): usato dalle integrazioni e-commerce
+        // (WooCommerce/Magento) per confermare l'ordine in modo asincrono e autorevole.
+        // Non deve mai bloccare o far fallire il pagamento già eseguito.
+        try {
+            $toCompany = $pr->toAccount?->company;
+            if ($toCompany) {
+                $webhookService->dispatch('payment_request.paid', [
+                    'uuid'                => $pr->uuid,
+                    'token'                => $pr->token,
+                    'kind'                 => $pr->kind,
+                    'external_reference'   => $pr->external_reference,
+                    'amount'               => (int) $pr->amount,
+                    'currency'             => 'KY',
+                    'description'          => $pr->description,
+                    'status'               => 'paid',
+                    'paid_at'              => $prFresh->paid_at?->toIso8601String(),
+                    'transfer_uuid'        => $transfer->uuid,
+                    'payer_account_number' => $fromAccount->account_number,
+                ], $toCompany);
+            }
+        } catch (\Throwable $e) {
+            Log::error('webhook.payment_request_paid_dispatch_failed', [
+                'payment_request_id' => $pr->id,
+                'error'               => $e->getMessage(),
+            ]);
+        }
 
         // Notifica al commerciante (destinatario)
         $toAccount  = $pr->toAccount;
@@ -158,6 +189,18 @@ class PaymentRequestController extends Controller
                 fromAccount: $fromAccount,
                 toAccount:   $toAccount,
             ));
+        }
+
+        // Se la richiesta è stata creata via API e-commerce con un return_url,
+        // riporta il cliente sul sito del negoziante invece che sulla dashboard KMoney.
+        if ($pr->return_url) {
+            $separator = str_contains($pr->return_url, '?') ? '&' : '?';
+
+            return redirect()->away($pr->return_url . $separator . http_build_query([
+                'kmoney_status'      => 'paid',
+                'kmoney_pr_uuid'     => $pr->uuid,
+                'kmoney_transfer_uuid' => $transfer->uuid,
+            ]));
         }
 
         return redirect()->route('portal.dashboard')
