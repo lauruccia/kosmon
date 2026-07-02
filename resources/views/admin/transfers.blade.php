@@ -29,7 +29,7 @@
         </div>
 
         <form method="get" action="{{ route('admin.transfers.index') }}" style="margin-bottom:10px;">
-            <div style="display:grid;grid-template-columns:150px 1fr 1fr 150px 130px auto;gap:8px;align-items:end;">
+            <div style="display:grid;grid-template-columns:120px 138px 138px 150px 110px 1fr auto;gap:8px;align-items:end;">
                 <div class="field">
                     <label>Periodo</label>
                     <select name="period">
@@ -42,7 +42,7 @@
                 <div class="field"><label>A data</label><input type="date" name="to_date" value="{{ $movementFilters['to_date'] }}"></div>
                 <div class="field">
                     <label>Tipo movimento</label>
-                    <select name="kind">
+                    <select name="kind" onchange="this.form.submit()">
                         <option value="">Tutti i tipi</option>
                         @foreach ($movementKindOptions as $value => $label)
                             <option value="{{ $value }}" @selected(($kindFilter ?? '') === $value)>{{ $label }}</option>
@@ -51,18 +51,18 @@
                 </div>
                 <div class="field">
                     <label>Stato</label>
-                    <select name="status">
+                    <select name="status" onchange="this.form.submit()">
                         <option value="">Tutti</option>
                         <option value="booked" @selected(($statusFilter ?? '') === 'booked')>Contabilizzato</option>
                         <option value="pending" @selected(($statusFilter ?? '') === 'pending')>In elaborazione</option>
                         <option value="rejected" @selected(($statusFilter ?? '') === 'rejected')>Respinto</option>
                     </select>
                 </div>
+                <div class="field">
+                    <label>Cerca utente / azienda</label>
+                    <input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…">
+                </div>
                 <div style="padding-bottom:1px;"><button type="submit" class="cta secondary">Filtra</button></div>
-            </div>
-            <div class="field" style="margin-top:8px;max-width:420px;">
-                <label>Cerca utente / azienda</label>
-                <input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…">
             </div>
         </form>
 

@@ -23,7 +23,7 @@ $csvParams = http_build_query(array_filter([
         <div class="field-grid" style="grid-template-columns:220px 1fr 1fr auto;gap:14px;align-items:end;">
             <div class="field">
                 <label>Periodo</label>
-                <select name="period" onchange="if (this.value !== 'custom') this.form.submit();">
+                <select name="period">
                     @foreach ($periodOptions as $value => $label)
                         <option value="{{ $value }}" @selected($filters['period'] === $value)>{{ $label }}</option>
                     @endforeach

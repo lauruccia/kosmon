@@ -56,7 +56,12 @@ function _applyPeriodDateLock(select) {
         });
     };
 
-    select.addEventListener('change', sync);
+    select.addEventListener('change', () => {
+        sync();
+        if (select.value !== 'custom') {
+            form.submit();
+        }
+    });
     sync();
 }
 
