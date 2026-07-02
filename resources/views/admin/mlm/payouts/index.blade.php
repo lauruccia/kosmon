@@ -65,7 +65,12 @@
                         <strong style="display:block;">{{ $payout->agent->name }}</strong>
                         <span style="color:var(--ink-muted);font-size:12px;">{{ $payout->agent->email }}</span>
                     </td>
-                    <td>{{ $payout->period_from->format('m/Y') }}</td>
+                    <td>
+                        {{ $payout->period_from->format('m/Y') }}
+                        @if($payout->requested_at)
+                            <span class="pill" style="background:rgba(12,74,134,.1);color:#0c4a86;font-size:11px;">Richiesta agente</span>
+                        @endif
+                    </td>
                     <td>&euro; {{ number_format($payout->commissions_total_eur_cents / 100, 2, ',', '.') }}</td>
                     <td>&euro; {{ number_format($payout->bonus_total_eur_cents / 100, 2, ',', '.') }}</td>
                     <td><strong>&euro; {{ number_format($payout->total_eur_cents / 100, 2, ',', '.') }}</strong></td>

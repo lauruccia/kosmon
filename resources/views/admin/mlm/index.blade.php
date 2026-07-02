@@ -8,6 +8,7 @@
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">Albero agenti, punti, qualifiche e bonus. Vedi <code>MLM_PROPOSAL.md</code> per i dettagli del piano.</p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
+            <a href="{{ route('admin.mlm.tree.roots') }}" class="btn btn-secondary">Albero agenti</a>
             <a href="{{ route('admin.mlm.payouts.index') }}" class="btn btn-secondary">Liquidazioni EUR</a>
             <span class="pill">{{ $agents->total() }} agenti</span>
         </div>

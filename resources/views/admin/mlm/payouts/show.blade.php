@@ -17,6 +17,9 @@
         <div>
             <h2 style="margin:0 0 4px;font-size:18px;">Liquidazione #{{ $payout->id }} — {{ $payout->agent->name }}</h2>
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">{{ $payout->agent->email }} · Periodo {{ $payout->period_from->format('d/m/Y') }} – {{ $payout->period_to->format('d/m/Y') }}</p>
+            @if($payout->requested_at)
+                <p style="margin:4px 0 0;font-size:12px;color:#0c4a86;font-weight:600;">Prelievo richiesto dall'agente il {{ $payout->requested_at->format('d/m/Y H:i') }}</p>
+            @endif
         </div>
         <span class="pill" style="color:{{ $statusColor }};border-color:{{ $statusColor }};">{{ ucfirst($payout->status) }}</span>
     </div>

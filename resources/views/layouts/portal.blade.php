@@ -1313,6 +1313,10 @@
                             </div>
                             @if(auth()->user()?->is_super_admin)
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'mlm' ? 'active' : '' }}" href="{{ route('admin.mlm.index') }}"><span class="nav-icon">MLM</span><span>MLM Agenti</span></a>
+                            <div class="sidebar-nav-group">
+                                <a class="sidebar-sublink" href="{{ route('admin.mlm.tree.roots') }}"><span class="subnav-icon">AB</span><span>Albero</span></a>
+                                <a class="sidebar-sublink" href="{{ route('admin.mlm.payouts.index') }}"><span class="subnav-icon">EU</span><span>Liquidazioni</span></a>
+                            </div>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}"><span class="nav-icon">&#128202;</span><span>Analytics</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'circuito' ? 'active' : '' }}" href="{{ route('admin.circuito') }}"><span class="nav-icon">&#128280;</span><span>Circuito KY</span></a>
@@ -1562,6 +1566,18 @@
                                 </a>
                                 @endif
                                 @if(($currentUser??$authUser)?->isMlmAgent())
+                                <a class="sidebar-link {{ $an === 'mlm-struttura' ? 'active' : '' }}" href="{{ route('portal.mlm.struttura') }}">
+                                    <span class="nav-icon">&#127795;</span><span>La mia struttura</span>
+                                </a>
+                                <a class="sidebar-link {{ $an === 'mlm-clienti' ? 'active' : '' }}" href="{{ route('portal.mlm.clienti') }}">
+                                    <span class="nav-icon">&#128101;</span><span>I miei clienti</span>
+                                </a>
+                                <a class="sidebar-link {{ $an === 'mlm-invitati' ? 'active' : '' }}" href="{{ route('portal.mlm.invitati') }}">
+                                    <span class="nav-icon">&#9993;</span><span>I miei inviti</span>
+                                </a>
+                                <a class="sidebar-link {{ $an === 'mlm-prelievi' ? 'active' : '' }}" href="{{ route('portal.mlm.prelievi') }}">
+                                    <span class="nav-icon">&euro;</span><span>Prelievi</span>
+                                </a>
                                 <a class="sidebar-link {{ $an === 'mlm-payment-details' ? 'active' : '' }}" href="{{ route('portal.mlm.payment-details.edit') }}">
                                     <span class="nav-icon">KY</span><span>Dati bancari KNM</span>
                                 </a>

@@ -143,4 +143,80 @@ class MlmTreeService
             ];
         });
     }
+
+    /**
+     * Sottoalbero completo di un agente come array annidato, pronto per il
+     * rendering dell'albero (portale "Struttura" e admin "Albero agenti").
+     * Ogni nodo: id, name, rank, points (attivi oggi), clients_count,
+     * agents_count (figli diretti), children[].
+     */
+    public function subtree(User $root): array
+    {
+        $ids = MlmAgentClosure::where('ancestor_id', $root->id)->pluck('descendant_id');
+
+        $parentMap = MlmAgentClosure::whereIn('descendant_id', $ids)
+            ->where('depth', 1)
+            ->pluck('ancestor_id', 'descendant_id');
+
+        $users = User::whereIn('id', $ids)
+            ->get(['id', 'name', 'mlm_rank', 'mlm_activated_at'])
+            ->keyBy('id');
+
+        $clientCounts = User::whereIn('mlm_client_agent_id', $ids)
+            ->selectRaw('mlm_client_agent_id, count(*) as total')
+            ->groupBy('mlm_client_agent_id')
+            ->pluck('total', 'mlm_client_agent_id');
+
+        $points = DB::table('mlm_point_ledger')
+            ->whereIn('agent_user_id', $ids)
+            ->whereDate('valid_from', '<=', now()->toDateString())
+            ->whereDate('valid_until', '>=', now()->toDateString())
+            ->selectRaw('agent_user_id, sum(points) as pts')
+            ->groupBy('agent_user_id')
+            ->pluck('pts', 'agent_user_id');
+
+        $childrenByParent = [];
+        foreach ($parentMap as $child => $parent) {
+            $childrenByParent[$parent][] = $child;
+        }
+
+        $build = function (int $id) use (&$build, $users, $clientCounts, $points, $childrenByParent): ?array {
+            $user = $users->get($id);
+            if (! $user) {
+                return null;
+            }
+
+            $children = [];
+            foreach ($childrenByParent[$id] ?? [] as $childId) {
+                $node = $build($childId);
+                if ($node) {
+                    $children[] = $node;
+                }
+            }
+            usort($children, fn (array $a, array $b) => strcasecmp($a['name'], $b['name']));
+
+            return [
+                'id'            => $user->id,
+                'name'          => $user->name,
+                'rank'          => $user->mlm_rank ?: 'start',
+                'points'        => (int) ($points[$id] ?? 0),
+                'clients_count' => (int) ($clientCounts[$id] ?? 0),
+                'agents_count'  => count($children),
+                'children'      => $children,
+            ];
+        };
+
+        return $build($root->id) ?? [];
+    }
+
+    /** Agenti radice (senza sponsor nell'albero MLM), per la vista admin. */
+    public function rootAgents(): Collection
+    {
+        $withSponsor = MlmAgentClosure::where('depth', 1)->pluck('descendant_id');
+
+        return User::where('mlm_role', 'agente')
+            ->whereNotIn('id', $withSponsor)
+            ->orderBy('name')
+            ->get();
+    }
 }

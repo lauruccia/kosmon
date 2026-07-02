@@ -253,4 +253,115 @@ class MlmPayoutService
             return $payout->fresh();
         });
     }
+
+    /**
+     * Importo EUR (centesimi) maturato e non ancora collegato ad alcuna
+     * liquidazione: e' quanto l'agente puo' richiedere di prelevare.
+     */
+    public function pendingWithdrawableCents(User $agent): int
+    {
+        $commissions = (int) MlmCommission::where('agent_user_id', $agent->id)
+            ->whereNull('mlm_payout_id')
+            ->where('status', 'pending')
+            ->sum('amount_eur_cents');
+
+        $bonuses = (int) MlmBonusPayout::where('beneficiary_user_id', $agent->id)
+            ->whereNull('mlm_payout_id')
+            ->where('status', 'pending')
+            ->sum('amount_eur_cents');
+
+        return $commissions + $bonuses;
+    }
+
+    /** L'agente ha gia' una liquidazione in corso (pending o approved)? */
+    public function hasOpenPayout(User $agent): bool
+    {
+        return MlmPayout::where('agent_user_id', $agent->id)
+            ->whereIn('status', ['pending', 'approved'])
+            ->exists();
+    }
+
+    /**
+     * Richiesta di prelievo dal portale agente: aggancia TUTTO il maturato
+     * libero (commissioni + bonus pending senza liquidazione) a una nuova
+     * liquidazione 'pending' con requested_at valorizzato. L'admin la
+     * approva e la paga con il flusso esistente (bonifico manuale).
+     *
+     * @throws \RuntimeException se c'e' gia' una richiesta in corso o non c'e' nulla da prelevare
+     */
+    public function requestWithdrawal(User $agent): MlmPayout
+    {
+        return DB::transaction(function () use ($agent): MlmPayout {
+            $open = MlmPayout::where('agent_user_id', $agent->id)
+                ->whereIn('status', ['pending', 'approved'])
+                ->lockForUpdate()
+                ->exists();
+
+            if ($open) {
+                throw new \RuntimeException('Hai gia\' una richiesta di prelievo in corso: attendi che venga elaborata prima di richiederne un\'altra.');
+            }
+
+            $commissions = MlmCommission::where('agent_user_id', $agent->id)
+                ->whereNull('mlm_payout_id')
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->get();
+            $commissions->load('run:id,period_month');
+
+            $bonuses = MlmBonusPayout::where('beneficiary_user_id', $agent->id)
+                ->whereNull('mlm_payout_id')
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->get();
+
+            $commissionsTotal = (int) $commissions->sum('amount_eur_cents');
+            $bonusTotal = (int) $bonuses->sum('amount_eur_cents');
+            $total = $commissionsTotal + $bonusTotal;
+
+            if ($total <= 0) {
+                throw new \RuntimeException('Non hai importi maturati da prelevare.');
+            }
+
+            // Periodo coperto: dalla piu' vecchia riga agganciata a oggi.
+            $dates = collect();
+            foreach ($commissions as $commission) {
+                if ($commission->run?->period_month) {
+                    $dates->push($commission->run->period_month->copy());
+                }
+            }
+            foreach ($bonuses as $bonus) {
+                if ($bonus->week_ending) {
+                    $dates->push($bonus->week_ending->copy());
+                }
+            }
+            $periodFrom = $dates->sort()->first() ?? now()->startOfMonth();
+
+            $payout = MlmPayout::create([
+                'agent_user_id'               => $agent->id,
+                'period_from'                 => $periodFrom->toDateString(),
+                'period_to'                   => now()->toDateString(),
+                'status'                      => 'pending',
+                'requested_at'                => now(),
+                'commissions_total_eur_cents' => $commissionsTotal,
+                'bonus_total_eur_cents'       => $bonusTotal,
+                'total_eur_cents'             => $total,
+            ]);
+
+            MlmCommission::whereIn('id', $commissions->pluck('id'))->update(['mlm_payout_id' => $payout->id]);
+            MlmBonusPayout::whereIn('id', $bonuses->pluck('id'))->update(['mlm_payout_id' => $payout->id]);
+
+            AuditLog::create([
+                'actor_user_id'  => $agent->id,
+                'event'          => 'mlm.payout_requested',
+                'auditable_type' => MlmPayout::class,
+                'auditable_id'   => $payout->id,
+                'context'        => [
+                    'agent_user_id'   => $agent->id,
+                    'total_eur_cents' => $total,
+                ],
+            ]);
+
+            return $payout->fresh();
+        });
+    }
 }

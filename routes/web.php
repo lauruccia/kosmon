@@ -20,6 +20,7 @@ use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\MlmPaymentDetailController;
+use App\Http\Controllers\MlmPortalController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\TextPaymentRequestController;
@@ -598,6 +599,16 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'edit'])->name('portal.mlm.payment-details.edit');
     Route::post('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'update'])->name('portal.mlm.payment-details.update')->middleware('step.up');
 
+    // MLM (KNM) — pagine agente: struttura, clienti, invitati, prelievi
+    Route::get('/mlm/struttura', [MlmPortalController::class, 'struttura'])->name('portal.mlm.struttura');
+    Route::get('/mlm/clienti', [MlmPortalController::class, 'clienti'])->name('portal.mlm.clienti');
+    Route::get('/mlm/invitati', [MlmPortalController::class, 'invitati'])->name('portal.mlm.invitati');
+    Route::post('/mlm/invitati', [MlmPortalController::class, 'invitatiStore'])->name('portal.mlm.invitati.store');
+    Route::post('/mlm/invitati/{invitation}/reinvia', [MlmPortalController::class, 'invitatiResend'])->name('portal.mlm.invitati.resend');
+    Route::delete('/mlm/invitati/{invitation}', [MlmPortalController::class, 'invitatiDestroy'])->name('portal.mlm.invitati.destroy');
+    Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
+    Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
+
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
     Route::get('/api-tokens/nuovo', [ApiTokenController::class, 'create'])->name('portal.api-tokens.create');
     Route::post('/api-tokens', [ApiTokenController::class, 'store'])->name('portal.api-tokens.store')->middleware('step.up');
@@ -788,6 +799,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     // MLM (KNM) — albero agenti, punti, qualifiche, bonus, commissioni
     Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
     Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
+    Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
+    Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
 
     Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
     Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');

@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
  * @property int $bonus_total_eur_cents
  * @property int $total_eur_cents
  * @property string $status
+ * @property \Illuminate\Support\Carbon|null $requested_at
  * @property int|null $approved_by_user_id
  * @property \Illuminate\Support\Carbon|null $approved_at
  * @property string|null $payment_reference
@@ -39,6 +40,7 @@ class MlmPayout extends Model
         'bonus_total_eur_cents',
         'total_eur_cents',
         'status',
+        'requested_at',
         'approved_by_user_id',
         'approved_at',
         'payment_reference',
@@ -49,6 +51,7 @@ class MlmPayout extends Model
     protected $casts = [
         'period_from'  => 'date',
         'period_to'    => 'date',
+        'requested_at' => 'datetime',
         'approved_at'  => 'datetime',
         'paid_at'      => 'datetime',
     ];

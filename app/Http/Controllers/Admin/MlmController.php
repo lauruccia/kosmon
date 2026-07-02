@@ -93,4 +93,36 @@ class MlmController extends Controller
             'activeNav' => 'mlm',
         ]);
     }
+
+    /**
+     * Albero agenti navigabile: senza {user} mostra le radici (forest),
+     * con {user} il sottoalbero di quell'agente. Cliccando un nodo si
+     * naviga all'albero di quello specifico agente.
+     */
+    public function tree(Request $request, MlmTreeService $treeService, ?User $user = null): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        if ($user) {
+            abort_unless($user->isMlmAgent(), 404);
+
+            return view('admin.mlm.tree', [
+                'pageTitle' => 'Albero — ' . $user->name,
+                'root'      => $user,
+                'tree'      => $treeService->subtree($user),
+                'roots'     => null,
+                'sponsor'   => $user->referredBy?->isMlmAgent() ? $user->referredBy : null,
+                'activeNav' => 'mlm',
+            ]);
+        }
+
+        return view('admin.mlm.tree', [
+            'pageTitle' => 'Albero agenti',
+            'root'      => null,
+            'tree'      => null,
+            'roots'     => $treeService->rootAgents(),
+            'sponsor'   => null,
+            'activeNav' => 'mlm',
+        ]);
+    }
 }

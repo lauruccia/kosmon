@@ -102,6 +102,10 @@ class AuthController extends Controller
                 app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
             }
 
+            // MLM: se questa email era stata invitata da uno o piu' agenti,
+            // marca gli inviti come "registrato".
+            \App\Models\MlmInvitation::markRegistered($user);
+
             $account = Account::create([
                 'company_id' => $company?->id,
                 'owner_user_id' => $user->id,

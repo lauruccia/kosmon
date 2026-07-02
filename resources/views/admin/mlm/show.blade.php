@@ -8,7 +8,10 @@
             <h2 style="margin:0 0 4px;font-size:18px;">{{ $agent->name }}</h2>
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">{{ $agent->email }} · Sponsor: {{ $sponsor?->name ?? '— (radice albero)' }}</p>
         </div>
-        <span class="pill">{{ ucfirst($agent->mlm_rank) }}</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <a href="{{ route('admin.mlm.tree', $agent) }}" class="btn btn-secondary">Albero</a>
+            <span class="pill">{{ ucfirst($agent->mlm_rank) }}</span>
+        </div>
     </div>
 </div>
 
