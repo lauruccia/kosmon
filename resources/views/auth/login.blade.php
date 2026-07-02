@@ -63,6 +63,7 @@
                 {{-- ── Vista: nessun account salvato — step 1 email / step 2 auth ─────── --}}
                 <div id="view-default" style="display:none;">
 
+                    @if (session('status'))<div class="err" style="background:#eef3f5;color:#2f5063;">{{ session('status') }}</div>@endif
                     @if ($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
                     {{-- Step 1: solo il campo email --}}

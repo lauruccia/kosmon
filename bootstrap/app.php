@@ -38,4 +38,19 @@ return Application::configure(basePath: dirname(__DIR__))
         if (config('sentry.dsn') && class_exists(\Sentry\Laravel\Integration::class)) {
             \Sentry\Laravel\Integration::handles($exceptions);
         }
+
+        // CSRF/token scaduto (419): niente pagina "Page Expired" grezza.
+        // Capita tipicamente su form rimasti aperti a lungo (es. logout dopo
+        // inattività) — riportiamo l'utente al login con un messaggio chiaro
+        // invece di mostrare l'errore Laravel di default.
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Sessione scaduta. Ricarica la pagina ed effettua nuovamente il login.',
+                ], 419);
+            }
+
+            return redirect()->route('login')
+                ->with('status', 'La tua sessione è scaduta per inattività. Effettua nuovamente il login.');
+        });
     })->create();
