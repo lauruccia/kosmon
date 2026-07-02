@@ -294,6 +294,18 @@
                     </p>
                 </div>
             </div>
+
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
+                <div id="nfc-write-bar" style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:10px;">
+                    Avvicina un tag NFC vuoto e premi il pulsante per scriverlo direttamente
+                </div>
+                <button type="button" id="nfc-write-btn" class="cta" style="width:100%;" onclick="writeStaticNfcTag(this)">
+                    📶 Scrivi tag NFC ora
+                </button>
+                <p style="font-size:11px;color:var(--text-muted);margin:8px 0 0;">
+                    Funziona solo da <strong>Chrome su Android</strong> con NFC attivo (Web NFC API) — apri questa pagina dal telefono che userai per scrivere le card. Su desktop/iPhone usa il link o il QR con un'app tipo "NFC Tools".
+                </p>
+            </div>
         </section>
         <script>
         function copyStaticNfcUrl(btn) {
@@ -303,6 +315,35 @@
                 btn.textContent = '✓ Copiato';
                 setTimeout(function () { btn.textContent = orig; }, 1800);
             });
+        }
+
+        async function writeStaticNfcTag(btn) {
+            var bar = document.getElementById('nfc-write-bar');
+            var url = document.getElementById('static-nfc-url').textContent.trim();
+
+            if (!('NDEFReader' in window)) {
+                bar.textContent = 'NFC non disponibile su questo browser. Apri questa pagina da Chrome su Android.';
+                bar.style.color = '#b91c1c';
+                return;
+            }
+
+            btn.disabled = true;
+            bar.textContent = 'Avvicina il tag NFC vuoto al telefono...';
+            bar.style.color = 'var(--text)';
+
+            try {
+                var ndef = new NDEFReader();
+                await ndef.write({ records: [{ recordType: 'url', data: url }] });
+
+                bar.textContent = '✓ Tag scritto con successo! Consegna la card all\'esercente.';
+                bar.style.background = '#dcfce7';
+                bar.style.color = '#166534';
+                bar.style.border = '1px solid #bbf7d0';
+            } catch (err) {
+                bar.textContent = 'Errore: ' + (err.message || err.name) + '. Riprova.';
+                bar.style.color = '#b91c1c';
+            }
+            btn.disabled = false;
         }
         </script>
         @endif
