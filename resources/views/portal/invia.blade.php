@@ -660,9 +660,12 @@
         fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), {
             headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('search request failed with status ' + r.status);
+            return r.json();
+        })
         .then(data => {
-            if (!data.length) {
+            if (!Array.isArray(data) || !data.length) {
                 searchDropdown.innerHTML = '<div class="search-no-result">Nessun risultato per "' + escHtml(q) + '"</div>';
             } else {
                 searchDropdown.innerHTML = data.map(a =>
@@ -683,7 +686,10 @@
             }
             searchDropdown.classList.add('open');
         })
-        .catch(() => closeDropdown());
+        .catch(() => {
+            searchDropdown.innerHTML = '<div class="search-no-result">Errore nella ricerca. Riprova.</div>';
+            searchDropdown.classList.add('open');
+        });
     }
 
     function showLoading() {

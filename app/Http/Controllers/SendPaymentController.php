@@ -178,7 +178,7 @@ class SendPaymentController extends PortalController
                             ->orWhere('email', $q)       // match esatto
                             ->orWhere('phone', $q);      // match esatto
                       })
-                      ->orWhere('account_number', $q);  // match esatto sul numero conto
+                      ->orWhere('uuid', $q);  // match esatto sul numero conto (account_number è un accessor su uuid, non una colonna)
             })
             ->limit(10)
             ->get()
