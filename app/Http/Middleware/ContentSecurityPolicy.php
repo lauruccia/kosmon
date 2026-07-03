@@ -14,6 +14,11 @@ use Symfony\Component\HttpFoundation\Response;
  *  - Laravel Reverb (WebSocket, porta/host da config)
  *  - Sentry ingest (error monitoring)
  *  - data: URI (QR code generati inline, font embed)
+ *  - cdn.jsdelivr.net / cdnjs.cloudflare.com: Chart.js e TomSelect (select
+ *    con ricerca, usato su tutte le pagine portale) - whitelistati sia in
+ *    script-src che in style-src, altrimenti il CSS non carica e il select
+ *    nativo resta visibile accanto al widget TomSelect non stilizzato
+ *    (bug osservato: campi filtro duplicati in Movimenti, 2026-07-03).
  *
  * Per ambiente di sviluppo (local/development) viene aggiunto 'unsafe-eval'
  * per supportare Vite HMR / source-maps.
@@ -95,7 +100,7 @@ class ContentSecurityPolicy
         $directives = [
             "default-src 'self'",
             "script-src {$scriptSrc}",
-            "style-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
             "img-src 'self' data: https:",
             "font-src 'self' data:",
             "connect-src 'self' {$wsOrigin} https://api.stripe.com https://*.ingest.sentry.io",
