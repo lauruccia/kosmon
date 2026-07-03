@@ -101,15 +101,16 @@ Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la dura
 
 ### 5.2 Commissioni indirette (sui clienti dei propri agenti in downline)
 
-| Livello downline | % |
-|---|---|
-| 1 | 4% |
-| 2 | 2% |
-| 3 | 1% |
-| 4 | 0,5% |
-| 5+ | 8% |
+| Livello downline | % | Chi la percepisce |
+|---|---|---|
+| 1 | 4% | qualsiasi agente |
+| 2 | 2% | qualsiasi agente |
+| 3 | 1% | qualsiasi agente |
+| 4 | 0,5% | qualsiasi agente |
+| 5 | 8% | qualsiasi agente |
+| 6+ | 0,5% | solo agenti di grado Top/SuperVisor/Manager, con breakaway al primo Top/SuperVisor/Manager incontrato in ciascun ramo |
 
-**Punto aperto importante (§7.4)**: le slide (`2°ParteKnm.pptx`, sezione "Compensi indiretti estesi") descrivono una regola diversa per il livello 5+: **0,5%** (non 8%) per un numero illimitato di livelli, ma **solo fino al successivo Top/SuperVisor/Manager nella catena** (poi si "azzera" — è una compressione tipica dei piani MLM a breakaway). Il tuo messaggio invece descrive un 8% flat per tutti i livelli oltre il 5, senza limite. La differenza è enorme in termini di sostenibilità economica (un 8% infinito su reti profonde può crescere in modo incontrollato — vedi la simulazione a 10 livelli nelle slide, che arriva a milioni di euro). **Consiglio la versione delle slide** (0,5% con compressione fino al prossimo Top/SuperVisor/Manager), ma è una tua decisione economica, non tecnica — confermamela prima che la implementi.
+**Deciso il 2026-07-03** (vedi memoria `mlm_livello5_8percento_da_confermare`): il 5° livello ha un'aliquota propria dell'8%, uniforme per qualsiasi agente — non è "0,5% oltre il 4°" come implementato inizialmente. Lo 0,5% con breakaway (sezione "Compensi indiretti estesi" delle slide) si applica solo dal 6° livello in poi, e solo per agenti che hanno già raggiunto grado Top/SuperVisor/Manager. Confermato numericamente da tutte le tabelle "Esempio compensi" nelle 3 slide (es. Presentazione KNM slide 18: 18.432€ di V.A.P. al 5° livello × 8% = 1.475€, coerente con il "Guadagno mensile" totale mostrato).
 
 ---
 
@@ -159,7 +160,7 @@ Questi non bloccano la stesura della proposta, ma **bloccano l'implementazione**
 1. **Cliente invitato da un cliente** (non da un agente): l'evento risale al primo agente antenato nell'albero, o non genera punti/commissioni per nessuno? Consiglio: risale al primo agente antenato.
 2. **Ordine reale Senior/Top**: ho risolto l'ambiguità usando l'ordine coerente con gli importi bonus crescenti (Key<Senior<Top<SuperVisor<Manager). Confermami che è quello corretto, perché cambia i requisiti di qualifica e la cascata bonus.
 3. **BasiQ oltre i 30 giorni**: chi arriva a 12 punti dopo i 30 giorni diventa comunque "Basic" ma non genera mai bonus di struttura. Confermi?
-4. **Commissione indiretta oltre il 5° livello**: 8% flat illimitato (tuo messaggio) o 0,5% con compressione al prossimo Top/SuperVisor/Manager (slide, consigliato)? Impatto economico molto rilevante.
+4. **RISOLTO il 2026-07-03**: il 5° livello ha aliquota propria dell'8% (uniforme, non "0,5% oltre il 4°" come implementato inizialmente); dal 6° livello in poi 0,5% con compressione al prossimo Top/SuperVisor/Manager, solo per agenti già di grado Top/SuperVisor/Manager. Vedi §5.2.
 5. **Requisito Manager**: le slide dicono "6 Basic + 3 SuperVisor su 3 colonne", ma sia l'excel che il tuo messaggio dicono "3 Senior" al posto di "3 SuperVisor". Ho seguito le slide come da tua indicazione, ma segnalo che 2 fonti su 3 dicono "Senior" — verifica.
 6. **Liquidazione EUR**: come vengono pagati gli agenti? Bonifico manuale gestito da admin, soglia minima di payout, integrazione futura con uno strumento di pagamento (Stripe payout, PayPal)? Serve almeno un flusso "richiesta dati IBAN → approvazione admin → segnato come pagato" per la v1.
 7. **Compliance MLM in Italia**: un piano che eroga punti/bonus **per la sola registrazione di un cliente** (non legato a un acquisto di prodotto/servizio) rientra nell'ambito di attenzione della normativa sulla vendita piramidale (L. 173/2005, art. 5) se il guadagno è prevalentemente legato al reclutamento piuttosto che alla vendita di beni/servizi reali. Non sono un consulente legale: raccomando una verifica con un legale specializzato prima del lancio pubblico, indipendentemente dall'implementazione tecnica.

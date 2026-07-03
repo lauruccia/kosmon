@@ -18,17 +18,18 @@ use Illuminate\Support\Facades\DB;
  *    PROPRI punti attivi) sull'importo mensile di quel cliente.
  *  - INDIRETTA: ogni agente guadagna una % fissa sull'importo mensile dei
  *    clienti di ciascun agente della propria downline, in base al livello
- *    (1=4%, 2=2%, 3=1%, 4=0,5%). Dal livello 5 in poi: 0,5%, con una
- *    "breakaway": il conteggio si ferma (non scende oltre) al primo agente
- *    di rank Top/SuperVisor/Manager incontrato lungo ciascun ramo — quel
- *    nodo viene comunque incluso allo 0,5%, ma i SUOI discendenti non
- *    vengono piu' conteggiati per l'agente a monte.
- *
- * NOTA IMPORTANTE: la regola di compressione oltre il 5° livello e' la mia
- * migliore interpretazione di una fonte ambigua — Laura ha confermato
- * "0,5% con compressione" senza specificare l'esatto algoritmo (vedi
- * MLM_PROPOSAL.md §5.2 e il confronto con "Compensi indiretti estesi" nelle
- * slide originali). Da validare con un caso reale prima del go-live.
+ *    (1=4%, 2=2%, 3=1%, 4=0,5%, 5=8% — quest'ultima uniforme per QUALSIASI
+ *    agente, vedi tabella "Compensi indiretti" in 2°ParteKnm.pptx, verificata
+ *    numericamente in tutte le tabelle "Esempio compensi" delle 3 slide).
+ *    Dal 6° livello in poi: 0,5% aggiuntivo, ma SOLO se l'agente beneficiario
+ *    ha gia' grado Top/SuperVisor/Manager (slide "Compensi indiretti
+ *    estesi") — per gli agenti di grado inferiore la commissione indiretta
+ *    si ferma al 5° livello. La "breakaway" si applica dal 5° livello in
+ *    poi: il conteggio non scende oltre il primo agente di rank
+ *    Top/SuperVisor/Manager incontrato lungo ciascun ramo — quel nodo viene
+ *    comunque incluso, ma i SUOI discendenti non vengono piu' conteggiati
+ *    per l'agente a monte (confermato da Laura il 2026-07-03, vedi
+ *    [[mlm_livello5_8percento_da_confermare]]).
  */
 class MlmCommissionEngine
 {
@@ -44,17 +45,18 @@ class MlmCommissionEngine
         0 => 0.0,
     ];
 
-    /** % indiretta per livello 1-4 (dal 5° in poi: INDIRECT_BEYOND_LEVEL_4_PERCENTAGE). */
+    /** % indiretta per livello 1-5, uniforme per qualsiasi agente. Dal 6° livello: INDIRECT_BEYOND_LEVEL_5_PERCENTAGE, solo per Top/SuperVisor/Manager. */
     private const INDIRECT_PERCENTAGES = [
         1 => 0.04,
         2 => 0.02,
         3 => 0.01,
         4 => 0.005,
+        5 => 0.08,
     ];
 
-    private const INDIRECT_BEYOND_LEVEL_4_PERCENTAGE = 0.005;
+    private const INDIRECT_BEYOND_LEVEL_5_PERCENTAGE = 0.005;
 
-    /** Qualifiche che fanno da "breakaway" oltre il 4° livello. */
+    /** Qualifiche che godono dell'estensione oltre il 5° livello e che fanno da "breakaway" (si ferma la discesa una volta incontrate). */
     private const BREAKAWAY_RANKS = ['top', 'supervisor', 'manager'];
 
     public function __construct(private readonly MlmTreeService $tree) {}
@@ -173,10 +175,15 @@ class MlmCommissionEngine
     /**
      * Commissione indiretta: cammina la downline di $agent livello per
      * livello (BFS), sommando le commissioni sui clienti di ogni agente
-     * incontrato, con breakaway oltre il 4° livello (vedi classe docblock).
+     * incontrato. Livelli 1-5: percentuale fissa per tutti (vedi
+     * INDIRECT_PERCENTAGES). Livello 6+: solo se $agent ha gia' grado
+     * Top/SuperVisor/Manager, con breakaway sul primo nodo Top+ incontrato
+     * (vedi classe docblock).
      */
     private function calculateIndirect(User $agent, array $clientsByAgent, MlmCommissionRun $run): void
     {
+        $agentQualifiesForExtension = in_array($agent->mlm_rank, self::BREAKAWAY_RANKS, true);
+
         $queue = [];
         foreach ($this->tree->directDownline($agent) as $child) {
             $queue[] = ['agent' => $child, 'depth' => 1];
@@ -187,27 +194,42 @@ class MlmCommissionEngine
             $node = $item['agent'];
             $depth = $item['depth'];
 
-            $percentage = $depth <= 4 ? self::INDIRECT_PERCENTAGES[$depth] : self::INDIRECT_BEYOND_LEVEL_4_PERCENTAGE;
+            if ($depth <= 5) {
+                $percentage = self::INDIRECT_PERCENTAGES[$depth];
+            } elseif ($agentQualifiesForExtension) {
+                $percentage = self::INDIRECT_BEYOND_LEVEL_5_PERCENTAGE;
+            } else {
+                $percentage = 0.0;
+            }
 
-            foreach (($clientsByAgent[$node->id] ?? []) as $clientId => $base) {
-                $idempotencyKey = "mlm_commission_indirect_{$run->id}_{$agent->id}_{$clientId}";
-                if (MlmCommission::where('idempotency_key', $idempotencyKey)->exists()) {
-                    continue;
+            if ($percentage > 0) {
+                foreach (($clientsByAgent[$node->id] ?? []) as $clientId => $base) {
+                    $idempotencyKey = "mlm_commission_indirect_{$run->id}_{$agent->id}_{$clientId}";
+                    if (MlmCommission::where('idempotency_key', $idempotencyKey)->exists()) {
+                        continue;
+                    }
+
+                    MlmCommission::create([
+                        'mlm_commission_run_id' => $run->id,
+                        'agent_user_id' => $agent->id,
+                        'type' => 'indiretta',
+                        'source_client_id' => $clientId,
+                        'source_agent_id' => $node->id,
+                        'level' => $depth,
+                        'base_amount_eur_cents' => $base,
+                        'percentage' => $percentage * 100,
+                        'amount_eur_cents' => (int) round($base * $percentage),
+                        'status' => 'pending',
+                        'idempotency_key' => $idempotencyKey,
+                    ]);
                 }
+            }
 
-                MlmCommission::create([
-                    'mlm_commission_run_id' => $run->id,
-                    'agent_user_id' => $agent->id,
-                    'type' => 'indiretta',
-                    'source_client_id' => $clientId,
-                    'source_agent_id' => $node->id,
-                    'level' => min($depth, 5),
-                    'base_amount_eur_cents' => $base,
-                    'percentage' => $percentage * 100,
-                    'amount_eur_cents' => (int) round($base * $percentage),
-                    'status' => 'pending',
-                    'idempotency_key' => $idempotencyKey,
-                ]);
+            // Oltre il 5° livello non ha senso proseguire se l'agente non e'
+            // Top/SuperVisor/Manager: nessun livello successivo genererebbe
+            // mai commissioni per lui.
+            if ($depth >= 5 && ! $agentQualifiesForExtension) {
+                continue;
             }
 
             $isBreakawayPoint = $depth >= 5 && in_array($node->mlm_rank, self::BREAKAWAY_RANKS, true);
