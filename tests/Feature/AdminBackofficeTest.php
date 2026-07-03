@@ -263,4 +263,38 @@ class AdminBackofficeTest extends TestCase
             ->post('/admin/transfers/' . $transfer->id . '/refund', ['reason' => 'Fuori finestra'])
             ->assertStatus(422);
     }
+
+    public function test_superadmin_can_change_user_password_and_user_can_then_login(): void
+    {
+        // Copre il bottone "Cambio password" nella scheda utente admin: la sezione
+        // #user-password non esisteva nella view (link morto), pur esistendo gia'
+        // route e controller. Verifica sia il rendering del form sia il flusso
+        // completo, utile in particolare per sbloccare account con hash legacy
+        // non-Bcrypt (vedi AuthFlowTest::test_login_with_legacy_non_bcrypt_hash...).
+        $this->seed();
+        $admin = User::where('email', 'superadmin@kmoney.test')->firstOrFail();
+        $privateUser = User::where('email', 'maria.ferri@kmoney.test')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get('/admin/users/' . $privateUser->id . '#user-password')
+            ->assertOk()
+            ->assertSee('Cambio password', false)
+            ->assertSee(route('admin.users.password', $privateUser), false);
+
+        $this->actingAs($admin)
+            ->post('/admin/users/' . $privateUser->id . '/password', [
+                'new_password' => 'nuovaPassword123',
+                'new_password_confirmation' => 'nuovaPassword123',
+            ])
+            ->assertRedirect();
+
+        $this->post('/logout');
+
+        $this->post('/login', [
+            'email' => $privateUser->email,
+            'password' => 'nuovaPassword123',
+        ])->assertRedirect('/dashboard');
+
+        $this->assertAuthenticatedAs($privateUser->fresh());
+    }
 }

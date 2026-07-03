@@ -441,6 +441,40 @@
         @endif
     </section>
 
+    {{-- ===== CAMBIO PASSWORD (admin) ===== --}}
+    <section class="card light-card" id="user-password" style="margin-bottom:22px;">
+        <div class="section-head" style="margin-bottom:18px;">
+            <div>
+                <span class="eyebrow">Sicurezza</span>
+                <h3 class="section-title">Cambio password</h3>
+            </div>
+        </div>
+
+        <p class="table-muted" style="margin:0 0 16px;max-width:640px;">
+            Imposta una nuova password per questo utente. Utile anche per sbloccare account con
+            hash password legacy (importati dal vecchio sistema) che non riescono ad autenticarsi.
+        </p>
+
+        <form method="post" action="{{ route('admin.users.password', $userRecord) }}"
+              style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end;max-width:640px;"
+              onsubmit="return confirm('Confermi il cambio password per {{ $userRecord->name }}?');">
+            @csrf
+            <div class="uu-field">
+                <label for="new_password">Nuova password</label>
+                <input id="new_password" name="new_password" type="password" required minlength="8"
+                       placeholder="Minimo 8 caratteri" autocomplete="new-password">
+            </div>
+            <div class="uu-field">
+                <label for="new_password_confirmation">Conferma password</label>
+                <input id="new_password_confirmation" name="new_password_confirmation" type="password" required minlength="8"
+                       placeholder="Ripeti la password" autocomplete="new-password">
+            </div>
+            <div style="grid-column:1/-1;">
+                <button type="submit" class="cta">Aggiorna password</button>
+            </div>
+        </form>
+    </section>
+
     {{-- ===== SESSIONI ATTIVE + STORICO ACCESSI ===== --}}
     <section class="card light-card" id="user-sessions" style="margin-bottom:22px;">
         <div class="section-head" style="margin-bottom:18px;">
