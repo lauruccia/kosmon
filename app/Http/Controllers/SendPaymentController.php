@@ -171,7 +171,8 @@ class SendPaymentController extends PortalController
             ->where('is_system_account', false)
             ->whereKeyNot($currentAccount->id)
             ->where(function ($query) use ($q) {
-                $query->whereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
+                $query->where('account_name', 'like', "%{$q}%")  // nome personalizzato conto/sottoconto
+                      ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$q}%"))
                       ->orWhereHas('ownerUser', function ($u) use ($q) {
                           $u->where('name', 'like', "%{$q}%")
                             ->orWhere('email', $q)       // match esatto
