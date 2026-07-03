@@ -893,8 +893,10 @@
                 </div>
             </div>
             @php
+                // Scala minima 100 KY (10000 cent): evita barre piene al 100%
+                // quando i movimenti del trimestre sono di pochi centesimi.
                 $maxTrendValue = max(
-                    1,
+                    10000,
                     (int) $monthlyTrend->max('income'),
                     (int) $monthlyTrend->max('expense')
                 );
@@ -1124,6 +1126,23 @@ function loadBalanceChart(days) {
             var lineColor  = isPositive ? '#0d9488' : '#dc2626';
             var fillColor  = isPositive ? 'rgba(13,148,136,.1)' : 'rgba(220,38,38,.08)';
 
+            // Scala Y con ampiezza minima: evita che variazioni di pochi
+            // centesimi occupino tutta l'altezza del grafico.
+            var minV = Math.min.apply(null, values);
+            var maxV = Math.max.apply(null, values);
+            var spread = maxV - minV;
+            // Ampiezza minima dell'asse: almeno 1 KY o il 4% del valore medio
+            var minSpan = Math.max(1, Math.abs((minV + maxV) / 2) * 0.04);
+            var yMin, yMax;
+            if (spread < minSpan) {
+                var mid = (minV + maxV) / 2;
+                yMin = mid - minSpan / 2;
+                yMax = mid + minSpan / 2;
+            } else {
+                yMin = minV - spread * 0.1;
+                yMax = maxV + spread * 0.1;
+            }
+
             if (balanceChartInstance) { balanceChartInstance.destroy(); }
 
             balanceChartInstance = new Chart(canvas, {
@@ -1159,9 +1178,12 @@ function loadBalanceChart(days) {
                     scales: {
                         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
                         y: {
+                            suggestedMin: yMin,
+                            suggestedMax: yMax,
                             ticks: {
                                 font: { size: 11 },
-                                callback: function(v) { return v.toLocaleString('it-IT') + ' KY'; }
+                                maxTicksLimit: 6,
+                                callback: function(v) { return v.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' KY'; }
                             }
                         }
                     }
