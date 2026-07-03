@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AuthFlowTest extends TestCase
@@ -94,5 +95,29 @@ class AuthFlowTest extends TestCase
         $this->assertTrue($user->hasPermission('payments.receive'));
         $this->assertFalse($user->hasPermission('announcements.publish'));
         $this->assertFalse($user->hasPermission('marketplace.buy'));
+    }
+
+    public function test_login_with_legacy_non_bcrypt_hash_shows_reset_message_instead_of_500(): void
+    {
+        // Simula un account importato dal vecchio kosmomoney: la colonna password
+        // contiene un hash crypt() valido (qui SHA-512-crypt) ma non Bcrypt. In fase di
+        // import Hash::isHashed() lo riconosce come gia' hashato e lo salva cosi' com'e'
+        // (bypassando il cast 'hashed' con un update diretto, come fa l'import via SQL).
+        $user = User::factory()->create([
+            'email' => 'legacy@example.test',
+            'is_active' => true,
+        ]);
+
+        DB::table('users')->where('id', $user->id)->update([
+            'password' => crypt('secret123', '$6$rounds=5000$legacysalt$'),
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => 'legacy@example.test',
+            'password' => 'secret123',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
     }
 }

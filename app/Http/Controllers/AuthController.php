@@ -155,7 +155,30 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt(array_merge($credentials, ['is_active' => true]), true)) {
+        try {
+            $authenticated = Auth::attempt(array_merge($credentials, ['is_active' => true]), true);
+        } catch (\RuntimeException $e) {
+            // Account importati dal vecchio kosmomoney: l'hash salvato in `password` non e'
+            // in formato Bcrypt (es. crypt() MD5/SHA-512 del vecchio sistema, riconosciuto da
+            // Hash::isHashed() come "gia' hashato" e quindi mai ri-hashato in fase di import).
+            // BcryptHasher::check() rifiuta di verificarlo e lancia RuntimeException invece
+            // di restituire false, quindi senza questo catch l'utente vedeva un 500 invece
+            // di tornare al login. Trattiamo come credenziali non valide e indirizziamo al
+            // reset password, l'unico modo sicuro per sbloccare questi account.
+            if (! str_contains($e->getMessage(), 'Bcrypt')) {
+                throw $e;
+            }
+
+            \Illuminate\Support\Facades\Log::warning('Login: hash password legacy non-Bcrypt, richiesto reset', [
+                'email' => $credentials['email'],
+            ]);
+
+            return back()->withInput()->withErrors([
+                'email' => 'Non riusciamo a verificare questo account (proviene dalla migrazione dal vecchio sistema). Usa "Password dimenticata?" per impostarne una nuova.',
+            ]);
+        }
+
+        if (! $authenticated) {
             return back()->withInput()->withErrors([
                 'email' => 'Credenziali non valide o utente disattivato.',
             ]);
