@@ -1316,7 +1316,7 @@
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.tree.roots') }}"><span class="subnav-icon">AB</span><span>Albero</span></a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.requests.index') }}"><span class="subnav-icon">RQ</span><span>Richieste agente</span>
-                                    @php($pendingAgentRequests = \App\Models\User::where('mlm_agent_request_status', 'pending')->count())
+                                    @php $pendingAgentRequests = \App\Models\User::where('mlm_agent_request_status', 'pending')->count(); @endphp
                                     @if($pendingAgentRequests > 0)
                                         <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $pendingAgentRequests }}</span>
                                     @endif
