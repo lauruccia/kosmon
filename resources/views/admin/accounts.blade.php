@@ -3,15 +3,19 @@
 @section('content')
 @php
     $totalBalance      = $accounts->sum('available_balance');
+    $circuitHealthy    = abs($totalBalance) <= 1; // tolleranza 1 centesimo, come admin.integrity
     $activeAccounts    = $accounts->where('status', 'active')->count();
     $suspendedAccounts = $accounts->where('status', 'suspended')->count();
     $companyAccounts   = $accounts->where('owner_type', 'company')->count();
     $privateAccounts   = $accounts->where('owner_type', 'private')->count();
-    $negativeAccounts  = $accounts->where('available_balance', '<', 0)->count();
+    $positiveSum       = $accounts->where('available_balance', '>', 0)->sum('available_balance');
+    $negativeSum       = $accounts->where('available_balance', '<', 0)->sum('available_balance');
+    $positiveCount     = $accounts->where('available_balance', '>', 0)->count();
+    $negativeCount     = $accounts->where('available_balance', '<', 0)->count();
 @endphp
 
-{{-- ─── KPI strip (5 colonne: 4 metriche + azioni rapide) ─────── --}}
-<section class="hero-strip" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:20px;">
+{{-- ─── KPI strip (6 colonne: 5 metriche + azioni rapide) ─────── --}}
+<section class="hero-strip" style="grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:20px;">
 
     <article class="stat-card">
         <div class="eyebrow">Conti nel circuito</div>
@@ -26,26 +30,35 @@
 
     <article class="stat-card">
         <div class="eyebrow">Saldo netto circolante</div>
-        <div class="section-title" style="font-size:20px;color:{{ $totalBalance >= 0 ? 'var(--teal)' : 'var(--danger)' }};">
+        <div class="section-title" style="font-size:20px;color:{{ $circuitHealthy ? 'var(--teal)' : 'var(--danger)' }};">
             {{ ky_format($totalBalance) }} KY
         </div>
-        <div class="table-muted" style="margin-top:4px;">Somma saldi contabili</div>
+        <div class="table-muted" style="margin-top:4px;">
+            @if($circuitHealthy)
+                <span style="color:var(--success);">&#10003; Circuito in equilibrio</span>
+            @else
+                <span style="color:var(--danger);">&#9888; Sbilanciato</span>
+            @endif
+            &middot; <a href="{{ route('admin.integrity.index') }}" style="color:var(--primary);">Verifica integrità &rarr;</a>
+        </div>
+    </article>
+
+    <article class="stat-card">
+        <div class="eyebrow">Saldo positivo <span style="font-weight:400;opacity:.6;">(filtro)</span></div>
+        <div class="section-title" id="ac-positive-sum" style="font-size:20px;color:var(--teal);">{{ ky_format($positiveSum) }} KY</div>
+        <div class="table-muted" style="margin-top:4px;"><span id="ac-positive-count">{{ $positiveCount }}</span> conti a credito</div>
+    </article>
+
+    <article class="stat-card">
+        <div class="eyebrow">Saldo negativo <span style="font-weight:400;opacity:.6;">(filtro)</span></div>
+        <div class="section-title" id="ac-negative-sum" style="font-size:20px;color:var(--danger);">{{ ky_format($negativeSum) }} KY</div>
+        <div class="table-muted" style="margin-top:4px;"><span id="ac-negative-count">{{ $negativeCount }}</span> conti a debito</div>
     </article>
 
     <article class="stat-card">
         <div class="eyebrow">Aziende / Privati</div>
         <div class="section-title">{{ $companyAccounts }} / {{ $privateAccounts }}</div>
         <div class="table-muted" style="margin-top:4px;">Distribuzione profili circuito</div>
-    </article>
-
-    <article class="stat-card">
-        <div class="eyebrow">Conti in debito</div>
-        <div class="section-title" style="color:{{ $negativeAccounts > 0 ? 'var(--danger)' : 'var(--success)' }};">
-            {{ $negativeAccounts }}
-        </div>
-        <div class="table-muted" style="margin-top:4px;">
-            {{ $negativeAccounts === 0 ? 'Nessun conto negativo' : 'Saldo sotto zero' }}
-        </div>
     </article>
 
     {{-- Azioni rapide --}}
@@ -55,9 +68,9 @@
            style="text-align:center;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff;font-size:12px;">
             Movimenti
         </a>
-        <a class="cta secondary" href="{{ route('admin.users.index') }}"
+        <a class="cta secondary" href="{{ route('admin.integrity.index') }}"
            style="text-align:center;background:transparent;border-color:rgba(255,255,255,.25);color:rgba(255,255,255,.8);font-size:12px;">
-            Utenti
+            Integrità
         </a>
     </article>
 
@@ -304,12 +317,28 @@
         }
     }
 
+    // Replica ky_format(): centesimi interi -> stringa "1.234,56" (virgola IT, punto migliaia)
+    function formatKy(cents) {
+        cents = Math.round(cents || 0);
+        const sign = cents < 0 ? '-' : '';
+        const abs  = Math.abs(cents);
+        const intPart = Math.floor(abs / 100);
+        const decPart = String(abs % 100).padStart(2, '0');
+        const intFormatted = intPart.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return sign + intFormatted + ',' + decPart;
+    }
+
+    const posSumEl   = document.getElementById('ac-positive-sum');
+    const posCountEl = document.getElementById('ac-positive-count');
+    const negSumEl   = document.getElementById('ac-negative-sum');
+    const negCountEl = document.getElementById('ac-negative-count');
+
     function render() {
         const q       = search.value.toLowerCase().trim();
         const stat    = selStat.value;
         const profile = selProfile.value;
         const bal     = selBal.value;
-        let visible = 0;
+        let visible = 0, posSum = 0, negSum = 0, posCount = 0, negCount = 0;
 
         rows.forEach(r => {
             const ok = (!q      || r.dataset.name.includes(q))
@@ -317,11 +346,21 @@
                     && (profile === 'all' || r.dataset.ownerType === profile)
                     && matchBalance(r, bal);
             r.style.display = ok ? '' : 'none';
-            if (ok) visible++;
+            if (ok) {
+                visible++;
+                const rowBalance = parseFloat(r.dataset.balance || 0);
+                if (rowBalance > 0) { posSum += rowBalance; posCount++; }
+                else if (rowBalance < 0) { negSum += rowBalance; negCount++; }
+            }
         });
 
         countEl.textContent = visible + (visible === 1 ? ' conto' : ' conti');
         emptyEl.style.display = visible === 0 ? '' : 'none';
+
+        if (posSumEl)   posSumEl.textContent   = formatKy(posSum) + ' KY';
+        if (posCountEl) posCountEl.textContent = posCount;
+        if (negSumEl)   negSumEl.textContent   = formatKy(negSum) + ' KY';
+        if (negCountEl) negCountEl.textContent = negCount;
     }
 
     [search, selStat, selProfile, selBal].forEach(el => el.addEventListener('input', render));
