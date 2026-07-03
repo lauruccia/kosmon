@@ -202,9 +202,18 @@
 
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
 
+                {{-- Ricerca per nome controparte / causale / riferimento --}}
+                <div>
+                    <label for="filter-search" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Cerca</label>
+                    <input type="text" id="filter-search" name="search" value="{{ $filters['search'] }}"
+                        placeholder="Nome, causale, riferimento..." maxlength="100"
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:200px;"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('filters-form').submit();}">
+                </div>
+
                 {{-- Periodo preimpostato (stile bancario) --}}
                 <div>
-                    <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Periodo</label>
+                    <label for="period-preset" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Periodo</label>
                     <select id="period-preset"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:170px;">
                         <option value="">— Personalizzato —</option>
@@ -228,8 +237,6 @@
                         </optgroup>
                     </select>
                 </div>
-
-                <div style="display:flex;align-items:flex-end;gap:4px;color:var(--ink-muted);font-size:12px;padding-bottom:8px;">—</div>
 
                 <div>
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Da</label>

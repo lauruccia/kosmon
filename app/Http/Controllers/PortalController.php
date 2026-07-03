@@ -501,6 +501,9 @@ class PortalController extends Controller
             $query->where('status', $filters['status']);
         }
 
+        // Filtro ricerca testuale (nome controparte, causale, riferimento)
+        $this->applyMovementsSearch($query, $filters['search']);
+
         $transfers = $query->paginate(25)->withQueryString();
 
         return view('portal.movements', [
@@ -559,6 +562,7 @@ class PortalController extends Controller
         if ($filters['status']) {
             $query->where('status', $filters['status']);
         }
+        $this->applyMovementsSearch($query, $filters['search']);
 
         return response()->streamDownload(function () use ($query, $currentAccount): void {
             $out = fopen('php://output', 'w');
@@ -685,6 +689,7 @@ class PortalController extends Controller
         $direction = trim((string) $request->query('direction', ''));
         $status    = trim((string) $request->query('status', ''));
         $subId     = (int) $request->query('sub_account_id', 0);
+        $search    = trim((string) $request->query('search', ''));
 
         $validKinds = [
             'trade_payment', 'portal_payment', 'portal_collection_request',
@@ -702,7 +707,34 @@ class PortalController extends Controller
             'direction'       => in_array($direction, $validDirections, true)  ? $direction : '',
             'status'          => in_array($status, $validStatuses, true)       ? $status    : '',
             'sub_account_id'  => $subId > 0 ? $subId : 0,
+            'search'          => mb_substr($search, 0, 100),
         ];
+    }
+
+    /**
+     * Applica il filtro di ricerca testuale (nome controparte, causale, riferimento)
+     * a una query di trasferimenti. Usato sia dalla lista movimenti sia dall'export CSV.
+     */
+    private function applyMovementsSearch($query, string $search)
+    {
+        if ($search === '') {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('description', 'like', "%{$search}%")
+              ->orWhere('reference', 'like', "%{$search}%")
+              ->orWhereHas('fromAccount', function ($a) use ($search) {
+                  $a->where('account_name', 'like', "%{$search}%")
+                    ->orWhereHas('company', fn ($c) => $c->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', "%{$search}%"));
+              })
+              ->orWhereHas('toAccount', function ($a) use ($search) {
+                  $a->where('account_name', 'like', "%{$search}%")
+                    ->orWhereHas('company', fn ($c) => $c->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('ownerUser', fn ($u) => $u->where('name', 'like', "%{$search}%"));
+              });
+        });
     }
 
     public function paymentsHub(Request $request): View|RedirectResponse
