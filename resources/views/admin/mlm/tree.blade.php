@@ -17,6 +17,7 @@
                     <a href="{{ route('admin.mlm.tree', $sponsor) }}" class="btn btn-secondary">&uarr; Sponsor: {{ $sponsor->name }}</a>
                 @endif
                 <a href="{{ route('admin.mlm.show', $root) }}" class="btn btn-secondary">Scheda agente</a>
+                <a href="{{ route('admin.mlm.tree.move-form', $root) }}" class="btn btn-secondary">Sposta sponsor</a>
                 <a href="{{ route('admin.mlm.tree.roots') }}" class="btn btn-secondary">Tutte le radici</a>
             @endif
             <a href="{{ route('admin.mlm.index') }}" class="btn btn-secondary">&larr; Elenco agenti</a>

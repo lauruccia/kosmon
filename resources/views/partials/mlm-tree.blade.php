@@ -16,12 +16,31 @@
 .mlm-tree-wrap { border:1px solid var(--line,#e2e8f0); border-radius:16px; background:#fff; padding:16px; }
 .mlm-tree-flex { display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; }
 
+.mlm-tree-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.mlm-tree-zoom-controls { display:flex; align-items:center; gap:4px; background:var(--surface-soft,#f8fafc); border:1px solid var(--line,#e2e8f0); border-radius:10px; padding:4px; }
+.mlm-zoom-btn { width:28px; height:28px; border-radius:7px; border:1px solid var(--line,#e2e8f0); background:#fff; color:var(--ink); font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; user-select:none; touch-action:manipulation; }
+.mlm-zoom-btn:hover { background:var(--surface-soft,#f1f5f9); }
+.mlm-zoom-reset { width:auto; padding:0 10px; font-size:11.5px; font-weight:700; }
+.mlm-zoom-level { min-width:42px; text-align:center; font-size:12px; font-weight:700; color:var(--ink-muted); user-select:none; }
+.mlm-tree-hint { margin:0; font-size:11.5px; color:var(--ink-muted); }
+@media (max-width:640px) { .mlm-tree-hint { display:none; } }
+
 .mlm-tree-legend { flex:0 0 178px; border:1px solid var(--line,#e2e8f0); border-radius:12px; padding:14px; background:var(--surface-soft,#f8fafc); }
 .mlm-tree-legend-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); margin:0 0 10px; }
 .mlm-tree-legend-row { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); padding:5px 0; }
 .mlm-tree-legend-row i { width:13px; height:13px; border-radius:4px; display:inline-block; flex:0 0 auto; }
+@media (max-width:640px) { .mlm-tree-legend { flex-basis:100%; order:2; } }
 
-.mlm-tree-scroll { flex:1 1 420px; min-width:0; overflow-x:auto; padding:4px 4px 30px; }
+.mlm-tree-viewport {
+    flex:1 1 420px; min-width:0; overflow:hidden; position:relative;
+    border-radius:12px; border:1px solid var(--line,#e2e8f0); background:var(--surface-soft,#f8fafc);
+    height:min(62vh,560px); touch-action:none; cursor:grab;
+}
+.mlm-tree-viewport.is-panning { cursor:grabbing; }
+@media (max-width:640px) { .mlm-tree-viewport { height:52vh; min-height:340px; } }
+
+.mlm-tree-zoomable { display:inline-block; transform-origin:0 0; will-change:transform; padding:26px 30px; }
+
 .mlm-tree ul { display:flex; justify-content:center; padding:30px 0 0; margin:0; position:relative; }
 .mlm-tree > ul { padding-top:0; }
 .mlm-tree li { list-style:none; position:relative; padding:30px 14px 0; display:flex; flex-direction:column; align-items:center; }
@@ -87,12 +106,23 @@
 </style>
 
 <div class="mlm-tree-wrap">
+<div class="mlm-tree-toolbar">
+    <div class="mlm-tree-zoom-controls">
+        <button type="button" class="mlm-zoom-btn" data-zoom-out aria-label="Riduci zoom">&minus;</button>
+        <span class="mlm-zoom-level" data-zoom-level>100%</span>
+        <button type="button" class="mlm-zoom-btn" data-zoom-in aria-label="Aumenta zoom">+</button>
+        <button type="button" class="mlm-zoom-btn mlm-zoom-reset" data-zoom-reset>Adatta</button>
+    </div>
+    <p class="mlm-tree-hint">Trascina per spostarti &middot; rotellina o pizzica per zoomare</p>
+</div>
 <div class="mlm-tree-flex">
-    <div class="mlm-tree-scroll">
-        <div class="mlm-tree">
-            <ul>
-                @include('partials.mlm-tree-node', ['node' => $tree, 'mode' => $mode, 'mlmRankMeta' => $mlmRankMeta])
-            </ul>
+    <div class="mlm-tree-viewport" data-tree-viewport>
+        <div class="mlm-tree-zoomable" data-tree-zoomable>
+            <div class="mlm-tree">
+                <ul>
+                    @include('partials.mlm-tree-node', ['node' => $tree, 'mode' => $mode, 'mlmRankMeta' => $mlmRankMeta])
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -112,10 +142,10 @@
             <button type="button" class="mlm-modal-close" data-close aria-label="Chiudi">&times;</button>
         </div>
         <div class="mlm-modal-hero">
-            <div class="mlm-modal-avatar" id="mlmModalAvatar">—</div>
+            <div class="mlm-modal-avatar" id="mlmModalAvatar">&mdash;</div>
             <div>
-                <div class="mlm-modal-name" id="mlmModalName">—</div>
-                <div class="mlm-modal-rank" id="mlmModalRank">—</div>
+                <div class="mlm-modal-name" id="mlmModalName">&mdash;</div>
+                <div class="mlm-modal-rank" id="mlmModalRank">&mdash;</div>
             </div>
         </div>
         <table>
@@ -136,11 +166,14 @@
     var modal = document.getElementById('mlmNodeModal');
     if (!modal) return;
 
+    var suppressClick = false;
+
     document.querySelectorAll('.mlm-node').forEach(function (node) {
         node.addEventListener('click', function (event) {
             event.preventDefault();
+            if (suppressClick) return;
             document.getElementById('mlmModalName').textContent = node.dataset.name || '';
-            document.getElementById('mlmModalRank').textContent = (node.dataset.rankLabel || '') + ' ★ ' + (node.dataset.points || '0') + ' pt';
+            document.getElementById('mlmModalRank').textContent = (node.dataset.rankLabel || '') + ' \u2605 ' + (node.dataset.points || '0') + ' pt';
             document.getElementById('mlmModalAgents').textContent = node.dataset.agents || '0';
             document.getElementById('mlmModalClients').textContent = node.dataset.clients || '0';
             var avatar = document.getElementById('mlmModalAvatar');
@@ -165,5 +198,139 @@
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') modal.style.display = 'none';
     });
+
+    // ---- Zoom / pan dell'albero -------------------------------------------------
+    var viewport = document.querySelector('[data-tree-viewport]');
+    var zoomable = document.querySelector('[data-tree-zoomable]');
+    if (!viewport || !zoomable) return;
+
+    var MIN_SCALE = 0.3, MAX_SCALE = 2.5;
+    var scale = 1, panX = 0, panY = 0;
+    var levelEl = document.querySelector('[data-zoom-level]');
+
+    function clampScale(s) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)); }
+
+    function apply() {
+        zoomable.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+        if (levelEl) levelEl.textContent = Math.round(scale * 100) + '%';
+    }
+
+    function zoomTo(clientX, clientY, newScale) {
+        newScale = clampScale(newScale);
+        var rect = viewport.getBoundingClientRect();
+        var offsetX = clientX - rect.left;
+        var offsetY = clientY - rect.top;
+        panX = offsetX - (offsetX - panX) * (newScale / scale);
+        panY = offsetY - (offsetY - panY) * (newScale / scale);
+        scale = newScale;
+        apply();
+    }
+
+    function zoomBy(clientX, clientY, factor) { zoomTo(clientX, clientY, scale * factor); }
+
+    function fitToViewport() {
+        zoomable.style.transform = 'translate(0px,0px) scale(1)';
+        var contentWidth = zoomable.scrollWidth || 1;
+        var viewWidth = viewport.clientWidth || contentWidth;
+        var fit = Math.min(1, (viewWidth - 20) / contentWidth);
+        scale = clampScale(fit || 1);
+        panX = Math.max(10, (viewWidth - contentWidth * scale) / 2);
+        panY = 14;
+        apply();
+    }
+
+    document.querySelectorAll('[data-zoom-in]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var rect = viewport.getBoundingClientRect();
+            zoomBy(rect.left + rect.width / 2, rect.top + rect.height / 2, 1.25);
+        });
+    });
+    document.querySelectorAll('[data-zoom-out]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var rect = viewport.getBoundingClientRect();
+            zoomBy(rect.left + rect.width / 2, rect.top + rect.height / 2, 1 / 1.25);
+        });
+    });
+    document.querySelectorAll('[data-zoom-reset]').forEach(function (btn) {
+        btn.addEventListener('click', fitToViewport);
+    });
+
+    viewport.addEventListener('wheel', function (event) {
+        event.preventDefault();
+        var factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+        zoomBy(event.clientX, event.clientY, factor);
+    }, { passive: false });
+
+    // Trascinamento con il mouse.
+    var dragging = false, lastX = 0, lastY = 0, movedDuringDrag = false;
+    viewport.addEventListener('mousedown', function (event) {
+        dragging = true; movedDuringDrag = false;
+        lastX = event.clientX; lastY = event.clientY;
+        viewport.classList.add('is-panning');
+    });
+    window.addEventListener('mousemove', function (event) {
+        if (!dragging) return;
+        var dx = event.clientX - lastX, dy = event.clientY - lastY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movedDuringDrag = true;
+        panX += dx; panY += dy;
+        lastX = event.clientX; lastY = event.clientY;
+        apply();
+    });
+    window.addEventListener('mouseup', function () {
+        if (dragging && movedDuringDrag) {
+            suppressClick = true;
+            setTimeout(function () { suppressClick = false; }, 0);
+        }
+        dragging = false;
+        viewport.classList.remove('is-panning');
+    });
+
+    // Pizzica per zoomare / trascina con un dito su touch.
+    var touchState = null;
+
+    function distance(a, b) {
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    }
+
+    viewport.addEventListener('touchstart', function (event) {
+        if (event.touches.length === 1) {
+            touchState = { mode: 'pan', x: event.touches[0].clientX, y: event.touches[0].clientY };
+        } else if (event.touches.length === 2) {
+            touchState = {
+                mode: 'pinch',
+                dist0: distance(event.touches[0], event.touches[1]),
+                midX: (event.touches[0].clientX + event.touches[1].clientX) / 2,
+                midY: (event.touches[0].clientY + event.touches[1].clientY) / 2,
+                startScale: scale,
+            };
+        }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', function (event) {
+        if (!touchState) return;
+        event.preventDefault();
+        if (touchState.mode === 'pan' && event.touches.length === 1) {
+            var dx = event.touches[0].clientX - touchState.x;
+            var dy = event.touches[0].clientY - touchState.y;
+            panX += dx; panY += dy;
+            touchState.x = event.touches[0].clientX;
+            touchState.y = event.touches[0].clientY;
+            apply();
+        } else if (touchState.mode === 'pinch' && event.touches.length === 2) {
+            var dist = distance(event.touches[0], event.touches[1]);
+            var ratio = touchState.dist0 > 0 ? (dist / touchState.dist0) : 1;
+            zoomTo(touchState.midX, touchState.midY, touchState.startScale * ratio);
+        }
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', function (event) {
+        if (event.touches.length === 0) {
+            touchState = null;
+        } else if (event.touches.length === 1) {
+            touchState = { mode: 'pan', x: event.touches[0].clientX, y: event.touches[0].clientY };
+        }
+    });
+
+    fitToViewport();
 })();
 </script>

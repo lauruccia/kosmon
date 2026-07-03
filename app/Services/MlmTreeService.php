@@ -209,6 +209,19 @@ class MlmTreeService
         return $build($root->id) ?? [];
     }
 
+    /**
+     * Sponsor attuale (antenato diretto, depth 1) nell'albero MLM. Riflette
+     * sempre la posizione corrente, anche dopo un moveAgent() — NON usare
+     * $user->referredBy per mostrare lo sponsor nell'albero: e' il referral
+     * di registrazione e puo' divergere dallo sponsor reale dopo uno spostamento.
+     */
+    public function currentSponsor(User $agent): ?User
+    {
+        $row = MlmAgentClosure::where('descendant_id', $agent->id)->where('depth', 1)->first();
+
+        return $row ? User::find($row->ancestor_id) : null;
+    }
+
     /** Agenti radice (senza sponsor nell'albero MLM), per la vista admin. */
     public function rootAgents(): Collection
     {
@@ -218,5 +231,102 @@ class MlmTreeService
             ->whereNotIn('id', $withSponsor)
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * Sposta un agente (e tutto il suo sottoalbero) sotto un nuovo sponsor,
+     * ricollegando la closure table. Operazione puramente STRUTTURALE: punti,
+     * commissioni e bonus gia' calcolati restano quelli storici (calcolati
+     * con la posizione precedente); le prossime valutazioni (qualifiche,
+     * commissioni indirette, cascata bonus) leggono l'albero corrente e
+     * quindi rifletteranno automaticamente la nuova posizione da qui in poi.
+     *
+     * $newSponsor = null sposta l'agente in radice (nessuno sponsor).
+     *
+     * @throws \InvalidArgumentException se lo spostamento e' invalido (self, ciclo, non agente).
+     */
+    public function moveAgent(User $agent, ?User $newSponsor, ?User $actor = null): void
+    {
+        abort_unless($agent->isMlmAgent(), 422, 'Solo un agente puo\' essere spostato nell\'albero MLM.');
+
+        if ($newSponsor) {
+            abort_unless($newSponsor->isMlmAgent(), 422, 'Il nuovo sponsor deve essere un agente MLM attivo.');
+
+            if ($newSponsor->id === $agent->id) {
+                throw new \InvalidArgumentException('Un agente non puo\' essere sponsor di se stesso.');
+            }
+
+            $newSponsorIsDescendant = MlmAgentClosure::where('ancestor_id', $agent->id)
+                ->where('descendant_id', $newSponsor->id)
+                ->exists();
+
+            if ($newSponsorIsDescendant) {
+                throw new \InvalidArgumentException('Non puoi spostare un agente sotto un suo discendente: creerebbe un ciclo nell\'albero.');
+            }
+        }
+
+        DB::transaction(function () use ($agent, $newSponsor, $actor): void {
+            $oldSponsorRow = MlmAgentClosure::where('descendant_id', $agent->id)->where('depth', 1)->first();
+            $oldSponsorId = $oldSponsorRow?->ancestor_id;
+
+            if ($newSponsor && $oldSponsorId === $newSponsor->id) {
+                return; // Nessun cambiamento: stesso sponsor attuale.
+            }
+
+            // Sottoalbero completo dell'agente (lui incluso, depth relativa a se' stesso).
+            $subtreeRows = MlmAgentClosure::where('ancestor_id', $agent->id)->get(['descendant_id', 'depth']);
+            $subtreeIds = $subtreeRows->pluck('descendant_id');
+
+            // Tutti gli antenati ATTUALI dell'agente (esclude l'agente stesso): il "taglio"
+            // rimuove ogni riga che collegava questi antenati a QUALSIASI nodo del sottoalbero.
+            $oldUplineIds = MlmAgentClosure::where('descendant_id', $agent->id)
+                ->where('depth', '>', 0)
+                ->pluck('ancestor_id');
+
+            if ($oldUplineIds->isNotEmpty()) {
+                MlmAgentClosure::whereIn('ancestor_id', $oldUplineIds)
+                    ->whereIn('descendant_id', $subtreeIds)
+                    ->delete();
+            }
+
+            if ($newSponsor) {
+                // Antenati del nuovo sponsor (lui incluso, a depth 0): per ognuno,
+                // ricreiamo il collegamento verso OGNI nodo del sottoalbero spostato.
+                $newAncestorRows = MlmAgentClosure::where('descendant_id', $newSponsor->id)
+                    ->get(['ancestor_id', 'depth', 'branch_root_id']);
+
+                $now = now();
+                $insertRows = [];
+
+                foreach ($newAncestorRows as $r1) {
+                    foreach ($subtreeRows as $r2) {
+                        $insertRows[] = [
+                            'ancestor_id'    => $r1->ancestor_id,
+                            'descendant_id'  => $r2->descendant_id,
+                            'depth'          => $r1->depth + 1 + $r2->depth,
+                            'branch_root_id' => $r1->depth === 0 ? $agent->id : $r1->branch_root_id,
+                            'created_at'     => $now,
+                            'updated_at'     => $now,
+                        ];
+                    }
+                }
+
+                foreach (array_chunk($insertRows, 500) as $chunk) {
+                    MlmAgentClosure::insert($chunk);
+                }
+            }
+
+            AuditLog::create([
+                'actor_user_id'   => $actor?->id,
+                'event'           => 'mlm.agent_moved',
+                'auditable_type'  => User::class,
+                'auditable_id'    => $agent->id,
+                'context'         => [
+                    'old_sponsor_id' => $oldSponsorId,
+                    'new_sponsor_id' => $newSponsor?->id,
+                    'subtree_size'   => $subtreeIds->count(),
+                ],
+            ]);
+        });
     }
 }
