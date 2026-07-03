@@ -21,6 +21,8 @@ use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\MlmPaymentDetailController;
 use App\Http\Controllers\MlmPortalController;
+use App\Http\Controllers\MlmAgentRequestController;
+use App\Http\Controllers\MlmAgentContractController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\TextPaymentRequestController;
@@ -59,6 +61,7 @@ use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\Admin\MlmController;
 use App\Http\Controllers\Admin\MlmPayoutController;
+use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
@@ -609,6 +612,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
     Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
 
+    // MLM (KNM) — richiesta di diventare agente + firma contratto di nomina
+    Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
+    Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');
+    Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
+    Route::post('/mlm/contratto-agente/otp', [MlmAgentContractController::class, 'sendOtp'])->name('portal.mlm.agent-contract.send-otp')->middleware('throttle:3,10');
+    Route::post('/mlm/contratto-agente/firma', [MlmAgentContractController::class, 'sign'])->name('portal.mlm.agent-contract.sign')->middleware('throttle:10,1');
+
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
     Route::get('/api-tokens/nuovo', [ApiTokenController::class, 'create'])->name('portal.api-tokens.create');
     Route::post('/api-tokens', [ApiTokenController::class, 'store'])->name('portal.api-tokens.store')->middleware('step.up');
@@ -732,6 +742,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
 Route::get('/admin/contratto',   [AdminContractController::class, 'contractSettings'])->name('admin.contract-settings')->middleware('backoffice');
 Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update')->middleware('backoffice');
 Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update')->middleware('backoffice');
+Route::post('/admin/contratto/testo-agente', [AdminContractController::class, 'agentContractTextUpdate'])->name('admin.agent-contract-text.update')->middleware('backoffice');
 Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures')->middleware('backoffice');
 Route::get('/admin/contratto/firme/export',      [AdminContractController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export')->middleware('backoffice');
 Route::get('/admin/contratto/firme/{signature}', [AdminContractController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show')->middleware('backoffice');
@@ -801,6 +812,11 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
     Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
+
+    Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
+    Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
+    Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');
+    Route::post('/admin/users/{user}/mlm/rendi-agente', [AdminMlmAgentRequestController::class, 'promote'])->name('admin.mlm.requests.promote')->middleware('backoffice');
 
     Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
     Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');

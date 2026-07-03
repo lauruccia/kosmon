@@ -432,7 +432,7 @@
                     <input type="checkbox" name="become_agent" value="1" style="margin-top:3px; width:18px; height:18px; accent-color: var(--green); flex-shrink:0;" {{ old('become_agent') ? 'checked' : '' }}>
                     <span>
                         <span style="display:block; font-weight:700; font-size:14px; margin-bottom:4px;">Voglio diventare agente KNM</span>
-                        <span style="display:block; font-size:12px; color:var(--muted); line-height:1.6;">Potrai invitare clienti e altri agenti, maturare punti, salire di qualifica e guadagnare commissioni e bonus. Lasciando la casella vuota ti registri come semplice cliente.</span>
+                        <span style="display:block; font-size:12px; color:var(--muted); line-height:1.6;">Invieremo la tua richiesta al nostro team: una volta approvata dovrai firmare il contratto di nomina ad agente per iniziare a invitare clienti e altri agenti, maturare punti, salire di qualifica e guadagnare commissioni e bonus. Lasciando la casella vuota ti registri come semplice cliente (potrai comunque richiederlo in seguito dal tuo profilo).</span>
                     </span>
                 </label>
             </div>

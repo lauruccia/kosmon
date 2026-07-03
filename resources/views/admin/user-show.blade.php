@@ -209,6 +209,52 @@
         </article>
     </section>
 
+    <section class="card light-card" style="margin-bottom:22px;">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Multilevel</span>
+                <h3 class="section-title">Programma agenti KNM</h3>
+            </div>
+            @if($userRecord->isMlmAgent())
+                <span class="pill success">Agente — {{ ucfirst($userRecord->mlm_rank) }}</span>
+            @elseif($userRecord->hasPendingMlmAgentRequest())
+                <span class="pill" style="background:rgba(217,119,6,.12);color:#b45309;">Richiesta in attesa</span>
+            @elseif($userRecord->mlmAgentAwaitingContract())
+                <span class="pill" style="background:rgba(12,74,134,.1);color:#0c4a86;">Approvato — attesa firma contratto</span>
+            @elseif($userRecord->hasRejectedMlmAgentRequest())
+                <span class="pill" style="background:rgba(220,38,38,.1);color:#b91c1c;">Richiesta rifiutata</span>
+            @else
+                <span class="pill">Cliente</span>
+            @endif
+        </div>
+
+        @if($userRecord->isMlmAgent())
+            <p class="table-muted">Attivato il {{ $userRecord->mlm_activated_at?->format('d/m/Y H:i') }}.
+                <a href="{{ route('admin.mlm.show', $userRecord) }}" style="color:var(--primary);font-weight:600;">Vai al dettaglio agente →</a>
+            </p>
+        @else
+            <p class="table-muted" style="margin-bottom:12px;">
+                Puoi abilitare direttamente questo utente a diventare agente, anche se non ha presentato richiesta.
+                Dovrà comunque firmare il contratto di nomina prima di essere attivo a tutti gli effetti.
+            </p>
+            @if(! $userRecord->mlmAgentAwaitingContract())
+                <form method="post" action="{{ route('admin.mlm.requests.promote', $userRecord) }}"
+                      onsubmit="return confirm('Abilitare {{ $userRecord->name }} a diventare agente KNM?');">
+                    @csrf
+                    <button type="submit" class="cta secondary users-compact-cta">Rendi agente KNM</button>
+                </form>
+            @endif
+            @if($userRecord->hasPendingMlmAgentRequest())
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <form method="post" action="{{ route('admin.mlm.requests.approve', $userRecord) }}">
+                        @csrf
+                        <button type="submit" class="cta secondary users-compact-cta">Approva richiesta</button>
+                    </form>
+                </div>
+            @endif
+        @endif
+    </section>
+
     <section class="card light-card" id="user-limits" style="margin-bottom:22px;">
         <div class="section-head">
             <div>

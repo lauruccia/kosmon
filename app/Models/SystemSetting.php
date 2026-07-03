@@ -89,6 +89,8 @@ class SystemSetting extends Model
         'contract_required_from',
         'contract_text',
         'contract_version',
+        'mlm_agent_contract_text',
+        'mlm_agent_contract_version',
     ];
 
     protected function casts(): array
@@ -212,6 +214,66 @@ d) Titolare del trattamento dei dati è la Kosmos S.r.l., avente sede legale a C
 
 <hr>
 <p>Ai sensi e per gli effetti degli artt. 1341 e 1342 Cod. Civ., il Cliente dichiara di approvare le seguenti clausole: Art. 3 (Corrispettivi); Art. 4 (Responsabilità del Cliente); Art. 7 (Procedure di acquisto e di vendita); Art. 8 (Limite di spesa); Art. 9 (Compensazione); Art. 11 (Durata del contratto); Art. 12 (Risoluzione anticipata); Art. 13 (Effetti del recesso e dell'estinzione); Art. 15 (Clausola arbitrale); Art. 16 (Elezione di domicilio); Art. 17 (Foro competente).</p>
+HTML;
+    }
+
+    // ── Contratto di nomina Agente KNM ───────────────────────────────────────
+
+    /**
+     * Il contratto agente vive sulla stessa riga 'contract' delle impostazioni
+     * di adesione, in colonne dedicate (mlm_agent_contract_text/version).
+     */
+    public static function agentContractSettings(): self
+    {
+        return static::contractSettings();
+    }
+
+    /**
+     * Restituisce il testo del contratto agente con i placeholder sostituiti.
+     * Placeholder disponibili: [[nome_agente]], [[email_agente]], [[data_firma]].
+     */
+    public function renderAgentContractText(User $user): string
+    {
+        $text = $this->mlm_agent_contract_text ?? self::defaultAgentContractText();
+
+        $map = [
+            '[[nome_agente]]'  => e($user->name ?? ''),
+            '[[email_agente]]' => e($user->email ?? ''),
+            '[[data_firma]]'   => now()->format('d/m/Y'),
+        ];
+
+        return str_replace(array_keys($map), array_values($map), $text);
+    }
+
+    public static function defaultAgentContractText(): string
+    {
+        return <<<'HTML'
+<p><strong>KOSMOS NETWORK MARKETING — Contratto di nomina ad Agente KNM</strong></p>
+<p>Tra <strong>KOSMOS S.r.l.</strong> (di seguito "Kosmos") e <strong>[[nome_agente]]</strong> ([[email_agente]]) (di seguito "l'Agente"), in data [[data_firma]], si conviene e stipula quanto segue.</p>
+
+<h2>Art. 1 — Oggetto</h2>
+<p>Con il presente contratto Kosmos conferisce all'Agente l'incarico di promuovere l'adesione di nuovi Clienti e Agenti al Circuito KMoney (KSM), secondo il piano di qualifiche, punti, commissioni e bonus multilivello descritto nel Regolamento del Programma Agenti KNM pubblicato sul Portale.</p>
+
+<h2>Art. 2 — Natura del rapporto</h2>
+<p>L'incarico di Agente non costituisce in alcun modo rapporto di lavoro subordinato, agenzia ai sensi del Codice Civile, mandato con rappresentanza o collaborazione continuativa. L'Agente opera in totale autonomia organizzativa, senza vincoli di orario o subordinazione, e resta l'unico responsabile dei propri adempimenti fiscali, previdenziali e amministrativi eventualmente derivanti dall'attivita' svolta.</p>
+
+<h2>Art. 3 — Qualifiche, punti e commissioni</h2>
+<p>L'Agente matura punti e qualifiche in base alle registrazioni e agli acquisti dei Clienti a lui riconducibili nell'albero del Circuito, secondo le regole pubblicate nel Regolamento del Programma Agenti. Le commissioni e i bonus multilivello maturati sono liquidabili tramite richiesta di prelievo dal Portale, previa verifica amministrativa.</p>
+
+<h2>Art. 4 — Obblighi dell'Agente</h2>
+<p>L'Agente si impegna a: a) promuovere il Circuito con correttezza e trasparenza, senza promesse di rendimento o affermazioni non veritiere; b) non presentare il Programma Agenti come uno schema di investimento finanziario o una promessa di guadagno garantito; c) rispettare le condizioni generali del Contratto di Adesione al Circuito KMoney gia' sottoscritto; d) comunicare tempestivamente a Kosmos ogni variazione dei propri dati anagrafici o di pagamento.</p>
+
+<h2>Art. 5 — Durata e recesso</h2>
+<p>Il presente contratto ha durata indeterminata a partire dalla data di firma. Ciascuna delle parti puo' recedere in qualsiasi momento, senza preavviso, dandone comunicazione scritta all'altra parte. Kosmos si riserva il diritto di sospendere o revocare la qualifica di Agente in caso di violazione delle presenti condizioni o del Contratto di Adesione al Circuito.</p>
+
+<h2>Art. 6 — Modifiche</h2>
+<p>Kosmos ha facolta' di modificare in qualunque momento il Regolamento del Programma Agenti, il piano di qualifiche e le percentuali di commissione, dandone comunicazione all'Agente tramite il Portale o posta elettronica. L'Agente potra' recedere qualora non intenda accettare le modifiche.</p>
+
+<h2>Art. 7 — Foro competente</h2>
+<p>Per qualunque controversia relativa al presente contratto sara' competente in via esclusiva il Foro di Macerata.</p>
+
+<hr>
+<p>Con la firma digitale tramite codice OTP inviato all'indirizzo email registrato, l'Agente dichiara di aver letto e accettato integralmente il presente contratto.</p>
 HTML;
     }
 

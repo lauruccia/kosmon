@@ -60,6 +60,11 @@ class AuthController extends Controller
 
             // MLM: risolve il primo agente antenato nella catena di chi ha invitato
             // (se il referrer e' un cliente, si risale al SUO agente gia' risolto).
+            // Nota: il nuovo utente si registra SEMPRE come 'cliente'. La spunta
+            // "Voglio diventare agente KNM" non attiva piu' nulla immediatamente:
+            // crea solo una richiesta pending che l'admin dovra' approvare, dopo
+            // di che l'utente firmera' il contratto di nomina per diventare agente
+            // a tutti gli effetti (vedi MlmAgentRequestController / MlmAgentContractController).
             $mlmTree = app(\App\Services\MlmTreeService::class);
             $nearestAgentAncestor = $mlmTree->resolveAgentForNewClient($referrer);
 
@@ -91,16 +96,13 @@ class AuthController extends Controller
                 'is_active' => true,
                 'is_super_admin' => false,
                 'referred_by_user_id' => $referrer?->id,
-                'mlm_role' => $becomeAgent ? 'agente' : 'cliente',
-                'mlm_activated_at' => $becomeAgent ? now() : null,
-                'mlm_client_agent_id' => $becomeAgent ? null : $nearestAgentAncestor?->id,
+                'mlm_role' => 'cliente',
+                'mlm_client_agent_id' => $nearestAgentAncestor?->id,
+                'mlm_agent_request_status' => $becomeAgent ? 'pending' : null,
+                'mlm_agent_requested_at' => $becomeAgent ? now() : null,
             ]);
 
-            if ($becomeAgent) {
-                $mlmTree->attachAgent($user, $nearestAgentAncestor);
-            } else {
-                app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
-            }
+            app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
 
             // MLM: se questa email era stata invitata da uno o piu' agenti,
             // marca gli inviti come "registrato".
@@ -130,6 +132,12 @@ class AuthController extends Controller
         Mail::to($user->email)->queue(
             new RegistrationConfirmation($user, $account, $company)
         );
+
+        // Richiesta "voglio diventare agente KNM" spuntata in fase di registrazione:
+        // avvisa gli admin che c'e' una nuova richiesta da revisionare.
+        if ($becomeAgent) {
+            \App\Notifications\Concerns\NotifiesAdmins::notifyAdminsOfMlmAgentRequest($user);
+        }
 
         Auth::login($user);
         $request->session()->regenerate();

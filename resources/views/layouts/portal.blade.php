@@ -1315,6 +1315,12 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'mlm' ? 'active' : '' }}" href="{{ route('admin.mlm.index') }}"><span class="nav-icon">MLM</span><span>MLM Agenti</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.tree.roots') }}"><span class="subnav-icon">AB</span><span>Albero</span></a>
+                                <a class="sidebar-sublink" href="{{ route('admin.mlm.requests.index') }}"><span class="subnav-icon">RQ</span><span>Richieste agente</span>
+                                    @php($pendingAgentRequests = \App\Models\User::where('mlm_agent_request_status', 'pending')->count())
+                                    @if($pendingAgentRequests > 0)
+                                        <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $pendingAgentRequests }}</span>
+                                    @endif
+                                </a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.payouts.index') }}"><span class="subnav-icon">EU</span><span>Liquidazioni</span></a>
                             </div>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
@@ -1580,6 +1586,10 @@
                                 </a>
                                 <a class="sidebar-link {{ $an === 'mlm-payment-details' ? 'active' : '' }}" href="{{ route('portal.mlm.payment-details.edit') }}">
                                     <span class="nav-icon">KY</span><span>Dati bancari KNM</span>
+                                </a>
+                                @else
+                                <a class="sidebar-link {{ $an === 'mlm-agent-request' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-request.show') }}">
+                                    <span class="nav-icon">&#129309;</span><span>Diventa agente KNM</span>
                                 </a>
                                 @endif
                                 @if($mv('help'))

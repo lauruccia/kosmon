@@ -43,17 +43,56 @@ class ContractController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $settings        = \App\Models\SystemSetting::contractSettings();
-        $forceSign       = (bool) $settings->contract_force_sign;
-        $requiredFrom    = $settings->contract_required_from;
-        $contractText    = $settings->contract_text ?? \App\Models\SystemSetting::defaultContractText();
-        $contractVersion = $settings->contract_version ?? 1;
-        $signedCount     = \App\Models\User::whereNotNull('contract_signed_at')->count();
-        $totalUsers      = \App\Models\User::whereNotNull('company_id')->count();
+        if (request()->has('default_agent_text')) {
+            \App\Models\SystemSetting::agentContractSettings()->update([
+                'mlm_agent_contract_text'    => null,
+                'mlm_agent_contract_version' => 1,
+            ]);
+            return response()->json(['ok' => true]);
+        }
+
+        $settings             = \App\Models\SystemSetting::contractSettings();
+        $forceSign            = (bool) $settings->contract_force_sign;
+        $requiredFrom         = $settings->contract_required_from;
+        $contractText         = $settings->contract_text ?? \App\Models\SystemSetting::defaultContractText();
+        $contractVersion      = $settings->contract_version ?? 1;
+        $signedCount          = \App\Models\User::whereNotNull('contract_signed_at')->count();
+        $totalUsers           = \App\Models\User::whereNotNull('company_id')->count();
+
+        $agentContractText    = $settings->mlm_agent_contract_text ?? \App\Models\SystemSetting::defaultAgentContractText();
+        $agentContractVersion = $settings->mlm_agent_contract_version ?? 1;
+        $agentSignedCount     = \App\Models\User::whereNotNull('mlm_agent_contract_signed_at')->count();
+        $agentPendingCount    = \App\Models\User::where('mlm_agent_request_status', 'approved')
+            ->whereNull('mlm_agent_contract_signed_at')->count();
 
         return view('admin.contract-settings', compact(
-            'forceSign', 'requiredFrom', 'contractText', 'contractVersion', 'signedCount', 'totalUsers'
+            'forceSign', 'requiredFrom', 'contractText', 'contractVersion', 'signedCount', 'totalUsers',
+            'agentContractText', 'agentContractVersion', 'agentSignedCount', 'agentPendingCount'
         ));
+    }
+
+    /** Aggiorna il testo del contratto di nomina ad Agente KNM (form separato, versionato). */
+    public function agentContractTextUpdate(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $request->validate(['agent_contract_text' => ['required', 'string']]);
+
+        $settings = \App\Models\SystemSetting::agentContractSettings();
+        $settings->update([
+            'mlm_agent_contract_text'    => $request->input('agent_contract_text'),
+            'mlm_agent_contract_version' => ($settings->mlm_agent_contract_version ?? 1) + 1,
+        ]);
+
+        \App\Models\AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.mlm_agent_contract_text.update',
+            'auditable_type' => \App\Models\SystemSetting::class,
+            'auditable_id'   => $settings->id,
+            'context'        => ['version' => $settings->mlm_agent_contract_version],
+        ]);
+
+        return back()->with('success', 'Testo del contratto agente aggiornato (versione ' . $settings->mlm_agent_contract_version . ').');
     }
 
     public function contractSettingsUpdate(UpdateContractSettingsRequest $request): \Illuminate\Http\RedirectResponse

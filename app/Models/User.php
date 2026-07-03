@@ -170,6 +170,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'mlm_basiq_at',
         'mlm_basiq_bonus_eligible',
         'mlm_client_agent_id',
+        'mlm_agent_request_status',
+        'mlm_agent_requested_at',
+        'mlm_agent_request_note',
+        'mlm_agent_reviewed_at',
+        'mlm_agent_reviewed_by',
+        'mlm_agent_rejection_reason',
+        'mlm_agent_contract_signed_at',
+        'mlm_agent_contract_otp',
+        'mlm_agent_contract_otp_expires_at',
     ];
 
     protected $hidden = [
@@ -198,6 +207,11 @@ class User extends Authenticatable implements MustVerifyEmail
             'mlm_activated_at'         => 'datetime',
             'mlm_basiq_at'             => 'datetime',
             'mlm_basiq_bonus_eligible' => 'boolean',
+
+            'mlm_agent_requested_at'            => 'datetime',
+            'mlm_agent_reviewed_at'              => 'datetime',
+            'mlm_agent_contract_signed_at'       => 'datetime',
+            'mlm_agent_contract_otp_expires_at'  => 'datetime',
         ];
     }
 
@@ -612,6 +626,47 @@ class User extends Authenticatable implements MustVerifyEmail
     public function mlmPointLedgerEntries(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\MlmPointLedgerEntry::class, 'agent_user_id');
+    }
+
+    // --- Programma agenti: richiesta + contratto ---
+
+    /**
+     * True se questo utente puo' presentare (o ripresentare) la richiesta di
+     * adesione al programma agenti KNM: non e' gia' agente e non ha una
+     * richiesta pending o gia' approvata in attesa di firma contratto.
+     */
+    public function canRequestMlmAgent(): bool
+    {
+        return ! $this->isMlmAgent()
+            && ! in_array($this->mlm_agent_request_status, ['pending', 'approved'], true);
+    }
+
+    public function hasPendingMlmAgentRequest(): bool
+    {
+        return $this->mlm_agent_request_status === 'pending';
+    }
+
+    public function hasRejectedMlmAgentRequest(): bool
+    {
+        return $this->mlm_agent_request_status === 'rejected';
+    }
+
+    /** Richiesta approvata dall'admin ma contratto agente non ancora firmato. */
+    public function mlmAgentAwaitingContract(): bool
+    {
+        return $this->mlm_agent_request_status === 'approved'
+            && ! $this->isMlmAgent()
+            && ! $this->mlm_agent_contract_signed_at;
+    }
+
+    public function mlmAgentReviewedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'mlm_agent_reviewed_by');
+    }
+
+    public function mlmAgentContractSignatures(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmAgentContractSignature::class, 'user_id');
     }
 
     public function mlmRankHistory(): \Illuminate\Database\Eloquent\Relations\HasMany

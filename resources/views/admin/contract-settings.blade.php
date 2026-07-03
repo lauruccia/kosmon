@@ -185,6 +185,42 @@
     </div>
 </div>
 
+{{-- Editor testo contratto Agente KNM --}}
+<div class="card" style="margin-top:16px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:8px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-size:.95rem;">🤝 Contratto di nomina Agente KNM <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">v{{ $agentContractVersion }}</span></h2>
+        <div style="display:flex;gap:10px;font-size:11px;color:#64748b;">
+            <span>{{ $agentSignedCount }} firmati</span>
+            @if($agentPendingCount > 0)
+                <span style="color:#b45309;font-weight:700;">{{ $agentPendingCount }} in attesa di firma</span>
+            @endif
+        </div>
+    </div>
+    <div class="card-body" style="padding:12px 16px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:8px 12px;margin-bottom:10px;">
+            <span style="font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap;padding-top:2px;">📌 Variabili:</span>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                @foreach(['[[nome_agente]]' => 'Nome', '[[email_agente]]' => 'Email', '[[data_firma]]' => 'Data firma'] as $ph => $lbl)
+                <span title="{{ $lbl }}" style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:11px;font-family:monospace;white-space:nowrap;">{{ str_replace(['[[',']]'], ['{{','}}'], $ph) }}</span>
+                @endforeach
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.agent-contract-text.update') }}">
+            @csrf
+            <textarea name="agent_contract_text" rows="18"
+                style="width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
+                placeholder="Testo HTML del contratto di nomina ad agente...">{{ old('agent_contract_text', $agentContractText) }}</textarea>
+
+            <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm">💾 Salva testo contratto agente</button>
+                <button type="button" onclick="resetAgentDefault()" class="btn btn-secondary btn-sm" style="color:#dc2626;">↩ Ripristina default</button>
+                <span style="font-size:11px;color:#94a3b8;">Il salvataggio incrementa la versione del contratto agente.</span>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
 .mode-tab { border:none;background:transparent;color:#64748b;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer; }
 .mode-tab-active { background:#fff;color:#0f766e;box-shadow:0 1px 2px rgba(0,0,0,.08); }
@@ -262,6 +298,11 @@ function insertPH(ph) {
 function resetDefault() {
     if (!confirm('Sostituire il testo attuale con quello di default?')) return;
     fetch('{{ route("admin.contract-settings") }}?default_text=1').then(() => location.reload());
+}
+
+function resetAgentDefault() {
+    if (!confirm('Sostituire il testo del contratto agente con quello di default?')) return;
+    fetch('{{ route("admin.contract-settings") }}?default_agent_text=1').then(() => location.reload());
 }
 </script>
 @endsection
