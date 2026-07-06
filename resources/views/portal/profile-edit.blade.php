@@ -222,7 +222,9 @@
                     <div class="field-row">
                         <div class="field">
                             <label for="sector">Settore / categoria</label>
-                            @php($currentSector = old('sector', $company->sector))
+                            @php
+                                $currentSector = old('sector', $company->sector);
+                            @endphp
                             <select id="sector" name="sector">
                                 <option value="">— Seleziona un settore —</option>
                                 @foreach($sectors as $s)

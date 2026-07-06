@@ -169,7 +169,7 @@
 
             {{-- Editor visuale (WYSIWYG) --}}
             <div id="visualEditor" contenteditable="true" oninput="syncToTextarea()"
-                 style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! old('contract_text', $contractText) !!}</div>
+                 style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! sanitize_html(old('contract_text', $contractText)) !!}</div>
 
             {{-- Editor HTML grezzo --}}
             <textarea id="contract_text" name="contract_text" rows="22"

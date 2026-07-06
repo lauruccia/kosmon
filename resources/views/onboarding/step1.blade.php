@@ -63,7 +63,9 @@
         <label class="ob-label" for="sector">
             Settore di attività <span>*</span>
         </label>
-        @php($currentSector = old('sector', $company->sector))
+        @php
+            $currentSector = old('sector', $company->sector);
+        @endphp
         <select name="sector" id="sector" class="ob-select" required>
             <option value="">— Scegli il settore —</option>
             @foreach($sectors as $s)

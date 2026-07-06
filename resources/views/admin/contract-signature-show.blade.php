@@ -73,7 +73,7 @@
         </div>
         <div id="contractBody"
              style="padding:32px 40px;max-height:700px;overflow-y:auto;font-size:14px;line-height:1.8;font-family:Georgia,serif;">
-            {!! $signature->contract_html_snapshot !!}
+            {!! sanitize_html($signature->contract_html_snapshot) !!}
         </div>
     </div>
 </div>

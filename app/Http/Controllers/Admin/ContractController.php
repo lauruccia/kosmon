@@ -15,7 +15,7 @@ class ContractController extends Controller
 
         $settings = \App\Models\SystemSetting::contractSettings();
         $settings->update([
-            'contract_text'    => $request->input('contract_text'),
+            'contract_text'    => sanitize_html($request->input('contract_text')),
             'contract_version' => ($settings->contract_version ?? 1) + 1,
         ]);
 
@@ -80,7 +80,7 @@ class ContractController extends Controller
 
         $settings = \App\Models\SystemSetting::agentContractSettings();
         $settings->update([
-            'mlm_agent_contract_text'    => $request->input('agent_contract_text'),
+            'mlm_agent_contract_text'    => sanitize_html($request->input('agent_contract_text')),
             'mlm_agent_contract_version' => ($settings->mlm_agent_contract_version ?? 1) + 1,
         ]);
 
@@ -219,7 +219,7 @@ li{margin-bottom:6px;}
 <strong>IP:</strong> ' . e($signature->ip_address ?? 'n.d.') . ' &nbsp;|&nbsp;
 <strong>Utente:</strong> ' . e($signature->user?->name ?? '') . ' (' . e($signature->user?->email ?? '') . ')
 </div>
-' . $signature->contract_html_snapshot . '
+' . sanitize_html($signature->contract_html_snapshot) . '
 <div class="footer">
 Documento generato da KMoney &mdash; Firma digitale con OTP via email<br>
 Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at), 0, 12)) . '

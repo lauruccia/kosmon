@@ -33,7 +33,7 @@
     </div>
     <div class="card-body" style="padding:0;">
         <div id="contractBody" style="padding:28px 32px;max-height:600px;overflow-y:auto;font-size:14px;line-height:1.75;border-top:1px solid #e2e8f0;">
-            {!! $contractHtml !!}
+            {!! sanitize_html($contractHtml) !!}
         </div>
     </div>
 </div>

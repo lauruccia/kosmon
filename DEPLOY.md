@@ -156,6 +156,7 @@ REDIS_SESSION_DB=2
 SESSION_DRIVER=redis
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=true
+SESSION_SECURE_COOKIE=true
 SESSION_DOMAIN=kmoney.it
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
@@ -297,6 +298,7 @@ Spunta ogni punto prima di puntare il DNS:
 - [ ] `APP_DEBUG=false` in `.env` produzione
 - [ ] `APP_ENV=production`
 - [ ] `SESSION_ENCRYPT=true`
+- [ ] `SESSION_SECURE_COOKIE=true` (cookie sessione solo su HTTPS)
 - [ ] Certificato SSL attivo (Let's Encrypt via Forge)
 - [ ] `php artisan migrate --force` completato senza errori
 - [ ] `php artisan storage:link` eseguito

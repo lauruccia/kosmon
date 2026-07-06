@@ -87,7 +87,7 @@
                     <button class="expand-btn" onclick="toggleExpand(this)">⤢ Espandi</button>
                 </div>
                 <div class="contract-body" id="contractBody">
-                    {!! $contractHtml !!}
+                    {!! sanitize_html($contractHtml) !!}
                 </div>
             </div>
 

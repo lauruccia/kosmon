@@ -221,7 +221,7 @@
                     </div>
                 </div>
                 <div class="contract-body" id="contractBody">
-                    {!! $contractHtml !!}
+                    {!! sanitize_html($contractHtml) !!}
                 </div>
             </div>
 

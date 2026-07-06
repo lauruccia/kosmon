@@ -10,7 +10,11 @@
 @else
 <div style="display:grid;gap:14px;">
     @foreach($clients as $row)
-        @php($company = $row['company']) @php($account = $row['account']) @php($last = $row['recentTransfer'])
+        @php
+            $company = $row['company'];
+            $account = $row['account'];
+            $last = $row['recentTransfer'];
+        @endphp
         <div class="card light-card" style="padding:16px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
 
             {{-- Info azienda --}}

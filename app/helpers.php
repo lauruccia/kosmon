@@ -98,3 +98,130 @@ if (! function_exists('trusted_proxies')) {
         return $proxies !== [] ? $proxies : $safeDefault;
     }
 }
+
+if (! function_exists('sanitize_html')) {
+    /**
+     * Sanitizza HTML non fidato con whitelist di tag e attributi.
+     *
+     * Difesa da stored XSS sui contenuti HTML renderizzati con {!! !!}
+     * (testo contratto di adesione, contratto agente, snapshot firmati):
+     * un account admin compromesso non deve poter iniettare script che
+     * girano nel browser di ogni utente alla firma.
+     *
+     * Nessuna dipendenza composer (usa ext-dom): come trusted_proxies(),
+     * vive in helpers.php per restare compatibile con i deploy file-only
+     * senza `composer install`.
+     */
+    function sanitize_html(?string $html): string
+    {
+        if ($html === null || trim($html) === '') {
+            return '';
+        }
+
+        $allowedTags = [
+            'p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins', 'mark',
+            'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+            'table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+            'blockquote', 'pre', 'code', 'span', 'div', 'a', 'small', 'sup', 'sub', 'font',
+        ];
+
+        $allowedAttributes = [
+            'href', 'title', 'target', 'colspan', 'rowspan', 'style', 'class',
+            'align', 'width', 'color', 'face', 'size',
+        ];
+
+        // Tag il cui contenuto va eliminato del tutto (non solo "spacchettato").
+        $dropWithContent = [
+            'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
+            'applet', 'svg', 'math', 'form', 'input', 'button', 'select',
+            'textarea', 'link', 'meta', 'base', 'template', 'noscript', 'audio', 'video',
+        ];
+
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="__sanitize_root__">' . $html . '</div>',
+            LIBXML_NONET
+        );
+        libxml_clear_errors();
+
+        if ($loaded === false) {
+            return '';
+        }
+
+        $root = (new \DOMXPath($dom))->query('//div[@id="__sanitize_root__"]')->item(0);
+
+        if ($root === null) {
+            return '';
+        }
+
+        // Visita bottom-up su lista statica: modificare il DOM durante
+        // l'iterazione dei NodeList "live" salterebbe dei nodi.
+        $nodes = [];
+        $collect = static function (\DOMNode $node) use (&$collect, &$nodes): void {
+            foreach ($node->childNodes as $child) {
+                $collect($child);
+            }
+            $nodes[] = $node;
+        };
+        $collect($root);
+
+        foreach ($nodes as $node) {
+            if ($node === $root) {
+                continue;
+            }
+
+            if ($node instanceof \DOMComment || $node instanceof \DOMProcessingInstruction) {
+                $node->parentNode?->removeChild($node);
+                continue;
+            }
+
+            if (! $node instanceof \DOMElement) {
+                continue;
+            }
+
+            $tag = strtolower($node->nodeName);
+
+            if (in_array($tag, $dropWithContent, true)) {
+                $node->parentNode?->removeChild($node);
+                continue;
+            }
+
+            if (! in_array($tag, $allowedTags, true)) {
+                // Tag sconosciuto: mantieni il contenuto, elimina il wrapper.
+                while ($node->firstChild !== null) {
+                    $node->parentNode?->insertBefore($node->firstChild, $node);
+                }
+                $node->parentNode?->removeChild($node);
+                continue;
+            }
+
+            foreach (iterator_to_array($node->attributes) as $attr) {
+                $name = strtolower($attr->name);
+                $value = (string) $attr->value;
+
+                $keep = in_array($name, $allowedAttributes, true);
+
+                if ($keep && $name === 'href') {
+                    $keep = preg_match('#^(https?:|mailto:|tel:|\#)#i', trim($value)) === 1;
+                }
+
+                if ($keep && $name === 'style') {
+                    $keep = preg_match('#expression|javascript|url\s*\(|@import|behavior#i', $value) !== 1;
+                }
+
+                if (! $keep) {
+                    $node->removeAttribute($attr->name);
+                }
+            }
+        }
+
+        $out = '';
+        foreach ($root->childNodes as $child) {
+            $out .= $dom->saveHTML($child);
+        }
+
+        return $out;
+    }
+}
