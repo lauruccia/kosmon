@@ -673,32 +673,35 @@
                         <input name="circuit_capacity_limit" type="number" min="0" step="0.01"
                                value="{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}"
                                placeholder="Default admin">
-                        <span class="uu-hint">Tetto massimo acquistabile.</span>
+                        <span class="uu-hint">Tetto per singola operazione; si applica insieme al "Limite per movimento" (vale il più basso dei due).</span>
                     </div>
                     <div class="uu-field">
                         <label>Massimale / fido</label>
                         <input name="negative_balance_limit" type="number" min="0" step="0.01"
                                value="{{ old('negative_balance_limit', ky_input($userRecord->negative_balance_limit)) }}"
                                placeholder="Default admin">
-                        <span class="uu-hint"><code>0</code> = nessun fido.</span>
+                        <span class="uu-hint">Quanto può scendere il saldo sotto zero. <code>0</code> = nessun fido. Ignorato se il conto ha già un "Fido circuito" attivo.</span>
                     </div>
                     <div class="uu-field">
                         <label>Limite giornaliero</label>
                         <input name="daily_transaction_limit" type="number" min="0" step="0.01"
                                value="{{ old('daily_transaction_limit', ky_input($userRecord->daily_transaction_limit)) }}"
                                placeholder="Default admin">
+                        <span class="uu-hint">Totale uscite nella giornata corrente. Deve essere ≥ al limite per movimento e ≤ al mensile.</span>
                     </div>
                     <div class="uu-field">
                         <label>Limite mensile</label>
                         <input name="monthly_transaction_limit" type="number" min="0" step="0.01"
                                value="{{ old('monthly_transaction_limit', ky_input($userRecord->monthly_transaction_limit)) }}"
                                placeholder="Default admin">
+                        <span class="uu-hint">Totale uscite nel mese corrente. Deve essere ≥ al limite giornaliero.</span>
                     </div>
                     <div class="uu-field">
                         <label>Limite per movimento</label>
                         <input name="per_movement_limit" type="number" min="0" step="0.01"
                                value="{{ old('per_movement_limit', ky_input($userRecord->per_movement_limit)) }}"
                                placeholder="Default admin">
+                        <span class="uu-hint">Importo massimo per singola operazione. Deve essere ≤ al limite giornaliero.</span>
                     </div>
                 </div>
             </div>
