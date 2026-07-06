@@ -667,14 +667,12 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     Limiti transazionali personalizzati (KY) &mdash; lascia vuoto per usare il default admin
                 </div>
-                <div class="uu-group-body cols-5">
-                    <div class="uu-field">
-                        <label>Disponibilità commerciale</label>
-                        <input name="circuit_capacity_limit" type="number" min="0" step="0.01"
-                               value="{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}"
-                               placeholder="Default admin">
-                        <span class="uu-hint">Tetto per singola operazione; si applica insieme al "Limite per movimento" (vale il più basso dei due).</span>
-                    </div>
+                <div class="uu-group-body cols-4">
+                    {{-- Disponibilità commerciale (circuit_capacity_limit) nascosta: ridondante col
+                         "Limite per movimento" (nei pagamenti normali vince comunque il valore più
+                         basso tra i due). Campo preservato invariato via hidden input. --}}
+                    <input type="hidden" name="circuit_capacity_limit"
+                           value="{{ old('circuit_capacity_limit', ky_input($userRecord->circuit_capacity_limit)) }}">
                     <div class="uu-field">
                         <label>Massimale / fido</label>
                         <input name="negative_balance_limit" type="number" min="0" step="0.01"

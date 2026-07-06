@@ -173,20 +173,29 @@ class NettingService
                     ? $proposal->counterpartyAccount
                     : $proposal->proposerAccount;
 
-                // Verifica saldo
-                if (
-                    ! $netPayerAccount->allow_negative_balance &&
-                    $netPayerAccount->saldoDisponibile() < $proposal->net_amount
-                ) {
+                $bookedAt           = \Carbon\CarbonImmutable::now();
+                $debitBalanceAfter  = $netPayerAccount->available_balance - $proposal->net_amount;
+                $creditBalanceAfter = $netReceiverAccount->available_balance + $proposal->net_amount;
+
+                // Verifica saldo: stesso criterio usato da TransferBookingService::assertTransferWithinLimits()
+                // per i pagamenti normali — priorità al fido di conto (CreditLimit attivo), altrimenti si
+                // applica il fido numerico del proprietario del conto pagatore (negative_balance_limit).
+                // Prima qui si guardava solo il flag allow_negative_balance, che ignorava del tutto il fido
+                // numerico e permetteva saldo negativo illimitato quando attivo: disallineato dal
+                // comportamento dei pagamenti normali.
+                $creditLimit                   = $netPayerAccount->activeCreditLimit();
+                $creditExposureLimit           = max(0, (int) ($creditLimit?->credit_limit ?? 0));
+                $effectiveNegativeBalanceLimit = max(0, (int) ($netPayerAccount->ownerUser?->effectiveTransferLimits()['negative_balance_limit'] ?? 0));
+
+                $exceedsAccountFido = $creditExposureLimit > 0 && $debitBalanceAfter < -$creditExposureLimit;
+                $exceedsUserFido    = $creditExposureLimit === 0 && $debitBalanceAfter < -$effectiveNegativeBalanceLimit;
+
+                if ($exceedsAccountFido || $exceedsUserFido) {
                     throw new RuntimeException(
                         'Saldo insufficiente per il pagamento netto di ' .
                         ky_format($proposal->net_amount) . ' KY.'
                     );
                 }
-
-                $bookedAt           = \Carbon\CarbonImmutable::now();
-                $debitBalanceAfter  = $netPayerAccount->available_balance - $proposal->net_amount;
-                $creditBalanceAfter = $netReceiverAccount->available_balance + $proposal->net_amount;
 
                 $netPayerAccount->forceFill(['available_balance'   => $debitBalanceAfter])->save();
                 $netReceiverAccount->forceFill(['available_balance' => $creditBalanceAfter])->save();

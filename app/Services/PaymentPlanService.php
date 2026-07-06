@@ -252,8 +252,19 @@ class PaymentPlanService
             $debitBalanceAfter  = $fromAccount->available_balance - $amount;
             $creditBalanceAfter = $toAccount->available_balance + $amount;
 
-            // Check balance (soft check — allow if account permits negative)
-            if (! $fromAccount->allow_negative_balance && $debitBalanceAfter < 0) {
+            // Check saldo: stesso criterio usato da TransferBookingService::assertTransferWithinLimits()
+            // per i pagamenti normali — priorità al fido di conto (CreditLimit attivo), altrimenti
+            // si applica il fido numerico dell'utente (negative_balance_limit). Prima qui si guardava
+            // solo il flag allow_negative_balance, che ignorava del tutto il fido numerico e permetteva
+            // saldo negativo illimitato quando attivo: disallineato dal comportamento dei pagamenti normali.
+            $creditLimit                   = $fromAccount->activeCreditLimit();
+            $creditExposureLimit           = max(0, (int) ($creditLimit?->credit_limit ?? 0));
+            $effectiveNegativeBalanceLimit = max(0, (int) ($plan->initiator?->effectiveTransferLimits()['negative_balance_limit'] ?? 0));
+
+            $exceedsAccountFido = $creditExposureLimit > 0 && $debitBalanceAfter < -$creditExposureLimit;
+            $exceedsUserFido    = $creditExposureLimit === 0 && $debitBalanceAfter < -$effectiveNegativeBalanceLimit;
+
+            if ($exceedsAccountFido || $exceedsUserFido) {
                 $inst->forceFill([
                     'status'         => 'failed',
                     'processed_at'   => CarbonImmutable::now(),
