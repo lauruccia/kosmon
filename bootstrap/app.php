@@ -13,11 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Proxy fidati per X-Forwarded-* — NON usare '*' (header falsificabile).
-        // Default sicuro: loopback + reti private. Override via env TRUSTED_PROXIES.
-        // trusted_proxies() è in app/helpers.php (autoloaded via "files"): nessuna
-        // classe nuova da autoricaricare → compatibile con deploy file-only.
-        $middleware->trustProxies(at: trusted_proxies());
+        // Proxy fidati per X-Forwarded-*: configurati in config/trustedproxy.php
+        // (letto dal middleware TrustProxies a request time). NIENTE
+        // trustProxies(at:) qui: questa callback gira prima del caricamento
+        // della config e con `config:cache` env() restituirebbe null.
         $middleware->web(append: [
             \App\Http\Middleware\ContentSecurityPolicy::class,
         ]);

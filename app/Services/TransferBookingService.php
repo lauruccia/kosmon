@@ -20,6 +20,12 @@ use RuntimeException;
 
 class TransferBookingService
 {
+    /**
+     * Tentativi per le transazioni finanziarie: Laravel ritenta automaticamente
+     * la closure in caso di deadlock MySQL (errore 1213).
+     */
+    private const TRANSACTION_ATTEMPTS = 3;
+
 
     public function book(array $attributes): Transfer
     {
@@ -48,8 +54,7 @@ class TransferBookingService
             }
 
             $initiator = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($initiatedBy);
-            $fromAccount = Account::query()->with(['company', 'ownerUser', 'parentAccount'])->lockForUpdate()->findOrFail($fromAccountId);
-            $toAccount = Account::query()->with(['company', 'ownerUser'])->lockForUpdate()->findOrFail($toAccountId);
+            [$fromAccount, $toAccount] = $this->lockAccountPair($fromAccountId, $toAccountId);
 
             $this->assertAccountsOperational($fromAccount, $toAccount);
             $this->assertAuthorizedInitiator($initiator, $fromAccount);
@@ -67,7 +72,7 @@ class TransferBookingService
                 ipAddress: $ipAddress,
                 idempotencyKey: $idempotencyKey,
             );
-        });
+        }, self::TRANSACTION_ATTEMPTS);
         } catch (RuntimeException $e) {
             // Logga ogni tentativo di trasferimento fallito (saldo insufficiente,
             // limiti superati, account sospeso, ecc.) in AuditLog, FUORI dalla
@@ -99,8 +104,7 @@ class TransferBookingService
             }
 
             $initiator = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($initiatedBy);
-            $fromAccount = Account::query()->with(['company', 'ownerUser'])->lockForUpdate()->findOrFail($fromAccountId);
-            $toAccount = Account::query()->with(['company', 'ownerUser', 'parentAccount'])->lockForUpdate()->findOrFail($toAccountId);
+            [$fromAccount, $toAccount] = $this->lockAccountPair($fromAccountId, $toAccountId);
 
             $this->assertAccountsOperational($fromAccount, $toAccount);
             $this->assertAuthorizedReceiver($initiator, $toAccount);
@@ -138,7 +142,7 @@ class TransferBookingService
             ]);
 
             return $transfer->load(['fromAccount', 'toAccount', 'initiator']);
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     public function confirmRequest(Transfer $transfer, int $confirmedBy, ?string $ipAddress = null): Transfer
@@ -156,8 +160,7 @@ class TransferBookingService
             }
 
             $confirmer = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($confirmedBy);
-            $fromAccount = Account::query()->with(['company', 'ownerUser', 'parentAccount'])->lockForUpdate()->findOrFail($pendingTransfer->from_account_id);
-            $toAccount = Account::query()->with(['company', 'ownerUser'])->lockForUpdate()->findOrFail($pendingTransfer->to_account_id);
+            [$fromAccount, $toAccount] = $this->lockAccountPair($pendingTransfer->from_account_id, $pendingTransfer->to_account_id);
 
             $this->assertAccountsOperational($fromAccount, $toAccount);
             $this->assertAuthorizedInitiator($confirmer, $fromAccount);
@@ -261,7 +264,7 @@ class TransferBookingService
             });
 
             return $pendingTransfer;
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     public function rejectRequest(Transfer $transfer, int $rejectedBy, ?string $ipAddress = null): Transfer
@@ -295,7 +298,7 @@ class TransferBookingService
             ]);
 
             return $pendingTransfer;
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
 
@@ -326,8 +329,7 @@ class TransferBookingService
             }
 
             $initiator   = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($initiatedBy);
-            $fromAccount = Account::query()->with(['company', 'ownerUser', 'parentAccount'])->lockForUpdate()->findOrFail($fromAccountId);
-            $toAccount   = Account::query()->with(['company', 'ownerUser'])->lockForUpdate()->findOrFail($toAccountId);
+            [$fromAccount, $toAccount] = $this->lockAccountPair($fromAccountId, $toAccountId);
 
             $this->assertAccountsOperational($fromAccount, $toAccount);
             $this->assertAuthorizedInitiator($initiator, $fromAccount);
@@ -417,7 +419,7 @@ class TransferBookingService
             ]);
 
             return $creditNote->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'reversedTransfer']);
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     public function refundMerchant(Transfer $originalTransfer, int $refundAmount, int $initiatedBy, ?string $description = null, ?string $ipAddress = null, ?string $idempotencyKey = null): Transfer
@@ -457,8 +459,7 @@ class TransferBookingService
 
             // The merchant is the one who received: toAccount
             // Refund goes from toAccount -> fromAccount
-            $fromAccount = Account::query()->with(['company', 'ownerUser', 'parentAccount'])->lockForUpdate()->findOrFail($original->to_account_id);
-            $toAccount   = Account::query()->with(['company', 'ownerUser'])->lockForUpdate()->findOrFail($original->from_account_id);
+            [$fromAccount, $toAccount] = $this->lockAccountPair($original->to_account_id, $original->from_account_id);
 
             $initiator = User::query()->with(['company', 'managedAccount', 'roles.permissions'])->findOrFail($initiatedBy);
 
@@ -528,7 +529,7 @@ class TransferBookingService
             ]);
 
             return $refundTransfer->load(['ledgerEntries', 'fromAccount', 'toAccount', 'initiator', 'reversedTransfer']);
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     /**
@@ -840,6 +841,34 @@ class TransferBookingService
         });
 
         return $transferLoaded;
+    }
+
+    /**
+     * Locka i due conti in ordine deterministico di id (prima il minore) e li
+     * restituisce nell'ordine logico [from, to].
+     *
+     * Previene i deadlock MySQL tra transfer incrociati concorrenti (A→B e
+     * B→A): se ogni transazione acquisisce i lock nello stesso ordine globale,
+     * il ciclo di attesa non puo' formarsi. In combinazione con il retry
+     * automatico (TRANSACTION_ATTEMPTS) copre anche i casi residui, es. il
+     * lock sul conto sistema acquisito dopo da bookFee().
+     *
+     * @return array{0: Account, 1: Account}
+     */
+    private function lockAccountPair(int $fromAccountId, int $toAccountId): array
+    {
+        if ($fromAccountId === $toAccountId) {
+            throw new RuntimeException('Il conto mittente e il conto destinatario devono essere diversi.');
+        }
+
+        $relations = ['company', 'ownerUser', 'parentAccount'];
+        $firstId   = min($fromAccountId, $toAccountId);
+        $secondId  = max($fromAccountId, $toAccountId);
+
+        $first  = Account::query()->with($relations)->lockForUpdate()->findOrFail($firstId);
+        $second = Account::query()->with($relations)->lockForUpdate()->findOrFail($secondId);
+
+        return $fromAccountId === $firstId ? [$first, $second] : [$second, $first];
     }
 
     private function assertAuthorizedInitiator(User $initiator, Account $fromAccount): void

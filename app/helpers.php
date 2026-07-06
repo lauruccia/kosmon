@@ -60,6 +60,11 @@ if (! function_exists('trusted_proxies')) {
      * e non come classe, così funziona anche con deploy che pullano solo i file
      * senza rigenerare l'autoloader.
      *
+     * NB2: chiamata da config/trustedproxy.php (NON da bootstrap/app.php):
+     * la callback withMiddleware gira PRIMA che la config sia caricata, mentre
+     * il middleware TrustProxies legge config('trustedproxy.proxies') a
+     * request time — così il valore sopravvive anche a `config:cache`.
+     *
      * @return string|array<int, string>
      */
     function trusted_proxies(): string|array
