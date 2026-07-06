@@ -114,6 +114,13 @@ class AccountController extends Controller
             $validated[$field] = $request->filled($field) ? ky_to_cents($validated[$field]) : null;
         }
 
+        // Coerenza: per-operazione ≤ giornaliero ≤ mensile.
+        $this->assertLimitsAscending([
+            ['field' => 'spending_limit', 'label' => 'per singola operazione', 'value' => $validated['spending_limit']],
+            ['field' => 'daily_outgoing_limit', 'label' => 'giornaliero', 'value' => $validated['daily_outgoing_limit']],
+            ['field' => 'monthly_outgoing_limit', 'label' => 'mensile', 'value' => $validated['monthly_outgoing_limit']],
+        ]);
+
         try {
             $service->create(
                 rootAccount: $rootAccount,
@@ -240,6 +247,13 @@ class AccountController extends Controller
         foreach (['spending_limit', 'daily_outgoing_limit', 'monthly_outgoing_limit'] as $field) {
             $validated[$field] = $request->filled($field) ? ky_to_cents($validated[$field]) : null;
         }
+
+        // Coerenza: per-operazione ≤ giornaliero ≤ mensile.
+        $this->assertLimitsAscending([
+            ['field' => 'spending_limit', 'label' => 'per singola operazione', 'value' => $validated['spending_limit']],
+            ['field' => 'daily_outgoing_limit', 'label' => 'giornaliero', 'value' => $validated['daily_outgoing_limit']],
+            ['field' => 'monthly_outgoing_limit', 'label' => 'mensile', 'value' => $validated['monthly_outgoing_limit']],
+        ]);
 
         $service->updateLimits($subaccount, $validated, $currentUser, $request->ip());
 

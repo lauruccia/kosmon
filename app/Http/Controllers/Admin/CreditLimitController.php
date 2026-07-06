@@ -36,14 +36,23 @@ class CreditLimitController extends Controller
             'single_transfer_limit'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
+        $dailyOutgoingCents  = $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null;
+        $singleTransferCents = $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null;
+
+        // Coerenza: il limite per singola operazione non può superare il giornaliero.
+        $this->assertLimitsAscending([
+            ['field' => 'single_transfer_limit', 'label' => 'per singola operazione', 'value' => $singleTransferCents],
+            ['field' => 'daily_outgoing_limit', 'label' => 'giornaliero', 'value' => $dailyOutgoingCents],
+        ]);
+
         // Disattiva eventuali limiti precedenti
         $account->creditLimits()->where('status', 'active')->update(['status' => 'inactive']);
 
         // Crea nuovo limite
         $account->creditLimits()->create([
             'credit_limit'          => ky_to_cents($validated['credit_limit']),
-            'daily_outgoing_limit'  => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
-            'single_transfer_limit' => $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null,
+            'daily_outgoing_limit'  => $dailyOutgoingCents,
+            'single_transfer_limit' => $singleTransferCents,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);
@@ -147,6 +156,14 @@ class CreditLimitController extends Controller
             ->map(fn ($value) => $value === null || $value === '' ? null : ky_to_cents($value))
             ->all();
 
+        // Coerenza: per-operazione ≤ giornaliero ≤ mensile, anche per i default di sistema
+        // (si applicano a tutti gli utenti che non hanno limiti personalizzati).
+        $this->assertLimitsAscending([
+            ['field' => 'default_per_movement_limit', 'label' => 'per singola operazione', 'value' => $validated['default_per_movement_limit'] ?? null],
+            ['field' => 'default_daily_transaction_limit', 'label' => 'giornaliero', 'value' => $validated['default_daily_transaction_limit'] ?? null],
+            ['field' => 'default_monthly_transaction_limit', 'label' => 'mensile', 'value' => $validated['default_monthly_transaction_limit'] ?? null],
+        ]);
+
         DB::transaction(function () use ($validated, $totpThreshold, $pinThreshold): void {
             $defaults = SystemSetting::userLimitDefaults();
             $currentDefaults = $defaults->defaultsMap();
@@ -220,14 +237,23 @@ class CreditLimitController extends Controller
         $existingMassimale = $account->massimale();
         $newTotal = $existingMassimale + $approvedCents;
 
+        $dailyOutgoingCents  = $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null;
+        $singleTransferCents = $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null;
+
+        // Coerenza: il limite per singola operazione non può superare il giornaliero.
+        $this->assertLimitsAscending([
+            ['field' => 'single_transfer_limit', 'label' => 'per singola operazione', 'value' => $singleTransferCents],
+            ['field' => 'daily_outgoing_limit', 'label' => 'giornaliero', 'value' => $dailyOutgoingCents],
+        ]);
+
         // Disattiva eventuali CreditLimit precedenti
         $account->creditLimits()->where('status', 'active')->update(['status' => 'inactive']);
 
         // Crea nuovo CreditLimit con il totale sommato
         $account->creditLimits()->create([
             'credit_limit'          => $newTotal,
-            'daily_outgoing_limit'  => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
-            'single_transfer_limit' => $request->filled('single_transfer_limit') ? ky_to_cents($validated['single_transfer_limit']) : null,
+            'daily_outgoing_limit'  => $dailyOutgoingCents,
+            'single_transfer_limit' => $singleTransferCents,
             'status'                => 'active',
             'approved_at'           => now(),
         ]);

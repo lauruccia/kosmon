@@ -315,6 +315,18 @@ class UserController extends Controller
 
         $limitToCents = fn (string $field) => $request->filled($field) ? ky_to_cents($validated[$field]) : null;
 
+        $perMovementLimitCents = $limitToCents('per_movement_limit');
+        $dailyLimitCents       = $limitToCents('daily_transaction_limit');
+        $monthlyLimitCents     = $limitToCents('monthly_transaction_limit');
+
+        // Coerenza: per-operazione ≤ giornaliero ≤ mensile (es. non è ammesso un
+        // giornaliero di 1.200 KY con un mensile di 50 KY).
+        $this->assertLimitsAscending([
+            ['field' => 'per_movement_limit', 'label' => 'per singola operazione', 'value' => $perMovementLimitCents],
+            ['field' => 'daily_transaction_limit', 'label' => 'giornaliero', 'value' => $dailyLimitCents],
+            ['field' => 'monthly_transaction_limit', 'label' => 'mensile', 'value' => $monthlyLimitCents],
+        ]);
+
         $emailChanged = $validated['email'] !== $user->email;
 
         $user->forceFill([
@@ -330,9 +342,9 @@ class UserController extends Controller
             'is_super_admin'         => $request->boolean('is_super_admin'),
             'circuit_capacity_limit'    => $limitToCents('circuit_capacity_limit'),
             'negative_balance_limit'    => $limitToCents('negative_balance_limit'),
-            'daily_transaction_limit'   => $limitToCents('daily_transaction_limit'),
-            'monthly_transaction_limit' => $limitToCents('monthly_transaction_limit'),
-            'per_movement_limit'        => $limitToCents('per_movement_limit'),
+            'daily_transaction_limit'   => $dailyLimitCents,
+            'monthly_transaction_limit' => $monthlyLimitCents,
+            'per_movement_limit'        => $perMovementLimitCents,
             'transfer_limits_use_defaults' => false,
         ])->save();
 

@@ -82,11 +82,20 @@ class AccountController extends Controller
             'allow_negative_balance' => ['required', 'boolean'],
         ]);
 
+        $spendingLimitCents = $request->filled('spending_limit') ? ky_to_cents($validated['spending_limit']) : null;
+        $dailyOutgoingCents = $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null;
+
+        // Coerenza: il limite per singola operazione non può superare il giornaliero.
+        $this->assertLimitsAscending([
+            ['field' => 'spending_limit', 'label' => 'per singola operazione', 'value' => $spendingLimitCents],
+            ['field' => 'daily_outgoing_limit', 'label' => 'giornaliero', 'value' => $dailyOutgoingCents],
+        ]);
+
         $account->forceFill([
             'status' => $validated['status'],
             'max_balance' => $request->filled('max_balance') ? ky_to_cents($validated['max_balance']) : null,
-            'spending_limit' => $request->filled('spending_limit') ? ky_to_cents($validated['spending_limit']) : null,
-            'daily_outgoing_limit' => $request->filled('daily_outgoing_limit') ? ky_to_cents($validated['daily_outgoing_limit']) : null,
+            'spending_limit' => $spendingLimitCents,
+            'daily_outgoing_limit' => $dailyOutgoingCents,
             'allow_negative_balance' => (bool) $validated['allow_negative_balance'],
         ])->save();
 
