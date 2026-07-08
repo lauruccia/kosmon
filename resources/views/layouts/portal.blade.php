@@ -663,6 +663,27 @@
         .stats-grid, .entity-grid, .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .hero-strip    { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .info-grid     { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .info-grid > div { min-width: 0; }
+        .info-grid strong { overflow-wrap: anywhere; }
+
+        /* ── COPY FIELD (valori lunghi: email, numeri conto) ────────── */
+        .copy-field { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; vertical-align: bottom; }
+        .copy-field > strong {
+            display: block; min-width: 0; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal;
+        }
+        .copy-field-btn {
+            flex: none; display: inline-flex; align-items: center; justify-content: center;
+            width: 24px; height: 24px; padding: 0; border-radius: 7px;
+            border: 1px solid var(--line); background: var(--surface);
+            color: var(--ink-soft); cursor: pointer;
+            opacity: .55; transition: opacity .18s, border-color .18s, color .18s, transform .12s;
+        }
+        .copy-field:hover .copy-field-btn, .copy-field-btn:focus-visible { opacity: 1; }
+        .copy-field-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .copy-field-btn:active { transform: scale(.92); }
+        .copy-field-btn svg { width: 13px; height: 13px; }
+        .copy-field-btn.copied { color: #16a34a; border-color: #16a34a; opacity: 1; }
         .form-split    { grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); }
 
         /* ── CARDS ──────────────────────────────────────────────────── */
@@ -2418,6 +2439,30 @@
         });
         window.addEventListener('pageshow', function (e) { if (e.persisted) window.location.reload(); });
     })();
+    </script>
+
+    <script>
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.copy-field-btn');
+        if (!btn || btn.classList.contains('copied')) return;
+        var text = btn.getAttribute('data-copy') || '';
+        var prev = btn.innerHTML;
+        function done() {
+            btn.classList.add('copied');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+            setTimeout(function () { btn.classList.remove('copied'); btn.innerHTML = prev; }, 1500);
+        }
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (err) {}
+            document.body.removeChild(ta);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(fallback);
+        } else { fallback(); }
+    });
     </script>
 
     {{-- Legal Footer --}}
