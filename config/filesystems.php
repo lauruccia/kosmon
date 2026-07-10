@@ -33,7 +33,13 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // 'serve' => true registrava la route framework GET /storage/{path}
+            // (storage.local) che intercettava TUTTE le richieste /storage/...
+            // prima della nostra route pubblica (vedi routes/web.php:
+            // storage.serve), rispondendo 403/404 perché il disco è privato e
+            // richiede URL firmati. Nessuna parte dell'app usa temporaryUrl()
+            // sul disco local, quindi la disattiviamo.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

@@ -76,6 +76,7 @@ use App\Http\Controllers\Admin\TestDataPurgeController;
 use App\Http\Controllers\NfcCardController;
 use App\Http\Controllers\NfcCardPaymentController;
 use App\Http\Controllers\StaticNfcController;
+use App\Http\Controllers\StorageFileController;
 use App\Http\Controllers\SendPaymentController;
 use App\Http\Controllers\MerchantKitController;
 use App\Http\Controllers\ReferralController;
@@ -111,6 +112,15 @@ Route::get('/legale/contratto', [LegalController::class, 'contract'])->name('leg
 Route::get('/legale/aml-kyc',   [LegalController::class, 'amlKyc'])->name('legal.aml-kyc');
 Route::get('/legale/limiti',    [LegalController::class, 'limits'])->name('legal.limits');
 Route::get('/legale/reclami',   [LegalController::class, 'complaints'])->name('legal.complaints');
+
+// ── File pubblici caricati (loghi, banner, branding) ─────────────────────────
+// Fallback quando il symlink public/storage non esiste (hosting condiviso con
+// webroot public_html separata dall'app): il webserver non trova il file
+// statico e la richiesta arriva qui. In locale il symlink c'è e questa route
+// non viene mai usata.
+Route::get('/storage/{path}', StorageFileController::class)
+    ->where('path', '.+')
+    ->name('storage.serve');
 
 // ── OpenAPI spec (pubblico) ───────────────────────────────────────────────────
 Route::get('/api/openapi.json', [DocsController::class, 'openApiJson'])->name('api.openapi-json');
