@@ -809,13 +809,14 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
 
     // MLM (KNM) — albero agenti, punti, qualifiche, bonus, commissioni
     Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
+    // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
+    Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
     Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
     Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');
     Route::post('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'move'])->name('admin.mlm.tree.move')->middleware('backoffice');
 
-    Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
     Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
     Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');
     Route::post('/admin/users/{user}/mlm/rendi-agente', [AdminMlmAgentRequestController::class, 'promote'])->name('admin.mlm.requests.promote')->middleware('backoffice');
