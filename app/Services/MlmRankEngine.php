@@ -11,13 +11,29 @@ use Illuminate\Support\Collection;
 /**
  * Motore di valutazione delle qualifiche agente. Vedi MLM_PROPOSAL.md §4.2.
  *
- * Requisiti allineati al testo letterale delle slide (riconfermato da Laura
- * il 2026-07-13 dopo la rilettura integrale delle 3 pptx): Senior = 48 pt +
- * 3 Basic al 1° livello + 2 Key su 2 colonne diverse; Top = 48 pt + 4 Basic
- * al 1° livello + 3 colonne da 300 punti. Il numero di Basic al 1° livello
- * cresce in modo monotono con il grado (2/3/4/5/6). Ogni qualifica e'
- * comunque un requisito indipendente, NON una progressione stretta: il
- * motore valuta TUTTE le qualifiche e assegna la piu' alta soddisfatta.
+ * Requisiti allineati al testo letterale della slide "Qualifiche" KNM
+ * (confermata da Laura il 2026-07-13, screenshot caricato in chat — fa fede
+ * su qualunque altra fonte, incluso il foglio mlm_piano.xlsx che su
+ * SuperVisor/Manager usava una notazione a punti PS/PT/PSPV/PM ambigua e
+ * meno letterale):
+ *
+ *   Basic = 12 pt
+ *   Key   = 24 pt + 2 Basic al 1° liv.
+ *   Senior = 48 pt + 3 Basic al 1° liv. + 2 Key su 2 colonne diverse
+ *   Top    = 48 pt + 4 Basic al 1° liv. + 3 colonne da 300 punti attivi
+ *   SuperVisor = 48 pt + 5 Basic al 1° liv. + 2 Senior e 2 Top su 4 colonne diverse
+ *   Manager    = 48 pt + 6 Basic al 1° liv. + 3 SuperVisor su 3 colonne diverse
+ *
+ * Il numero di Basic al 1° livello cresce in modo monotono con il grado
+ * (2/3/4/5/6). Per SuperVisor, "2 Senior e 2 Top" e' implementato come
+ * branchesWithTop>=2 (le 2 colonne Top) E branchesWithSenior>=4 (il totale
+ * delle colonne con almeno un Senior, che include gia' le 2 Top dato che
+ * Top > Senior nell'ordine dei gradi) — equivalente esatto del testo della
+ * slide, vedi countBranchesWithMinRank(). Ogni qualifica e' comunque un
+ * requisito indipendente, NON una progressione stretta: il motore valuta
+ * TUTTE le qualifiche e assegna la piu' alta soddisfatta (es. un agente puo'
+ * soddisfare "manager" senza soddisfare "top" o "supervisor", se non ha le
+ * colonne da 300 punti ma ha 3 SuperVisor in downline).
  *
  * RETROCESSIONE (confermata da Laura il 2026-07-13): i punti hanno una
  * finestra di validita' (mlm_point_ledger.valid_from/valid_until) e quando

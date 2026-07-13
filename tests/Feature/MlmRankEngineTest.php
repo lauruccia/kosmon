@@ -258,6 +258,87 @@ class MlmRankEngineTest extends TestCase
         $this->assertSame('top', $evaluation['eligible_rank']);
     }
 
+    public function test_supervisor_requires_5_basic_and_2_senior_and_2_top_on_4_different_columns(): void
+    {
+        // Requisito da slide (confermata da Laura il 2026-07-13, "Qualifiche"
+        // KNM): 48 pt + 5 Basic al 1° livello + 2 Senior e 2 Top su 4 colonne
+        // diverse. I 2 Top contano anche come colonne "con almeno un Senior",
+        // quindi bastano altre 2 colonne pure-Senior per arrivare a 4 totali.
+        $agent = $this->makeAgent();
+        $this->tree->attachAgent($agent, null);
+        $this->giveActivePoints($agent, 48);
+
+        $children = [
+            $this->makeAgent('top'),
+            $this->makeAgent('top'),
+            $this->makeAgent('senior'),
+            $this->makeAgent('senior'),
+            $this->makeAgent('basic'),
+        ];
+        foreach ($children as $child) {
+            $this->tree->attachAgent($child, $agent);
+        }
+
+        $evaluation = $this->engine->evaluate($agent);
+
+        $this->assertTrue($evaluation['satisfied']['supervisor']);
+        $this->assertFalse($evaluation['satisfied']['top'], 'Nessuna colonna ha 300 punti attivi: non e\' (anche) Top.');
+        $this->assertSame(5, $evaluation['level1_basic_count']);
+        $this->assertSame(2, $evaluation['branches_with_top']);
+        $this->assertSame(4, $evaluation['branches_with_senior']);
+        $this->assertSame('supervisor', $evaluation['eligible_rank']);
+    }
+
+    public function test_supervisor_is_not_satisfied_with_only_2_senior_columns_and_no_top(): void
+    {
+        // Controprova: 4 colonne Senior ma nessuna arrivata a Top non basta
+        // ("2 Senior E 2 Top", non 4 Senior generici).
+        $agent = $this->makeAgent();
+        $this->tree->attachAgent($agent, null);
+        $this->giveActivePoints($agent, 48);
+
+        for ($i = 0; $i < 5; $i++) {
+            $child = $this->makeAgent($i < 4 ? 'senior' : 'basic');
+            $this->tree->attachAgent($child, $agent);
+        }
+
+        $evaluation = $this->engine->evaluate($agent);
+
+        $this->assertFalse($evaluation['satisfied']['supervisor']);
+        $this->assertSame(0, $evaluation['branches_with_top']);
+    }
+
+    public function test_manager_requires_6_basic_and_3_supervisor_on_3_different_columns(): void
+    {
+        // Requisito da slide: 48 pt + 6 Basic al 1° livello + 3 SuperVisor su
+        // 3 colonne diverse. Ogni qualifica e' un requisito indipendente (non
+        // una progressione stretta): qui "top" e "supervisor" NON sono
+        // soddisfatte (mancano le 300 punti/colonna e la 4a colonna Senior),
+        // eppure "manager" lo e'.
+        $agent = $this->makeAgent();
+        $this->tree->attachAgent($agent, null);
+        $this->giveActivePoints($agent, 48);
+
+        $children = [
+            $this->makeAgent('supervisor'),
+            $this->makeAgent('supervisor'),
+            $this->makeAgent('supervisor'),
+            $this->makeAgent('basic'),
+            $this->makeAgent('basic'),
+            $this->makeAgent('basic'),
+        ];
+        foreach ($children as $child) {
+            $this->tree->attachAgent($child, $agent);
+        }
+
+        $evaluation = $this->engine->evaluate($agent);
+
+        $this->assertTrue($evaluation['satisfied']['manager']);
+        $this->assertSame(6, $evaluation['level1_basic_count']);
+        $this->assertSame(3, $evaluation['branches_with_supervisor']);
+        $this->assertSame('manager', $evaluation['eligible_rank']);
+    }
+
     public function test_nightly_command_cascades_demotions_bottom_up_in_a_single_run(): void
     {
         // parent (key) con 2 figli basic: i punti dei FIGLI scadono ->
