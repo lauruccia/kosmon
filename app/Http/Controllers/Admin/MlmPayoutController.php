@@ -27,9 +27,13 @@ class MlmPayoutController extends Controller
         $this->authorizeBackoffice($request->user());
 
         $status = $request->query('status', '');
+        $search = trim((string) $request->query('q', ''));
 
         $payouts = MlmPayout::with(['agent'])
             ->when($status !== '', fn ($q) => $q->where('status', $status))
+            ->when($search !== '', fn ($q) => $q->whereHas('agent', fn ($qq) => $qq
+                ->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
             ->orderByDesc('period_from')
             ->orderByDesc('id')
             ->paginate(30)
@@ -47,6 +51,7 @@ class MlmPayoutController extends Controller
             'activeNav' => 'mlm',
             'payouts'   => $payouts,
             'status'    => $status,
+            'search'    => $search,
             'kpis'      => $kpis,
         ]);
     }

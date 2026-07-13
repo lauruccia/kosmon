@@ -200,4 +200,68 @@ class MlmPayoutControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee($agent->name);
     }
+
+    public function test_index_can_be_filtered_by_agent_name_or_email(): void
+    {
+        // Su kosmopay.it la generazione in blocco crea decine di liquidazioni
+        // (una per agente): senza ricerca la pagina diventa inutilizzabile.
+        $admin = $this->makeAdmin();
+
+        $wanted = $this->makeAgent();
+        $wanted->forceFill(['name' => 'Giacomo Gallo'])->save();
+        $other = $this->makeAgent();
+        $other->forceFill(['name' => 'Antonio Gentile'])->save();
+
+        MlmPayout::create([
+            'agent_user_id' => $wanted->id,
+            'period_from' => now()->startOfMonth(),
+            'period_to' => now()->endOfMonth(),
+            'status' => 'pending',
+            'commissions_total_eur_cents' => 0,
+            'bonus_total_eur_cents' => 9_00,
+            'total_eur_cents' => 9_00,
+        ]);
+        MlmPayout::create([
+            'agent_user_id' => $other->id,
+            'period_from' => now()->startOfMonth(),
+            'period_to' => now()->endOfMonth(),
+            'status' => 'pending',
+            'commissions_total_eur_cents' => 0,
+            'bonus_total_eur_cents' => 9_00,
+            'total_eur_cents' => 9_00,
+        ]);
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.payouts.index', ['q' => 'Giacomo']));
+
+        $response->assertOk();
+        $response->assertSee('Giacomo Gallo');
+        $response->assertDontSee('Antonio Gentile');
+    }
+
+    public function test_index_search_composes_with_status_filter(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+        $agent->forceFill(['name' => 'Giacomo Gallo'])->save();
+
+        $paid = MlmPayout::create([
+            'agent_user_id' => $agent->id,
+            'period_from' => now()->startOfMonth(),
+            'period_to' => now()->endOfMonth(),
+            'status' => 'paid',
+            'commissions_total_eur_cents' => 0,
+            'bonus_total_eur_cents' => 9_00,
+            'total_eur_cents' => 9_00,
+        ]);
+
+        // Cerca "Giacomo" ma filtra per stato "pending": la liquidazione
+        // esistente e' 'paid', quindi non deve comparire.
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.payouts.index', [
+            'q' => 'Giacomo',
+            'status' => 'pending',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Nessuna liquidazione trovata.');
+    }
 }

@@ -45,15 +45,30 @@
     </form>
 </div>
 
+<form method="GET" action="{{ route('admin.mlm.payouts.index') }}" style="margin-bottom:10px;">
+    <input type="hidden" name="status" value="{{ $status }}">
+    <div class="card card-pad" style="padding:10px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+            <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Cerca agente</label>
+            <input type="text" name="q" value="{{ $search }}" placeholder="Nome o email"
+                style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:220px;">
+        </div>
+        <button type="submit" style="padding:8px 16px;border-radius:8px;font-size:13px;background:var(--primary);color:#fff;border:none;font-weight:600;cursor:pointer;">Filtra</button>
+        @if($search)
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['status' => $status])) }}" style="padding:8px 14px;border-radius:8px;font-size:13px;background:var(--danger-soft);color:var(--danger);border:1px solid #fecdd3;text-decoration:none;font-weight:600;">Azzera ricerca</a>
+        @endif
+    </div>
+</form>
+
 <section class="card light-card">
     <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <h3 style="margin:0;font-size:15px;">Liquidazioni</h3>
         <div style="display:flex;gap:6px;">
-            <a href="{{ route('admin.mlm.payouts.index') }}" class="pill {{ $status === '' ? 'active' : '' }}">Tutte</a>
-            <a href="{{ route('admin.mlm.payouts.index', ['status' => 'pending']) }}" class="pill {{ $status === 'pending' ? 'active' : '' }}">In attesa</a>
-            <a href="{{ route('admin.mlm.payouts.index', ['status' => 'approved']) }}" class="pill {{ $status === 'approved' ? 'active' : '' }}">Approvate</a>
-            <a href="{{ route('admin.mlm.payouts.index', ['status' => 'paid']) }}" class="pill {{ $status === 'paid' ? 'active' : '' }}">Pagate</a>
-            <a href="{{ route('admin.mlm.payouts.index', ['status' => 'rejected']) }}" class="pill {{ $status === 'rejected' ? 'active' : '' }}">Rifiutate</a>
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['q' => $search])) }}" class="pill {{ $status === '' ? 'active' : '' }}">Tutte</a>
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['status' => 'pending', 'q' => $search])) }}" class="pill {{ $status === 'pending' ? 'active' : '' }}">In attesa</a>
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['status' => 'approved', 'q' => $search])) }}" class="pill {{ $status === 'approved' ? 'active' : '' }}">Approvate</a>
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['status' => 'paid', 'q' => $search])) }}" class="pill {{ $status === 'paid' ? 'active' : '' }}">Pagate</a>
+            <a href="{{ route('admin.mlm.payouts.index', array_filter(['status' => 'rejected', 'q' => $search])) }}" class="pill {{ $status === 'rejected' ? 'active' : '' }}">Rifiutate</a>
         </div>
     </div>
     <table class="admin-table transactions-table">
