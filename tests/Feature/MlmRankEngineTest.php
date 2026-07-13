@@ -198,6 +198,36 @@ class MlmRankEngineTest extends TestCase
         $this->assertSame(1, MlmRankHistory::where('agent_user_id', $agent->id)->count());
     }
 
+    public function test_sync_rank_demotion_survives_a_notification_delivery_failure(): void
+    {
+        // Incident 2026-07-13: un agente con email non recapitabile (bounce
+        // SMTP 550) mandava in 500 l'intero /admin/mlm-impostazioni/ricalcola,
+        // perche' l'eccezione del mailer usciva non gestita da syncRank() e
+        // interrompeva la passata bottom-up su tutti gli altri agenti. La
+        // retrocessione (grado, storico, audit log) deve restare valida anche
+        // se l'invio della notifica fallisce.
+        $this->mock(\Illuminate\Contracts\Notifications\Dispatcher::class, function ($mock) {
+            $mock->shouldReceive('send')
+                ->once()
+                ->andThrow(new \Symfony\Component\Mailer\Exception\TransportException(
+                    'Expected response code "250/251/252" but got code "550"'
+                ));
+        });
+
+        $agent = $this->makeAgent('top');
+        $this->giveExpiredPoints($agent, 48);
+
+        $result = $this->engine->syncRank($agent);
+
+        $this->assertSame('demoted', $result);
+        $this->assertSame('start', $agent->fresh()->mlm_rank);
+        $this->assertSame(1, MlmRankHistory::where('agent_user_id', $agent->id)->count());
+        $this->assertDatabaseHas('audit_logs', [
+            'event'        => 'mlm.rank_demoted',
+            'auditable_id' => $agent->id,
+        ]);
+    }
+
     public function test_sync_rank_does_not_touch_the_basiq_flag_on_demotion(): void
     {
         $agent = $this->makeAgent('basic');

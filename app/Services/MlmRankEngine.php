@@ -8,6 +8,7 @@ use App\Models\MlmRankRequirement;
 use App\Models\User;
 use App\Notifications\MlmRankDemotedNotification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Motore di valutazione delle qualifiche agente. Vedi MLM_PROPOSAL.md §4.2.
@@ -206,7 +207,23 @@ class MlmRankEngine
             $this->awards->grantRankAward($agent, $eligibleRank);
         } else {
             // La retrocessione viene comunicata all'agente (email + in-app).
-            $agent->notify(new MlmRankDemotedNotification($previousRank, $eligibleRank));
+            // Il grado, lo storico e l'audit log sopra sono gia' salvati a
+            // prescindere dall'esito della notifica: un fallimento di invio
+            // (mailbox inesistente, SMTP giu', bounce 550...) NON deve far
+            // fallire syncRank() ne' interrompere il resto della passata
+            // bottom-up su mlm:recalculate-points (un solo agente con email
+            // non recapitabile bloccava prima l'intero ricalcolo con un 500,
+            // vedi incident 2026-07-13 su /admin/mlm-impostazioni/ricalcola).
+            try {
+                $agent->notify(new MlmRankDemotedNotification($previousRank, $eligibleRank));
+            } catch (\Throwable $e) {
+                Log::warning('mlm.rank_demoted_notification_failed', [
+                    'agent_id' => $agent->id,
+                    'previous_rank' => $previousRank,
+                    'new_rank' => $eligibleRank,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return $direction;
