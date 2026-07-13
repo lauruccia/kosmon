@@ -37,8 +37,13 @@ class MlmPointLedgerEntry extends Model
     ];
 
     protected $casts = [
-        'valid_from'  => 'date',
-        'valid_until' => 'date',
+        // Datetime (non solo date) dal 2026-07-13: permette all'admin di
+        // impostare una scadenza punti in MINUTI (vedi SystemSetting::mlmSettings()
+        // e MlmPointsService) per verificare rapidamente il calcolo qualifiche
+        // in test, invece di aspettare mesi. Vedi migration
+        // 2026_07_13_210200_convert_mlm_point_ledger_to_datetime.
+        'valid_from'  => 'datetime',
+        'valid_until' => 'datetime',
     ];
 
     protected static function booted(): void

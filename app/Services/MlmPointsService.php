@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\MlmCommissionBaseLedgerEntry;
 use App\Models\MlmPointLedgerEntry;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 
@@ -18,6 +19,12 @@ use Illuminate\Support\Carbon;
  * Non si tratta di un importo che cresce nel tempo: e' il tasso mensile
  * attribuito a quel deposito, attivo per N mesi consecutivi (stesso principio
  * di smoothing usato per la base commissioni).
+ *
+ * OVERRIDE DI TEST (2026-07-13, richiesta di Laura): l'admin puo' impostare
+ * in /admin/mlm-impostazioni una scadenza punti in MINUTI che sostituisce la
+ * durata normale (1/12/24/36 mesi) per TUTTI i nuovi punti assegnati — utile
+ * per verificare subito il calcolo qualifiche in test invece di aspettare
+ * mesi. Vedi SystemSetting::mlmSettings() e resolveValidUntil().
  */
 class MlmPointsService
 {
@@ -44,13 +51,15 @@ class MlmPointsService
             return;
         }
 
+        $from = now();
+
         $this->createLedgerEntry(
             client: $client,
             sourceType: 'registration',
             sourceTransferId: null,
             points: 1,
-            validFrom: now(),
-            validUntil: now()->addMonth(),
+            validFrom: $from,
+            validUntil: $this->resolveValidUntil($from, normalDurationMonths: 1),
         );
     }
 
@@ -71,14 +80,15 @@ class MlmPointsService
         }
 
         [$points, $durationMonths] = $tier;
+        $from = now();
 
         $this->createLedgerEntry(
             client: $client,
             sourceType: 'deposit',
             sourceTransferId: $sourceTransferId,
             points: $points,
-            validFrom: now(),
-            validUntil: now()->addMonths($durationMonths),
+            validFrom: $from,
+            validUntil: $this->resolveValidUntil($from, $durationMonths),
         );
 
         $this->createCommissionBaseEntry($client, $depositEurCents, $durationMonths, $sourceTransferId);
@@ -90,6 +100,11 @@ class MlmPointsService
      * e' semplicemente il deposito diviso per la durata dello scaglione:
      * per gli scaglioni da 1.200/2.400/3.600 EUR questo da' sempre 100 EUR/mese,
      * coerente con gli esempi del glossario KNM originale.
+     *
+     * Resta su durata mensile "normale" anche quando l'override di test e'
+     * attivo: le commissioni girano su un ciclo mensile a prescindere (vedi
+     * MlmCommissionEngine::runForMonth()), l'override serve solo a
+     * velocizzare la verifica delle QUALIFICHE (punti), non delle commissioni.
      */
     private function createCommissionBaseEntry(User $client, int $depositEurCents, int $durationMonths, ?int $sourceTransferId): void
     {
@@ -122,6 +137,26 @@ class MlmPointsService
         return null;
     }
 
+    /**
+     * Calcola la scadenza di una riga del ledger punti. Se l'admin ha
+     * impostato un override di test (in minuti), lo usa al posto della
+     * durata normale di business. Altrimenti usa la durata normale in mesi,
+     * spinta a FINE GIORNATA (23:59:59): preserva il comportamento storico
+     * pre-2026-07-13, quando valid_until era una semplice DATE confrontata
+     * con whereDate() — cioe' valida per l'intera giornata indicata, non solo
+     * fino all'istante esatto N mesi dopo.
+     */
+    private function resolveValidUntil(Carbon $from, int $normalDurationMonths): Carbon
+    {
+        $overrideMinutes = SystemSetting::mlmSettings()->mlm_points_validity_override_minutes;
+
+        if ($overrideMinutes) {
+            return $from->copy()->addMinutes($overrideMinutes);
+        }
+
+        return $from->copy()->addMonths($normalDurationMonths)->endOfDay();
+    }
+
     private function createLedgerEntry(
         User $client,
         string $sourceType,
@@ -141,8 +176,8 @@ class MlmPointsService
             'source_type'         => $sourceType,
             'source_transfer_id'  => $sourceTransferId,
             'points'              => $points,
-            'valid_from'          => $validFrom->toDateString(),
-            'valid_until'         => $validUntil->toDateString(),
+            'valid_from'          => $validFrom,
+            'valid_until'         => $validUntil,
         ]);
 
         AuditLog::create([
@@ -154,8 +189,8 @@ class MlmPointsService
                 'ledger_entry_id' => $entry->id,
                 'source_type'     => $sourceType,
                 'points'          => $points,
-                'valid_from'      => $validFrom->toDateString(),
-                'valid_until'     => $validUntil->toDateString(),
+                'valid_from'      => $validFrom->toDateTimeString(),
+                'valid_until'     => $validUntil->toDateTimeString(),
             ],
         ]);
     }

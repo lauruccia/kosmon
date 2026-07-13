@@ -60,6 +60,7 @@ use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\Admin\MlmController;
+use App\Http\Controllers\Admin\MlmSettingsController;
 use App\Http\Controllers\Admin\MlmPayoutController;
 use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
@@ -826,6 +827,11 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');
     Route::post('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'move'])->name('admin.mlm.tree.move')->middleware('backoffice');
+
+    // Impostazioni MLM (requisiti qualifiche + scadenza punti) — per test rapidi, vedi MlmSettingsController.
+    Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
+    Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
+    Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
 
     Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
     Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');

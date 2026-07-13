@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuditLog;
 use App\Models\MlmRankHistory;
+use App\Models\MlmRankRequirement;
 use App\Models\User;
 use App\Notifications\MlmRankDemotedNotification;
 use Illuminate\Support\Collection;
@@ -11,11 +12,15 @@ use Illuminate\Support\Collection;
 /**
  * Motore di valutazione delle qualifiche agente. Vedi MLM_PROPOSAL.md §4.2.
  *
- * Requisiti allineati al testo letterale della slide "Qualifiche" KNM
- * (confermata da Laura il 2026-07-13, screenshot caricato in chat — fa fede
- * su qualunque altra fonte, incluso il foglio mlm_piano.xlsx che su
- * SuperVisor/Manager usava una notazione a punti PS/PT/PSPV/PM ambigua e
- * meno letterale):
+ * I requisiti NON sono piu' hardcoded qui dal 2026-07-13: vengono letti da
+ * `mlm_rank_requirements` (vedi MlmRankRequirement), editabile da admin in
+ * /admin/mlm-impostazioni — introdotto su richiesta di Laura per poter
+ * testare rapidamente cambi di soglia senza toccare il codice. I valori di
+ * default seedati dalla migration sono ESATTAMENTE quelli confermati dal
+ * testo letterale della slide "Qualifiche" KNM ufficiale (screenshot
+ * caricato in chat il 2026-07-13 — fa fede su qualunque altra fonte, incluso
+ * il foglio mlm_piano.xlsx che su SuperVisor/Manager usava una notazione a
+ * punti PS/PT/PSPV/PM ambigua e meno letterale):
  *
  *   Basic = 12 pt
  *   Key   = 24 pt + 2 Basic al 1° liv.
@@ -25,28 +30,58 @@ use Illuminate\Support\Collection;
  *   Manager    = 48 pt + 6 Basic al 1° liv. + 3 SuperVisor su 3 colonne diverse
  *
  * Il numero di Basic al 1° livello cresce in modo monotono con il grado
- * (2/3/4/5/6). Per SuperVisor, "2 Senior e 2 Top" e' implementato come
- * branchesWithTop>=2 (le 2 colonne Top) E branchesWithSenior>=4 (il totale
- * delle colonne con almeno un Senior, che include gia' le 2 Top dato che
- * Top > Senior nell'ordine dei gradi) — equivalente esatto del testo della
- * slide, vedi countBranchesWithMinRank(). Ogni qualifica e' comunque un
- * requisito indipendente, NON una progressione stretta: il motore valuta
- * TUTTE le qualifiche e assegna la piu' alta soddisfatta (es. un agente puo'
- * soddisfare "manager" senza soddisfare "top" o "supervisor", se non ha le
- * colonne da 300 punti ma ha 3 SuperVisor in downline).
+ * (2/3/4/5/6) nei default. Per SuperVisor, "2 Senior e 2 Top" e' implementato
+ * come branchesWithTop>=2 (le 2 colonne Top) E branchesWithSenior>=4 (il
+ * totale delle colonne con almeno un Senior, che include gia' le 2 Top dato
+ * che Top > Senior nell'ordine dei gradi) — equivalente esatto del testo
+ * della slide, vedi countBranchesWithMinRank(). Ogni qualifica e' comunque
+ * un requisito indipendente, NON una progressione stretta: il motore valuta
+ * TUTTE le qualifiche (ciascuna contro la propria riga di configurazione) e
+ * assegna la piu' alta soddisfatta (es. un agente puo' soddisfare "manager"
+ * senza soddisfare "top" o "supervisor", se non ha le colonne da 300 punti
+ * ma ha 3 SuperVisor in downline).
  *
  * RETROCESSIONE (confermata da Laura il 2026-07-13): i punti hanno una
- * finestra di validita' (mlm_point_ledger.valid_from/valid_until) e quando
- * scadono i requisiti possono venire meno. syncRank() allinea quindi il
- * grado in ENTRAMBE le direzioni — promuove e retrocede — fino a "start",
- * senza grado minimo garantito. Il flag storico BasiQ (mlm_basiq_at) non
- * viene mai toccato. Nessun ricalcolo retroattivo di bonus/commissioni gia'
- * generati: la retrocessione vale solo dalle valutazioni successive.
+ * finestra di validita' (mlm_point_ledger.valid_from/valid_until, a
+ * precisione di minuto dal 2026-07-13 — vedi SystemSetting::mlmSettings())
+ * e quando scadono i requisiti possono venire meno. syncRank() allinea
+ * quindi il grado in ENTRAMBE le direzioni — promuove e retrocede — fino a
+ * "start", senza grado minimo garantito. Il flag storico BasiQ
+ * (mlm_basiq_at) non viene mai toccato. Nessun ricalcolo retroattivo di
+ * bonus/commissioni gia' generati: la retrocessione vale solo dalle
+ * valutazioni successive.
  */
 class MlmRankEngine
 {
     /** Ordine crescente delle qualifiche valutate da questo motore (esclude "start"). */
     private const ORDER = ['basic', 'key', 'senior', 'top', 'supervisor', 'manager'];
+
+    /**
+     * Mappa metrica calcolata (chiave di ritorno di evaluate()) => campo
+     * corrispondente in MlmRankRequirement. Un'unica fonte per il confronto
+     * generico soglia-per-soglia usato sia in evaluate() che in
+     * nextRankRequirements() (con le relative etichette, vedi RANK_LABELS).
+     */
+    private const METRIC_TO_REQUIREMENT_FIELD = [
+        'points' => 'min_points',
+        'level1_basic_count' => 'min_level1_basic',
+        'branches_with_key' => 'min_branches_with_key',
+        'branches_with_senior' => 'min_branches_with_senior',
+        'branches_with_top' => 'min_branches_with_top',
+        'branches_with_supervisor' => 'min_branches_with_supervisor',
+        'branches_300pt' => 'min_branches_300pt',
+    ];
+
+    /** Etichette leggibili per la checklist di nextRankRequirements(), stesso ordine di METRIC_TO_REQUIREMENT_FIELD. */
+    private const RANK_LABELS = [
+        'min_points' => 'Punti attivi',
+        'min_level1_basic' => 'Basic al 1° livello',
+        'min_branches_with_key' => 'Colonne con almeno un Key+',
+        'min_branches_with_senior' => 'Colonne con almeno un Senior+',
+        'min_branches_with_top' => 'Colonne con almeno un Top+',
+        'min_branches_with_supervisor' => 'Colonne con almeno un SuperVisor+',
+        'min_branches_300pt' => 'Colonne con >= 300 punti',
+    ];
 
     public function __construct(
         private readonly MlmTreeService $tree,
@@ -80,18 +115,22 @@ class MlmRankEngine
         $branchesWithTop = $this->countBranchesWithMinRank($branches, 'top');
         $branchesWithSupervisor = $this->countBranchesWithMinRank($branches, 'supervisor');
 
-        $satisfied = [
-            'basic' => $points >= 12,
-            'key' => $points >= 24 && $level1BasicCount >= 2,
-            'senior' => $points >= 48 && $level1BasicCount >= 3 && $branchesWithKey >= 2,
-            'top' => $points >= 48 && $level1BasicCount >= 4 && $branches300pt >= 3,
-            // "2 Senior e 2 Top su 4 colonne diverse": un ramo con un Top soddisfa
-            // automaticamente anche la soglia Senior (Top > Senior), quindi basta
-            // richiedere almeno 2 colonne >= top E almeno 4 colonne >= senior in
-            // totale (le 2 "top" sono gia' incluse nel conteggio "senior").
-            'supervisor' => $points >= 48 && $level1BasicCount >= 5 && $branchesWithTop >= 2 && $branchesWithSenior >= 4,
-            'manager' => $points >= 48 && $level1BasicCount >= 6 && $branchesWithSupervisor >= 3,
+        $metrics = [
+            'points' => $points,
+            'level1_basic_count' => $level1BasicCount,
+            'branches_with_key' => $branchesWithKey,
+            'branches_with_senior' => $branchesWithSenior,
+            'branches_with_top' => $branchesWithTop,
+            'branches_with_supervisor' => $branchesWithSupervisor,
+            'branches_300pt' => $branches300pt,
         ];
+
+        $requirements = MlmRankRequirement::allByRank();
+
+        $satisfied = [];
+        foreach (self::ORDER as $rank) {
+            $satisfied[$rank] = $this->meetsRequirement($metrics, $requirements->get($rank));
+        }
 
         $eligibleRank = 'start';
         foreach (self::ORDER as $rank) {
@@ -188,48 +227,56 @@ class MlmRankEngine
 
         $nextRank = self::ORDER[$currentLevel];
         $evaluation = $this->evaluate($agent);
+        $requirement = MlmRankRequirement::allByRank()->get($nextRank);
 
-        $checklists = [
-            'basic' => [
-                ['label' => 'Punti attivi', 'required' => 12, 'current' => $evaluation['points']],
-            ],
-            'key' => [
-                ['label' => 'Punti attivi', 'required' => 24, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 2, 'current' => $evaluation['level1_basic_count']],
-            ],
-            'senior' => [
-                ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 3, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con almeno un Key+', 'required' => 2, 'current' => $evaluation['branches_with_key']],
-            ],
-            'top' => [
-                ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 4, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con >= 300 punti', 'required' => 3, 'current' => $evaluation['branches_300pt']],
-            ],
-            'supervisor' => [
-                ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 5, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con almeno un Top+', 'required' => 2, 'current' => $evaluation['branches_with_top']],
-                ['label' => 'Colonne con almeno un Senior+', 'required' => 4, 'current' => $evaluation['branches_with_senior']],
-            ],
-            'manager' => [
-                ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 6, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con almeno un SuperVisor+', 'required' => 3, 'current' => $evaluation['branches_with_supervisor']],
-            ],
-        ];
+        $items = [];
+        if ($requirement !== null) {
+            foreach (self::METRIC_TO_REQUIREMENT_FIELD as $metric => $field) {
+                $required = (int) $requirement->{$field};
+                if ($required <= 0) {
+                    // Soglia non richiesta per questo grado (es. 0 colonne Key
+                    // per "basic"): non mostrarla nella checklist.
+                    continue;
+                }
 
-        $items = $checklists[$nextRank] ?? [];
-        foreach ($items as &$item) {
-            $item['met'] = $item['current'] >= $item['required'];
+                $current = (int) $evaluation[$metric];
+                $items[] = [
+                    'label' => self::RANK_LABELS[$field],
+                    'required' => $required,
+                    'current' => $current,
+                    'met' => $current >= $required,
+                ];
+            }
         }
-        unset($item);
 
         return [
             'rank' => $nextRank,
             'items' => $items,
         ];
+    }
+
+    /**
+     * Vero se tutte le metriche calcolate soddisfano (>=) la relativa soglia
+     * configurata per il grado. Nessuna riga di configurazione per il grado
+     * (non dovrebbe mai succedere dopo il seed della migration) => grado mai
+     * raggiungibile: "fail closed" invece di promuovere per errore con
+     * soglie implicite a zero.
+     *
+     * @param array<string,int> $metrics
+     */
+    private function meetsRequirement(array $metrics, ?MlmRankRequirement $requirement): bool
+    {
+        if ($requirement === null) {
+            return false;
+        }
+
+        foreach (self::METRIC_TO_REQUIREMENT_FIELD as $metric => $field) {
+            if ($metrics[$metric] < $requirement->{$field}) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Numero di colonne (rami di 1° livello) che contengono almeno un agente di rank >= $minRank. */

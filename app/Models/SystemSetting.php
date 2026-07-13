@@ -91,6 +91,7 @@ class SystemSetting extends Model
         'contract_version',
         'mlm_agent_contract_text',
         'mlm_agent_contract_version',
+        'mlm_points_validity_override_minutes',
     ];
 
     protected function casts(): array
@@ -289,6 +290,24 @@ HTML;
                 'contact_email'   => 'info@kosmomoney.com',
                 'primary_color'   => '#3d5566',
                 'accent_color'    => '#0f766e',
+            ]
+        );
+    }
+
+    // ── MLM settings (2026-07-13) ───────────────────────────────────────────────
+
+    /**
+     * Impostazioni MLM globali configurabili da admin. Al momento contiene
+     * solo l'override "da test" della scadenza punti (vedi
+     * mlm_points_validity_override_minutes, usato da MlmPointsService), ma è
+     * il posto dove aggiungere futuri interruttori globali MLM.
+     */
+    public static function mlmSettings(): self
+    {
+        return static::query()->firstOrCreate(
+            ['code' => 'mlm'],
+            [
+                'mlm_points_validity_override_minutes' => null,
             ]
         );
     }

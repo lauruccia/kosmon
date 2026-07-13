@@ -711,14 +711,22 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(\App\Models\MlmPaymentDetail::class, 'agent_user_id');
     }
 
-    /** Punti cliente (PC) attivi oggi (somma del ledger non ancora scaduto). */
+    /**
+     * Punti cliente (PC) attivi ora (somma del ledger non ancora scaduto).
+     * Confronto a precisione di DATETIME esatta (non solo data) dal 2026-07-13:
+     * permette all'admin di impostare una scadenza punti anche di pochi
+     * minuti per verificare subito il calcolo qualifiche in test (vedi
+     * SystemSetting::mlmSettings()->mlm_points_validity_override_minutes e
+     * MlmPointsService). In produzione (nessun override) la durata resta
+     * quella di sempre, solo con granularita' fine anziche' whereDate().
+     */
     public function mlmActivePoints(?\Illuminate\Support\Carbon $asOf = null): int
     {
         $asOf ??= now();
 
         return (int) $this->mlmPointLedgerEntries()
-            ->whereDate('valid_from', '<=', $asOf->toDateString())
-            ->whereDate('valid_until', '>=', $asOf->toDateString())
+            ->where('valid_from', '<=', $asOf)
+            ->where('valid_until', '>=', $asOf)
             ->sum('points');
     }
 
