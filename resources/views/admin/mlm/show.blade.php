@@ -150,7 +150,7 @@
             @forelse($bonusPayouts as $payout)
                 <tr>
                     <td>{{ $payout->event->basiqUser->name ?? '—' }}</td>
-                    <td><span class="pill">{{ ucfirst($payout->rank_at_time) }}</span></td>
+                    <td><span class="pill">{{ $payout->kind === 'diretto' ? 'Bonus diretto' : ($payout->kind === 'extra' ? 'Extra Bonus ' . ucfirst((string) $payout->rank_at_time) : ucfirst((string) $payout->rank_at_time)) }}</span></td>
                     <td>&euro; {{ number_format($payout->amount_eur_cents / 100, 2, ',', '.') }}</td>
                     <td>{{ $payout->week_ending->format('d/m/Y') }}</td>
                     <td style="text-transform:capitalize;">{{ $payout->status }}</td>

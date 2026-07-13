@@ -159,6 +159,16 @@ In ogni caso la somma dei payout = importo della qualifica più alta presente (t
 
 ---
 
+### 6.5 Bonus Diretti KNM (aggiunto il 2026-07-13, confermato da Laura)
+
+Dalla slide "Bonus Diretti KNM": premi una tantum al raggiungimento delle soglie di **punti personali ATTIVI** — 4 punti → 200 €, 6 punti → 300 €, 12 punti → 400 €. Regole confermate: le soglie sono **cumulative** (chi arriva a 12 punti incassa nel tempo tutte e tre = 900 € totali), ma ogni soglia paga **una sola volta nella vita dell'agente** (anche se i punti scadono e la soglia viene ri-superata). Valutati nel run notturno (`mlm:recalculate-points`, passata 3), accreditati il mercoledì nello stesso flusso EUR dei bonus di struttura (`mlm_bonus_payouts`, kind='diretto') e liquidati col payout mensile aggregato. Implementazione: `MlmAwardService::grantDirectPointBonuses()`.
+
+### 6.6 Extra Bonus KNM (aggiunto il 2026-07-13, confermato da Laura)
+
+Dalla slide "Extra Bonus KNM" (range: Senior/Top 300–3.000 €, Spv/Mng 1.000–20.000 €): premio **una tantum alla prima promozione** al grado — Senior 300 €, Top 3.000 €, SuperVisor 5.000 €, Manager 20.000 €. **Non retroattivo** (vale solo per le promozioni registrate dal motore da qui in avanti); mai due volte per lo stesso grado, anche dopo retrocessione + nuova promozione. Erogato da `MlmRankEngine::syncRank()` via `MlmAwardService::grantRankAward()`, stesso flusso EUR (kind='extra').
+
+La retrocessione genera inoltre una **notifica all'agente** (email + in-app, `MlmRankDemotedNotification`, gruppo preferenze `mlm_agent_status`) e il portale "La mia struttura" mostra un **avviso punti in scadenza** (punti che scadranno entro 30 giorni, con allerta rossa se la qualifica attuale non sarebbe più coperta).
+
 ## 7. Punti ancora da confermare prima di scrivere codice
 
 Questi non bloccano la stesura della proposta, ma **bloccano l'implementazione** se non confermati — sono scelte di business, non di programmazione.

@@ -152,7 +152,7 @@
         <tbody>
             @forelse($payout->bonusPayouts as $bonus)
                 <tr>
-                    <td><span class="pill">{{ ucfirst($bonus->rank_at_time) }}</span></td>
+                    <td><span class="pill">{{ $bonus->kind === 'diretto' ? 'Bonus diretto' : ($bonus->kind === 'extra' ? 'Extra Bonus ' . ucfirst((string) $bonus->rank_at_time) : ucfirst((string) $bonus->rank_at_time)) }}</span></td>
                     <td>{{ $bonus->week_ending->format('d/m/Y') }}</td>
                     <td>&euro; {{ number_format($bonus->amount_eur_cents / 100, 2, ',', '.') }}</td>
                 </tr>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\MlmPointLedgerEntry;
 use App\Models\MlmRankHistory;
 use App\Models\User;
+use App\Services\MlmAwardService;
 use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,7 +36,7 @@ class MlmRankEngineTest extends TestCase
     {
         parent::setUp();
         $this->tree = new MlmTreeService();
-        $this->engine = new MlmRankEngine($this->tree);
+        $this->engine = new MlmRankEngine($this->tree, new MlmAwardService());
     }
 
     private function makeAgent(string $rank = 'start'): User

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\MlmAwardService;
 use App\Services\MlmBonusService;
 use App\Services\MlmRankEngine;
 use Illuminate\Console\Command;
@@ -42,6 +43,7 @@ class RecalculateMlmPoints extends Command
     public function __construct(
         private readonly MlmRankEngine $rankEngine,
         private readonly MlmBonusService $bonusService,
+        private readonly MlmAwardService $awardService,
     ) {
         parent::__construct();
     }
@@ -98,6 +100,7 @@ class RecalculateMlmPoints extends Command
 
         $promoted = 0;
         $demoted = 0;
+        $directBonuses = 0;
 
         foreach ($agents as $agent) {
             $result = $this->rankEngine->syncRank($agent);
@@ -106,9 +109,13 @@ class RecalculateMlmPoints extends Command
             } elseif ($result === 'demoted') {
                 $demoted++;
             }
+
+            // PASSATA 3 (2026-07-13) - Bonus Diretti KNM: 200/300/400 EUR al
+            // raggiungimento di 4/6/12 punti attivi, una volta per soglia.
+            $directBonuses += $this->awardService->grantDirectPointBonuses($agent);
         }
 
-        $this->info("Valutati {$agents->count()} agenti: {$promoted} promozioni, {$demoted} retrocessioni di qualifica.");
+        $this->info("Valutati {$agents->count()} agenti: {$promoted} promozioni, {$demoted} retrocessioni di qualifica, {$directBonuses} bonus diretti assegnati.");
 
         return self::SUCCESS;
     }

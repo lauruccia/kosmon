@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
  * @property string $uuid
  * @property int $mlm_bonus_event_id
  * @property int $beneficiary_user_id
- * @property string $rank_at_time
+ * @property string|null $rank_at_time
+ * @property string $kind
  * @property int $amount_eur_cents
  * @property \Illuminate\Support\Carbon $week_ending
  * @property string $status
@@ -28,6 +29,7 @@ class MlmBonusPayout extends Model
         'mlm_bonus_event_id',
         'beneficiary_user_id',
         'rank_at_time',
+        'kind',
         'amount_eur_cents',
         'week_ending',
         'status',

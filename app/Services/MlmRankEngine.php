@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\MlmRankHistory;
 use App\Models\User;
+use App\Notifications\MlmRankDemotedNotification;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,7 +32,10 @@ class MlmRankEngine
     /** Ordine crescente delle qualifiche valutate da questo motore (esclude "start"). */
     private const ORDER = ['basic', 'key', 'senior', 'top', 'supervisor', 'manager'];
 
-    public function __construct(private readonly MlmTreeService $tree) {}
+    public function __construct(
+        private readonly MlmTreeService $tree,
+        private readonly MlmAwardService $awards,
+    ) {}
 
     /**
      * Valuta l'agente e restituisce un array diagnostico completo:
@@ -141,6 +145,14 @@ class MlmRankEngine
                 'evaluation' => $evaluation,
             ],
         ]);
+
+        if ($direction === 'promoted') {
+            // Extra Bonus una tantum alla prima promozione a senior+ (2026-07-13).
+            $this->awards->grantRankAward($agent, $eligibleRank);
+        } else {
+            // La retrocessione viene comunicata all'agente (email + in-app).
+            $agent->notify(new MlmRankDemotedNotification($previousRank, $eligibleRank));
+        }
 
         return $direction;
     }

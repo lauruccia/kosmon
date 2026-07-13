@@ -32,11 +32,30 @@ class MlmPortalController extends Controller
     {
         $agent = $this->agentOrAbort($request);
 
+        // Avviso punti in scadenza (2026-07-13): somma dei punti che scadranno
+        // nei prossimi 30 giorni e verifica se, una volta scaduti, i punti
+        // residui scenderebbero sotto il requisito della qualifica attuale
+        // (=> retrocessione in arrivo se non si generano nuovi punti).
+        $activePoints = $agent->mlmActivePoints();
+        $expiringPoints = (int) $agent->mlmPointLedgerEntries()
+            ->whereDate('valid_from', '<=', now()->toDateString())
+            ->whereDate('valid_until', '>=', now()->toDateString())
+            ->whereDate('valid_until', '<=', now()->addDays(30)->toDateString())
+            ->sum('points');
+
+        $pointsRequirement = ['start' => 0, 'basic' => 12, 'key' => 24][$agent->mlm_rank] ?? 48;
+        $rankAtRisk = $agent->mlm_rank !== 'start'
+            && $expiringPoints > 0
+            && ($activePoints - $expiringPoints) < $pointsRequirement;
+
         return view('portal.mlm.struttura', [
-            'pageTitle' => 'La mia struttura',
-            'tree'      => $tree->subtree($agent),
-            'agent'     => $agent,
-            'activeNav' => 'mlm-struttura',
+            'pageTitle'      => 'La mia struttura',
+            'tree'           => $tree->subtree($agent),
+            'agent'          => $agent,
+            'activePoints'   => $activePoints,
+            'expiringPoints' => $expiringPoints,
+            'rankAtRisk'     => $rankAtRisk,
+            'activeNav'      => 'mlm-struttura',
         ]);
     }
 
