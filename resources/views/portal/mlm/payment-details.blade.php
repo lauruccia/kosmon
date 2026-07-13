@@ -4,24 +4,7 @@
 
 <div class="card card-pad" style="max-width:560px;">
 
-    @if($detail)
-        @php
-            $statusLabel = match($detail->verification_status) {
-                'verified' => 'Verificato',
-                'rejected' => 'Rifiutato',
-                default => 'In attesa di verifica',
-            };
-            $statusColor = match($detail->verification_status) {
-                'verified' => 'var(--green, #16a34a)',
-                'rejected' => '#dc2626',
-                default => '#d97706',
-            };
-        @endphp
-        <div style="margin-bottom:20px;padding:10px 14px;border-radius:8px;background:rgba(0,0,0,.03);display:flex;align-items:center;gap:8px;">
-            <span style="width:8px;height:8px;border-radius:50%;background:{{ $statusColor }};display:inline-block;"></span>
-            <span style="font-size:13px;font-weight:600;color:{{ $statusColor }};">{{ $statusLabel }}</span>
-        </div>
-    @else
+    @if(! $detail)
         <div style="margin-bottom:20px;padding:10px 14px;border-radius:8px;background:rgba(0,0,0,.03);font-size:13px;color:var(--ink-muted);">
             Nessun dato bancario inserito. Compila il modulo per ricevere le liquidazioni EUR delle tue commissioni e bonus KNM.
         </div>
@@ -31,11 +14,9 @@
         @csrf
 
         <div class="form-group" style="margin-bottom:18px;">
-            <label class="form-label">Intestatario conto *</label>
-            <input type="text" name="account_holder_name"
-                   value="{{ old('account_holder_name', $detail->account_holder_name ?? '') }}"
-                   required maxlength="150" class="form-control">
-            @error('account_holder_name')<div class="form-error">{{ $message }}</div>@enderror
+            <label class="form-label">Intestatario conto</label>
+            <input type="text" value="{{ auth()->user()->name }}" disabled class="form-control" style="background:rgba(0,0,0,.03);color:var(--ink-muted);">
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">L'intestatario è sempre il nome di registrazione del tuo account.</div>
         </div>
 
         <div class="form-group" style="margin-bottom:18px;">
@@ -61,10 +42,6 @@
                    value="{{ old('bank_name', $detail->bank_name ?? '') }}"
                    maxlength="150" class="form-control">
             @error('bank_name')<div class="form-error">{{ $message }}</div>@enderror
-        </div>
-
-        <div style="font-size:11px;color:var(--ink-muted);margin-bottom:18px;">
-            Modificare l'IBAN richiede una nuova verifica da parte dell'amministrazione prima della prossima liquidazione EUR.
         </div>
 
         <button type="submit" class="btn btn-primary">Salva dati bancari</button>

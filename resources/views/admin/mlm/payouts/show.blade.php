@@ -48,23 +48,12 @@
     <div style="padding:14px 16px;">
         <h3 style="margin:0 0 10px;font-size:15px;">Dati bancari agente</h3>
         @if($detail)
-            @php
-                $verifColor = match($detail->verification_status) {
-                    'verified' => '#1a7a4a',
-                    'rejected' => '#dc2626',
-                    default => '#d97706',
-                };
-            @endphp
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:13px;">
                 <div><span style="color:var(--ink-muted);">Intestatario:</span> {{ $detail->account_holder_name }}</div>
                 <div><span style="color:var(--ink-muted);">IBAN:</span> <code>{{ $detail->iban }}</code></div>
                 <div><span style="color:var(--ink-muted);">BIC/SWIFT:</span> {{ $detail->bic_swift ?? '—' }}</div>
                 <div><span style="color:var(--ink-muted);">Banca:</span> {{ $detail->bank_name ?? '—' }}</div>
-                <div><span style="color:var(--ink-muted);">Verifica:</span> <span style="color:{{ $verifColor }};font-weight:600;">{{ ucfirst($detail->verification_status) }}</span></div>
             </div>
-            @if($detail->verification_status !== 'verified')
-                <p style="margin:10px 0 0;font-size:12px;color:#d97706;">⚠ Dati bancari non ancora verificati — verificare prima di segnare la liquidazione come pagata.</p>
-            @endif
         @else
             <p style="margin:0;color:#dc2626;font-size:13px;">⚠ L'agente non ha ancora inserito i dati bancari. Impossibile pagare finché non li fornisce dal portale.</p>
         @endif

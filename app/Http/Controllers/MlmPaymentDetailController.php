@@ -10,8 +10,11 @@ use Illuminate\View\View;
 
 /**
  * Dati bancari (IBAN) dell'agente MLM per la liquidazione EUR. Vedi
- * MLM_PROPOSAL.md §6. Ogni modifica dell'IBAN torna verification_status a
- * 'pending': serve una nuova approvazione admin prima del prossimo payout.
+ * MLM_PROPOSAL.md §6. L'agente inserisce solo l'IBAN (e opzionalmente
+ * BIC/banca): l'intestatario e' sempre il nome di registrazione dell'utente,
+ * non modificabile da qui. Nessuna approvazione admin richiesta (decisione
+ * di Laura, 2026-07-13): l'IBAN e' utilizzabile subito per le liquidazioni,
+ * senza il precedente stato pending/verified/rejected.
  */
 class MlmPaymentDetailController extends Controller
 {
@@ -35,31 +38,27 @@ class MlmPaymentDetailController extends Controller
         abort_unless($user->isMlmAgent(), 403);
 
         $data = $request->validate([
-            'account_holder_name' => ['required', 'string', 'max:150'],
-            'iban'                => ['required', 'string', 'max:34', function ($attribute, $value, $fail): void {
+            'iban'      => ['required', 'string', 'max:34', function ($attribute, $value, $fail): void {
                 if (! $this->isValidIban($value)) {
                     $fail('IBAN non valido.');
                 }
             }],
-            'bic_swift'           => ['nullable', 'string', 'max:11'],
-            'bank_name'           => ['nullable', 'string', 'max:150'],
+            'bic_swift' => ['nullable', 'string', 'max:11'],
+            'bank_name' => ['nullable', 'string', 'max:150'],
         ]);
 
         $normalizedIban = strtoupper(str_replace(' ', '', $data['iban']));
-
-        $existing = $user->mlmPaymentDetail;
-        $ibanChanged = ! $existing || $existing->iban !== $normalizedIban;
+        $ibanChanged = $user->mlmPaymentDetail?->iban !== $normalizedIban;
 
         $detail = MlmPaymentDetail::updateOrCreate(
             ['agent_user_id' => $user->id],
             [
-                'account_holder_name' => $data['account_holder_name'],
+                // L'intestatario e' sempre il nome di registrazione: non e'
+                // un campo del form, non e' modificabile dall'agente.
+                'account_holder_name' => $user->name,
                 'iban'                => $normalizedIban,
                 'bic_swift'           => $data['bic_swift'] ?? null,
                 'bank_name'           => $data['bank_name'] ?? null,
-                'verification_status' => $ibanChanged ? 'pending' : ($existing->verification_status ?? 'pending'),
-                'verified_by_user_id' => $ibanChanged ? null : ($existing->verified_by_user_id ?? null),
-                'verified_at'         => $ibanChanged ? null : ($existing->verified_at ?? null),
             ],
         );
 
@@ -77,9 +76,7 @@ class MlmPaymentDetailController extends Controller
 
         return redirect()
             ->route('portal.mlm.payment-details.edit')
-            ->with('portal_success', $ibanChanged
-                ? 'Dati bancari salvati. In attesa di verifica da parte dell\'amministrazione prima della prossima liquidazione.'
-                : 'Dati bancari aggiornati.');
+            ->with('portal_success', 'Dati bancari salvati.');
     }
 
     /** Validazione formale IBAN (formato + checksum mod-97, ISO 13616). */
