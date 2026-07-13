@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\MlmPayout;
+use App\Models\User;
 use App\Services\MlmPayoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
 
 /**
@@ -82,6 +85,40 @@ class MlmPayoutController extends Controller
         return redirect()
             ->route('admin.mlm.payouts.index')
             ->with('portal_success', "Generazione completata per {$month->format('m/Y')}: {$payouts->count()} liquidazioni create o aggiornate.");
+    }
+
+    /**
+     * Esegue subito `mlm:calculate-commissions` (normalmente schedulato il 1°
+     * di ogni mese alle 02:00) per il mese indicato, cosi' da poter generare
+     * le commissioni dirette/indirette senza aspettare il cron ne' avere
+     * accesso al terminale — stesso pattern di
+     * MlmSettingsController::recalculateNow() per mlm:recalculate-points.
+     * Introdotto il 2026-07-13 su richiesta di Laura (kosmopay.it, sito di
+     * test senza cron configurato: /admin/mlm-payouts risultava vuoto perche'
+     * le commissioni non venivano mai calcolate).
+     */
+    public function calculateCommissions(Request $request): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'month' => ['required', 'date_format:Y-m'],
+        ]);
+
+        Artisan::call('mlm:calculate-commissions', ['--month' => $validated['month']]);
+        $output = trim(Artisan::output());
+
+        AuditLog::create([
+            'actor_user_id' => $request->user()->id,
+            'event' => 'admin.mlm.manual_calculate_commissions',
+            'auditable_type' => User::class,
+            'auditable_id' => $request->user()->id,
+            'context' => ['month' => $validated['month'], 'output' => $output],
+        ]);
+
+        return redirect()
+            ->route('admin.mlm.payouts.index')
+            ->with('portal_success', 'Calcolo commissioni eseguito. ' . $output);
     }
 
     public function approve(Request $request, MlmPayout $mlmPayout, MlmPayoutService $service): RedirectResponse

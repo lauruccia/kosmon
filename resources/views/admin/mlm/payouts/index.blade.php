@@ -26,6 +26,16 @@
 </div>
 
 <div class="card card-pad" style="margin-bottom:14px;">
+    <h3 style="margin:0 0 10px;font-size:14px;">Calcola commissioni per mese</h3>
+    <form method="POST" action="{{ route('admin.mlm.payouts.calculate-commissions') }}" style="display:flex;gap:10px;align-items:center;">
+        @csrf
+        <input type="month" name="month" required value="{{ now()->format('Y-m') }}" class="form-control" style="max-width:180px;">
+        <button type="submit" class="btn btn-secondary">Calcola</button>
+        <span style="font-size:11.5px;color:var(--ink-muted);">Esegue subito il calcolo mensile commissioni dirette/indirette (normalmente schedulato il 1° alle 02:00) — utile senza cron.</span>
+    </form>
+</div>
+
+<div class="card card-pad" style="margin-bottom:14px;">
     <h3 style="margin:0 0 10px;font-size:14px;">Genera liquidazioni per mese</h3>
     <form method="POST" action="{{ route('admin.mlm.payouts.generate') }}" style="display:flex;gap:10px;align-items:center;">
         @csrf

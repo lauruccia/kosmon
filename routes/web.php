@@ -839,6 +839,7 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
 
     Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
     Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');
+    Route::post('/admin/mlm-payouts/calcola-commissioni', [MlmPayoutController::class, 'calculateCommissions'])->name('admin.mlm.payouts.calculate-commissions')->middleware('backoffice');
     Route::get('/admin/mlm-payouts/{mlmPayout}', [MlmPayoutController::class, 'show'])->name('admin.mlm.payouts.show')->middleware('backoffice');
     Route::post('/admin/mlm-payouts/{mlmPayout}/approva', [MlmPayoutController::class, 'approve'])->name('admin.mlm.payouts.approve')->middleware('backoffice');
     Route::post('/admin/mlm-payouts/{mlmPayout}/paga', [MlmPayoutController::class, 'markPaid'])->name('admin.mlm.payouts.mark-paid')->middleware('backoffice');
