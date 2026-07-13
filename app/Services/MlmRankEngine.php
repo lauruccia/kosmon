@@ -10,18 +10,21 @@ use Illuminate\Support\Collection;
 /**
  * Motore di valutazione delle qualifiche agente. Vedi MLM_PROPOSAL.md §4.2.
  *
- * Ogni qualifica e' definita da un requisito indipendente (punti personali +
- * struttura sotto l'agente), NON da una progressione stretta: e' possibile
- * soddisfare i requisiti di una qualifica piu' alta senza soddisfare quelli
- * di una intermedia (es. "Top" richiede solo 3 Basic al 1° livello contro i
- * 4 di "Senior" — dato cosi' nelle fonti). Il motore quindi valuta TUTTE le
- * qualifiche indipendentemente e assegna la piu' alta soddisfatta.
+ * Requisiti allineati al testo letterale delle slide (riconfermato da Laura
+ * il 2026-07-13 dopo la rilettura integrale delle 3 pptx): Senior = 48 pt +
+ * 3 Basic al 1° livello + 2 Key su 2 colonne diverse; Top = 48 pt + 4 Basic
+ * al 1° livello + 3 colonne da 300 punti. Il numero di Basic al 1° livello
+ * cresce in modo monotono con il grado (2/3/4/5/6). Ogni qualifica e'
+ * comunque un requisito indipendente, NON una progressione stretta: il
+ * motore valuta TUTTE le qualifiche e assegna la piu' alta soddisfatta.
  *
- * Le qualifiche vengono solo PROMOSSE, mai retrocesse automaticamente: se i
- * punti attivi scendono sotto soglia (es. per scadenza nel ledger) l'agente
- * mantiene il grado gia' raggiunto. Questa e' una scelta di design non
- * esplicitata nelle fonti originali — da confermare con Laura se il
- * comportamento desiderato e' diverso.
+ * RETROCESSIONE (confermata da Laura il 2026-07-13): i punti hanno una
+ * finestra di validita' (mlm_point_ledger.valid_from/valid_until) e quando
+ * scadono i requisiti possono venire meno. syncRank() allinea quindi il
+ * grado in ENTRAMBE le direzioni — promuove e retrocede — fino a "start",
+ * senza grado minimo garantito. Il flag storico BasiQ (mlm_basiq_at) non
+ * viene mai toccato. Nessun ricalcolo retroattivo di bonus/commissioni gia'
+ * generati: la retrocessione vale solo dalle valutazioni successive.
  */
 class MlmRankEngine
 {
@@ -60,8 +63,8 @@ class MlmRankEngine
         $satisfied = [
             'basic' => $points >= 12,
             'key' => $points >= 24 && $level1BasicCount >= 2,
-            'senior' => $points >= 48 && $level1BasicCount >= 4 && $branches300pt >= 3,
-            'top' => $points >= 48 && $level1BasicCount >= 3 && $branchesWithKey >= 2,
+            'senior' => $points >= 48 && $level1BasicCount >= 3 && $branchesWithKey >= 2,
+            'top' => $points >= 48 && $level1BasicCount >= 4 && $branches300pt >= 3,
             // "2 Senior e 2 Top su 4 colonne diverse": un ramo con un Top soddisfa
             // automaticamente anche la soglia Senior (Top > Senior), quindi basta
             // richiedere almeno 2 colonne >= top E almeno 4 colonne >= senior in
@@ -91,19 +94,28 @@ class MlmRankEngine
     }
 
     /**
-     * Promuove l'agente alla qualifica piu' alta soddisfatta, se superiore
-     * all'attuale. Registra lo storico e l'audit log. Restituisce true se
-     * e' avvenuta una promozione.
+     * Allinea il grado dell'agente alla qualifica piu' alta soddisfatta,
+     * in ENTRAMBE le direzioni: promuove se superiore all'attuale,
+     * RETROCEDE se inferiore (es. punti scaduti nel ledger — confermato
+     * da Laura il 2026-07-13, senza grado minimo garantito). Registra lo
+     * storico e l'audit log in entrambi i casi.
+     *
+     * Restituisce 'promoted', 'demoted' oppure null se il grado era gia'
+     * corretto.
      */
-    public function promoteIfEligible(User $agent): bool
+    public function syncRank(User $agent): ?string
     {
         $evaluation = $this->evaluate($agent);
         $eligibleRank = $evaluation['eligible_rank'];
 
-        if ($this->rankLevel($eligibleRank) <= $this->rankLevel($agent->mlm_rank)) {
-            return false;
+        $eligibleLevel = $this->rankLevel($eligibleRank);
+        $currentLevel = $this->rankLevel($agent->mlm_rank);
+
+        if ($eligibleLevel === $currentLevel) {
+            return null;
         }
 
+        $direction = $eligibleLevel > $currentLevel ? 'promoted' : 'demoted';
         $previousRank = $agent->mlm_rank;
 
         $agent->forceFill([
@@ -120,7 +132,7 @@ class MlmRankEngine
 
         AuditLog::create([
             'actor_user_id' => null,
-            'event' => 'mlm.rank_promoted',
+            'event' => $direction === 'promoted' ? 'mlm.rank_promoted' : 'mlm.rank_demoted',
             'auditable_type' => User::class,
             'auditable_id' => $agent->id,
             'context' => [
@@ -130,7 +142,7 @@ class MlmRankEngine
             ],
         ]);
 
-        return true;
+        return $direction;
     }
 
     /**
@@ -159,13 +171,13 @@ class MlmRankEngine
             ],
             'senior' => [
                 ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 4, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con >= 300 punti', 'required' => 3, 'current' => $evaluation['branches_300pt']],
+                ['label' => 'Basic al 1° livello', 'required' => 3, 'current' => $evaluation['level1_basic_count']],
+                ['label' => 'Colonne con almeno un Key+', 'required' => 2, 'current' => $evaluation['branches_with_key']],
             ],
             'top' => [
                 ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],
-                ['label' => 'Basic al 1° livello', 'required' => 3, 'current' => $evaluation['level1_basic_count']],
-                ['label' => 'Colonne con almeno un Key+', 'required' => 2, 'current' => $evaluation['branches_with_key']],
+                ['label' => 'Basic al 1° livello', 'required' => 4, 'current' => $evaluation['level1_basic_count']],
+                ['label' => 'Colonne con >= 300 punti', 'required' => 3, 'current' => $evaluation['branches_300pt']],
             ],
             'supervisor' => [
                 ['label' => 'Punti attivi', 'required' => 48, 'current' => $evaluation['points']],

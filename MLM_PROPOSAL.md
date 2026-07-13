@@ -57,20 +57,24 @@ I punti oltre la soglia minima **si ripetono ogni mese** per la durata indicata 
 Ordine di grado, dal più basso al più alto: **Start → Basic → Key → Senior → Top → SuperVisor → Manager**.
 (Le slide elencano graficamente "Top" prima di "Senior", ma l'ordine corretto è quello sopra: è l'unico coerente con gli importi bonus crescenti — 60 < 110 < 150 < 180 < 200 — verificati al §6.4. Lo confermo nel dettaglio al §7.2.)
 
+**Aggiornato il 2026-07-13** (rilettura integrale delle 3 pptx, confermato da Laura): i requisiti seguono il testo LETTERALE delle slide — Senior = 3 Basic + 2 Key su 2 colonne, Top = 4 Basic + 3 colonne da 300 punti. La versione precedente di questa tabella li aveva scambiati insieme all'ordine dei nomi, ma le slide riepilogative ("Qualifiche", identiche nelle 3 presentazioni) sono internamente coerenti: il numero di Basic al 1° livello cresce in modo monotono col grado (2/3/4/5/6).
+
 | Qualifica | Punti personali richiesti | Requisito aggiuntivo (dalla struttura sotto di me) |
 |---|---|---|
 | Start | 0 | Solo registrazione (codice/link invito) |
 | Basic | 12 | — |
 | Key | 24 | 2 Basic al 1° livello |
-| Senior | 48 | 4 Basic al 1° livello **+** 3 colonne diverse con almeno 300 punti ciascuna |
-| Top | 48 | 3 Basic al 1° livello **+** 2 Key su 2 colonne diverse |
+| Senior | 48 | 3 Basic al 1° livello **+** 2 Key su 2 colonne diverse |
+| Top | 48 | 4 Basic al 1° livello **+** 3 colonne diverse con almeno 300 punti ciascuna |
 | SuperVisor | 48 | 5 Basic al 1° livello **+** 2 Senior e 2 Top, su 4 colonne diverse |
 | Manager | 48 | 6 Basic al 1° livello **+** 3 SuperVisor su 3 colonne diverse |
 
 Regole di calcolo:
 - "Colonne diverse" = i requisiti (Key, Senior/Top, SuperVisor) devono trovarsi in rami distinti radicati in invitati diversi di 1° livello — due agenti nello stesso ramo (uno sotto l'altro) non soddisfano il requisito.
 - "3 colonne da 300 punti" = per almeno 3 rami di 1° livello, la somma dei punti attivi di tutto quel sotto-albero deve essere ≥ 300.
-- Il ricalcolo qualifica è **automatico e continuo**: appena i requisiti sono soddisfatti l'agente sale di grado (non serve azione admin).
+- Il ricalcolo qualifica è **automatico, continuo e BIDIREZIONALE** (deciso il 2026-07-13): i punti hanno una scadenza (finestra `valid_from`/`valid_until` nel ledger, come da "Tabella punti" e glossario delle slide) e quando scadono i requisiti possono venire meno. Il run notturno (`mlm:recalculate-points`) allinea il grado di ogni agente alla qualifica più alta soddisfatta in quel momento: promuove E retrocede, senza grado minimo garantito (si può tornare fino a Start) e senza periodo di grazia.
+- La valutazione notturna procede **dal basso verso l'alto** (foglie → radice): così la retrocessione di un figlio (es. un Basic che scade a Start) si riflette sull'upline nella stessa esecuzione.
+- La retrocessione **non ricalcola nulla retroattivamente**: bonus e commissioni già generati restano storici; il grado corrente vale solo per gli eventi futuri (cascata bonus, estensione oltre il 5° livello). Il flag **BasiQ resta storico** e non viene mai rimosso.
 
 ### 4.3 BasiQ
 
@@ -101,14 +105,16 @@ Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la dura
 
 ### 5.2 Commissioni indirette (sui clienti dei propri agenti in downline)
 
-| Livello downline | % | Chi la percepisce |
+| Livello downline | % | Requisiti personali per percepirla (dal 2026-07-13) |
 |---|---|---|
-| 1 | 4% | qualsiasi agente |
-| 2 | 2% | qualsiasi agente |
-| 3 | 1% | qualsiasi agente |
-| 4 | 0,5% | qualsiasi agente |
-| 5 | 8% | qualsiasi agente |
+| 1 | 4% | 12 punti personali attivi |
+| 2 | 2% | 12 punti personali attivi + 2 Basic al 1° livello |
+| 3 | 1% | 24 punti personali attivi + 2 Basic al 1° livello |
+| 4 | 0,5% | 24 punti personali attivi + 2 Basic al 1° livello |
+| 5 | 8% | 48 punti personali attivi + 3 Basic al 1° livello |
 | 6+ | 0,5% | solo agenti di grado Top/SuperVisor/Manager, con breakaway al primo Top/SuperVisor/Manager incontrato in ciascun ramo |
+
+**Gating aggiunto il 2026-07-13** (confermato da Laura): la tabella "Criteri per i Compensi Indiretti" (2°ParteKnm slide 7) non dà solo le percentuali ma anche i requisiti personali minimi per incassare ciascun livello. I punti sono quelli attivi all'inizio del mese di calcolo; i Basic al 1° livello sono contati sul grado corrente dei figli diretti. Un agente che perde i requisiti (es. punti scaduti) smette di percepire i livelli corrispondenti dal mese successivo.
 
 **Deciso il 2026-07-03** (vedi memoria `mlm_livello5_8percento_da_confermare`): il 5° livello ha un'aliquota propria dell'8%, uniforme per qualsiasi agente — non è "0,5% oltre il 4°" come implementato inizialmente. Lo 0,5% con breakaway (sezione "Compensi indiretti estesi" delle slide) si applica solo dal 6° livello in poi, e solo per agenti che hanno già raggiunto grado Top/SuperVisor/Manager. Confermato numericamente da tutte le tabelle "Esempio compensi" nelle 3 slide (es. Presentazione KNM slide 18: 18.432€ di V.A.P. al 5° livello × 8% = 1.475€, coerente con il "Guadagno mensile" totale mostrato).
 
@@ -158,7 +164,8 @@ In ogni caso la somma dei payout = importo della qualifica più alta presente (t
 Questi non bloccano la stesura della proposta, ma **bloccano l'implementazione** se non confermati — sono scelte di business, non di programmazione.
 
 1. **Cliente invitato da un cliente** (non da un agente): l'evento risale al primo agente antenato nell'albero, o non genera punti/commissioni per nessuno? Consiglio: risale al primo agente antenato.
-2. **Ordine reale Senior/Top**: ho risolto l'ambiguità usando l'ordine coerente con gli importi bonus crescenti (Key<Senior<Top<SuperVisor<Manager). Confermami che è quello corretto, perché cambia i requisiti di qualifica e la cascata bonus.
+2. **RISOLTO il 2026-07-13 — Ordine e requisiti Senior/Top**: l'ordine dei gradi resta Key<Senior<Top<SuperVisor<Manager (coerente con i bonus crescenti), ma i requisiti seguono il testo letterale delle slide: Senior = 48pt + 3 Basic + 2 Key su 2 colonne, Top = 48pt + 4 Basic + 3 colonne da 300 punti (la prima versione del §4.2 li aveva scambiati). Confermato da Laura dopo la rilettura integrale delle 3 pptx.
+2-bis. **DECISO il 2026-07-13 — Retrocessione per scadenza punti**: il grado viene allineato ogni notte in entrambe le direzioni (vedi §4.2); nel motore commissioni è stato aggiunto il gating dei livelli indiretti 1-5 (vedi §5.2).
 3. **BasiQ oltre i 30 giorni**: chi arriva a 12 punti dopo i 30 giorni diventa comunque "Basic" ma non genera mai bonus di struttura. Confermi?
 4. **RISOLTO il 2026-07-03**: il 5° livello ha aliquota propria dell'8% (uniforme, non "0,5% oltre il 4°" come implementato inizialmente); dal 6° livello in poi 0,5% con compressione al prossimo Top/SuperVisor/Manager, solo per agenti già di grado Top/SuperVisor/Manager. Vedi §5.2.
 5. **Requisito Manager**: le slide dicono "6 Basic + 3 SuperVisor su 3 colonne", ma sia l'excel che il tuo messaggio dicono "3 Senior" al posto di "3 SuperVisor". Ho seguito le slide come da tua indicazione, ma segnalo che 2 fonti su 3 dicono "Senior" — verifica.

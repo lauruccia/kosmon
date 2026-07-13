@@ -30,6 +30,16 @@ use Illuminate\Support\Facades\DB;
  *    comunque incluso, ma i SUOI discendenti non vengono piu' conteggiati
  *    per l'agente a monte (confermato da Laura il 2026-07-03, vedi
  *    [[mlm_livello5_8percento_da_confermare]]).
+ *
+ *  - GATING INDIRETTE (tabella "Criteri per i Compensi Indiretti",
+ *    2°ParteKnm.pptx slide 7 — implementato il 2026-07-13 su conferma di
+ *    Laura): ogni livello indiretto 1-5 viene pagato SOLO se l'agente
+ *    beneficiario soddisfa in proprio i requisiti minimi di quel livello
+ *    (punti personali attivi a inizio mese + n. Basic al 1° livello):
+ *    I=12pt/0 Basic, II=12pt/2 Basic, III=24pt/2 Basic, IV=24pt/2 Basic,
+ *    V=48pt/3 Basic. L'estensione oltre il 5° livello resta legata al solo
+ *    grado Top/SuperVisor/Manager (che i requisiti li incorpora gia', ed e'
+ *    mantenuto allineato ogni notte da MlmRankEngine::syncRank()).
  */
 class MlmCommissionEngine
 {
@@ -55,6 +65,19 @@ class MlmCommissionEngine
     ];
 
     private const INDIRECT_BEYOND_LEVEL_5_PERCENTAGE = 0.005;
+
+    /**
+     * Requisiti personali per incassare ciascun livello indiretto 1-5:
+     * livello => [punti personali attivi minimi, Basic minimi al 1° livello].
+     * Fonte: tabella "Criteri per i Compensi Indiretti" (2°ParteKnm slide 7).
+     */
+    private const INDIRECT_REQUIREMENTS = [
+        1 => [12, 0],
+        2 => [12, 2],
+        3 => [24, 2],
+        4 => [24, 2],
+        5 => [48, 3],
+    ];
 
     /** Qualifiche che godono dell'estensione oltre il 5° livello e che fanno da "breakaway" (si ferma la discesa una volta incontrate). */
     private const BREAKAWAY_RANKS = ['top', 'supervisor', 'manager'];
@@ -134,7 +157,7 @@ class MlmCommissionEngine
 
         foreach ($agents as $agent) {
             $this->calculateDirect($agent, $clientsByAgent[$agent->id] ?? [], $run, $periodMonth);
-            $this->calculateIndirect($agent, $clientsByAgent, $run);
+            $this->calculateIndirect($agent, $clientsByAgent, $run, $periodMonth);
         }
     }
 
@@ -180,9 +203,21 @@ class MlmCommissionEngine
      * Top/SuperVisor/Manager, con breakaway sul primo nodo Top+ incontrato
      * (vedi classe docblock).
      */
-    private function calculateIndirect(User $agent, array $clientsByAgent, MlmCommissionRun $run): void
+    private function calculateIndirect(User $agent, array $clientsByAgent, MlmCommissionRun $run, Carbon $periodMonth): void
     {
         $agentQualifiesForExtension = in_array($agent->mlm_rank, self::BREAKAWAY_RANKS, true);
+
+        // Requisiti personali dell'agente beneficiario per il gating dei
+        // livelli 1-5 (punti attivi a inizio mese + Basic diretti attuali).
+        $agentPoints = $agent->mlmActivePoints($periodMonth);
+        $agentLevel1Basics = $this->countLevel1Basics($agent);
+
+        // Se non soddisfa nemmeno il livello I (12 punti) e non gode
+        // dell'estensione di grado, nessun livello potra' mai pagare:
+        // inutile camminare l'albero.
+        if ($agentPoints < 12 && ! $agentQualifiesForExtension) {
+            return;
+        }
 
         $queue = [];
         foreach ($this->tree->directDownline($agent) as $child) {
@@ -195,7 +230,9 @@ class MlmCommissionEngine
             $depth = $item['depth'];
 
             if ($depth <= 5) {
-                $percentage = self::INDIRECT_PERCENTAGES[$depth];
+                [$requiredPoints, $requiredBasics] = self::INDIRECT_REQUIREMENTS[$depth];
+                $meetsRequirements = $agentPoints >= $requiredPoints && $agentLevel1Basics >= $requiredBasics;
+                $percentage = $meetsRequirements ? self::INDIRECT_PERCENTAGES[$depth] : 0.0;
             } elseif ($agentQualifiesForExtension) {
                 $percentage = self::INDIRECT_BEYOND_LEVEL_5_PERCENTAGE;
             } else {
@@ -240,5 +277,22 @@ class MlmCommissionEngine
                 }
             }
         }
+    }
+
+    /** Numero di figli diretti (1° livello) con qualifica >= basic. */
+    private function countLevel1Basics(User $agent): int
+    {
+        $basicLevel = $this->rankLevel('basic');
+
+        return $this->tree->directDownline($agent)
+            ->filter(fn (User $child) => $this->rankLevel($child->mlm_rank) >= $basicLevel)
+            ->count();
+    }
+
+    private function rankLevel(string $rank): int
+    {
+        $index = array_search($rank, User::MLM_RANK_ORDER, true);
+
+        return $index === false ? 0 : $index;
     }
 }

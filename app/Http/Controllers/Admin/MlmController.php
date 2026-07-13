@@ -185,6 +185,12 @@ class MlmController extends Controller
             ? User::findOrFail($validated['new_sponsor_id'])
             : null;
 
+        // Upline PRECEDENTE, catturata prima dello spostamento: con la
+        // retrocessione automatica (2026-07-13) anche chi PERDE il ramo
+        // spostato va rivalutato (es. sponsor che scende sotto i "2 Basic
+        // al 1° livello").
+        $oldUpline = $treeService->orderedUpline($user);
+
         try {
             $treeService->moveAgent($user, $newSponsor, $request->user());
         } catch (\InvalidArgumentException $e) {
@@ -200,14 +206,16 @@ class MlmController extends Controller
         ]);
 
         // Opzionale: valuta subito le qualifiche dell'agente spostato, del suo
-        // sottoalbero e della nuova upline, invece di aspettare il job notturno
-        // mlm:recalculate-points. NON ricalcola/riscrive commissioni o bonus
-        // gia' generati: quelli restano storici per costruzione (vedi
-        // MlmTreeService::moveAgent()).
+        // sottoalbero, della nuova upline E della vecchia upline (che con la
+        // retrocessione automatica puo' perdere requisiti), invece di
+        // aspettare il job notturno mlm:recalculate-points. NON ricalcola/
+        // riscrive commissioni o bonus gia' generati: quelli restano storici
+        // per costruzione (vedi MlmTreeService::moveAgent()).
         if ($request->boolean('reevaluate_ranks')) {
             $toEvaluate = collect([$user])
                 ->merge($treeService->orderedUpline($newSponsor ?? $user))
-                ->when($newSponsor, fn ($c) => $c->push($newSponsor));
+                ->when($newSponsor, fn ($c) => $c->push($newSponsor))
+                ->merge($oldUpline);
 
             $descendantIds = MlmAgentClosure::where('ancestor_id', $user->id)
                 ->where('descendant_id', '!=', $user->id)
@@ -217,7 +225,7 @@ class MlmController extends Controller
                 ->unique('id');
 
             foreach ($toEvaluate as $candidate) {
-                $rankEngine->promoteIfEligible($candidate);
+                $rankEngine->syncRank($candidate);
             }
         }
 

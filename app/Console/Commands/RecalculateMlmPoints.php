@@ -20,9 +20,15 @@ use Illuminate\Console\Command;
  *    diventare "Basic" come qualifica (vedi passata 2), ma non generera'
  *    mai bonus di struttura per l'upline.
  *
- * PASSATA 2 - Valutazione qualifiche: per ogni agente, MlmRankEngine::promoteIfEligible()
- *    controlla se soddisfa i requisiti di una qualifica piu' alta e, in
- *    caso, lo promuove registrando lo storico (mlm_rank_history).
+ * PASSATA 2 - Valutazione qualifiche: per ogni agente, MlmRankEngine::syncRank()
+ *    allinea il grado alla qualifica piu' alta soddisfatta, in ENTRAMBE le
+ *    direzioni: promuove chi ha raggiunto nuovi requisiti e RETROCEDE chi
+ *    li ha persi (es. punti scaduti nel ledger — confermato da Laura il
+ *    2026-07-13). Gli agenti sono valutati DAL BASSO VERSO L'ALTO (foglie
+ *    prima della radice, ordinati per profondita' massima decrescente nella
+ *    closure table): cosi' la retrocessione di un figlio (es. Basic che
+ *    scade a Start) si riflette sull'upline nella STESSA esecuzione, senza
+ *    attendere una notte per livello.
  *
  * I punti attivi non necessitano di "scadenza" esplicita qui: la finestra
  * di validita' e' gia' gestita a livello di query (vedi User::mlmActivePoints()).
@@ -79,16 +85,30 @@ class RecalculateMlmPoints extends Command
 
         $this->info("Verificati {$candidates->count()} candidati, {$newlyBasiq} nuovi BasiQ rilevati.");
 
-        $agents = User::where('mlm_role', 'agente')->get();
+        // Valutazione bottom-up: prima le foglie, poi gli antenati, cosi' una
+        // retrocessione in basso si propaga all'upline nella stessa esecuzione.
+        $depths = \Illuminate\Support\Facades\DB::table('mlm_agent_closure')
+            ->selectRaw('descendant_id, MAX(depth) as max_depth')
+            ->groupBy('descendant_id')
+            ->pluck('max_depth', 'descendant_id');
+
+        $agents = User::where('mlm_role', 'agente')->get()
+            ->sortByDesc(fn (User $a) => (int) ($depths[$a->id] ?? 0))
+            ->values();
+
         $promoted = 0;
+        $demoted = 0;
 
         foreach ($agents as $agent) {
-            if ($this->rankEngine->promoteIfEligible($agent)) {
+            $result = $this->rankEngine->syncRank($agent);
+            if ($result === 'promoted') {
                 $promoted++;
+            } elseif ($result === 'demoted') {
+                $demoted++;
             }
         }
 
-        $this->info("Valutati {$agents->count()} agenti, {$promoted} promozioni di qualifica.");
+        $this->info("Valutati {$agents->count()} agenti: {$promoted} promozioni, {$demoted} retrocessioni di qualifica.");
 
         return self::SUCCESS;
     }
