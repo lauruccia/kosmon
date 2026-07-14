@@ -1,4 +1,5 @@
 @extends('layouts.portal')
+{{-- Pagina "Promuovi agente": assegna punti/agenti omaggio a un singolo agente dalla scheda MLM. --}}
 
 @section('content')
 <div class="card card-pad" style="margin-bottom:14px;">
