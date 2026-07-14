@@ -60,6 +60,7 @@ use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\Admin\MlmController;
+use App\Http\Controllers\Admin\MlmMetricGrantController;
 use App\Http\Controllers\Admin\MlmSettingsController;
 use App\Http\Controllers\Admin\MlmPayoutController;
 use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
@@ -832,6 +833,10 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
     Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
     Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
+
+    // Punti/agenti "omaggio" (2026-07-14): assegnazione in blocco da /admin/mlm, vedi MlmMetricGrantController.
+    Route::post('/admin/mlm-punti-omaggio', [MlmMetricGrantController::class, 'store'])->name('admin.mlm.metric-grants.store')->middleware('backoffice');
+    Route::delete('/admin/mlm-punti-omaggio/{mlmMetricGrant}', [MlmMetricGrantController::class, 'destroy'])->name('admin.mlm.metric-grants.destroy')->middleware('backoffice');
 
     Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
     Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');

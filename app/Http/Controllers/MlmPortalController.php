@@ -48,14 +48,22 @@ class MlmPortalController extends Controller
             && $expiringPoints > 0
             && ($activePoints - $expiringPoints) < $pointsRequirement;
 
+        // Punti/agenti "omaggio" assegnati da un admin (2026-07-14): mostrati
+        // distintamente dai punti maturati da clienti reali, su richiesta di
+        // Laura ("visibile anche all'agente").
+        $grantedPoints = $agent->mlmGrantedPoints();
+        $grantedLevel1Basic = $agent->mlmGrantedLevel1Basic();
+
         return view('portal.mlm.struttura', [
-            'pageTitle'      => 'La mia struttura',
-            'tree'           => $tree->subtree($agent),
-            'agent'          => $agent,
-            'activePoints'   => $activePoints,
-            'expiringPoints' => $expiringPoints,
-            'rankAtRisk'     => $rankAtRisk,
-            'activeNav'      => 'mlm-struttura',
+            'pageTitle'          => 'La mia struttura',
+            'tree'               => $tree->subtree($agent),
+            'agent'              => $agent,
+            'activePoints'       => $activePoints,
+            'expiringPoints'     => $expiringPoints,
+            'rankAtRisk'         => $rankAtRisk,
+            'grantedPoints'      => $grantedPoints,
+            'grantedLevel1Basic' => $grantedLevel1Basic,
+            'activeNav'          => 'mlm-struttura',
         ]);
     }
 

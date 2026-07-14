@@ -628,6 +628,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Models\MlmPointLedgerEntry::class, 'agent_user_id');
     }
 
+    /** Punti/agenti "omaggio" assegnati da un admin (mai scadenza, vedi MlmMetricGrant). */
+    public function mlmMetricGrants(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MlmMetricGrant::class, 'agent_user_id');
+    }
+
+    /** Punti "omaggio" ATTIVI (non revocati) assegnati da un admin — mai scadenza. */
+    public function mlmGrantedPoints(): int
+    {
+        return \App\Models\MlmMetricGrant::activeSumFor($this->id, 'points');
+    }
+
+    /** "Basic al 1° livello" omaggio ATTIVI (non revocati) assegnati da un admin — mai scadenza. */
+    public function mlmGrantedLevel1Basic(): int
+    {
+        return \App\Models\MlmMetricGrant::activeSumFor($this->id, 'level1_basic_count');
+    }
+
     // --- Programma agenti: richiesta + contratto ---
 
     /**
@@ -712,7 +730,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Punti cliente (PC) attivi ora (somma del ledger non ancora scaduto).
+     * Punti cliente (PC) attivi ora (somma del ledger non ancora scaduto) PIU'
+     * gli eventuali punti "omaggio" assegnati da un admin (MlmMetricGrant,
+     * 2026-07-14): questi ultimi non scadono mai, ma contano solo da quando
+     * sono stati assegnati in poi (created_at <= $asOf) — cosi' un regalo
+     * fatto oggi non altera retroattivamente il gating di mesi passati
+     * quando questo metodo viene chiamato con un $asOf storico (vedi
+     * MlmCommissionEngine).
+     *
      * Confronto a precisione di DATETIME esatta (non solo data) dal 2026-07-13:
      * permette all'admin di impostare una scadenza punti anche di pochi
      * minuti per verificare subito il calcolo qualifiche in test (vedi
@@ -724,10 +749,18 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $asOf ??= now();
 
-        return (int) $this->mlmPointLedgerEntries()
+        $ledgerPoints = (int) $this->mlmPointLedgerEntries()
             ->where('valid_from', '<=', $asOf)
             ->where('valid_until', '>=', $asOf)
             ->sum('points');
+
+        $grantedPoints = (int) $this->mlmMetricGrants()
+            ->where('metric', 'points')
+            ->whereNull('revoked_at')
+            ->where('created_at', '<=', $asOf)
+            ->sum('amount');
+
+        return $ledgerPoints + $grantedPoints;
     }
 
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */

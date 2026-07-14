@@ -131,6 +131,59 @@
     </table>
 </section>
 
+@if(session('portal_success'))
+    <div class="card card-pad" style="margin-bottom:14px;background:rgba(26,122,74,0.08);border:1px solid #bfe3cf;color:#1a7a4a;font-size:13px;">{{ session('portal_success') }}</div>
+@endif
+
+<section class="card light-card" style="margin-bottom:14px;">
+    <div style="padding:14px 16px 0;">
+        <h3 style="margin:0 0 4px;font-size:15px;">Punti/agenti omaggio assegnati da admin</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Assegnabili in blocco da <a href="{{ route('admin.mlm.index') }}" style="color:var(--primary);">MLM — Agenti</a>. Non scadono mai finché non vengono revocati esplicitamente.</p>
+    </div>
+    <table class="admin-table transactions-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Quantità</th>
+                <th>Motivo</th>
+                <th>Assegnato da</th>
+                <th>Data</th>
+                <th>Stato</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($metricGrants as $grant)
+                <tr>
+                    <td>{{ $grant->metric === 'points' ? 'Punti cliente' : 'Agenti Basic (1° livello)' }}</td>
+                    <td>{{ $grant->amount }}</td>
+                    <td style="color:var(--ink-muted);font-size:12px;">{{ $grant->reason ?? '—' }}</td>
+                    <td>{{ $grant->grantedBy?->name ?? '—' }}</td>
+                    <td>{{ $grant->created_at->format('d/m/Y H:i') }}</td>
+                    <td>
+                        @if($grant->revoked_at)
+                            <span style="color:var(--ink-muted);font-size:12px;">Revocato {{ $grant->revoked_at->format('d/m/Y') }}</span>
+                        @else
+                            <span style="color:#1a7a4a;font-size:12px;font-weight:600;">Attivo</span>
+                        @endif
+                    </td>
+                    <td style="text-align:right;">
+                        @if(!$grant->revoked_at)
+                            <form method="POST" action="{{ route('admin.mlm.metric-grants.destroy', $grant) }}" onsubmit="return confirm('Revocare questo regalo? L\'agente potrebbe essere retrocesso al ricalcolo.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" style="background:none;border:none;color:var(--danger);font-size:12px;font-weight:600;cursor:pointer;padding:0;">Revoca</button>
+                            </form>
+                        @endif
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun regalo assegnato finora.</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+</section>
+
 <section class="card light-card" style="margin-bottom:14px;">
     <div style="padding:14px 16px 0;">
         <h3 style="margin:0 0 4px;font-size:15px;">Bonus di struttura ricevuti</h3>

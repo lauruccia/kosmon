@@ -54,39 +54,121 @@
     </div>
 </form>
 
-<section class="card light-card">
-    <table class="admin-table transactions-table">
-        <thead>
-            <tr>
-                <th>Agente</th>
-                <th>Qualifica</th>
-                <th>Punti attivi</th>
-                <th>Clienti</th>
-                <th>Attivato il</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($agents as $agent)
-                <tr>
-                    <td>
-                        <strong style="display:block;">{{ $agent->name }}</strong>
-                        <span style="color:var(--ink-muted);font-size:12px;">{{ $agent->email }}</span>
-                    </td>
-                    <td><span class="pill">{{ ucfirst($agent->mlm_rank) }}</span></td>
-                    <td>{{ $agent->mlmActivePoints() }}</td>
-                    <td>{{ $agent->mlm_clients_count }}</td>
-                    <td>{{ $agent->mlm_activated_at?->format('d/m/Y') ?? '—' }}</td>
-                    <td style="text-align:right;">
-                        <a href="{{ route('admin.mlm.show', $agent) }}" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:13px;">Dettaglio →</a>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="6" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun agente registrato.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-</section>
+@if(session('portal_success'))
+    <div class="card card-pad" style="margin-bottom:10px;background:rgba(26,122,74,0.08);border:1px solid #bfe3cf;color:#1a7a4a;font-size:13px;">{{ session('portal_success') }}</div>
+@endif
+@if($errors->any())
+    <div class="card card-pad" style="margin-bottom:10px;background:var(--danger-soft);border:1px solid #fecdd3;color:var(--danger);font-size:13px;">
+        @foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach
+    </div>
+@endif
 
-<div style="margin-top:14px;">{{ $agents->links() }}</div>
+<form method="POST" action="{{ route('admin.mlm.metric-grants.store') }}" id="metric-grant-form">
+    @csrf
+    <section class="card light-card">
+        <table class="admin-table transactions-table">
+            <thead>
+                <tr>
+                    <th style="width:28px;"><input type="checkbox" id="select-all-agents" title="Seleziona tutti"></th>
+                    <th>Agente</th>
+                    <th>Qualifica</th>
+                    <th>Punti attivi</th>
+                    <th>Clienti</th>
+                    <th>Attivato il</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($agents as $agent)
+                    <tr>
+                        <td><input type="checkbox" name="agent_ids[]" value="{{ $agent->id }}" class="agent-select-checkbox"></td>
+                        <td>
+                            <strong style="display:block;">{{ $agent->name }}</strong>
+                            <span style="color:var(--ink-muted);font-size:12px;">{{ $agent->email }}</span>
+                        </td>
+                        <td><span class="pill">{{ ucfirst($agent->mlm_rank) }}</span></td>
+                        <td>
+                            {{ $agent->mlmActivePoints() }}
+                            @if($agent->mlmGrantedPoints() > 0)
+                                <span style="color:var(--ink-muted);font-size:11px;">(di cui {{ $agent->mlmGrantedPoints() }} omaggio)</span>
+                            @endif
+                        </td>
+                        <td>{{ $agent->mlm_clients_count }}</td>
+                        <td>{{ $agent->mlm_activated_at?->format('d/m/Y') ?? '—' }}</td>
+                        <td style="text-align:right;">
+                            <a href="{{ route('admin.mlm.show', $agent) }}" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:13px;">Dettaglio →</a>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun agente registrato.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </section>
+
+    <div style="margin-top:14px;margin-bottom:14px;">{{ $agents->links() }}</div>
+
+    @if($agents->isNotEmpty())
+    <section class="card card-pad" style="margin-bottom:14px;">
+        <h3 style="margin:0 0 4px;font-size:14px;">Assegna punti/agenti omaggio agli agenti selezionati</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Si sommano ai valori reali e non scadono mai. I requisiti legati alle colonne/downline reale (Key/Senior/Top/SuperVisor, colonne da 300 punti) restano legati alla struttura vera. All'invio, qualifiche/bonus vengono ricalcolati subito (nessuna attesa del cron notturno).</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div>
+                <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Tipo</label>
+                <select name="metric" required style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
+                    <option value="points">Punti cliente omaggio</option>
+                    <option value="level1_basic_count">Agenti Basic omaggio (1° livello)</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Quantità</label>
+                <input type="number" name="amount" min="1" step="1" required value="1"
+                    style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;width:100px;">
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Motivo (facoltativo)</label>
+                <input type="text" name="reason" maxlength="255" placeholder="Es. promo lancio, correzione manuale…"
+                    style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;width:100%;">
+            </div>
+            <button type="submit" style="padding:8px 16px;border-radius:8px;font-size:13px;background:var(--primary);color:#fff;border:none;font-weight:600;cursor:pointer;">Assegna ai selezionati</button>
+        </div>
+        <p style="margin:8px 0 0;color:var(--ink-muted);font-size:11.5px;"><span id="selected-count">0</span> agenti selezionati (solo quelli visibili in questa pagina).</p>
+    </section>
+    @endif
+</form>
+
+<script>
+(function () {
+    var selectAll = document.getElementById('select-all-agents');
+    var checkboxes = document.querySelectorAll('.agent-select-checkbox');
+    var counter = document.getElementById('selected-count');
+    var form = document.getElementById('metric-grant-form');
+
+    function updateCount() {
+        if (!counter) return;
+        var checked = document.querySelectorAll('.agent-select-checkbox:checked').length;
+        counter.textContent = checked;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            checkboxes.forEach(function (cb) { cb.checked = selectAll.checked; });
+            updateCount();
+        });
+    }
+    checkboxes.forEach(function (cb) { cb.addEventListener('change', updateCount); });
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            var checked = document.querySelectorAll('.agent-select-checkbox:checked').length;
+            if (checked === 0) {
+                e.preventDefault();
+                alert('Seleziona almeno un agente prima di assegnare punti/agenti omaggio.');
+            }
+        });
+    }
+
+    updateCount();
+})();
+</script>
 @endsection

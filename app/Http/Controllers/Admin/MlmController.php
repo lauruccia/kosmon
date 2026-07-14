@@ -82,12 +82,19 @@ class MlmController extends Controller
             ->take(20)
             ->get();
 
+        $metricGrants = $user->mlmMetricGrants()
+            ->with('grantedBy:id,name,email', 'revokedBy:id,name,email')
+            ->latest()
+            ->take(20)
+            ->get();
+
         return view('admin.mlm.show', [
             'pageTitle' => 'MLM — ' . $user->name,
             'agent' => $user,
             'branches' => $branches,
             'clients' => $clients,
             'pointLedger' => $pointLedger,
+            'metricGrants' => $metricGrants,
             'rankHistory' => $rankHistory,
             'evaluation' => $evaluation,
             'nextRank' => $nextRank,

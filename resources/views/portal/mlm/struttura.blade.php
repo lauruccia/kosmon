@@ -13,6 +13,22 @@
     </div>
 </div>
 
+@if((($grantedPoints ?? 0) > 0) || (($grantedLevel1Basic ?? 0) > 0))
+<div class="card card-pad" style="margin-bottom:14px;border-left:4px solid var(--primary);">
+    <p style="margin:0;font-size:13px;">
+        <strong>Punti bonus assegnati dall'amministrazione:</strong>
+        @if(($grantedPoints ?? 0) > 0)
+            {{ $grantedPoints }} {{ $grantedPoints === 1 ? 'punto cliente' : 'punti cliente' }}
+        @endif
+        @if(($grantedPoints ?? 0) > 0 && ($grantedLevel1Basic ?? 0) > 0), @endif
+        @if(($grantedLevel1Basic ?? 0) > 0)
+            {{ $grantedLevel1Basic }} {{ $grantedLevel1Basic === 1 ? 'agente Basic' : 'agenti Basic' }} al 1° livello
+        @endif
+        — inclusi nei totali qui sopra, non scadono mai.
+    </p>
+</div>
+@endif
+
 @if(($expiringPoints ?? 0) > 0)
 <div class="card card-pad" style="margin-bottom:14px;border-left:4px solid {{ ($rankAtRisk ?? false) ? '#dc2626' : '#d97706' }};">
     <p style="margin:0;font-size:13px;">
