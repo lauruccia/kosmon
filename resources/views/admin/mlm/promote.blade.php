@@ -8,7 +8,7 @@
         <div>
             <h2 style="margin:0 0 4px;font-size:18px;">Promuovi {{ $agent->name }}</h2>
             <p style="margin:0;color:var(--ink-muted);font-size:13px;max-width:720px;">
-                Assegna punti cliente e/o agenti Basic "omaggio": si sommano ai valori reali e non scadono mai (vedi <a href="{{ route('admin.mlm.show', $agent) }}" style="color:var(--primary);">storico regali</a> nella scheda agente). Al salvataggio, qualifica e bonus economici vengono ricalcolati subito, senza aspettare il cron notturno.
+                Assegna in "omaggio" punti, agenti o colonne di qualsiasi qualifica (fino a Manager): si sommano ai valori reali e non scadono mai (vedi <a href="{{ route('admin.mlm.show', $agent) }}" style="color:var(--primary);">storico regali</a> nella scheda agente). Al salvataggio, qualifica e bonus economici vengono ricalcolati subito, senza aspettare il cron notturno.
             </p>
         </div>
         <span class="pill">{{ ucfirst($agent->mlm_rank) }}</span>
@@ -50,7 +50,7 @@
     <div style="padding:14px 16px;">
         <h3 style="margin:0 0 4px;font-size:15px;">Cosa manca per: {{ ucfirst($nextRank['rank']) }}</h3>
         <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">
-            Le colonne/downline reale (Key/Senior/Top/SuperVisor, colonne da 300 punti) non sono regalabili da qui: dipendono dalla struttura vera sotto {{ $agent->name }}.
+            Ogni voce sotto tiene già conto degli eventuali regali fatti sopra: assegna il "Tipo" giusto per far avanzare la voce mancante.
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
             @foreach($nextRank['items'] as $item)
@@ -76,8 +76,9 @@
             <div>
                 <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Tipo</label>
                 <select name="metric" required style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
-                    <option value="points">Punti cliente omaggio</option>
-                    <option value="level1_basic_count">Agenti Basic omaggio (1° livello)</option>
+                    @foreach(\App\Models\MlmMetricGrant::METRICS as $metricValue => $metricLabel)
+                        <option value="{{ $metricValue }}">{{ $metricLabel }} omaggio</option>
+                    @endforeach
                 </select>
             </div>
             <div>

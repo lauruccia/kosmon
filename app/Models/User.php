@@ -634,16 +634,22 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Models\MlmMetricGrant::class, 'agent_user_id');
     }
 
+    /** Somma dei grant "omaggio" ATTIVI per una metrica qualsiasi (vedi MlmMetricGrant::METRICS). */
+    public function mlmGrantedMetric(string $metric): int
+    {
+        return \App\Models\MlmMetricGrant::activeSumFor($this->id, $metric);
+    }
+
     /** Punti "omaggio" ATTIVI (non revocati) assegnati da un admin — mai scadenza. */
     public function mlmGrantedPoints(): int
     {
-        return \App\Models\MlmMetricGrant::activeSumFor($this->id, 'points');
+        return $this->mlmGrantedMetric('points');
     }
 
     /** "Basic al 1° livello" omaggio ATTIVI (non revocati) assegnati da un admin — mai scadenza. */
     public function mlmGrantedLevel1Basic(): int
     {
-        return \App\Models\MlmMetricGrant::activeSumFor($this->id, 'level1_basic_count');
+        return $this->mlmGrantedMetric('level1_basic_count');
     }
 
     // --- Programma agenti: richiesta + contratto ---

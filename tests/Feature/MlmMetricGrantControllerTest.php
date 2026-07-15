@@ -299,4 +299,93 @@ class MlmMetricGrantControllerTest extends TestCase
         $response->assertForbidden();
         $this->assertNull($grant->fresh()->revoked_at);
     }
+
+    public function test_promote_form_requires_backoffice_access(): void
+    {
+        $user = $this->makeRegularUser();
+        $agent = $this->makeAgent();
+
+        $response = $this->actingAsWithSession($user)->get(route('admin.mlm.promote-form', $agent));
+
+        $response->assertForbidden();
+    }
+
+    public function test_promote_form_renders_for_an_agent(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.promote-form', $agent));
+
+        $response->assertOk()->assertSee('Assegna punti/agenti omaggio');
+    }
+
+    public function test_promote_form_404s_for_a_non_agent_user(): void
+    {
+        $admin = $this->makeAdmin();
+        $regularUser = $this->makeRegularUser();
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.promote-form', $regularUser));
+
+        $response->assertNotFound();
+    }
+
+    public function test_store_with_redirect_agent_id_returns_to_the_agent_page_instead_of_the_index(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+
+        $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids'         => [$agent->id],
+            'metric'            => 'points',
+            'amount'            => 12,
+            'redirect_agent_id' => $agent->id,
+        ]);
+
+        $response->assertRedirect(route('admin.mlm.show', $agent));
+    }
+
+    public function test_store_ignores_a_redirect_agent_id_not_among_the_served_agents(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+        $otherAgent = $this->makeAgent();
+
+        // redirect_agent_id punta a un agente NON incluso in agent_ids: non
+        // deve essere seguito (evita redirect verso una scheda a piacere).
+        $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids'         => [$agent->id],
+            'metric'            => 'points',
+            'amount'            => 12,
+            'redirect_agent_id' => $otherAgent->id,
+        ]);
+
+        $response->assertRedirect(route('admin.mlm.index'));
+    }
+
+    public function test_granting_a_branch_rank_metric_promotes_agent_alongside_real_points(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+        $this->giveActivePoints($agent, 48); // soglia punti di Senior/Top/SuperVisor (default 48)
+
+        // Con i punti a posto ma nessuna colonna reale con un Key+, l'agente
+        // non arriva oltre "basic" finche' non regaliamo anche le colonne.
+        $this->assertSame('basic', app(\App\Services\MlmRankEngine::class)->evaluate($agent)['eligible_rank']);
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'level1_basic_count',
+            'amount'    => 3,
+        ]);
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'branches_with_key',
+            'amount'    => 2,
+        ]);
+
+        $evaluation = app(\App\Services\MlmRankEngine::class)->evaluate($agent->fresh());
+        $this->assertSame(2, $evaluation['branches_with_key']);
+        $this->assertSame('senior', $agent->fresh()->mlm_rank);
+    }
 }

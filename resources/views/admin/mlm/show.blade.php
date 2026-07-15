@@ -156,7 +156,7 @@
         <tbody>
             @forelse($metricGrants as $grant)
                 <tr>
-                    <td>{{ $grant->metric === 'points' ? 'Punti cliente' : 'Agenti Basic (1° livello)' }}</td>
+                    <td>{{ \App\Models\MlmMetricGrant::metricLabel($grant->metric) }}</td>
                     <td>{{ $grant->amount }}</td>
                     <td style="color:var(--ink-muted);font-size:12px;">{{ $grant->reason ?? '—' }}</td>
                     <td>{{ $grant->grantedBy?->name ?? '—' }}</td>

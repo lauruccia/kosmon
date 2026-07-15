@@ -106,22 +106,30 @@ class MlmRankEngine
         $branches = $this->tree->branchSummaries($agent);
 
         // $points include gia' gli eventuali punti "omaggio" assegnati da un
-        // admin (vedi User::mlmActivePoints()). Il conteggio "Basic al 1°
-        // livello" invece va sommato qui: e' calcolato dalla downline REALE
-        // (branch_root->mlm_rank), quindi il "regalo" di agenti omaggio
-        // (MlmMetricGrant, 2026-07-14) si somma al valore vero invece di
-        // sostituirlo — un admin puo' cosi' far scattare Key/Senior anche
-        // senza che la struttura sotto esista ancora davvero.
+        // admin (vedi User::mlmActivePoints()). Tutte le altre metriche
+        // sono calcolate dalla downline REALE e poi sommate al relativo
+        // "regalo" omaggio (MlmMetricGrant, esteso il 2026-07-15 dalle sole
+        // points/level1_basic_count anche alle 4 metriche di colonna-rango
+        // e a branches_300pt) — un admin puo' cosi' far scattare qualsiasi
+        // qualifica (fino a Manager) anche senza che la struttura sotto
+        // esista ancora davvero. Sono contatori astratti: non creano nulla
+        // nell'albero vero, quindi non alterano ne' la vista Albero ne' i
+        // bonus di struttura (quelli restano legati solo alla downline reale).
         $points = $agent->mlmActivePoints();
         $level1BasicCount = $branches->filter(
             fn (array $b) => $this->rankLevel($b['branch_root']->mlm_rank) >= $this->rankLevel('basic')
         )->count() + $agent->mlmGrantedLevel1Basic();
 
-        $branches300pt = $branches->filter(fn (array $b) => $b['active_points'] >= 300)->count();
-        $branchesWithKey = $this->countBranchesWithMinRank($branches, 'key');
-        $branchesWithSenior = $this->countBranchesWithMinRank($branches, 'senior');
-        $branchesWithTop = $this->countBranchesWithMinRank($branches, 'top');
-        $branchesWithSupervisor = $this->countBranchesWithMinRank($branches, 'supervisor');
+        $branches300pt = $branches->filter(fn (array $b) => $b['active_points'] >= 300)->count()
+            + $agent->mlmGrantedMetric('branches_300pt');
+        $branchesWithKey = $this->countBranchesWithMinRank($branches, 'key')
+            + $agent->mlmGrantedMetric('branches_with_key');
+        $branchesWithSenior = $this->countBranchesWithMinRank($branches, 'senior')
+            + $agent->mlmGrantedMetric('branches_with_senior');
+        $branchesWithTop = $this->countBranchesWithMinRank($branches, 'top')
+            + $agent->mlmGrantedMetric('branches_with_top');
+        $branchesWithSupervisor = $this->countBranchesWithMinRank($branches, 'supervisor')
+            + $agent->mlmGrantedMetric('branches_with_supervisor');
 
         $metrics = [
             'points' => $points,

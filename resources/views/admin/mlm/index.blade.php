@@ -111,13 +111,14 @@
     @if($agents->isNotEmpty())
     <section class="card card-pad" style="margin-bottom:14px;">
         <h3 style="margin:0 0 4px;font-size:14px;">Assegna punti/agenti omaggio agli agenti selezionati</h3>
-        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Si sommano ai valori reali e non scadono mai. I requisiti legati alle colonne/downline reale (Key/Senior/Top/SuperVisor, colonne da 300 punti) restano legati alla struttura vera. All'invio, qualifiche/bonus vengono ricalcolati subito (nessuna attesa del cron notturno).</p>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Si sommano ai valori reali e non scadono mai. Sono contatori astratti: non creano agenti/nodi veri nell'albero. All'invio, qualifiche/bonus vengono ricalcolati subito (nessuna attesa del cron notturno).</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
             <div>
                 <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Tipo</label>
                 <select name="metric" required style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
-                    <option value="points">Punti cliente omaggio</option>
-                    <option value="level1_basic_count">Agenti Basic omaggio (1° livello)</option>
+                    @foreach(\App\Models\MlmMetricGrant::METRICS as $metricValue => $metricLabel)
+                        <option value="{{ $metricValue }}">{{ $metricLabel }} omaggio</option>
+                    @endforeach
                 </select>
             </div>
             <div>

@@ -12,14 +12,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 
 /**
- * "Punti/agenti omaggio" (richiesta di Laura, 2026-07-14): l'admin seleziona
- * uno o piu' agenti dall'elenco /admin/mlm e assegna loro una base di punti
- * cliente e/o di "Basic al 1° livello" che NON scade mai (MlmMetricGrant).
+ * "Punti/agenti omaggio" (richiesta di Laura, 2026-07-14; estesa il
+ * 2026-07-15 a tutte le 7 metriche di qualifica): l'admin seleziona uno o
+ * piu' agenti dall'elenco /admin/mlm e assegna loro una base — di punti
+ * cliente, agenti Basic al 1° livello, o colonne con Key/Senior/Top/
+ * SuperVisor+/300 punti (vedi MlmMetricGrant::METRICS) — che NON scade mai.
  * Si sommano ai valori reali (vedi MlmRankEngine::evaluate() e
- * User::mlmActivePoints()): un agente puo' cosi' partire gia' da una
- * qualifica senza aspettare l'accumulo naturale, MA i requisiti legati alle
- * colonne/downline reale (Key/Senior/Top/SuperVisor, colonne da 300 punti)
- * restano legati alla struttura vera — non sono "regalabili" da qui.
+ * User::mlmActivePoints()): un agente puo' cosi' partire gia' da qualsiasi
+ * qualifica (fino a Manager) senza aspettare l'accumulo/la struttura reale.
+ * Sono contatori astratti: NON creano agenti o nodi veri nell'albero, quindi
+ * non alterano la vista Albero ne' generano bonus di struttura (quelli
+ * restano legati solo alla downline reale).
  *
  * Dopo l'assegnazione viene eseguito subito `mlm:recalculate-points`
  * (stesso pattern di MlmSettingsController::recalculateNow()): cosi' la
@@ -38,7 +41,7 @@ class MlmMetricGrantController extends Controller
         $validated = $request->validate([
             'agent_ids'         => ['required', 'array', 'min:1'],
             'agent_ids.*'       => ['integer', 'exists:users,id'],
-            'metric'            => ['required', 'in:points,level1_basic_count'],
+            'metric'            => ['required', 'in:' . implode(',', array_keys(MlmMetricGrant::METRICS))],
             'amount'            => ['required', 'integer', 'min:1'],
             'reason'            => ['nullable', 'string', 'max:255'],
             'redirect_agent_id' => ['nullable', 'integer'],
@@ -82,7 +85,7 @@ class MlmMetricGrantController extends Controller
         Artisan::call('mlm:recalculate-points');
         $output = trim(Artisan::output());
 
-        $metricLabel = $validated['metric'] === 'points' ? 'punti cliente' : 'agenti Basic al 1° livello';
+        $metricLabel = MlmMetricGrant::metricLabel($validated['metric']);
 
         $successMessage = sprintf(
             '%d %s omaggio assegnati a %d agenti. %s',
