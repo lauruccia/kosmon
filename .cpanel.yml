@@ -1,7 +1,7 @@
 ---
 # Deploy cPanel — Git Version Control
 #
-# Modello: il repo e' clonato in /home/kmoney/kosmon_git e questo script
+# Modello: il repo e' clonato in una cartella di appoggio e questo script
 # copia il codice aggiornato nella cartella live dell'app (DEPLOYPATH).
 #
 # NON tocca: .env, vendor/, storage/app, public/storage  (non sono nel repo).
@@ -11,7 +11,7 @@
 # (composer.json/lock), aggiorna vendor/ a parte una tantum.
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/kmoney/kosmon
+    - export DEPLOYPATH=/home2/kosmopay/public_html/kosmon
 
     # 1. Copia il codice aggiornato dalla checkout git alla cartella live.
     - /bin/cp -Rf app bootstrap config database public resources routes $DEPLOYPATH/
