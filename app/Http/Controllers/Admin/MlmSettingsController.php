@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\MlmRankRequirement;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\MlmTreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -41,7 +42,7 @@ class MlmSettingsController extends Controller
         return array_values(array_diff(User::MLM_RANK_ORDER, ['start']));
     }
 
-    public function edit(Request $request): View
+    public function edit(Request $request, MlmTreeService $treeService): View
     {
         $this->authorizeBackoffice($request->user());
 
@@ -52,6 +53,7 @@ class MlmSettingsController extends Controller
             'requirements' => $requirements,
             'ranks' => $this->configurableRanks(),
             'pointsValidityOverrideMinutes' => SystemSetting::mlmSettings()->mlm_points_validity_override_minutes,
+            'currentRootAgent' => $treeService->systemRootAgent(),
             'activeNav' => 'mlm',
         ]);
     }
@@ -134,5 +136,69 @@ class MlmSettingsController extends Controller
 
         return redirect()->route('admin.mlm.settings.edit')
             ->with('portal_success', 'Ricalcolo eseguito. ' . $output);
+    }
+
+    /**
+     * GET /admin/mlm-impostazioni/radice — pagina per designare l'unica
+     * radice del sistema MLM (2026-07-15, vedi
+     * MlmTreeService::systemRootAgent()/setSystemRootAgent()). Mostra la
+     * radice attuale, il conteggio degli alberi indipendenti ancora da
+     * consolidare, e un elenco cercabile/paginato di agenti candidati
+     * (stesso pattern di ricerca di Admin\MlmController::moveForm()).
+     */
+    public function rootAgentForm(Request $request, MlmTreeService $treeService): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $search = trim((string) $request->query('q', ''));
+
+        $candidates = User::query()
+            ->where('mlm_role', 'agente')
+            ->when($search, fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
+            ->orderBy('name')
+            ->paginate(20)->withQueryString();
+
+        $currentRoot = $treeService->systemRootAgent();
+
+        return view('admin.mlm.settings-root', [
+            'pageTitle' => 'MLM — Agente radice',
+            'currentRoot' => $currentRoot,
+            // Alberi indipendenti ancora da consolidare: tutti gli agenti
+            // senza sponsor, esclusa la radice designata stessa (che e'
+            // anch'essa senza sponsor per costruzione).
+            'orphanCount' => max(0, $treeService->rootAgents()->count() - ($currentRoot ? 1 : 0)),
+            'candidates' => $candidates,
+            'search' => $search,
+            'activeNav' => 'mlm',
+        ]);
+    }
+
+    /**
+     * POST /admin/mlm-impostazioni/radice — designa la nuova radice unica,
+     * consolidando automaticamente ogni albero indipendente esistente sotto
+     * di essa (MlmTreeService::setSystemRootAgent()).
+     */
+    public function updateRootAgent(Request $request, MlmTreeService $treeService): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'root_agent_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $newRoot = User::findOrFail($validated['root_agent_id']);
+
+        $consolidated = $treeService->setSystemRootAgent($newRoot, $request->user());
+
+        return redirect()->route('admin.mlm.settings.root-agent')
+            ->with('portal_success', sprintf(
+                '%s designato come radice unica del sistema. %d %s consolidat%s sotto di lui.',
+                $newRoot->name,
+                $consolidated,
+                $consolidated === 1 ? 'albero indipendente' : 'alberi indipendenti',
+                $consolidated === 1 ? 'o' : 'i'
+            ));
     }
 }
