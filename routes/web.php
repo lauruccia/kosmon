@@ -824,6 +824,7 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
     Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
     Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
+    Route::get('/admin/mlm/{user}/promuovi', [MlmController::class, 'promoteForm'])->name('admin.mlm.promote-form')->middleware('backoffice');
     Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
     Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');

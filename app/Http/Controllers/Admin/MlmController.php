@@ -105,6 +105,26 @@ class MlmController extends Controller
     }
 
     /**
+     * Pagina dedicata "Promuovi agente": assegna punti/agenti omaggio a un
+     * singolo agente (scorciatoia rispetto alla selezione multipla sull'indice
+     * MLM), riusando lo stesso endpoint di store di MlmMetricGrantController.
+     */
+    public function promoteForm(Request $request, User $user, MlmRankEngine $rankEngine): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        abort_unless($user->isMlmAgent(), 404);
+
+        return view('admin.mlm.promote', [
+            'pageTitle' => 'Promuovi ' . $user->name,
+            'agent' => $user,
+            'evaluation' => $rankEngine->evaluate($user),
+            'nextRank' => $rankEngine->nextRankRequirements($user),
+            'activeNav' => 'mlm',
+        ]);
+    }
+
+    /**
      * Albero agenti navigabile: senza {user} mostra le radici (forest),
      * con {user} il sottoalbero di quell'agente. Cliccando un nodo si
      * naviga all'albero di quello specifico agente.

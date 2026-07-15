@@ -36,11 +36,12 @@ class MlmMetricGrantController extends Controller
         $this->authorizeBackoffice($admin);
 
         $validated = $request->validate([
-            'agent_ids'   => ['required', 'array', 'min:1'],
-            'agent_ids.*' => ['integer', 'exists:users,id'],
-            'metric'      => ['required', 'in:points,level1_basic_count'],
-            'amount'      => ['required', 'integer', 'min:1'],
-            'reason'      => ['nullable', 'string', 'max:255'],
+            'agent_ids'         => ['required', 'array', 'min:1'],
+            'agent_ids.*'       => ['integer', 'exists:users,id'],
+            'metric'            => ['required', 'in:points,level1_basic_count'],
+            'amount'            => ['required', 'integer', 'min:1'],
+            'reason'            => ['nullable', 'string', 'max:255'],
+            'redirect_agent_id' => ['nullable', 'integer'],
         ]);
 
         $agents = User::query()
@@ -83,14 +84,25 @@ class MlmMetricGrantController extends Controller
 
         $metricLabel = $validated['metric'] === 'points' ? 'punti cliente' : 'agenti Basic al 1° livello';
 
+        $successMessage = sprintf(
+            '%d %s omaggio assegnati a %d agenti. %s',
+            $validated['amount'],
+            $metricLabel,
+            $agents->count(),
+            $output
+        );
+
+        // Se la richiesta arriva dalla pagina "Promuovi agente" (singolo
+        // agente), torna li' invece che all'indice — solo se l'agente e'
+        // effettivamente tra quelli appena serviti (evita redirect arbitrari).
+        $redirectAgentId = $validated['redirect_agent_id'] ?? null;
+        if ($redirectAgentId !== null && $agents->contains('id', $redirectAgentId)) {
+            return redirect()->route('admin.mlm.show', $redirectAgentId)
+                ->with('portal_success', $successMessage);
+        }
+
         return redirect()->route('admin.mlm.index')
-            ->with('portal_success', sprintf(
-                '%d %s omaggio assegnati a %d agenti. %s',
-                $validated['amount'],
-                $metricLabel,
-                $agents->count(),
-                $output
-            ));
+            ->with('portal_success', $successMessage);
     }
 
     public function destroy(Request $request, MlmMetricGrant $mlmMetricGrant): RedirectResponse

@@ -11,6 +11,7 @@
         <div style="display:flex;align-items:center;gap:10px;">
             <a href="{{ route('admin.mlm.tree', $agent) }}" class="btn btn-secondary">Albero</a>
             <a href="{{ route('admin.mlm.tree.move-form', $agent) }}" class="btn btn-secondary">Sposta sponsor</a>
+            <a href="{{ route('admin.mlm.promote-form', $agent) }}" class="btn btn-secondary">Promuovi agente</a>
             <span class="pill">{{ ucfirst($agent->mlm_rank) }}</span>
         </div>
     </div>
