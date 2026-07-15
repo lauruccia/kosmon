@@ -28,15 +28,15 @@
     <div class="card card-pad">
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Punti attivi (di cui omaggio)</span>
         <strong style="font-size:22px;">{{ $agent->mlmActivePoints() }}</strong>
-        @if($agent->mlmGrantedPoints() > 0)
-            <span style="color:var(--ink-muted);font-size:12px;"> ({{ $agent->mlmGrantedPoints() }} omaggio)</span>
+        @if($agent->mlmGrantedPoints() != 0)
+            <span style="color:var(--ink-muted);font-size:12px;"> ({{ sprintf('%+d', $agent->mlmGrantedPoints()) }} omaggio)</span>
         @endif
     </div>
     <div class="card card-pad">
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Basic al 1° livello (di cui omaggio)</span>
         <strong style="font-size:22px;">{{ $evaluation['level1_basic_count'] }}</strong>
-        @if($agent->mlmGrantedLevel1Basic() > 0)
-            <span style="color:var(--ink-muted);font-size:12px;"> ({{ $agent->mlmGrantedLevel1Basic() }} omaggio)</span>
+        @if($agent->mlmGrantedLevel1Basic() != 0)
+            <span style="color:var(--ink-muted);font-size:12px;"> ({{ sprintf('%+d', $agent->mlmGrantedLevel1Basic()) }} omaggio)</span>
         @endif
     </div>
     <div class="card card-pad">
@@ -71,7 +71,7 @@
 
     <section class="card card-pad">
         <h3 style="margin:0 0 4px;font-size:14px;">Assegna punti/agenti omaggio</h3>
-        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Si sommano ai valori reali e non scadono mai finché non li revochi dalla scheda agente.</p>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Quantità positiva per aggiungere, negativa per togliere (es. <code>-3</code>). Si sommano ai valori reali e non scadono mai finché non li revochi dalla scheda agente.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
             <div>
                 <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Tipo</label>
@@ -83,7 +83,7 @@
             </div>
             <div>
                 <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Quantità</label>
-                <input type="number" name="amount" min="1" step="1" required value="1"
+                <input type="number" name="amount" step="1" required value="1"
                     style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;width:100px;">
             </div>
             <div style="flex:1;min-width:200px;">

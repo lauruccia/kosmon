@@ -13,21 +13,25 @@ use Illuminate\Support\Facades\Artisan;
 
 /**
  * "Punti/agenti omaggio" (richiesta di Laura, 2026-07-14; estesa il
- * 2026-07-15 a tutte le 7 metriche di qualifica): l'admin seleziona uno o
- * piu' agenti dall'elenco /admin/mlm e assegna loro una base — di punti
- * cliente, agenti Basic al 1° livello, o colonne con Key/Senior/Top/
- * SuperVisor+/300 punti (vedi MlmMetricGrant::METRICS) — che NON scade mai.
- * Si sommano ai valori reali (vedi MlmRankEngine::evaluate() e
- * User::mlmActivePoints()): un agente puo' cosi' partire gia' da qualsiasi
- * qualifica (fino a Manager) senza aspettare l'accumulo/la struttura reale.
- * Sono contatori astratti: NON creano agenti o nodi veri nell'albero, quindi
- * non alterano la vista Albero ne' generano bonus di struttura (quelli
- * restano legati solo alla downline reale).
+ * 2026-07-15 a tutte le 7 metriche di qualifica, e lo stesso giorno per
+ * ammettere anche importi NEGATIVI): l'admin seleziona uno o piu' agenti
+ * dall'elenco /admin/mlm e assegna/toglie una quantita' — di punti cliente,
+ * agenti Basic al 1° livello, o colonne con Key/Senior/Top/SuperVisor+/300
+ * punti (vedi MlmMetricGrant::METRICS) — che NON scade mai. Un importo
+ * positivo aggiunge, uno negativo toglie (es. -3 corregge un regalo fatto
+ * per errore, senza dover revocare l'intero grant originale): entrambi si
+ * sommano ai valori reali (vedi MlmRankEngine::evaluate() e
+ * User::mlmActivePoints(), che clampano il totale combinato a >= 0). Un
+ * agente puo' cosi' partire gia' da qualsiasi qualifica (fino a Manager)
+ * senza aspettare l'accumulo/la struttura reale. Sono contatori astratti:
+ * NON creano agenti o nodi veri nell'albero, quindi non alterano la vista
+ * Albero ne' generano bonus di struttura (quelli restano legati solo alla
+ * downline reale).
  *
  * Dopo l'assegnazione viene eseguito subito `mlm:recalculate-points`
  * (stesso pattern di MlmSettingsController::recalculateNow()): cosi' la
- * promozione, l'Extra Bonus una tantum e i Bonus Diretti collegati partono
- * come per una promozione normale, senza aspettare il cron notturno.
+ * promozione/retrocessione, l'Extra Bonus una tantum e i Bonus Diretti
+ * collegati partono subito, senza aspettare il cron notturno.
  */
 class MlmMetricGrantController extends Controller
 {
@@ -42,7 +46,9 @@ class MlmMetricGrantController extends Controller
             'agent_ids'         => ['required', 'array', 'min:1'],
             'agent_ids.*'       => ['integer', 'exists:users,id'],
             'metric'            => ['required', 'in:' . implode(',', array_keys(MlmMetricGrant::METRICS))],
-            'amount'            => ['required', 'integer', 'min:1'],
+            // Positivo = aggiunge, negativo = toglie (correzione); 0 non ha
+            // senso (non farebbe nulla) e viene rifiutato esplicitamente.
+            'amount'            => ['required', 'integer', 'not_in:0'],
             'reason'            => ['nullable', 'string', 'max:255'],
             'redirect_agent_id' => ['nullable', 'integer'],
         ]);
@@ -86,11 +92,14 @@ class MlmMetricGrantController extends Controller
         $output = trim(Artisan::output());
 
         $metricLabel = MlmMetricGrant::metricLabel($validated['metric']);
+        $amount = $validated['amount'];
+        $verb = $amount > 0 ? 'assegnati' : 'tolti';
 
         $successMessage = sprintf(
-            '%d %s omaggio assegnati a %d agenti. %s',
-            $validated['amount'],
+            '%+d %s omaggio %s a %d agenti. %s',
+            $amount,
             $metricLabel,
+            $verb,
             $agents->count(),
             $output
         );

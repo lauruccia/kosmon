@@ -388,4 +388,76 @@ class MlmMetricGrantControllerTest extends TestCase
         $this->assertSame(2, $evaluation['branches_with_key']);
         $this->assertSame('senior', $agent->fresh()->mlm_rank);
     }
+
+    public function test_a_negative_amount_subtracts_from_a_previous_gift(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'points',
+            'amount'    => 12,
+        ])->assertRedirect(route('admin.mlm.index'));
+
+        $this->assertSame(12, $agent->fresh()->mlmGrantedPoints());
+        $this->assertSame(12, $agent->fresh()->mlmActivePoints());
+
+        // Correzione: l'admin toglie 5 dei 12 punti omaggio appena assegnati,
+        // senza revocare l'intero grant originale.
+        $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'points',
+            'amount'    => -5,
+            'reason'    => 'Correzione manuale',
+        ]);
+
+        $response->assertRedirect(route('admin.mlm.index'));
+        $response->assertSessionHas('portal_success');
+        $this->assertStringContainsString('-5', session('portal_success'));
+        $this->assertStringContainsString('tolti', session('portal_success'));
+
+        $grant = MlmMetricGrant::orderByDesc('id')->first();
+        $this->assertSame(-5, $grant->amount);
+
+        $this->assertSame(7, $agent->fresh()->mlmGrantedPoints());
+        $this->assertSame(7, $agent->fresh()->mlmActivePoints());
+    }
+
+    public function test_the_combined_total_never_goes_below_zero_even_if_gifts_over_subtract(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+        $this->giveActivePoints($agent, 4); // punti reali
+
+        // Toglie molto piu' di quanto l'agente possiede realmente o in omaggio:
+        // il totale combinato deve restare clampato a 0, mai negativo.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'points',
+            'amount'    => -100,
+        ])->assertRedirect(route('admin.mlm.index'));
+
+        // Il grant grezzo mantiene il valore reale negativo assegnato (utile
+        // per l'admin, che vede "-100 omaggio" nello storico)...
+        $this->assertSame(-100, $agent->fresh()->mlmGrantedPoints());
+        // ...ma il totale combinato mostrato/usato per la qualifica non scende
+        // mai sotto zero.
+        $this->assertSame(0, $agent->fresh()->mlmActivePoints());
+    }
+
+    public function test_zero_amount_is_rejected_because_it_would_do_nothing(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+
+        $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
+            'agent_ids' => [$agent->id],
+            'metric'    => 'points',
+            'amount'    => 0,
+        ]);
+
+        $response->assertSessionHasErrors(['amount']);
+        $this->assertSame(0, MlmMetricGrant::count());
+    }
 }

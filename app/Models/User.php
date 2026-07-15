@@ -750,6 +750,11 @@ class User extends Authenticatable implements MustVerifyEmail
      * SystemSetting::mlmSettings()->mlm_points_validity_override_minutes e
      * MlmPointsService). In produzione (nessun override) la durata resta
      * quella di sempre, solo con granularita' fine anziche' whereDate().
+     *
+     * Dal 2026-07-15 i grant "omaggio" possono essere anche negativi (un
+     * admin puo' correggere/togliere punti gia' regalati, vedi
+     * MlmMetricGrantController::store()): il totale combinato NON scende
+     * mai sotto zero, anche se la correzione supera i punti reali.
      */
     public function mlmActivePoints(?\Illuminate\Support\Carbon $asOf = null): int
     {
@@ -766,7 +771,7 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('created_at', '<=', $asOf)
             ->sum('amount');
 
-        return $ledgerPoints + $grantedPoints;
+        return max(0, $ledgerPoints + $grantedPoints);
     }
 
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */

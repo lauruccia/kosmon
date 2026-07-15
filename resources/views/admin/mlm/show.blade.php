@@ -157,7 +157,7 @@
             @forelse($metricGrants as $grant)
                 <tr>
                     <td>{{ \App\Models\MlmMetricGrant::metricLabel($grant->metric) }}</td>
-                    <td>{{ $grant->amount }}</td>
+                    <td style="{{ $grant->amount < 0 ? 'color:#c9313e;font-weight:600;' : '' }}">{{ sprintf('%+d', $grant->amount) }}</td>
                     <td style="color:var(--ink-muted);font-size:12px;">{{ $grant->reason ?? '—' }}</td>
                     <td>{{ $grant->grantedBy?->name ?? '—' }}</td>
                     <td>{{ $grant->created_at->format('d/m/Y H:i') }}</td>

@@ -89,8 +89,8 @@
                         <td><span class="pill">{{ ucfirst($agent->mlm_rank) }}</span></td>
                         <td>
                             {{ $agent->mlmActivePoints() }}
-                            @if($agent->mlmGrantedPoints() > 0)
-                                <span style="color:var(--ink-muted);font-size:11px;">(di cui {{ $agent->mlmGrantedPoints() }} omaggio)</span>
+                            @if($agent->mlmGrantedPoints() != 0)
+                                <span style="color:var(--ink-muted);font-size:11px;">(di cui {{ sprintf('%+d', $agent->mlmGrantedPoints()) }} omaggio)</span>
                             @endif
                         </td>
                         <td>{{ $agent->mlm_clients_count }}</td>
@@ -123,7 +123,7 @@
             </div>
             <div>
                 <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Quantità</label>
-                <input type="number" name="amount" min="1" step="1" required value="1"
+                <input type="number" name="amount" step="1" required value="1"
                     style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;width:100px;">
             </div>
             <div style="flex:1;min-width:200px;">
@@ -133,7 +133,7 @@
             </div>
             <button type="submit" style="padding:8px 16px;border-radius:8px;font-size:13px;background:var(--primary);color:#fff;border:none;font-weight:600;cursor:pointer;">Assegna ai selezionati</button>
         </div>
-        <p style="margin:8px 0 0;color:var(--ink-muted);font-size:11.5px;"><span id="selected-count">0</span> agenti selezionati (solo quelli visibili in questa pagina).</p>
+        <p style="margin:8px 0 0;color:var(--ink-muted);font-size:11.5px;">Quantità positiva per aggiungere, negativa per togliere (es. <code>-3</code>). <span id="selected-count">0</span> agenti selezionati (solo quelli visibili in questa pagina).</p>
     </section>
     @endif
 </form>
