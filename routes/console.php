@@ -44,6 +44,17 @@ Schedule::command('mlm:calculate-commissions')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/mlm-commissions.log'));
 
+// MLM: calcola e accredita i bonus settimanali (cascata di struttura, bonus
+// diretti, extra bonus grado) - ogni mercoledi' (3 = Wednesday), come da
+// disegno originale MLM_PROPOSAL.md §9. Il rilevamento (BasiQ, qualifiche)
+// resta nel job giornaliero sopra; qui si calcolano/accreditano solo gli
+// importi EUR.
+Schedule::command('mlm:calculate-weekly-bonuses')
+    ->weeklyOn(3, '04:00')
+    ->name('mlm-calculate-weekly-bonuses')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/mlm-bonuses.log'));
+
 // Verifica integrità contabile COMPLETA ogni notte alle 02:00 (controlli pesanti)
 Schedule::command('accounting:verify-integrity')
     ->dailyAt('02:00')

@@ -148,4 +148,71 @@ class MlmBonusServiceTest extends TestCase
         $this->assertSame('processed', $event->status);
         $this->assertSame(0, MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->count());
     }
+
+    /**
+     * Copre il flusso di produzione reale dal 2026-07-15: il job notturno
+     * chiama solo recordBasiqEvent() (rilevamento), il job settimanale del
+     * mercoledi' chiama processPendingEvents() (calcolo/accredito). I due
+     * passi devono restare separabili: recordBasiqEvent da solo non deve MAI
+     * creare payout.
+     */
+    public function test_record_basiq_event_alone_does_not_create_any_payout(): void
+    {
+        $senior = $this->makeAgent('senior');
+        $basiq = $this->makeAgent('basic');
+        $this->tree->attachAgent($senior, null);
+        $this->tree->attachAgent($basiq, $senior);
+
+        $event = $this->service->recordBasiqEvent($basiq);
+
+        $this->assertSame('pending', $event->status);
+        $this->assertSame(0, MlmBonusPayout::count());
+    }
+
+    public function test_process_pending_events_calculates_payouts_for_events_recorded_earlier(): void
+    {
+        $senior = $this->makeAgent('senior');
+        $basiqA = $this->makeAgent('basic');
+        $basiqB = $this->makeAgent('basic');
+        $this->tree->attachAgent($senior, null);
+        $this->tree->attachAgent($basiqA, $senior);
+        $this->tree->attachAgent($basiqB, $senior);
+
+        // Rilevamento notturno di due eventi in giorni diversi della stessa settimana.
+        $this->service->recordBasiqEvent($basiqA);
+        $this->service->recordBasiqEvent($basiqB);
+        $this->assertSame(0, MlmBonusPayout::count(), 'Nessun payout prima dell\'elaborazione settimanale.');
+
+        // Elaborazione settimanale (mercoledi'): entrambi gli eventi vengono processati.
+        $processedCount = $this->service->processPendingEvents();
+
+        $this->assertSame(2, $processedCount);
+        $this->assertSame(2, MlmBonusPayout::where('beneficiary_user_id', $senior->id)->count());
+
+        // Idempotente: rieseguire non elabora nulla di nuovo.
+        $this->assertSame(0, $this->service->processPendingEvents());
+        $this->assertSame(2, MlmBonusPayout::where('beneficiary_user_id', $senior->id)->count());
+    }
+
+    public function test_key_eligibility_depends_on_detection_order_not_processing_order(): void
+    {
+        // Il Key ha gia' 2 eventi pregressi (precaricati processati). Un 3°
+        // evento, rilevato la notte X ma elaborato solo il mercoledi'
+        // successivo insieme ad altri eventi dello stesso batch, deve comunque
+        // renderlo eleggibile: keyIsBonusEligible conta per triggered_at, non
+        // per l'ordine con cui processPendingEvents() li elabora.
+        $key = $this->makeAgent('key');
+        $this->tree->attachAgent($key, null);
+        $this->preloadBasiqEvents($key, 2);
+
+        $basiq = $this->makeAgent();
+        $this->tree->attachAgent($basiq, $key);
+
+        $this->service->recordBasiqEvent($basiq);
+        $this->service->processPendingEvents();
+
+        $payout = MlmBonusPayout::where('beneficiary_user_id', $key->id)->first();
+        $this->assertNotNull($payout, 'Il Key deve essere eleggibile al 3° evento, anche elaborato in batch settimanale.');
+        $this->assertSame(6_000, (int) $payout->amount_eur_cents);
+    }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\MlmBonusPayout;
+use App\Models\MlmPendingRankAward;
 use App\Models\MlmPointLedgerEntry;
 use App\Models\User;
 use App\Notifications\MlmRankDemotedNotification;
@@ -143,7 +144,7 @@ class MlmAwardServiceTest extends TestCase
         $this->assertSame('pending', $payout->status);
     }
 
-    public function test_rank_award_is_granted_on_first_promotion_to_senior(): void
+    public function test_rank_promotion_queues_the_award_without_paying_it_immediately(): void
     {
         // Agente che soddisfa i requisiti Senior: 48 pt + 3 Basic + 2 Key su 2 colonne.
         $agent = $this->makeAgent('basic');
@@ -158,10 +159,56 @@ class MlmAwardServiceTest extends TestCase
         $this->assertSame('promoted', $this->engine->syncRank($agent));
         $this->assertSame('senior', $agent->fresh()->mlm_rank);
 
+        // Dal 2026-07-15: la promozione ACCODA il premio (mlm_pending_rank_awards),
+        // ma non lo paga subito — l'erogazione avviene nel job settimanale.
+        $this->assertSame(
+            0,
+            MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->count(),
+            'Nessun Extra Bonus deve essere pagato subito alla promozione: e\' accodato per il job settimanale.'
+        );
+        $pending = MlmPendingRankAward::where('user_id', $agent->id)->first();
+        $this->assertNotNull($pending, 'La promozione deve accodare un premio in attesa.');
+        $this->assertSame('senior', $pending->rank);
+        $this->assertNull($pending->processed_at);
+    }
+
+    public function test_processing_pending_rank_awards_pays_the_queued_extra_bonus(): void
+    {
+        $agent = $this->makeAgent('basic');
+        $this->tree->attachAgent($agent, null);
+        $this->givePoints($agent, 48);
+
+        foreach (['key', 'key', 'basic'] as $childRank) {
+            $child = $this->makeAgent($childRank);
+            $this->tree->attachAgent($child, $agent);
+        }
+
+        $this->assertSame('promoted', $this->engine->syncRank($agent));
+
+        $granted = $this->awards->processPendingRankAwards();
+        $this->assertSame(1, $granted);
+
         $award = MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->first();
-        $this->assertNotNull($award, 'Extra Bonus atteso alla prima promozione a senior.');
+        $this->assertNotNull($award, 'Extra Bonus atteso dopo l\'elaborazione settimanale.');
         $this->assertSame(30_000, $award->amount_eur_cents);
         $this->assertSame('senior', $award->rank_at_time);
+
+        $this->assertNotNull($pending = MlmPendingRankAward::where('user_id', $agent->id)->first());
+        $this->assertNotNull($pending->processed_at, 'La riga in coda deve risultare processata.');
+
+        // Idempotente: rieseguire non paga una seconda volta.
+        $this->assertSame(0, $this->awards->processPendingRankAwards());
+        $this->assertSame(1, MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->count());
+    }
+
+    public function test_queue_rank_award_ignores_ranks_without_a_prize(): void
+    {
+        $agent = $this->makeAgent();
+
+        $this->awards->queueRankAward($agent, 'basic');
+        $this->awards->queueRankAward($agent, 'key');
+
+        $this->assertSame(0, MlmPendingRankAward::count());
     }
 
     public function test_rank_award_is_not_repeated_after_demotion_and_repromotion(): void
@@ -174,6 +221,21 @@ class MlmAwardServiceTest extends TestCase
         $this->assertFalse($this->awards->grantRankAward($agent, 'senior'), 'Mai due volte per lo stesso grado.');
 
         $this->assertSame(1, MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->count());
+    }
+
+    public function test_queue_rank_award_does_not_requeue_an_already_processed_rank(): void
+    {
+        $agent = $this->makeAgent();
+
+        // Il premio e' gia' stato erogato in passato per questo grado (fuori
+        // dal normale flusso di coda, es. dati storici pre-2026-07-15).
+        $this->awards->grantRankAward($agent, 'senior');
+
+        $this->awards->queueRankAward($agent, 'senior');
+        $this->assertSame(0, MlmPendingRankAward::where('user_id', $agent->id)->count(), 'Non deve mai rimettersi in coda un grado gia\' premiato.');
+
+        $this->assertSame(0, $this->awards->processPendingRankAwards());
+        $this->assertSame(1, MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->count(), 'Nessun doppio pagamento.');
     }
 
     public function test_no_rank_award_for_basic_or_key(): void

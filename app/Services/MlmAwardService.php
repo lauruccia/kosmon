@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuditLog;
 use App\Models\MlmBonusPayout;
+use App\Models\MlmPendingRankAward;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -26,6 +27,16 @@ use Carbon\Carbon;
  * stesso flusso EUR dei bonus di struttura) e quindi nella liquidazione
  * mensile aggregata di MlmPayoutService. L'unicita' e' garantita
  * dall'idempotency_key UNIQUE.
+ *
+ * CALCOLO SPOSTATO AL JOB SETTIMANALE (2026-07-15, vedi MLM_PROPOSAL.md §9):
+ * grantDirectPointBonuses() viene ora chiamato da `mlm:calculate-weekly-bonuses`
+ * (ogni mercoledi') per tutti gli agenti, non piu' ogni notte da
+ * `mlm:recalculate-points`. L'Extra Bonus non viene piu' erogato subito al
+ * momento della promozione (rilevata comunque ogni notte da
+ * MlmRankEngine::syncRank()): la promozione viene solo ACCODATA
+ * (queueRankAward, tabella mlm_pending_rank_awards) e l'erogazione vera e
+ * propria (grantRankAward) avviene anch'essa nel job settimanale
+ * (processPendingRankAwards).
  */
 class MlmAwardService
 {
@@ -108,6 +119,65 @@ class MlmAwardService
         );
 
         return true;
+    }
+
+    /**
+     * Accoda la promozione dell'agente al grado indicato per l'erogazione
+     * dell'Extra Bonus, senza creare subito il payout: la vera erogazione
+     * (grantRankAward, con la sua idempotenza) avviene nel job settimanale
+     * (processPendingRankAwards). No-op per i gradi senza premio o per un
+     * grado gia' premiato in passato (idempotency_key gia' presente in
+     * mlm_bonus_payouts, es. dati storici pre-2026-07-15 o una chiamata
+     * diretta a grantRankAward) — evita di rimettere in coda un premio che
+     * verrebbe comunque rifiutato da grantRankAward, ma soprattutto rende
+     * l'assenza di riga in coda un segnale affidabile di "mai stato premiato
+     * O gia' incassato", utile lato UI/audit.
+     *
+     * Il vincolo UNIQUE (user_id, rank) su mlm_pending_rank_awards fa inoltre
+     * si' che una promozione allo stesso grado NON venga mai rimessa in coda
+     * due volte finche' la riga precedente non e' stata processata — coerente
+     * con la regola "mai due volte per lo stesso grado, anche dopo
+     * retrocessione e nuova promozione".
+     */
+    public function queueRankAward(User $agent, string $newRank): void
+    {
+        if (! array_key_exists($newRank, self::RANK_AWARDS_EUR_CENTS)) {
+            return;
+        }
+
+        $idempotencyKey = "mlm_rank_award_{$agent->id}_{$newRank}";
+        if (MlmBonusPayout::where('idempotency_key', $idempotencyKey)->exists()) {
+            return;
+        }
+
+        MlmPendingRankAward::firstOrCreate(
+            ['user_id' => $agent->id, 'rank' => $newRank],
+            ['detected_at' => now()]
+        );
+    }
+
+    /**
+     * Elabora tutte le promozioni accodate e non ancora processate: eroga
+     * l'Extra Bonus (grantRankAward, idempotente) e segna la riga come
+     * processata. Chiamato dal job settimanale
+     * (`mlm:calculate-weekly-bonuses`). Restituisce il numero di premi
+     * effettivamente creati (puo' essere minore del numero di righe accodate
+     * se grantRankAward risultasse gia' idempotente per altra via).
+     */
+    public function processPendingRankAwards(): int
+    {
+        $granted = 0;
+
+        MlmPendingRankAward::whereNull('processed_at')->with('user')->get()
+            ->each(function (MlmPendingRankAward $pending) use (&$granted) {
+                if ($pending->user && $this->grantRankAward($pending->user, $pending->rank)) {
+                    $granted++;
+                }
+
+                $pending->forceFill(['processed_at' => now()])->save();
+            });
+
+        return $granted;
     }
 
     private function createAwardPayout(

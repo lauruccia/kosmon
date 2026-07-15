@@ -29,6 +29,16 @@ use Illuminate\Support\Facades\DB;
  * stesso). Se il Key non e' ancora eleggibile, viene trattato come assente
  * nella catena per questo evento (chi sta sopra incassa l'importo pieno,
  * non la differenza).
+ *
+ * RILEVAMENTO vs CALCOLO (separati dal 2026-07-15, vedi MLM_PROPOSAL.md §9):
+ * il job notturno `mlm:recalculate-points` rileva solo il nuovo BasiQ e crea
+ * l'evento in stato 'pending' (recordBasiqEvent). Il CALCOLO dell'importo e
+ * la scrittura dei payout in `mlm_bonus_payouts` avvengono una volta a
+ * settimana, ogni mercoledi', nel job `mlm:calculate-weekly-bonuses`
+ * (processPendingEvents) — come previsto dal disegno originale della
+ * proposta (`CalculateWeeklyMlmBonuses`), mai implementato come comando
+ * separato fino ad ora: prima veniva calcolato subito, la notte stessa in
+ * cui l'agente diventava BasiQ.
  */
 class MlmBonusService
 {
@@ -45,26 +55,65 @@ class MlmBonusService
     public function __construct(private readonly MlmTreeService $tree) {}
 
     /**
-     * Processa l'evento BasiQ per l'agente indicato: crea/recupera
-     * MlmBonusEvent (idempotente per agente) e, se non gia' processato,
-     * calcola e registra i payout in mlm_bonus_payouts.
+     * Registra l'evento BasiQ per l'agente indicato, se non gia' presente
+     * (idempotente per agente). NON calcola ne' accredita alcun importo:
+     * quello avviene in un secondo momento, in batch settimanale, tramite
+     * processPendingEvents(). Chiamato dal job notturno di rilevamento
+     * (`mlm:recalculate-points`).
+     */
+    public function recordBasiqEvent(User $basiqAgent): MlmBonusEvent
+    {
+        return MlmBonusEvent::firstOrCreate(
+            ['basiq_user_id' => $basiqAgent->id],
+            ['triggered_at' => now(), 'status' => 'pending']
+        );
+    }
+
+    /**
+     * Processa TUTTI gli eventi BasiQ ancora in stato 'pending': per ciascuno
+     * calcola la catena upline e crea i payout telescopici in
+     * `mlm_bonus_payouts`. Chiamato dal job settimanale
+     * (`mlm:calculate-weekly-bonuses`, ogni mercoledi'). Idempotente: un
+     * evento gia' processato viene ignorato. Restituisce il numero di eventi
+     * elaborati in questa chiamata.
+     */
+    public function processPendingEvents(): int
+    {
+        $processed = 0;
+
+        foreach (MlmBonusEvent::where('status', 'pending')->orderBy('triggered_at')->get() as $event) {
+            $this->processEvent($event);
+            $processed++;
+        }
+
+        return $processed;
+    }
+
+    /**
+     * @deprecated Mantenuto solo per compatibilita' con eventuali chiamate
+     * dirette esistenti: registra ED elabora subito l'evento nella stessa
+     * chiamata. Il flusso di produzione ora usa recordBasiqEvent() (notte) +
+     * processPendingEvents() (mercoledi') separatamente — vedi il docblock
+     * di classe.
      */
     public function processBasiqEvent(User $basiqAgent): MlmBonusEvent
     {
-        return DB::transaction(function () use ($basiqAgent) {
-            $event = MlmBonusEvent::where('basiq_user_id', $basiqAgent->id)->first();
+        $event = $this->recordBasiqEvent($basiqAgent);
+        $this->processEvent($event);
 
-            if (! $event) {
-                $event = MlmBonusEvent::create([
-                    'basiq_user_id' => $basiqAgent->id,
-                    'triggered_at' => now(),
-                    'status' => 'pending',
-                ]);
-            }
+        return $event->fresh();
+    }
+
+    private function processEvent(MlmBonusEvent $event): void
+    {
+        DB::transaction(function () use ($event) {
+            $event = MlmBonusEvent::lockForUpdate()->findOrFail($event->id);
 
             if ($event->status !== 'pending') {
-                return $event;
+                return;
             }
+
+            $basiqAgent = $event->basiqUser;
 
             $upline = $this->tree->orderedUpline($basiqAgent);
 
@@ -88,12 +137,12 @@ class MlmBonusService
             if (empty($presentByRank)) {
                 $event->forceFill(['status' => 'processed', 'processed_at' => now(), 'upline_chain_snapshot' => []])->save();
 
-                return $event;
+                return;
             }
 
             uksort($presentByRank, fn (string $a, string $b) => $this->rankOrderIndex($a) <=> $this->rankOrderIndex($b));
 
-            $weekEnding = $this->nextWednesday($event->triggered_at);
+            $weekEnding = $this->nextWednesday(now());
             $previousAmount = 0;
             $snapshot = [];
 
@@ -137,15 +186,16 @@ class MlmBonusService
                 'processed_at' => now(),
                 'upline_chain_snapshot' => $snapshot,
             ])->save();
-
-            return $event;
         });
     }
 
     /**
      * Un agente Key e' eleggibile al bonus solo dal 3° evento BasiQ (incluso
-     * questo) nella sua downline. Conta gli eventi BasiQ gia' processati o in
-     * corso di elaborazione, fino a $upToTime incluso.
+     * questo) nella sua downline. Conta gli eventi BasiQ RILEVATI (a
+     * prescindere dallo stato pending/processed) fino a $upToTime incluso —
+     * cosi' l'ordine di elaborazione settimanale in batch non altera
+     * l'eleggibilita', che dipende solo da quando l'evento e' stato
+     * rilevato, non da quando viene calcolato il payout.
      */
     private function keyIsBonusEligible(User $keyAgent, Carbon $upToTime): bool
     {

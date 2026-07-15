@@ -223,6 +223,8 @@ Tutti gli importi in centesimi interi, coerente con la convenzione del progetto 
 
 Tutti idempotenti (idempotency key su periodo+agente), con lock/transazione per evitare doppio calcolo in caso di re-run, e log in stile `AuditLog` per ogni accredito.
 
+**Nota 2026-07-15 (fix):** questa tabella era corretta fin dall'inizio, ma `CalculateWeeklyMlmBonuses` non era mai stato implementato come comando separato — la cascata di struttura, i Bonus Diretti KNM e l'Extra Bonus venivano invece calcolati e accreditati **subito**, dentro il job giornaliero `mlm:recalculate-points` (nell'istante stesso in cui un agente diventava BasiQ o veniva promosso, oppure ogni notte per i Bonus Diretti). Rilette le slide su richiesta di Laura, confermato che il disegno originale era corretto: rilevamento (BasiQ, qualifiche) resta giornaliero, ma il CALCOLO/ACCREDITO dei bonus è stato spostato nel nuovo comando `mlm:calculate-weekly-bonuses` (`app/Console/Commands/CalculateMlmWeeklyBonuses.php`, `weeklyOn(3, '04:00')` in `routes/console.php`). Le commissioni dirette/indirette (§5) erano già correttamente mensili, nessuna modifica. Vedi `MlmBonusService::recordBasiqEvent()`/`processPendingEvents()` e `MlmAwardService::queueRankAward()`/`processPendingRankAwards()` (nuova tabella `mlm_pending_rank_awards`) per il meccanismo di separazione rilevamento/calcolo.
+
 ---
 
 ## 10. Perché EUR separato e non KY

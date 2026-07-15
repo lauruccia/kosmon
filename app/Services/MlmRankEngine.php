@@ -222,8 +222,12 @@ class MlmRankEngine
         ]);
 
         if ($direction === 'promoted') {
-            // Extra Bonus una tantum alla prima promozione a senior+ (2026-07-13).
-            $this->awards->grantRankAward($agent, $eligibleRank);
+            // Extra Bonus una tantum alla prima promozione a senior+
+            // (2026-07-13). Dal 2026-07-15 la promozione viene solo
+            // ACCODATA qui (rilevamento notturno): l'erogazione vera e
+            // propria del premio avviene nel job settimanale del mercoledi'
+            // (mlm:calculate-weekly-bonuses), vedi MlmAwardService.
+            $this->awards->queueRankAward($agent, $eligibleRank);
         } else {
             // La retrocessione viene comunicata all'agente (email + in-app).
             // Il grado, lo storico e l'audit log sopra sono gia' salvati a

@@ -28,10 +28,12 @@ use Illuminate\Support\Facades\Artisan;
  * Albero ne' generano bonus di struttura (quelli restano legati solo alla
  * downline reale).
  *
- * Dopo l'assegnazione viene eseguito subito `mlm:recalculate-points`
- * (stesso pattern di MlmSettingsController::recalculateNow()): cosi' la
- * promozione/retrocessione, l'Extra Bonus una tantum e i Bonus Diretti
- * collegati partono subito, senza aspettare il cron notturno.
+ * Dopo l'assegnazione viene eseguito subito `mlm:recalculate-points` E
+ * `mlm:calculate-weekly-bonuses` (stesso pattern di
+ * MlmSettingsController::recalculateNow(), aggiornato il 2026-07-15): cosi'
+ * la promozione/retrocessione, l'Extra Bonus una tantum e i Bonus Diretti
+ * collegati partono subito, senza aspettare il cron notturno ne' il
+ * mercoledi' successivo.
  */
 class MlmMetricGrantController extends Controller
 {
@@ -87,9 +89,15 @@ class MlmMetricGrantController extends Controller
 
         // Applica subito l'effetto (promozione + Extra Bonus + Bonus Diretti),
         // con la stessa cascata bottom-up del job notturno, invece di aspettare
-        // il cron — stesso pattern di MlmSettingsController::recalculateNow().
+        // il cron/il mercoledi' — stesso pattern di
+        // MlmSettingsController::recalculateNow().
         Artisan::call('mlm:recalculate-points');
-        $output = trim(Artisan::output());
+        $pointsOutput = trim(Artisan::output());
+
+        Artisan::call('mlm:calculate-weekly-bonuses');
+        $bonusesOutput = trim(Artisan::output());
+
+        $output = $pointsOutput . ' ' . $bonusesOutput;
 
         $metricLabel = MlmMetricGrant::metricLabel($validated['metric']);
         $amount = $validated['amount'];
@@ -143,6 +151,7 @@ class MlmMetricGrantController extends Controller
             // Rivaluta subito (puo' generare una retrocessione se il grant
             // revocato era cio' che teneva l'agente sopra soglia).
             Artisan::call('mlm:recalculate-points');
+            Artisan::call('mlm:calculate-weekly-bonuses');
         }
 
         return back()->with('portal_success', 'Regalo revocato.');
