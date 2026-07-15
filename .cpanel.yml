@@ -11,7 +11,7 @@
 # (composer.json/lock), aggiorna vendor/ a parte una tantum.
 deployment:
   tasks:
-    - export DEPLOYPATH=/home2/kosmopay/public_html/kosmon
+    - export DEPLOYPATH=/home2/kosmopay/repositories/kosmon
 
     # 1. Copia il codice aggiornato dalla checkout git alla cartella live.
     - /bin/cp -Rf app bootstrap config database public resources routes $DEPLOYPATH/
