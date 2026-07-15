@@ -49,8 +49,15 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><input type="radio" name="new_sponsor_id" value="" {{ !$sponsor ? 'checked' : '' }}></td>
-                    <td colspan="3"><strong>Nessuno sponsor</strong> — porta {{ $agent->name }} in radice (nuovo albero indipendente)</td>
+                    <td><input type="radio" name="new_sponsor_id" value="" {{ !$sponsor ? 'checked' : '' }} {{ $canBecomeRoot ? '' : 'disabled' }}></td>
+                    <td colspan="3">
+                        <strong>Nessuno sponsor</strong>
+                        @if($canBecomeRoot)
+                            — porta {{ $agent->name }} in radice
+                        @else
+                            — <span style="color:var(--ink-muted);">non disponibile: il sistema ha un'unica radice designata (vedi Impostazioni MLM → Agente radice). Per cambiarla usa quella pagina invece di questa.</span>
+                        @endif
+                    </td>
                 </tr>
                 @forelse($candidates as $candidate)
                 <tr>

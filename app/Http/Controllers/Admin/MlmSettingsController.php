@@ -106,14 +106,23 @@ class MlmSettingsController extends Controller
      * Esegue subito `mlm:recalculate-points` (normalmente notturno, 03:00)
      * per verificare l'effetto delle nuove soglie/scadenze senza aspettare
      * il cron — comodo soprattutto dopo aver abbassato la scadenza punti per
-     * un test rapido.
+     * un test rapido. Dal 2026-07-15 lancia anche subito dopo
+     * `mlm:calculate-weekly-bonuses` (normalmente del mercoledi'), cosi' il
+     * pulsante "Ricalcola ora" applica per intero l'effetto — qualifiche E
+     * bonus/extra bonus — invece di lasciare i bonus in attesa del mercoledi'
+     * successivo durante un test manuale.
      */
     public function recalculateNow(Request $request): RedirectResponse
     {
         $this->authorizeBackoffice($request->user());
 
         Artisan::call('mlm:recalculate-points');
-        $output = trim(Artisan::output());
+        $pointsOutput = trim(Artisan::output());
+
+        Artisan::call('mlm:calculate-weekly-bonuses');
+        $bonusesOutput = trim(Artisan::output());
+
+        $output = $pointsOutput . "\n" . $bonusesOutput;
 
         AuditLog::create([
             'actor_user_id' => $request->user()->id,

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuditLog;
 use App\Models\MlmAgentClosure;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +18,26 @@ use Illuminate\Support\Facades\DB;
 class MlmTreeService
 {
     /**
-     * Inserisce un nuovo agente nell'albero MLM sotto lo sponsor indicato
-     * (null = radice del proprio albero, es. il primo agente in assoluto).
+     * Inserisce un nuovo agente nell'albero MLM sotto lo sponsor indicato.
+     *
+     * Regola "radice unica" (2026-07-15): se non c'e' uno sponsor esplicito
+     * (nessun referral valido a monte) e il sistema ha gia' una radice
+     * designata (SystemSetting::mlmSettings()->mlm_root_agent_id), il nuovo
+     * agente viene agganciato automaticamente sotto di essa invece di
+     * diventare radice di un albero indipendente. $sponsor = null produce
+     * comunque un vero agente radice quando: non esiste ancora nessuna radice
+     * di sistema designata (fase di bootstrap), oppure l'agente stesso E'
+     * la radice designata.
      */
     public function attachAgent(User $agent, ?User $sponsor): void
     {
+        if (! $sponsor) {
+            $systemRoot = $this->systemRootAgent();
+            if ($systemRoot && $systemRoot->id !== $agent->id) {
+                $sponsor = $systemRoot;
+            }
+        }
+
         DB::transaction(function () use ($agent, $sponsor): void {
             // Riga self (depth 0): ogni agente è antenato di se stesso.
             MlmAgentClosure::create([
@@ -222,7 +238,13 @@ class MlmTreeService
         return $row ? User::find($row->ancestor_id) : null;
     }
 
-    /** Agenti radice (senza sponsor nell'albero MLM), per la vista admin. */
+    /**
+     * Agenti radice (senza sponsor nell'albero MLM). Con la regola "radice
+     * unica" (2026-07-15) dovrebbe normalmente restituire al piu' un solo
+     * agente (la radice di sistema, vedi systemRootAgent()); se ne restituisce
+     * di piu' significa che esistono alberi indipendenti non ancora
+     * consolidati — vedi setSystemRootAgent() per consolidarli.
+     */
     public function rootAgents(): Collection
     {
         $withSponsor = MlmAgentClosure::where('depth', 1)->pluck('descendant_id');
@@ -233,6 +255,70 @@ class MlmTreeService
             ->get();
     }
 
+    /** Agente radice unico del sistema MLM (2026-07-15), se già designato dall'admin. */
+    public function systemRootAgent(): ?User
+    {
+        $rootId = SystemSetting::mlmSettings()->mlm_root_agent_id;
+
+        return $rootId ? User::find($rootId) : null;
+    }
+
+    /**
+     * Designa $newRoot come UNICA radice del sistema MLM, consolidando sotto
+     * di essa ogni altro albero indipendente eventualmente esistente
+     * (agenti oggi senza sponsor, diversi da $newRoot — vedi rootAgents()).
+     * Se $newRoot ha attualmente uno sponsor, viene prima "staccato" e
+     * portato in radice: questo evita cicli quando $newRoot e' discendente
+     * di un vecchio albero che verra' ricollegato sotto di lui subito dopo.
+     *
+     * Operazione puramente STRUTTURALE, come moveAgent(): punti, commissioni
+     * e bonus gia' calcolati restano storici.
+     *
+     * @return int Numero di alberi indipendenti consolidati sotto la nuova radice.
+     */
+    public function setSystemRootAgent(User $newRoot, ?User $actor = null): int
+    {
+        abort_unless($newRoot->isMlmAgent(), 422, 'La radice del sistema deve essere un agente MLM.');
+
+        $settings = SystemSetting::mlmSettings();
+        $previousRootId = $settings->mlm_root_agent_id;
+        $consolidated = 0;
+
+        DB::transaction(function () use ($newRoot, $actor, $settings, &$consolidated): void {
+            // 1. Il nuovo root deve risultare senza sponsor. Lo facciamo PRIMA
+            //    di ricollegare eventuali altri alberi sotto di lui: se e'
+            //    discendente di uno di quegli alberi, staccarlo per primo
+            //    evita di creare un ciclo al passo 2.
+            if ($this->currentSponsor($newRoot)) {
+                $this->moveAgentCore($newRoot, null, $actor);
+            }
+
+            // 2. Consolida ogni altro albero indipendente esistente.
+            foreach ($this->rootAgents() as $orphan) {
+                if ($orphan->id === $newRoot->id) {
+                    continue;
+                }
+                $this->moveAgentCore($orphan, $newRoot, $actor);
+                $consolidated++;
+            }
+
+            $settings->forceFill(['mlm_root_agent_id' => $newRoot->id])->save();
+        });
+
+        AuditLog::create([
+            'actor_user_id'   => $actor?->id,
+            'event'           => 'mlm.system_root_agent_set',
+            'auditable_type'  => User::class,
+            'auditable_id'    => $newRoot->id,
+            'context'         => [
+                'previous_root_agent_id' => $previousRootId,
+                'consolidated_trees'     => $consolidated,
+            ],
+        ]);
+
+        return $consolidated;
+    }
+
     /**
      * Sposta un agente (e tutto il suo sottoalbero) sotto un nuovo sponsor,
      * ricollegando la closure table. Operazione puramente STRUTTURALE: punti,
@@ -241,9 +327,14 @@ class MlmTreeService
      * commissioni indirette, cascata bonus) leggono l'albero corrente e
      * quindi rifletteranno automaticamente la nuova posizione da qui in poi.
      *
-     * $newSponsor = null sposta l'agente in radice (nessuno sponsor).
+     * $newSponsor = null sposta l'agente in radice (nessuno sponsor) — MA,
+     * con la regola "radice unica" (2026-07-15), questo e' permesso solo per
+     * l'agente che e' GIA' la radice designata del sistema (o quando non ne
+     * e' ancora stata designata nessuna, fase di bootstrap). Per cambiare
+     * radice del sistema usa setSystemRootAgent(), non questo metodo.
      *
-     * @throws \InvalidArgumentException se lo spostamento e' invalido (self, ciclo, non agente).
+     * @throws \InvalidArgumentException se lo spostamento e' invalido (self, ciclo, non agente,
+     *         oppure porterebbe un secondo agente senza sponsor mentre esiste gia' una radice di sistema).
      */
     public function moveAgent(User $agent, ?User $newSponsor, ?User $actor = null): void
     {
@@ -263,8 +354,25 @@ class MlmTreeService
             if ($newSponsorIsDescendant) {
                 throw new \InvalidArgumentException('Non puoi spostare un agente sotto un suo discendente: creerebbe un ciclo nell\'albero.');
             }
+        } else {
+            $systemRootId = SystemSetting::mlmSettings()->mlm_root_agent_id;
+            if ($systemRootId && (int) $systemRootId !== $agent->id) {
+                throw new \InvalidArgumentException('Solo l\'agente radice del sistema puo\' restare senza sponsor. Scegli un altro sponsor, oppure cambia la radice di sistema da Impostazioni MLM.');
+            }
         }
 
+        $this->moveAgentCore($agent, $newSponsor, $actor);
+    }
+
+    /**
+     * Nucleo strutturale dello spostamento, SENZA la guardia "radice unica"
+     * di moveAgent() — usato internamente da setSystemRootAgent() per
+     * costruire deliberatamente il nuovo stato a radice singola (che
+     * altrimenti la guardia impedirebbe durante la transizione). Non
+     * chiamare direttamente dall'esterno: usa moveAgent() o setSystemRootAgent().
+     */
+    protected function moveAgentCore(User $agent, ?User $newSponsor, ?User $actor = null): void
+    {
         DB::transaction(function () use ($agent, $newSponsor, $actor): void {
             $oldSponsorRow = MlmAgentClosure::where('descendant_id', $agent->id)->where('depth', 1)->first();
             $oldSponsorId = $oldSponsorRow?->ancestor_id;

@@ -835,6 +835,10 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
     Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
 
+    // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
+    Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');
+    Route::post('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'updateRootAgent'])->name('admin.mlm.settings.root-agent.update')->middleware('backoffice');
+
     // Punti/agenti "omaggio" (2026-07-14): assegnazione in blocco da /admin/mlm, vedi MlmMetricGrantController.
     Route::post('/admin/mlm-punti-omaggio', [MlmMetricGrantController::class, 'store'])->name('admin.mlm.metric-grants.store')->middleware('backoffice');
     Route::delete('/admin/mlm-punti-omaggio/{mlmMetricGrant}', [MlmMetricGrantController::class, 'destroy'])->name('admin.mlm.metric-grants.destroy')->middleware('backoffice');

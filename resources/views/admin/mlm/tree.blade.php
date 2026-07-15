@@ -16,9 +16,12 @@
                 @if($sponsor)
                     <a href="{{ route('admin.mlm.tree', $sponsor) }}" class="btn btn-secondary">&uarr; Sponsor: {{ $sponsor->name }}</a>
                 @endif
+                @if($systemRoot && $systemRoot->id !== $root->id)
+                    <a href="{{ route('admin.mlm.tree', $systemRoot) }}" class="btn btn-secondary">🏠 Radice del sistema</a>
+                @endif
                 <a href="{{ route('admin.mlm.show', $root) }}" class="btn btn-secondary">Scheda agente</a>
                 <a href="{{ route('admin.mlm.tree.move-form', $root) }}" class="btn btn-secondary">Sposta sponsor</a>
-                <a href="{{ route('admin.mlm.tree.roots') }}" class="btn btn-secondary">Tutte le radici</a>
+                <a href="{{ route('admin.mlm.settings.root-agent') }}" class="btn btn-secondary">Impostazioni radice</a>
             @endif
             <a href="{{ route('admin.mlm.index') }}" class="btn btn-secondary">&larr; Elenco agenti</a>
         </div>
@@ -34,6 +37,12 @@
         @endif
     </section>
 @else
+    <div class="card card-pad" style="margin-bottom:14px;border:1px solid #fde68a;background:#fffbeb;">
+        <p style="margin:0;color:#92400e;font-size:13px;">
+            Nessuna radice di sistema ancora designata: il sistema MLM dovrebbe avere un unico grande albero con un'unica radice scelta dall'admin.
+            Scegli un agente come radice unica in <a href="{{ route('admin.mlm.settings.root-agent') }}" style="color:#92400e;font-weight:700;">Impostazioni MLM → Agente radice</a> — l'operazione consolida automaticamente anche gli alberi indipendenti elencati qui sotto.
+        </p>
+    </div>
     <section class="card light-card">
         <table class="admin-table transactions-table">
             <thead>

@@ -92,6 +92,7 @@ class SystemSetting extends Model
         'mlm_agent_contract_text',
         'mlm_agent_contract_version',
         'mlm_points_validity_override_minutes',
+        'mlm_root_agent_id',
     ];
 
     protected function casts(): array
@@ -297,10 +298,11 @@ HTML;
     // ── MLM settings (2026-07-13) ───────────────────────────────────────────────
 
     /**
-     * Impostazioni MLM globali configurabili da admin. Al momento contiene
-     * solo l'override "da test" della scadenza punti (vedi
-     * mlm_points_validity_override_minutes, usato da MlmPointsService), ma è
-     * il posto dove aggiungere futuri interruttori globali MLM.
+     * Impostazioni MLM globali configurabili da admin: l'override "da test"
+     * della scadenza punti (mlm_points_validity_override_minutes, usato da
+     * MlmPointsService) e l'agente radice unico del sistema
+     * (mlm_root_agent_id, vedi MlmTreeService::systemRootAgent()) — il posto
+     * dove aggiungere futuri interruttori globali MLM.
      */
     public static function mlmSettings(): self
     {
@@ -308,8 +310,15 @@ HTML;
             ['code' => 'mlm'],
             [
                 'mlm_points_validity_override_minutes' => null,
+                'mlm_root_agent_id' => null,
             ]
         );
+    }
+
+    /** Agente radice unico del sistema MLM (2026-07-15), se già designato. */
+    public function mlmRootAgent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'mlm_root_agent_id');
     }
 
     public function logoUrl(): ?string

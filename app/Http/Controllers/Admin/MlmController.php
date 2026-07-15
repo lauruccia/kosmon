@@ -125,34 +125,48 @@ class MlmController extends Controller
     }
 
     /**
-     * Albero agenti navigabile: senza {user} mostra le radici (forest),
-     * con {user} il sottoalbero di quell'agente. Cliccando un nodo si
-     * naviga all'albero di quello specifico agente.
+     * Albero agenti navigabile. Con la regola "radice unica" (2026-07-15):
+     * senza {user}, se e' gia' stata designata una radice di sistema
+     * (Impostazioni MLM → Agente radice), si va dritti al suo albero;
+     * altrimenti (bootstrap, nessuna radice ancora scelta) si mostra la
+     * lista delle radici indipendenti esistenti, cosi' l'admin puo'
+     * sceglierne una da Impostazioni MLM. Con {user} mostra il sottoalbero
+     * di quell'agente. Cliccando un nodo si naviga all'albero di quello
+     * specifico agente.
      */
-    public function tree(Request $request, MlmTreeService $treeService, ?User $user = null): View
+    public function tree(Request $request, MlmTreeService $treeService, ?User $user = null): View|RedirectResponse
     {
         $this->authorizeBackoffice($request->user());
 
         if ($user) {
             abort_unless($user->isMlmAgent(), 404);
 
+            $systemRoot = $treeService->systemRootAgent();
+
             return view('admin.mlm.tree', [
-                'pageTitle' => 'Albero — ' . $user->name,
-                'root'      => $user,
-                'tree'      => $treeService->subtree($user),
-                'roots'     => null,
-                'sponsor'   => $treeService->currentSponsor($user),
-                'activeNav' => 'mlm',
+                'pageTitle'  => 'Albero — ' . $user->name,
+                'root'       => $user,
+                'tree'       => $treeService->subtree($user),
+                'roots'      => null,
+                'sponsor'    => $treeService->currentSponsor($user),
+                'systemRoot' => $systemRoot,
+                'activeNav'  => 'mlm',
             ]);
         }
 
+        $systemRoot = $treeService->systemRootAgent();
+        if ($systemRoot) {
+            return redirect()->route('admin.mlm.tree', $systemRoot);
+        }
+
         return view('admin.mlm.tree', [
-            'pageTitle' => 'Albero agenti',
-            'root'      => null,
-            'tree'      => null,
-            'roots'     => $treeService->rootAgents(),
-            'sponsor'   => null,
-            'activeNav' => 'mlm',
+            'pageTitle'  => 'Albero agenti',
+            'root'       => null,
+            'tree'       => null,
+            'roots'      => $treeService->rootAgents(),
+            'sponsor'    => null,
+            'systemRoot' => null,
+            'activeNav'  => 'mlm',
         ]);
     }
 
@@ -180,13 +194,19 @@ class MlmController extends Controller
             ->orderBy('name')
             ->paginate(20)->withQueryString();
 
+        $systemRoot = $treeService->systemRootAgent();
+
         return view('admin.mlm.move', [
-            'pageTitle'  => 'Sposta ' . $user->name,
-            'agent'      => $user,
-            'sponsor'    => $treeService->currentSponsor($user),
-            'candidates' => $candidates,
-            'search'     => $search,
-            'activeNav'  => 'mlm',
+            'pageTitle'     => 'Sposta ' . $user->name,
+            'agent'         => $user,
+            'sponsor'       => $treeService->currentSponsor($user),
+            'candidates'    => $candidates,
+            'search'        => $search,
+            // Con la regola "radice unica" (2026-07-15), "Nessuno sponsor" è
+            // permesso solo per l'agente che è già la radice di sistema (o
+            // quando non ne è ancora stata designata nessuna).
+            'canBecomeRoot' => ! $systemRoot || $systemRoot->id === $user->id,
+            'activeNav'     => 'mlm',
         ]);
     }
 

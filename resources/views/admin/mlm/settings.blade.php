@@ -13,6 +13,20 @@
     </div>
 </div>
 
+<section class="card card-pad" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+        <strong style="display:block;font-size:14px;">Agente radice del sistema</strong>
+        <span style="color:var(--ink-muted);font-size:12px;">
+            @if($currentRootAgent)
+                Radice attuale: {{ $currentRootAgent->name }}
+            @else
+                Nessuna radice ancora designata
+            @endif
+        </span>
+    </div>
+    <a href="{{ route('admin.mlm.settings.root-agent') }}" class="btn btn-secondary">{{ $currentRootAgent ? 'Cambia radice' : 'Scegli radice' }}</a>
+</section>
+
 <form method="POST" action="{{ route('admin.mlm.settings.update') }}">
     @csrf
 
