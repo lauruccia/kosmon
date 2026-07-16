@@ -96,6 +96,37 @@ class MlmCommissionEngine
     }
 
     /**
+     * Stato di gating dei livelli indiretti 1-5 dato il profilo attivo di un
+     * agente (punti attivi personali + n. Basic diretti al 1 livello), senza
+     * dover camminare l'albero o toccare il database. Riusa le stesse soglie
+     * di INDIRECT_REQUIREMENTS usate da calculateIndirect(), cosi' un
+     * eventuale cambio di soglia resta a un solo posto. Usato anche dal
+     * comando mlm:simula per mostrare quali livelli indiretti un agente
+     * incasserebbe con numeri scelti a mano.
+     *
+     * @return array<int, array{required_points:int, required_basics:int, points_ok:bool, basics_ok:bool, met:bool}>
+     */
+    public function indirectGatingStatus(int $activePoints, int $level1BasicCount): array
+    {
+        $status = [];
+
+        foreach (self::INDIRECT_REQUIREMENTS as $level => [$requiredPoints, $requiredBasics]) {
+            $pointsOk = $activePoints >= $requiredPoints;
+            $basicsOk = $level1BasicCount >= $requiredBasics;
+
+            $status[$level] = [
+                'required_points' => $requiredPoints,
+                'required_basics' => $requiredBasics,
+                'points_ok' => $pointsOk,
+                'basics_ok' => $basicsOk,
+                'met' => $pointsOk && $basicsOk,
+            ];
+        }
+
+        return $status;
+    }
+
+    /**
      * Esegue (o recupera, se gia' completato) il calcolo commissioni per il
      * mese indicato. Idempotente a livello di run e di singola riga.
      */
