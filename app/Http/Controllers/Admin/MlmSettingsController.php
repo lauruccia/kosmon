@@ -53,6 +53,7 @@ class MlmSettingsController extends Controller
             'requirements' => $requirements,
             'ranks' => $this->configurableRanks(),
             'pointsValidityOverrideMinutes' => SystemSetting::mlmSettings()->mlm_points_validity_override_minutes,
+            'knmMarginPercent' => SystemSetting::mlmSettings()->mlmKnmMarginPercent(),
             'currentRootAgent' => $treeService->systemRootAgent(),
             'activeNav' => 'mlm',
         ]);
@@ -66,6 +67,11 @@ class MlmSettingsController extends Controller
 
         $rules = [
             'points_validity_override_minutes' => ['nullable', 'integer', 'min:1'],
+            // Margine KNM ("Prov K"): percentuale del compenso KNM su cui si
+            // calcolano TUTTE le commissioni (2026-07-16). Nullable per
+            // retro-compatibilita' (assente/vuoto = default 30, vedi
+            // SystemSetting::mlmKnmMarginPercent()).
+            'knm_margin_percent' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
         foreach ($ranks as $rank) {
             foreach (self::REQUIREMENT_FIELDS as $field) {
@@ -86,7 +92,15 @@ class MlmSettingsController extends Controller
         $before = $settings->mlm_points_validity_override_minutes;
         $after = $validated['points_validity_override_minutes'] ?? null;
 
-        $settings->forceFill(['mlm_points_validity_override_minutes' => $after])->save();
+        $marginBefore = $settings->mlmKnmMarginPercent();
+        $marginAfter = isset($validated['knm_margin_percent'])
+            ? (int) $validated['knm_margin_percent']
+            : SystemSetting::MLM_KNM_MARGIN_DEFAULT_PERCENT;
+
+        $settings->forceFill([
+            'mlm_points_validity_override_minutes' => $after,
+            'mlm_knm_margin_percent' => $marginAfter,
+        ])->save();
 
         AuditLog::create([
             'actor_user_id' => $request->user()->id,
@@ -97,6 +111,8 @@ class MlmSettingsController extends Controller
                 'requirements' => $validated['requirements'],
                 'points_validity_override_minutes_before' => $before,
                 'points_validity_override_minutes_after' => $after,
+                'knm_margin_percent_before' => $marginBefore,
+                'knm_margin_percent_after' => $marginAfter,
             ],
         ]);
 

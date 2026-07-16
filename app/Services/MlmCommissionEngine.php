@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MlmCommission;
 use App\Models\MlmCommissionRun;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -12,11 +13,23 @@ use Illuminate\Support\Facades\DB;
  * Motore commissioni mensili (dirette + indirette). Vedi MLM_PROPOSAL.md §5.
  *
  * Eseguito il 1° di ogni mese sulla base dell'"importo mensile" attivo di
- * ciascun cliente (mlm_commission_base_ledger, stesso smoothing dei punti):
+ * ciascun cliente (mlm_commission_base_ledger, stesso smoothing dei punti).
+ *
+ * BASE = "PROV K", NON L'IMPORTO PIENO (2026-07-16, "le slide fanno fede"):
+ * le tabelle "Esempio compensi" delle slide applicano tutte le percentuali
+ * (dirette e indirette) a Prov K = importo mensile x margine KNM — il
+ * margine e' il parametro "30 %" / "10 %" in testa alle tabelle (colonna
+ * "Prov K" = 30% di "MontImp"), configurabile da admin
+ * (SystemSetting::mlmKnmMarginPercent(), default 30) e fotografato per
+ * deposito in mlm_commission_base_ledger.knm_margin_percent (snapshot; NULL
+ * sulle righe storiche = valore corrente del setting). Coerente con la
+ * slide del residuale: "fino al 40% del COMPENSO KNM sulle vendite dirette".
+ * Verificato riproducendo al centesimo tutte e 4 le tabelle delle slide
+ * (vedi MlmSlideCompensationTablesTest).
  *
  *  - DIRETTA: l'agente diretto di un cliente guadagna una % (in base ai
- *    PROPRI punti attivi) sull'importo mensile di quel cliente.
- *  - INDIRETTA: ogni agente guadagna una % fissa sull'importo mensile dei
+ *    PROPRI punti attivi) sul Prov K mensile di quel cliente.
+ *  - INDIRETTA: ogni agente guadagna una % fissa sul Prov K mensile dei
  *    clienti di ciascun agente della propria downline, in base al livello
  *    (1=4%, 2=2%, 3=1%, 4=0,5%, 5=8% — quest'ultima uniforme per QUALSIASI
  *    agente, vedi tabella "Compensi indiretti" in 2°ParteKnm.pptx, verificata
@@ -175,13 +188,22 @@ class MlmCommissionEngine
             ->whereDate('valid_until', '>=', $dateString)
             ->get();
 
-        // Per ciascun agente diretto: mappa cliente -> importo mensile attivo
-        // (un cliente puo' avere piu' righe se ha fatto piu' depositi ancora attivi).
+        // Margine KNM corrente: fallback per le righe storiche senza snapshot
+        // (create prima del 2026-07-16, colonna knm_margin_percent NULL).
+        $fallbackMarginPercent = SystemSetting::mlmSettings()->mlmKnmMarginPercent();
+
+        // Per ciascun agente diretto: mappa cliente -> PROV K mensile attivo
+        // (= importo mensile x margine KNM della riga, arrotondato al
+        // centesimo per riga; un cliente puo' avere piu' righe se ha fatto
+        // piu' depositi ancora attivi). E' su questa base — il compenso KNM,
+        // non l'importo pieno — che si applicano tutte le percentuali.
         $clientsByAgent = [];
         foreach ($activeBaseRows as $row) {
             $agentId = (int) $row->direct_agent_id;
             $clientId = (int) $row->client_user_id;
-            $clientsByAgent[$agentId][$clientId] = ($clientsByAgent[$agentId][$clientId] ?? 0) + (int) $row->monthly_amount_eur_cents;
+            $marginPercent = $row->knm_margin_percent !== null ? (int) $row->knm_margin_percent : $fallbackMarginPercent;
+            $provK = (int) round((int) $row->monthly_amount_eur_cents * $marginPercent / 100);
+            $clientsByAgent[$agentId][$clientId] = ($clientsByAgent[$agentId][$clientId] ?? 0) + $provK;
         }
 
         $agents = User::where('mlm_role', 'agente')->get()->keyBy('id');

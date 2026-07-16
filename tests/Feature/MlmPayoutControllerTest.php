@@ -148,7 +148,10 @@ class MlmPayoutControllerTest extends TestCase
 
         $commission = MlmCommission::where('agent_user_id', $agent->id)->where('type', 'diretta')->first();
         $this->assertNotNull($commission, 'Il comando mlm:calculate-commissions deve essere stato eseguito sincronamente.');
-        $this->assertSame(2_000, $commission->amount_eur_cents);
+        // 100 EUR/mese -> Prov K 30 EUR (margine KNM default 30%, riga senza
+        // snapshot, 2026-07-16) -> 20% = 6 EUR. Prima del passaggio a Prov K
+        // era 20 EUR sull'importo pieno.
+        $this->assertSame(600, $commission->amount_eur_cents);
 
         $this->assertDatabaseHas('audit_logs', [
             'event'        => 'admin.mlm.manual_calculate_commissions',
@@ -194,7 +197,8 @@ class MlmPayoutControllerTest extends TestCase
 
         $payout = MlmPayout::where('agent_user_id', $agent->id)->first();
         $this->assertNotNull($payout);
-        $this->assertSame(2_000, $payout->commissions_total_eur_cents);
+        // Prov K: 20% di (100 EUR x margine 30%) = 6 EUR (vedi test precedente).
+        $this->assertSame(600, $payout->commissions_total_eur_cents);
 
         $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.payouts.index'));
         $response->assertOk();

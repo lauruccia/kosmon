@@ -103,7 +103,7 @@
                 <th>Cliente sorgente</th>
                 <th>Agente sorgente (indiretta)</th>
                 <th>Livello</th>
-                <th>Base</th>
+                <th>Base (Prov K)</th>
                 <th>%</th>
                 <th>Importo</th>
             </tr>

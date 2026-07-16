@@ -63,6 +63,28 @@
         @endif
     </section>
 
+    {{-- ── Compenso KNM (Prov K) ── --}}
+    <section class="card card-pad" style="margin-bottom:14px;">
+        <h3 style="margin:0 0 6px;font-size:15px;">Compenso KNM — "Prov K"</h3>
+        <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
+            Percentuale del compenso KNM sull'importo mensile dei clienti (la colonna "Prov K" delle slide "Esempio compensi": 30% negli esempi principali, 10% in uno).
+            <strong>Tutte le commissioni del reddito residuale — dirette e indirette — si calcolano su questa base</strong>, non sull'importo pieno del deposito.
+            Il valore viene fotografato su ogni nuovo deposito: cambiarlo qui vale solo per i depositi futuri, quelli già registrati mantengono il loro margine.
+        </p>
+        <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+            <div>
+                <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Margine KNM (%)</label>
+                <input type="number" id="knm_margin_percent" name="knm_margin_percent" min="1" max="100" step="1"
+                    value="{{ old('knm_margin_percent', $knmMarginPercent) }}"
+                    style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;background:var(--surface-soft);color:var(--ink);outline:none;width:120px;">
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:2px;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('knm_margin_percent').value=30">30% (slide)</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('knm_margin_percent').value=10">10%</button>
+            </div>
+        </div>
+    </section>
+
     {{-- ── Requisiti per grado ── --}}
     <section class="card light-card" style="margin-bottom:14px;">
         <div style="padding:14px 16px 0;">

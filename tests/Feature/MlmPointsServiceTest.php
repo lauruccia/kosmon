@@ -92,6 +92,24 @@ class MlmPointsServiceTest extends TestCase
 
         $baseLedger = MlmCommissionBaseLedgerEntry::where('client_user_id', $client->id)->sole();
         $this->assertSame(10_000, $baseLedger->monthly_amount_eur_cents); // 120.000 / 12 mesi
+        // Snapshot del margine KNM ("Prov K") al momento del deposito
+        // (default 30%, slide "Esempio compensi" — 2026-07-16).
+        $this->assertSame(30, $baseLedger->knm_margin_percent);
+    }
+
+    public function test_deposit_snapshots_the_current_knm_margin(): void
+    {
+        // Cambiando il margine in admin, i NUOVI depositi fotografano il
+        // valore corrente (i vecchi mantengono il loro, vedi
+        // MlmCommissionEngineTest::test_per_row_margin_snapshot_wins_over_the_current_setting).
+        SystemSetting::mlmSettings()->forceFill(['mlm_knm_margin_percent' => 10])->save();
+
+        $agent = $this->makeAgent();
+        $client = $this->makeClient($agent);
+        $this->service->awardDepositPoints($client, 120_000);
+
+        $baseLedger = MlmCommissionBaseLedgerEntry::where('client_user_id', $client->id)->sole();
+        $this->assertSame(10, $baseLedger->knm_margin_percent);
     }
 
     public function test_deposit_below_minimum_threshold_awards_no_points(): void

@@ -120,6 +120,12 @@ class MlmPointsService
             'direct_agent_id' => $agent->id,
             'source_transfer_id' => $sourceTransferId,
             'monthly_amount_eur_cents' => $monthlyAmount,
+            // Snapshot del margine KNM ("Prov K") al momento del deposito:
+            // le commissioni si calcolano su monthly_amount x margine/100,
+            // e un futuro cambio del margine in admin non deve riscrivere
+            // retroattivamente i depositi gia' fatti (2026-07-16, slide
+            // "Esempio compensi" — vedi MlmCommissionEngine).
+            'knm_margin_percent' => SystemSetting::mlmSettings()->mlmKnmMarginPercent(),
             'valid_from' => now()->toDateString(),
             'valid_until' => now()->addMonths($durationMonths)->toDateString(),
         ]);

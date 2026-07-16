@@ -37,6 +37,14 @@ class MlmCommissionEngineTest extends TestCase
         parent::setUp();
         $this->tree = new MlmTreeService();
         $this->engine = new MlmCommissionEngine($this->tree);
+
+        // Questi test coprono la MECCANICA (soglie, gating, breakaway) con
+        // importi tondi: margine KNM al 100% cosi' Prov K == importo pieno e
+        // le attese numeriche restano leggibili. Il calcolo su Prov K con i
+        // margini reali delle slide (30%/10%) e' coperto da
+        // MlmSlideCompensationTablesTest e dai test dedicati in coda a
+        // questa classe.
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_knm_margin_percent' => 100])->save();
     }
 
     private function makeAgent(string $rank = 'start'): User
@@ -306,6 +314,57 @@ class MlmCommissionEngineTest extends TestCase
             0,
             MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $levelSixAgent->id)->count()
         );
+    }
+
+    public function test_direct_commission_is_calculated_on_prov_k_not_on_the_full_amount(): void
+    {
+        // Slide "Esempio compensi" (2026-07-16, "le slide fanno fede"): le
+        // percentuali si applicano a Prov K = importo mensile x margine KNM.
+        // Qui margine 30% (default slide): base 100 EUR -> Prov K 30 EUR,
+        // 20% (48 punti) -> 6 EUR, non 20 EUR.
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_knm_margin_percent' => 30])->save();
+
+        $agent = $this->makeAgent();
+        $this->givePoints($agent, 50); // >= 48 -> 20%
+        $this->giveMonthlyBase($agent, 10_000);
+
+        // La riga creata dall'helper non ha snapshot: simula una riga storica
+        // (fallback al setting corrente). Il caso con snapshot esplicito e'
+        // coperto dal test successivo.
+        $this->engine->runForMonth(now());
+
+        $commission = MlmCommission::where('agent_user_id', $agent->id)->where('type', 'diretta')->first();
+        $this->assertNotNull($commission);
+        $this->assertSame(3_000, $commission->base_amount_eur_cents, 'La base salvata deve essere Prov K (30% di 100 EUR).');
+        $this->assertSame(600, $commission->amount_eur_cents, '20% di Prov K (30 EUR) = 6 EUR.');
+    }
+
+    public function test_per_row_margin_snapshot_wins_over_the_current_setting(): void
+    {
+        // Lo snapshot knm_margin_percent scritto al momento del deposito
+        // prevale sul setting corrente: cambiare il margine in admin NON
+        // riscrive retroattivamente i depositi gia' fatti.
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_knm_margin_percent' => 30])->save();
+
+        $agent = $this->makeAgent();
+        $this->givePoints($agent, 50); // >= 48 -> 20%
+        $client = $this->makeClient($agent);
+
+        MlmCommissionBaseLedgerEntry::create([
+            'client_user_id'           => $client->id,
+            'direct_agent_id'          => $agent->id,
+            'monthly_amount_eur_cents' => 10_000,
+            'knm_margin_percent'       => 10, // snapshot al deposito: 10%
+            'valid_from'               => now()->startOfMonth()->toDateString(),
+            'valid_until'              => now()->addMonths(11)->toDateString(),
+        ]);
+
+        $this->engine->runForMonth(now());
+
+        $commission = MlmCommission::where('agent_user_id', $agent->id)->where('type', 'diretta')->first();
+        $this->assertNotNull($commission);
+        $this->assertSame(1_000, $commission->base_amount_eur_cents, 'Base = Prov K con lo snapshot 10%, non col setting corrente 30%.');
+        $this->assertSame(200, $commission->amount_eur_cents, '20% di 10 EUR = 2 EUR.');
     }
 
     public function test_indirect_commission_beyond_level_5_applies_for_breakaway_rank_and_stops_descent(): void

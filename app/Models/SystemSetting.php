@@ -92,6 +92,7 @@ class SystemSetting extends Model
         'mlm_agent_contract_text',
         'mlm_agent_contract_version',
         'mlm_points_validity_override_minutes',
+        'mlm_knm_margin_percent',
         'mlm_root_agent_id',
     ];
 
@@ -310,9 +311,30 @@ HTML;
             ['code' => 'mlm'],
             [
                 'mlm_points_validity_override_minutes' => null,
+                'mlm_knm_margin_percent' => self::MLM_KNM_MARGIN_DEFAULT_PERCENT,
                 'mlm_root_agent_id' => null,
             ]
         );
+    }
+
+    /**
+     * Margine KNM di default ("Prov K", 2026-07-16): le slide "Esempio
+     * compensi" usano il 30% nelle tabelle principali (10% in una — e' un
+     * parametro, per questo e' configurabile da admin).
+     */
+    public const MLM_KNM_MARGIN_DEFAULT_PERCENT = 30;
+
+    /**
+     * Margine KNM corrente in percento intero (1-100). Le percentuali del
+     * reddito residuale MLM (dirette e indirette) si applicano a
+     * "Prov K" = importo mensile del cliente x questo margine — mai
+     * all'importo pieno (slide "Esempio compensi", confermato da Laura il
+     * 2026-07-16: "le slide fanno fede"). NULL su una riga esistente
+     * (es. prod gia' creata prima del 2026-07-16) = default 30.
+     */
+    public function mlmKnmMarginPercent(): int
+    {
+        return (int) ($this->mlm_knm_margin_percent ?? self::MLM_KNM_MARGIN_DEFAULT_PERCENT);
     }
 
     /** Agente radice unico del sistema MLM (2026-07-15), se già designato. */

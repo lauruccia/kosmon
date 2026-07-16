@@ -88,6 +88,8 @@ Un nuovo agente diventa **BasiQ** se raggiunge 12 punti personali entro 30 giorn
 
 Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la durata di smoothing (§4.1, es. deposito 1.200€ → 100€/mese per 12 mesi), sommato su tutti i mesi ancora "attivi" per quel cliente. Non solo il deposito del mese corrente.
 
+**Aggiornato il 2026-07-16 — base = "Prov K", non l'importo pieno ("le slide fanno fede")**: le tabelle "Esempio compensi" delle slide applicano tutte le percentuali (dirette §5.1 e indirette §5.2) a **Prov K = importo mensile × margine KNM** — il margine è il parametro "30 %" / "10 %" in testa alle tabelle (colonna "Prov K" = 30% di "MontImp"), riprodotte al centesimo con script il 2026-07-16. Coerente con la slide del residuale: "fino al 40% del **compenso KNM** sulle vendite dirette". Il margine è configurabile da admin (`/admin/mlm-impostazioni`, default 30%) e viene **fotografato per deposito** in `mlm_commission_base_ledger.knm_margin_percent`: un cambio del margine vale solo per i depositi futuri. Le commissioni già calcolate nei run passati restano storiche (stesso principio della retrocessione §4.2). Nota: la slide riepilogativa "Reddito residuale" fa 8% di 140.000€ saltando Prov K — le 4 tabelle dettagliate (con due margini diversi) sono la fonte coerente e sono quelle seguite. Vedi `MlmCommissionEngine` e `MlmSlideCompensationTablesTest`.
+
 ### 5.1 Commissioni dirette (sui propri clienti)
 
 % applicata in base ai **punti attivi dell'agente** al momento del calcolo:

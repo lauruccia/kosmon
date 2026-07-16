@@ -182,6 +182,36 @@ class MlmSettingsControllerTest extends TestCase
         $this->assertNull(SystemSetting::mlmSettings()->fresh()->mlm_points_validity_override_minutes);
     }
 
+    public function test_admin_can_change_the_knm_margin_and_missing_field_falls_back_to_30(): void
+    {
+        $admin = $this->makeAdmin();
+        $payload = $this->requirementsPayload();
+
+        // Imposta il margine KNM ("Prov K") al 10% (la tabella slide col 10%).
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'knm_margin_percent' => 10,
+            'requirements' => $payload,
+        ])->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(10, SystemSetting::mlmSettings()->fresh()->mlmKnmMarginPercent());
+
+        // Senza il campo (form vecchi / campo svuotato) torna al default 30.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $payload,
+        ])->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(30, SystemSetting::mlmSettings()->fresh()->mlmKnmMarginPercent());
+
+        // Fuori range (>100) viene rifiutato.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'knm_margin_percent' => 250,
+            'requirements' => $payload,
+        ])->assertSessionHasErrors('knm_margin_percent');
+    }
+
     public function test_recalculate_now_runs_the_nightly_command_synchronously(): void
     {
         $admin = $this->makeAdmin();

@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
  * @property int $direct_agent_id
  * @property int|null $source_transfer_id
  * @property int $monthly_amount_eur_cents
+ * @property int|null $knm_margin_percent
  * @property \Illuminate\Support\Carbon $valid_from
  * @property \Illuminate\Support\Carbon $valid_until
  * @property-read User $client
@@ -31,6 +32,7 @@ class MlmCommissionBaseLedgerEntry extends Model
         'direct_agent_id',
         'source_transfer_id',
         'monthly_amount_eur_cents',
+        'knm_margin_percent',
         'valid_from',
         'valid_until',
     ];
