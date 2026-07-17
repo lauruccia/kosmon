@@ -721,6 +721,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/companies/{company}/activate', [CompanyController::class, 'activateCompany'])->name('admin.companies.activate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/ky-percentage', [CompanyController::class, 'updateKyPercentage'])->name('admin.companies.ky-percentage')->middleware('backoffice');
     Route::get('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'confirmCompany'])->name('admin.companies.purge-test')->middleware('backoffice');
     Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');

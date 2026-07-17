@@ -285,6 +285,31 @@ class CompanyController extends Controller
     }
 
     /** POST /admin/companies/{company}/plan */
+    /** POST /admin/companies/{company}/ky-percentage */
+    public function updateKyPercentage(Request $request, Company $company): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'accepted_ky_percentage' => ['nullable', 'integer', \Illuminate\Validation\Rule::in(Company::ACCEPTED_KY_PERCENTAGES)],
+        ]);
+
+        $value = $validated['accepted_ky_percentage'] ?? null;
+        $company->update(['accepted_ky_percentage' => $value !== null ? (int) $value : null]);
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.company.ky_percentage_updated',
+            'auditable_type' => Company::class,
+            'auditable_id'   => $company->id,
+            'context'        => ['accepted_ky_percentage' => $value],
+        ]);
+
+        return back()->with('portal_success', $value !== null
+            ? 'Percentuale Kmoney di ' . $company->name . ' impostata al ' . $value . '%.'
+            : 'Percentuale Kmoney di ' . $company->name . ' rimossa (non dichiarata).');
+    }
+
     public function updatePlan(Request $request, Company $company): RedirectResponse
     {
         $this->authorizeBackoffice($request->user());

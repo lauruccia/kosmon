@@ -272,6 +272,88 @@ class CompanyKyAcceptanceTest extends TestCase
         $this->assertLessThan($posLow, $posHigh, 'Chi accetta il 100% deve comparire prima di chi accetta il 25%.');
     }
 
+    // ── Admin: vede e imposta la % dell'azienda ───────────────────────────────
+
+    private function makeAdmin(): User
+    {
+        $user = User::create([
+            'name'                => 'Admin KyAcc',
+            'email'               => 'admin-kyacc-' . Str::random(6) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'is_active'           => true,
+            'is_super_admin'      => true,
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+        return $user;
+    }
+
+    public function test_admin_can_set_company_ky_percentage(): void
+    {
+        $admin = $this->makeAdmin();
+        [, $company] = $this->makeCompanyUser();
+
+        $response = $this->actingAs($admin)->post(route('admin.companies.ky-percentage', $company), [
+            'accepted_ky_percentage' => 75,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(75, $company->fresh()->accepted_ky_percentage);
+    }
+
+    public function test_admin_can_clear_company_ky_percentage(): void
+    {
+        $admin = $this->makeAdmin();
+        [, $company] = $this->makeCompanyUser();
+        $company->update(['accepted_ky_percentage' => 50]);
+
+        $this->actingAs($admin)->post(route('admin.companies.ky-percentage', $company), [
+            'accepted_ky_percentage' => '',
+        ]);
+
+        $this->assertNull($company->fresh()->accepted_ky_percentage);
+    }
+
+    public function test_admin_invalid_ky_percentage_is_rejected(): void
+    {
+        $admin = $this->makeAdmin();
+        [, $company] = $this->makeCompanyUser();
+
+        $response = $this->actingAs($admin)->post(route('admin.companies.ky-percentage', $company), [
+            'accepted_ky_percentage' => 33,
+        ]);
+
+        $response->assertSessionHasErrors('accepted_ky_percentage');
+        $this->assertNull($company->fresh()->accepted_ky_percentage);
+    }
+
+    public function test_non_admin_cannot_set_company_ky_percentage(): void
+    {
+        [$user] = $this->makeCompanyUser();
+        [, $other] = $this->makeCompanyUser();
+
+        $this->actingAs($user)->post(route('admin.companies.ky-percentage', $other), [
+            'accepted_ky_percentage' => 100,
+        ])->assertForbidden();
+
+        $this->assertNull($other->fresh()->accepted_ky_percentage);
+    }
+
+    public function test_admin_company_page_shows_ky_percentage_card(): void
+    {
+        $admin = $this->makeAdmin();
+        [$user, $company] = $this->makeCompanyUser();
+        $company->update(['accepted_ky_percentage' => 25]);
+        $this->makeListing($company, $user, 75);
+
+        $this->actingAs($admin)->get(route('admin.companies.show', $company))
+            ->assertOk()
+            ->assertSee('% Kmoney accettata')
+            ->assertSee('Migliore % prodotti attivi')
+            ->assertSee('admin/companies/' . $company->id . '/ky-percentage');
+    }
+
     // ── Profilo pubblico azienda ──────────────────────────────────────────────
 
     public function test_public_company_profile_shows_acceptance_chip(): void

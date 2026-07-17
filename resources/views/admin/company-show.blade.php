@@ -1,6 +1,13 @@
 @extends('layouts.portal')
 
 @section('content')
+<style>
+    /* Griglia a 2 colonne flessibili: niente colonna fissa 306px (le card
+       larghe sfondavano sotto i movimenti) e niente sezioni orfane. */
+    .co-admin-grid { display:grid; gap:16px; grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); align-items:start; }
+    .co-admin-grid > .stack { min-width:0; }
+    @media (max-width: 1100px) { .co-admin-grid { grid-template-columns:1fr; } }
+</style>
 <section class="page-intro--row page-intro">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <a href="{{ route('admin.companies.index') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:4px;">
@@ -11,6 +18,12 @@
     <h2 style="margin-top:6px;">{{ $company->name }}</h2>
     <p>Gestione azienda nel circuito — assegnazione broker, conto e movimenti.</p>
 </section>
+
+@if(session('portal_success'))
+    <div style="padding:10px 14px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;color:#065f46;font-size:13px;margin-bottom:16px;">
+        {{ session('portal_success') }}
+    </div>
+@endif
 
 {{-- KPI strip --}}
 <div class="kpi-strip" style="margin-bottom:20px;">
@@ -176,7 +189,7 @@
     </section>
 </div>
 
-<div class="portal-grid" style="--grid-cols:2;">
+<div class="co-admin-grid">
 
     {{-- Colonna sinistra --}}
     <div class="stack">
@@ -184,12 +197,6 @@
         {{-- Assegnazione broker --}}
         <section class="card light-card card-pad">
             <div class="eyebrow" style="margin-bottom:12px;">Assegna broker</div>
-
-            @if(session('portal_success'))
-                <div style="padding:10px 14px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;color:#065f46;font-size:13px;margin-bottom:14px;">
-                    {{ session('portal_success') }}
-                </div>
-            @endif
 
             <form method="POST" action="{{ route('admin.companies.broker', $company) }}">
                 @csrf
@@ -500,8 +507,6 @@
             </table>
             @endif
         </section>
-    </div>
-
 
         {{-- ── Tetto massimo (max_balance) ──────────────────────────────── --}}
         @php
@@ -581,6 +586,70 @@
             @endif
         </section>
 
+        {{-- ── % Kmoney accettata (badge directory) ────────────────────────── --}}
+        @php
+            $bestListingPct = $company->bestListingKyPercentage();
+            $effectivePct   = $company->computeEffectiveKyPercentage($mainAccount, $bestListingPct);
+        @endphp
+        <section class="card card-pad">
+            <div class="eyebrow" style="margin-bottom:12px;">% Kmoney accettata (badge directory)</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Dichiarata dall'azienda</div>
+                    <div style="font-size:18px;font-weight:800;color:var(--primary);">
+                        {{ $company->accepted_ky_percentage !== null ? $company->accepted_ky_percentage . '%' : '—' }}
+                    </div>
+                </div>
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Migliore % prodotti attivi</div>
+                    <div style="font-size:18px;font-weight:800;color:var(--primary);">
+                        {{ $bestListingPct !== null ? $bestListingPct . '%' : '—' }}
+                    </div>
+                </div>
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;">Mostrata in directory</div>
+                    <div style="font-size:18px;font-weight:800;">
+                        @if($effectivePct === 100)
+                            <span style="background:linear-gradient(135deg,#fef9c3,#fde047);color:#854d0e;border:1px solid #eab308;border-radius:20px;padding:2px 12px;font-size:14px;">★ 100%</span>
+                        @elseif($effectivePct !== null && $effectivePct > 0)
+                            <span style="color:var(--primary);">{{ $effectivePct }}%</span>
+                        @else
+                            <span style="color:var(--text-muted);">nessun badge</span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            @if($mainAccount && $mainAccount->isInDebit())
+                <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#713f12;">
+                    ⚡ <strong>Saldo sotto zero:</strong> in directory il badge vale sempre <strong>100% Kmoney</strong> e l'azienda non può modificare la % dal portale. Il valore dichiarato tornerà attivo quando il saldo sarà positivo.
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.companies.ky-percentage', $company) }}">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end;">
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">
+                            Percentuale dichiarata (0 / 25 / 50 / 75 / 100)
+                        </label>
+                        <select name="accepted_ky_percentage"
+                            style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                            <option value="">— Non dichiarata —</option>
+                            @foreach(\App\Models\Company::ACCEPTED_KY_PERCENTAGES as $pct)
+                                <option value="{{ $pct }}" @selected($company->accepted_ky_percentage === $pct)>{{ $pct }}% Kmoney</option>
+                            @endforeach
+                        </select>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                            Sulla card della directory viene mostrata in automatico la % migliore tra questa e la migliore % (25–100) dei prodotti attivi dello shop.
+                        </div>
+                    </div>
+                    <button type="submit" class="cta" style="white-space:nowrap;">Salva %</button>
+                </div>
+            </form>
+        </section>
+
         {{-- ── Sospensione account ─────────────────────────────────────────── --}}
         <section class="card card-pad" style="border: 1.5px solid {{ $company->isSuspended() ? '#fca5a5' : 'var(--border)' }};">
             <div class="eyebrow" style="margin-bottom:12px;color:{{ $company->isSuspended() ? '#dc2626' : 'inherit' }};">
@@ -632,5 +701,6 @@
         </section>
         @endif
 
+    </div>
 </div>
 @endsection
