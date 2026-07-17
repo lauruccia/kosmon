@@ -650,6 +650,109 @@
             </form>
         </section>
 
+        {{-- ── Integrazione e-commerce (plugin WooCommerce) ────────────────── --}}
+        <section class="card card-pad">
+            <div class="eyebrow" style="margin-bottom:6px;">🛒 Integrazione e-commerce (plugin WooCommerce)</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">
+                Genera qui il <strong>token API</strong> e il <strong>webhook</strong> di questa azienda e incollali nella
+                configurazione del plugin sul sito del cliente (WooCommerce → Impostazioni → Pagamenti → KMoney),
+                senza bisogno di accedere con l'account del negozio.
+                URL base API da usare nel plugin: <code style="font-size:11px;">{{ rtrim(config('app.url'), '/') }}/api/v1</code>
+            </div>
+
+            @if(session('ecommerce_token_plain'))
+                <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:6px;">Token API — visibile solo ora, copialo nel campo "Token API KMoney" del plugin:</div>
+                    <code style="font-size:12px;word-break:break-all;user-select:all;">{{ session('ecommerce_token_plain') }}</code>
+                </div>
+            @endif
+
+            @if(session('ecommerce_webhook_secret'))
+                <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:6px;">Secret webhook — copialo nel campo "Secret webhook" del plugin:</div>
+                    <code style="font-size:12px;word-break:break-all;user-select:all;">{{ session('ecommerce_webhook_secret') }}</code>
+                </div>
+            @endif
+
+            {{-- Token API dell'azienda --}}
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;">Token API</div>
+            @if(($apiTokens ?? collect())->isEmpty())
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Nessun token attivo.</div>
+            @else
+                <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                    @foreach($apiTokens as $token)
+                        <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;">
+                            <div style="flex:1;min-width:0;">
+                                <strong>{{ $token->name }}</strong>
+                                <code style="font-size:11px;">{{ $token->token_prefix }}…</code>
+                                <span style="color:var(--text-muted);">
+                                    {{ implode('+', $token->abilities ?? []) }}
+                                    · creato {{ $token->created_at?->format('d/m/Y') }}
+                                    · ultimo uso {{ $token->last_used_at ? $token->last_used_at->format('d/m/Y H:i') : 'mai' }}
+                                    @if($token->isExpired()) · <span style="color:#dc2626;font-weight:700;">scaduto</span> @endif
+                                </span>
+                            </div>
+                            <form method="POST" action="{{ route('admin.companies.ecommerce.token.revoke', [$company, $token]) }}">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="cta ghost" style="padding:4px 10px;font-size:11px;color:#dc2626;">Revoca</button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+            <form method="POST" action="{{ route('admin.companies.ecommerce.token', $company) }}" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end;margin-bottom:18px;">
+                @csrf
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">Nome nuovo token (ability read+write)</label>
+                    <input type="text" name="name" value="WooCommerce {{ now()->format('d/m/Y') }}" required maxlength="100"
+                        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                </div>
+                <button type="submit" class="cta" style="white-space:nowrap;">Genera token</button>
+            </form>
+
+            {{-- Webhook dell'azienda --}}
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;">Webhook (payment_request.paid)</div>
+            @if(($webhooks ?? collect())->isEmpty())
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Nessun webhook configurato.</div>
+            @else
+                <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                    @foreach($webhooks as $webhook)
+                        <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;">
+                            <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ $webhook->is_active ? '#16a34a' : '#dc2626' }};margin-right:4px;"></span>
+                                <code style="font-size:11px;">{{ $webhook->url }}</code>
+                                <span style="color:var(--text-muted);">
+                                    · {{ implode(', ', $webhook->events ?? []) }}
+                                    · {{ $webhook->deliveries_count }} consegne
+                                    @if($webhook->failure_count > 0) · <span style="color:#b45309;">{{ $webhook->failure_count }} errori</span> @endif
+                                </span>
+                            </div>
+                            <form method="POST" action="{{ route('admin.companies.ecommerce.webhook.toggle', [$company, $webhook]) }}">
+                                @csrf
+                                <button type="submit" class="cta ghost" style="padding:4px 10px;font-size:11px;">{{ $webhook->is_active ? 'Disattiva' : 'Riattiva' }}</button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.companies.ecommerce.webhook.delete', [$company, $webhook]) }}">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="cta ghost" style="padding:4px 10px;font-size:11px;color:#dc2626;">Elimina</button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+            <form method="POST" action="{{ route('admin.companies.ecommerce.webhook', $company) }}" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end;">
+                @csrf
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text);">URL webhook del sito del cliente</label>
+                    <input type="url" name="url" placeholder="https://negozio-cliente.it/?wc-api=wc_gateway_kmoney" required maxlength="500"
+                        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Per WooCommerce è mostrato nella pagina impostazioni del plugin, forma: <code style="font-size:10px;">https://sito-cliente.it/?wc-api=wc_gateway_kmoney</code>
+                    </div>
+                </div>
+                <button type="submit" class="cta" style="white-space:nowrap;">Crea webhook</button>
+            </form>
+        </section>
+
         {{-- ── Sospensione account ─────────────────────────────────────────── --}}
         <section class="card card-pad" style="border: 1.5px solid {{ $company->isSuspended() ? '#fca5a5' : 'var(--border)' }};">
             <div class="eyebrow" style="margin-bottom:12px;color:{{ $company->isSuspended() ? '#dc2626' : 'inherit' }};">

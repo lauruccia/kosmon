@@ -68,6 +68,7 @@ use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\CompanyEcommerceController;
 use App\Http\Controllers\Admin\CreditLimitController;
 use App\Http\Controllers\Admin\EmissionController;
 use App\Http\Controllers\Admin\RoleController;
@@ -722,6 +723,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ky-percentage', [CompanyController::class, 'updateKyPercentage'])->name('admin.companies.ky-percentage')->middleware('backoffice');
+    // Integrazione e-commerce per conto del negoziante (token API + webhook plugin WooCommerce)
+    Route::post('/admin/companies/{company}/ecommerce/tokens', [CompanyEcommerceController::class, 'createToken'])->name('admin.companies.ecommerce.token')->middleware('backoffice');
+    Route::delete('/admin/companies/{company}/ecommerce/tokens/{apiToken}', [CompanyEcommerceController::class, 'revokeToken'])->name('admin.companies.ecommerce.token.revoke')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/ecommerce/webhooks', [CompanyEcommerceController::class, 'createWebhook'])->name('admin.companies.ecommerce.webhook')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/ecommerce/webhooks/{webhook}/toggle', [CompanyEcommerceController::class, 'toggleWebhook'])->name('admin.companies.ecommerce.webhook.toggle')->middleware('backoffice');
+    Route::delete('/admin/companies/{company}/ecommerce/webhooks/{webhook}', [CompanyEcommerceController::class, 'deleteWebhook'])->name('admin.companies.ecommerce.webhook.delete')->middleware('backoffice');
     Route::get('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'confirmCompany'])->name('admin.companies.purge-test')->middleware('backoffice');
     Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');

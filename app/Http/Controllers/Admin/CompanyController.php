@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Controller;
+use App\Models\ApiToken;
 use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\NettingProposal;
 use App\Models\PaymentPlan;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\Webhook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,6 +68,11 @@ class CompanyController extends Controller
                 ->get()
             : collect();
 
+        // Integrazione e-commerce: token API e webhook dell'azienda,
+        // gestibili dall'admin per configurare i plugin dei clienti.
+        $apiTokens = ApiToken::where('company_id', $company->id)->with('creator')->latest()->get();
+        $webhooks  = Webhook::where('company_id', $company->id)->withCount('deliveries')->latest()->get();
+
         return view('admin.company-show', [
             'pageTitle'       => $company->name,
             'company'         => $company,
@@ -73,6 +80,8 @@ class CompanyController extends Controller
             'staticNfcUrl'    => $staticNfcUrl,
             'brokerUsers'     => $brokerUsers,
             'recentTransfers' => $recentTransfers,
+            'apiTokens'       => $apiTokens,
+            'webhooks'        => $webhooks,
             'activeNav'       => 'companies',
         ]);
     }
