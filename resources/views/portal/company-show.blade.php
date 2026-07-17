@@ -197,6 +197,9 @@
             @if ($company->kyc_status === 'approved')
                 <span class="profile-chip verified">✓ Verificata</span>
             @endif
+            @if (($effectiveKyPct ?? null) !== null && $effectiveKyPct > 0)
+                <span class="profile-chip" style="background:linear-gradient(135deg,#fef9c3,#fde047);color:#854d0e;font-weight:800;" title="Percentuale del prezzo accettata in Kmoney">{{ $effectiveKyPct === 100 ? '★ Accetta 100% Kmoney' : '✓ Accetta Kmoney ' . $effectiveKyPct . '%' }}</span>
+            @endif
             @if ($company->approved_at)
                 <span class="profile-chip">Socio dal {{ $company->approved_at->locale('it')->isoFormat('MMM YYYY') }}</span>
             @endif

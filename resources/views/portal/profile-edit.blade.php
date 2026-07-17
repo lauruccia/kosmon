@@ -189,6 +189,21 @@
     }
     .logo-zone { width: 100px; height: 100px; border-radius: 50% !important; }
     .banner-zone { height: 100px; }
+
+    /* ── Accettazione Kmoney ── */
+    .ky-pct-group { display:flex; gap:8px; flex-wrap:wrap; }
+    .ky-pct-pill {
+        position:relative; cursor:pointer;
+        border:1.5px solid var(--line); border-radius:99px;
+        padding:8px 18px; font-size:13px; font-weight:700; color:var(--ink-soft);
+        background:var(--surface-soft);
+        transition:all .15s;
+    }
+    .ky-pct-pill:hover { border-color:var(--primary); color:var(--primary); }
+    .ky-pct-pill input { position:absolute; opacity:0; pointer-events:none; }
+    .ky-pct-pill:has(input:checked) {
+        background:var(--primary); border-color:var(--primary); color:#fff;
+    }
 </style>
 
 <form method="POST" action="{{ route('portal.profile.update') }}" id="profile-form" enctype="multipart/form-data">
@@ -268,6 +283,39 @@
                         @error('description')<span class="field-error">{{ $message }}</span>@enderror
                     </div>
 
+                </div>
+            </div>
+
+            {{-- Accettazione Kmoney --}}
+            <div class="profile-section">
+                <div class="profile-section-header">
+                    <div class="profile-section-icon">💠</div>
+                    <h2 class="profile-section-title">Accettazione Kmoney</h2>
+                </div>
+                <div class="profile-section-body">
+                    @if($kyPercentageLocked)
+                        <div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.6;">
+                            ⚡ Il saldo del tuo conto è <strong>sotto zero</strong>: finché non torna positivo accetti sempre pagamenti al <strong>100% Kmoney</strong> e questa impostazione non è modificabile.
+                        </div>
+                    @else
+                        <p style="font-size:12.5px;color:var(--ink-muted);margin:0 0 14px;line-height:1.6;">
+                            Indica la percentuale del prezzo che accetti in <strong>Kmoney</strong> (il resto in euro).
+                            La percentuale è visibile sulla tua card nella directory delle aziende:
+                            chi accetta la % più alta ottiene <strong>maggiore visibilità</strong>.
+                            Se nello shop carichi prodotti con una % più alta, sulla card viene mostrata in automatico la % migliore.
+                        </p>
+                        @php $currentKyPct = old('accepted_ky_percentage', $company->accepted_ky_percentage); @endphp
+                        <div class="ky-pct-group">
+                            @foreach($acceptedKyPercentages as $pct)
+                                <label class="ky-pct-pill">
+                                    <input type="radio" name="accepted_ky_percentage" value="{{ $pct }}"
+                                           @checked($currentKyPct !== null && (int) $currentKyPct === $pct)>
+                                    <span>{{ $pct }}%</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('accepted_ky_percentage')<span class="field-error">{{ $message }}</span>@enderror
+                    @endif
                 </div>
             </div>
 

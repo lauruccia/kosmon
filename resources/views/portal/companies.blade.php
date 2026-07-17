@@ -208,6 +208,7 @@
     .ky-badge--mix   { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
     .ky-badge--debit { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
     .ky-badge--ceil  { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+    .ky-badge--gold  { background:linear-gradient(135deg,#fef9c3,#fde047); color:#854d0e; border:1px solid #eab308; box-shadow:0 1px 6px rgba(234,179,8,.35); font-weight:800; }
 
     /* ── Pagination ── */
     .dir-pagination {
@@ -283,7 +284,7 @@
                     $allowedKyPct = $entry['allowed_ky_pct'] ?? [];
                     $isInDebit    = $entry['is_in_debit'] ?? false;
                     $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
-                    $maxKyPct     = !empty($allowedKyPct) ? max($allowedKyPct) : null;
+                    $effectiveKyPct = $entry['effective_ky_pct'] ?? null;
 
                     // Avatar letter
                     preg_match('/[A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF]/u', $company->name, $avatarMatch);
@@ -379,12 +380,10 @@
                                 <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% Kmoney</span>
                             @elseif($isAtCeiling)
                                 <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Al massimale</span>
-                            @elseif($maxKyPct === 100)
-                                <span class="ky-badge ky-badge--full" title="Questa azienda accetta pagamenti al 100% in Kmoney">✓ 100% Kmoney</span>
-                            @elseif($maxKyPct !== null)
-                                <span class="ky-badge ky-badge--mix">
-                                    ✓ Kmoney {{ $maxKyPct }}%
-                                </span>
+                            @elseif($effectiveKyPct === 100)
+                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% Kmoney</span>
+                            @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
+                                <span class="ky-badge ky-badge--mix" title="Questa azienda accetta pagamenti in Kmoney fino al {{ $effectiveKyPct }}% del prezzo">✓ Kmoney {{ $effectiveKyPct }}%</span>
                             @endif
                         @endif
                         @if($listings > 0)
@@ -480,12 +479,10 @@
                                 <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100% Kmoney</span>
                             @elseif($isAtCeiling)
                                 <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Al massimale</span>
-                            @elseif($maxKyPct === 100)
-                                <span class="ky-badge ky-badge--full" title="Questa azienda accetta pagamenti al 100% in Kmoney">✓ 100% Kmoney</span>
-                            @elseif($maxKyPct !== null)
-                                <span class="ky-badge ky-badge--mix">
-                                    ✓ Kmoney {{ $maxKyPct }}%
-                                </span>
+                            @elseif($effectiveKyPct === 100)
+                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% Kmoney</span>
+                            @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
+                                <span class="ky-badge ky-badge--mix" title="Questa azienda accetta pagamenti in Kmoney fino al {{ $effectiveKyPct }}% del prezzo">✓ Kmoney {{ $effectiveKyPct }}%</span>
                             @endif
                         @endif
                         @if($listings > 0)

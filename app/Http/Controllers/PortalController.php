@@ -270,6 +270,8 @@ class PortalController extends Controller
             'currentUser'    => $currentUser,
             'company'        => $company,
             'sectors'        => Sector::selectableOptions(),
+            'acceptedKyPercentages' => Company::ACCEPTED_KY_PERCENTAGES,
+            'kyPercentageLocked'    => $currentAccount->isInDebit(),
             'activeNav'      => 'profile',
         ]);
     }
@@ -288,6 +290,7 @@ class PortalController extends Controller
 
         $validated = $request->validate([
             'sector'        => ['nullable', 'string', 'max:120', \Illuminate\Validation\Rule::in(Sector::activeList()->push('')->toArray())],
+            'accepted_ky_percentage' => ['nullable', 'integer', \Illuminate\Validation\Rule::in(Company::ACCEPTED_KY_PERCENTAGES)],
             'tagline'       => ['nullable', 'string', 'max:160'],
             'description'   => ['nullable', 'string', 'max:2000'],
             'city'          => ['nullable', 'string', 'max:100'],
@@ -302,6 +305,12 @@ class PortalController extends Controller
             'remove_logo'   => ['nullable', 'boolean'],
             'remove_banner' => ['nullable', 'boolean'],
         ]);
+
+        // Conto sottozero: la % Kmoney accettata non e' modificabile —
+        // l'azienda accetta sempre il 100% finche' il saldo non torna positivo.
+        if ($currentAccount->isInDebit()) {
+            unset($validated['accepted_ky_percentage']);
+        }
 
         $dir = 'companies/' . $company->uuid;
 
@@ -427,6 +436,7 @@ class PortalController extends Controller
             'currentAccount'     => $currentAccount,
             'currentUser'        => $currentUser,
             'company'            => $company,
+            'effectiveKyPct'     => $company->effectiveAcceptedKyPercentage(),
             'activeListings'     => $activeListings,
             'activeAnnouncements'=> $activeAnnouncements,
             'totalVolume'        => (int) $totalVolume,
@@ -1676,6 +1686,13 @@ class PortalController extends Controller
                                            ->where('owner_type', 'company')
                                            ->select(['id', 'company_id', 'owner_type', 'available_balance', 'max_balance', 'status']),
             ])
+            ->withMax(['listings as best_listing_ky_pct' => function ($q): void {
+                $q->where('status', 'active')
+                  ->where(function ($scope): void {
+                      $scope->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                  })
+                  ->where('ky_percentage', '>=', 25);
+            }], 'ky_percentage')
             ->when($filters['q'] !== '', function ($query) use ($filters): void {
                 $search = $filters['q'];
                 $query->where(function ($scope) use ($search): void {
@@ -1694,7 +1711,11 @@ class PortalController extends Controller
                 WHEN subscription_plan = 'vetrina'    THEN 1
                 WHEN subscription_plan = 'biglietto'  THEN 2
                 WHEN subscription_plan = 'anagrafica' THEN 3
-                ELSE 4 END");
+                ELSE 4 END")
+            // Agevola la visibilita' di chi accetta la % Kmoney piu' alta:
+            // a parita' di piano, ordina per % effettiva decrescente
+            // (dichiarata nel profilo o migliore % dei prodotti attivi).
+            ->orderByRaw($this->directoryKyPercentageOrderSql() . ' DESC');
 
         $directoryStatsCompanies = (clone $companiesQuery)->get();
         $randomExpression = DB::getDriverName() === 'sqlite' ? 'RANDOM()' : 'RAND()';
@@ -1712,6 +1733,10 @@ class PortalController extends Controller
                 'is_private'          => $company->users->first()?->account_holder_type === 'private',
                 'biz_account'         => $bizAccount,
                 'allowed_ky_pct'      => $bizAccount ? $bizAccount->allowedKyPercentages() : [],
+                'effective_ky_pct'    => $company->computeEffectiveKyPercentage(
+                    $bizAccount,
+                    $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
+                ),
                 'is_in_debit'         => $bizAccount ? $bizAccount->isInDebit() : false,
                 'is_at_ceiling'       => $bizAccount ? $bizAccount->isAtCeiling() : false,
             ];
@@ -1725,6 +1750,24 @@ class PortalController extends Controller
         ];
 
         return [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets];
+    }
+
+    /**
+     * Espressione SQL della % Kmoney effettiva usata per ordinare la directory:
+     * la migliore tra accepted_ky_percentage (dichiarata nel profilo) e la
+     * migliore % (>=25) dei prodotti attivi. Compatibile MySQL e SQLite.
+     */
+    protected function directoryKyPercentageOrderSql(): string
+    {
+        $bestListing = "(SELECT MAX(l.ky_percentage) FROM listings l
+            WHERE l.company_id = companies.id
+              AND l.status = 'active'
+              AND (l.expires_at IS NULL OR l.expires_at > CURRENT_TIMESTAMP)
+              AND l.ky_percentage >= 25)";
+
+        return "CASE WHEN COALESCE(accepted_ky_percentage, 0) >= COALESCE({$bestListing}, 0)
+                     THEN COALESCE(accepted_ky_percentage, 0)
+                     ELSE COALESCE({$bestListing}, 0) END";
     }
 
     public function creditLimitView(Request $request): View|RedirectResponse

@@ -34,6 +34,7 @@ use Illuminate\Support\Str;
  * @property \Illuminate\Support\Carbon|null $suspended_at
  * @property string|null $suspension_reason
  * @property string|null $subscription_plan
+ * @property int|null $accepted_ky_percentage
  * @property string|null $tagline
  * @property string|null $city
  * @property string|null $linkedin_url
@@ -127,6 +128,9 @@ class Company extends Model
         'anagrafica' => 3,
     ];
 
+    /** Percentuali Kmoney dichiarabili dall'azienda nel profilo (mix KY/EUR) */
+    public const ACCEPTED_KY_PERCENTAGES = [0, 25, 50, 75, 100];
+
     protected $fillable = [
         'uuid',
         'broker_user_id',
@@ -141,6 +145,7 @@ class Company extends Model
         'fiscal_code',
         'status',
         'subscription_plan',
+        'accepted_ky_percentage',
         'kyc_status',
         'kyc_notes',
         'kyc_reviewed_by',
@@ -162,6 +167,7 @@ class Company extends Model
 
     protected $casts = [
         'settings'       => 'array',
+        'accepted_ky_percentage' => 'integer',
         'approved_at'    => 'datetime',
         'kyc_reviewed_at'=> 'datetime',
         'suspended_at'   => 'datetime',
@@ -210,6 +216,72 @@ class Company extends Model
     public function getPlanOrderAttribute(): int
     {
         return self::PLAN_ORDER[$this->subscription_plan] ?? 99;
+    }
+
+    // ── Accettazione Kmoney (badge directory) ────────────────────────────────
+
+    /**
+     * Conto business principale dell'azienda (non di sistema, non sottoconto).
+     */
+    public function primaryBusinessAccount(): ?Account
+    {
+        return $this->accounts()
+            ->where('is_system_account', false)
+            ->where('owner_type', 'company')
+            ->whereNull('parent_account_id')
+            ->first();
+    }
+
+    /**
+     * Migliore percentuale KY (25-100) tra i prodotti attivi dello shop.
+     * I prodotti allo 0% non contano: non dicono nulla sull'accettazione Kmoney.
+     */
+    public function bestListingKyPercentage(): ?int
+    {
+        $max = $this->listings()
+            ->where('status', 'active')
+            ->where(function ($q): void {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->where('ky_percentage', '>=', 25)
+            ->max('ky_percentage');
+
+        return $max !== null ? (int) $max : null;
+    }
+
+    /**
+     * Percentuale Kmoney mostrata sulla card della directory (versione lazy:
+     * carica da DB conto e prodotti; per la directory usare
+     * computeEffectiveKyPercentage() con i dati gia' caricati).
+     */
+    public function effectiveAcceptedKyPercentage(): ?int
+    {
+        return $this->computeEffectiveKyPercentage(
+            $this->primaryBusinessAccount(),
+            $this->bestListingKyPercentage()
+        );
+    }
+
+    /**
+     * Percentuale Kmoney effettiva mostrata sulla card della directory.
+     *
+     * - Conto sottozero    => 100 (obbligo circuito, non modificabile)
+     * - Altrimenti         => la migliore tra la % dichiarata nel profilo e la
+     *                         migliore % (25-100) dei prodotti attivi caricati
+     * - Nessuna delle due  => null (nessun badge)
+     */
+    public function computeEffectiveKyPercentage(?Account $account, ?int $bestListingPct): ?int
+    {
+        if ($account !== null && $account->isInDebit()) {
+            return 100;
+        }
+
+        $candidates = array_filter(
+            [$this->accepted_ky_percentage, $bestListingPct],
+            static fn ($v) => $v !== null
+        );
+
+        return $candidates === [] ? null : (int) max($candidates);
     }
 
     protected static function booted(): void
