@@ -25,19 +25,15 @@
 .mlm-tree-hint { margin:0; font-size:11.5px; color:var(--ink-muted); }
 @media (max-width:640px) { .mlm-tree-hint { display:none; } }
 
-.mlm-tree-legend { flex:0 0 178px; border:1px solid var(--line,#e2e8f0); border-radius:12px; padding:14px; background:var(--surface-soft,#f8fafc); cursor:pointer; user-select:none; }
-.mlm-tree-legend:hover { border-color:#cbd5e1; }
-.mlm-tree-legend-title { display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); margin:0 0 10px; }
-.mlm-tree-legend-chevron { font-size:10px; line-height:1; color:var(--ink-muted); transition:transform .2s ease; }
-.mlm-tree-legend.is-collapsed { flex:0 0 auto; align-self:stretch; padding:12px 9px; }
-.mlm-tree-legend.is-collapsed .mlm-tree-legend-title { margin:0; justify-content:center; }
-.mlm-tree-legend.is-collapsed .mlm-tree-legend-label { display:none; }
-.mlm-tree-legend.is-collapsed .mlm-tree-legend-row { display:none; }
-.mlm-tree-legend.is-collapsed .mlm-tree-legend-chevron { transform:rotate(180deg); }
-@media (max-width:640px) { .mlm-tree-legend.is-collapsed { align-self:auto; } }
-.mlm-tree-legend-row { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); padding:5px 0; }
+.mlm-tree-legend {
+    margin-top:12px; border:1px solid var(--line,#e2e8f0); border-radius:12px;
+    padding:10px 14px; background:var(--surface-soft,#f8fafc);
+    display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px 10px; align-items:center;
+}
+.mlm-tree-legend-row { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); padding:2px 0; white-space:nowrap; }
 .mlm-tree-legend-row i { width:13px; height:13px; border-radius:4px; display:inline-block; flex:0 0 auto; }
-@media (max-width:640px) { .mlm-tree-legend { flex-basis:100%; order:2; } }
+@media (max-width:900px) { .mlm-tree-legend { grid-template-columns:repeat(4, minmax(0,1fr)); } }
+@media (max-width:520px) { .mlm-tree-legend { grid-template-columns:repeat(2, minmax(0,1fr)); } .mlm-tree-legend-row { justify-content:flex-start; } }
 
 .mlm-tree-viewport {
     flex:1 1 420px; min-width:0; overflow:hidden; position:relative;
@@ -133,13 +129,12 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="mlm-tree-legend" data-tree-legend role="button" tabindex="0" aria-expanded="true" title="Clicca per nascondere o mostrare la legenda">
-        <p class="mlm-tree-legend-title"><span class="mlm-tree-legend-label">Legenda qualifiche</span> <span class="mlm-tree-legend-chevron">&#9656;</span></p>
-        @foreach($mlmRankMeta as $meta)
-            <div class="mlm-tree-legend-row"><i style="background:{{ $meta['color'] }};"></i>{{ $meta['label'] }}</div>
-        @endforeach
-    </div>
+<div class="mlm-tree-legend">
+    @foreach($mlmRankMeta as $meta)
+        <div class="mlm-tree-legend-row"><i style="background:{{ $meta['color'] }};"></i>{{ $meta['label'] }}</div>
+    @endforeach
 </div>
 </div>
 
@@ -171,22 +166,6 @@
 
 <script>
 (function () {
-    // ---- Legenda: click per nasconderla/mostrarla (piu' spazio all'albero) ------
-    var legend = document.querySelector('[data-tree-legend]');
-    if (legend) {
-        var toggleLegend = function () {
-            var collapsed = legend.classList.toggle('is-collapsed');
-            legend.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        };
-        legend.addEventListener('click', toggleLegend);
-        legend.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleLegend();
-            }
-        });
-    }
-
     var modal = document.getElementById('mlmNodeModal');
     if (!modal) return;
 
