@@ -534,7 +534,9 @@ class KyCardController extends PortalController
             // MLM: assegna i punti deposito al cliente/agente risolto (fascia EUR).
             // Isolato in try/catch proprio: l'accredito KY e' gia' avvenuto, un
             // eventuale errore qui non deve intaccare la risposta all'utente.
-            if ($purchase->isCompleted()) {
+            // Saltato interamente se MLM è disattivato su questa installazione
+            // (config('kmoney.mlm_enabled')).
+            if (config('kmoney.mlm_enabled') && $purchase->isCompleted()) {
                 try {
                     app(\App\Services\MlmPointsService::class)->awardDepositPoints(
                         $purchase->user,

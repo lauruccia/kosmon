@@ -1333,6 +1333,7 @@
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'report' ? 'active' : '' }}" href="{{ route('admin.report') }}"><span class="subnav-icon">RP</span><span>Rapporti</span></a>
                             </div>
                             @if(auth()->user()?->is_super_admin)
+                            @if(config('kmoney.mlm_enabled'))
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'mlm' ? 'active' : '' }}" href="{{ route('admin.mlm.index') }}"><span class="nav-icon">MLM</span><span>MLM Agenti</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.tree.roots') }}"><span class="subnav-icon">AB</span><span>Albero</span></a>
@@ -1344,6 +1345,7 @@
                                 </a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.payouts.index') }}"><span class="subnav-icon">EU</span><span>Liquidazioni</span></a>
                             </div>
+                            @endif
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'analytics' ? 'active' : '' }}" href="{{ route('admin.analytics') }}"><span class="nav-icon">&#128202;</span><span>Analytics</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'circuito' ? 'active' : '' }}" href="{{ route('admin.circuito') }}"><span class="nav-icon">&#128280;</span><span>Circuito KY</span></a>
@@ -1592,6 +1594,7 @@
                                     <span class="nav-icon">BR</span><span>Operatore</span>
                                 </a>
                                 @endif
+                                @if(config('kmoney.mlm_enabled'))
                                 @if(($currentUser??$authUser)?->isMlmAgent())
                                 <a class="sidebar-link {{ $an === 'mlm-struttura' ? 'active' : '' }}" href="{{ route('portal.mlm.struttura') }}">
                                     <span class="nav-icon">&#127795;</span><span>La mia struttura</span>
@@ -1612,6 +1615,7 @@
                                 <a class="sidebar-link {{ $an === 'mlm-agent-request' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-request.show') }}">
                                     <span class="nav-icon">&#129309;</span><span>Diventa agente KNM</span>
                                 </a>
+                                @endif
                                 @endif
                                 @if($mv('help'))
                                 <a class="sidebar-link {{ $an === 'help' ? 'active' : '' }}" href="{{ route('help.index') }}">

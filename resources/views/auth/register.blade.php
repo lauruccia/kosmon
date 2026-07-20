@@ -427,6 +427,7 @@
             </div>
 
             {{-- Programma agenti (opzionale) --}}
+            @if(config('kmoney.mlm_enabled'))
             <div class="field-group" style="margin-bottom:28px;">
                 <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:16px 18px; border:1.5px solid var(--line); border-radius:14px; background:var(--glass);">
                     <input type="checkbox" name="become_agent" value="1" style="margin-top:3px; width:18px; height:18px; accent-color: var(--green); flex-shrink:0;" {{ old('become_agent') ? 'checked' : '' }}>
@@ -436,6 +437,7 @@
                     </span>
                 </label>
             </div>
+            @endif
 
             {{-- Codice referral (nascosto, pre-compilato se presente nell'URL) --}}
             @if(request('ref'))

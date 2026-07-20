@@ -32,16 +32,21 @@ Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-mo
 Schedule::job(new CheckBalanceAlerts())->hourly()->name('check-balance-alerts')->withoutOverlapping();
 
 // MLM: rileva gli agenti diventati BasiQ (12 punti entro 30gg dall'attivazione) - ogni notte
+// Tutti i job MLM sono condizionati a config('kmoney.mlm_enabled') (env
+// MLM_ENABLED): su installazioni con MLM disattivato non girano mai, anche
+// se lo scheduler resta lo stesso ovunque.
 Schedule::command('mlm:recalculate-points')
     ->dailyAt('03:00')
     ->name('mlm-recalculate-points')
     ->withoutOverlapping()
+    ->when(fn () => config('kmoney.mlm_enabled'))
     ->appendOutputTo(storage_path('logs/mlm-points.log'));
 
 Schedule::command('mlm:calculate-commissions')
     ->monthlyOn(1, '02:00')
     ->name('mlm-calculate-commissions')
     ->withoutOverlapping()
+    ->when(fn () => config('kmoney.mlm_enabled'))
     ->appendOutputTo(storage_path('logs/mlm-commissions.log'));
 
 // MLM: calcola e accredita i bonus settimanali (cascata di struttura, bonus
@@ -53,6 +58,7 @@ Schedule::command('mlm:calculate-weekly-bonuses')
     ->weeklyOn(3, '04:00')
     ->name('mlm-calculate-weekly-bonuses')
     ->withoutOverlapping()
+    ->when(fn () => config('kmoney.mlm_enabled'))
     ->appendOutputTo(storage_path('logs/mlm-bonuses.log'));
 
 // Verifica integrità contabile COMPLETA ogni notte alle 02:00 (controlli pesanti)

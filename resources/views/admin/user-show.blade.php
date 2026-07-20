@@ -212,6 +212,7 @@
         </article>
     </section>
 
+    @if(config('kmoney.mlm_enabled'))
     <section class="card light-card" style="margin-bottom:22px;">
         <div class="section-head">
             <div>
@@ -257,6 +258,7 @@
             @endif
         @endif
     </section>
+    @endif
 
     <section class="card light-card" id="user-limits" style="margin-bottom:22px;">
         <div class="section-head">

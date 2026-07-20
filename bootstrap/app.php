@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'step.up'       => \App\Http\Middleware\RequireStepUp::class,
             'contract'      => \App\Http\Middleware\EnsureContractSigned::class,
             'backoffice'    => \App\Http\Middleware\EnsureCanAccessBackoffice::class,
+            'mlm.enabled'   => \App\Http\Middleware\EnsureMlmEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

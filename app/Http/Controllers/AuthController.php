@@ -46,15 +46,22 @@ class AuthController extends Controller
             'become_agent' => ['nullable', 'boolean'],
         ]);
 
-        $becomeAgent = $request->boolean('become_agent');
+        // MLM disattivato su questa installazione (config('kmoney.mlm_enabled'),
+        // vedi config/kmoney.php): "diventa agente" non è selezionabile a
+        // prescindere da cosa arriva nella request (difesa in profondità, il
+        // checkbox è già nascosto lato view quando il flag è spento).
+        $mlmEnabled = (bool) config('kmoney.mlm_enabled');
+        $becomeAgent = $mlmEnabled && $request->boolean('become_agent');
 
-        // Risolvi chi ha invitato questo utente (se presente)
+        // Risolvi chi ha invitato questo utente (se presente) — sistema di
+        // referral generico, indipendente da MLM (vedi ReferralController):
+        // resta attivo anche a MLM disattivato.
         $referrer = null;
         if (! empty($validated['ref'])) {
             $referrer = \App\Models\User::where('referral_code', strtoupper(trim($validated['ref'])))->first();
         }
 
-        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer, $becomeAgent) {
+        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer, $becomeAgent, $mlmEnabled) {
             $company = null;
             $legacyRoleLabel = $holderType === 'company' ? 'registered-company' : 'registered-private';
 
@@ -65,8 +72,10 @@ class AuthController extends Controller
             // crea solo una richiesta pending che l'admin dovra' approvare, dopo
             // di che l'utente firmera' il contratto di nomina per diventare agente
             // a tutti gli effetti (vedi MlmAgentRequestController / MlmAgentContractController).
-            $mlmTree = app(\App\Services\MlmTreeService::class);
-            $nearestAgentAncestor = $mlmTree->resolveAgentForNewClient($referrer);
+            // Saltato interamente se MLM è disattivato su questa installazione.
+            $nearestAgentAncestor = $mlmEnabled
+                ? app(\App\Services\MlmTreeService::class)->resolveAgentForNewClient($referrer)
+                : null;
 
             if ($holderType === 'company') {
                 $company = Company::create([
@@ -102,11 +111,13 @@ class AuthController extends Controller
                 'mlm_agent_requested_at' => $becomeAgent ? now() : null,
             ]);
 
-            app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
+            if ($mlmEnabled) {
+                app(\App\Services\MlmPointsService::class)->awardRegistrationPoints($user);
 
-            // MLM: se questa email era stata invitata da uno o piu' agenti,
-            // marca gli inviti come "registrato".
-            \App\Models\MlmInvitation::markRegistered($user);
+                // MLM: se questa email era stata invitata da uno o piu' agenti,
+                // marca gli inviti come "registrato".
+                \App\Models\MlmInvitation::markRegistered($user);
+            }
 
             $account = Account::create([
                 'company_id' => $company?->id,
