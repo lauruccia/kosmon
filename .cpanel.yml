@@ -6,9 +6,7 @@
 #
 # NON tocca: .env, vendor/, storage/app, public/storage  (non sono nel repo).
 # Ogni installazione ha il proprio .env, incluso il flag MLM_ENABLED
-# (config/kmoney.php) — stesso codice, comportamento diverso per sito:
-#   - kosmopay.it  -> MLM_ENABLED=true   (ambiente di test/rollout MLM)
-#   - kmoney.it    -> MLM_ENABLED=false  (MLM non ancora in produzione lì)
+# (config/kmoney.php) — stesso codice, comportamento diverso per sito.
 #
 # NB: NON esegue "composer install" (lento/instabile su hosting condiviso e
 # non necessario per modifiche solo-codice). Se in futuro cambi le dipendenze
@@ -16,19 +14,31 @@
 #
 # DEPLOYPATH multi-sito: questo stesso .cpanel.yml viene tirato giù dal
 # branch main sia dal Git Version Control di kosmopay.it sia da quello di
-# kmoney.it (due account cPanel separati). Il path live si autodetermina in
-# base a quale cartella esiste su QUESTO host — niente da editare a mano
-# quando si cambia sito.
+# kmoney.it (due account cPanel separati). Il layout dei due siti e' diverso:
+#
+#   - kosmopay.it: app live in /home2/kosmopay/kosmon (public servito da
+#     kosmon/public). PUBLICPATH vuoto: nessuna copia extra.
+#
+#   - kmoney.it: app live in $HOME/kosmon_git, ma il web server serve
+#     $HOME/public_html. Gli asset di public/ vanno quindi copiati anche
+#     in public_html — TRANNE index.php, che su kmoney e' personalizzato
+#     per puntare a ../kosmon_git e NON va mai sovrascritto.
+#
+# Il path si autodetermina in base a quale cartella esiste su QUESTO host —
+# niente da editare a mano quando si cambia sito.
 deployment:
   tasks:
-    # Rilevamento DEPLOYPATH su una sola riga (niente blocchi multi-riga "|"):
-    # più compatibile con il parser dei task di cPanel, che in alcune versioni
-    # tratta ogni voce della lista come un singolo comando.
-    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; elif [ -d /home/kmoney/kosmon ]; then export DEPLOYPATH=/home/kmoney/kosmon; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non /home/kmoney/kosmon). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH\""
+    # Rilevamento su una sola riga (niente blocchi multi-riga "|"):
+    # più compatibile con il parser dei task di cPanel.
+    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d \"$HOME/kosmon_git\" ]; then export DEPLOYPATH=$HOME/kosmon_git; export PUBLICPATH=$HOME/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non $HOME/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard})\""
 
     # 1. Copia il codice aggiornato dalla checkout git alla cartella live.
     - /bin/cp -Rf app bootstrap config database public resources routes $DEPLOYPATH/
     - /bin/cp -f artisan composer.json composer.lock $DEPLOYPATH/
+
+    # 1b. Solo kmoney.it: aggiorna gli asset in public_html, SENZA toccare
+    #     index.php (personalizzato: punta a ../kosmon_git).
+    - "if [ -n \"$PUBLICPATH\" ] && [ -d \"$PUBLICPATH\" ]; then cd public; for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" \"$PUBLICPATH/\"; fi; done; cd ..; fi"
 
     # 2. Svuota le cache cancellando i file compilati (senza dipendere da php/composer).
     - /bin/rm -f $DEPLOYPATH/bootstrap/cache/config.php
