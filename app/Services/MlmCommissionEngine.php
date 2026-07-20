@@ -37,12 +37,17 @@ use Illuminate\Support\Facades\DB;
  *    Dal 6° livello in poi: 0,5% aggiuntivo, ma SOLO se l'agente beneficiario
  *    ha gia' grado Top/SuperVisor/Manager (slide "Compensi indiretti
  *    estesi") — per gli agenti di grado inferiore la commissione indiretta
- *    si ferma al 5° livello. La "breakaway" si applica dal 5° livello in
- *    poi: il conteggio non scende oltre il primo agente di rank
- *    Top/SuperVisor/Manager incontrato lungo ciascun ramo — quel nodo viene
- *    comunque incluso, ma i SUOI discendenti non vengono piu' conteggiati
- *    per l'agente a monte (confermato da Laura il 2026-07-03, vedi
- *    [[mlm_livello5_8percento_da_confermare]]).
+ *    si ferma al 5° livello.
+ *
+ *    LIMITE "SLIDE LETTERALE" (2026-07-20, decisione di Laura — sostituisce
+ *    la breakaway del 2026-07-03 che si fermava al primo Top+ incontrato):
+ *    "Il TOP percepisce provvigioni dello 0,5% su tutti i clienti al di
+ *    sotto del 5° livello per un numero illimitato di livelli e fino al 5°
+ *    livello del TOP seguente" (e analogamente SPV con SPV, MNG con MNG).
+ *    Quindi: il blocco e' PER PARI GRADO — un SuperVisor non ferma un Top,
+ *    e viceversa — e non si ferma AL nodo pari grado, ma 5 livelli SOTTO il
+ *    primo pari grado incontrato lungo ciascun ramo (il "5° livello del TOP
+ *    seguente", incluso). Senza pari grado nel ramo la discesa e' illimitata.
  *
  *  - GATING INDIRETTE (tabella "Criteri per i Compensi Indiretti",
  *    2°ParteKnm.pptx slide 7 — implementato il 2026-07-13 su conferma di
@@ -92,12 +97,16 @@ class MlmCommissionEngine
         5 => [48, 3],
     ];
 
-    /** Qualifiche che godono dell'estensione oltre il 5° livello e che fanno da "breakaway" (si ferma la discesa una volta incontrate). */
-    private const BREAKAWAY_RANKS = ['top', 'supervisor', 'manager'];
+    /** Qualifiche che godono dell'estensione oltre il 5° livello ("compensi indiretti estesi"). */
+    private const EXTENDED_RANKS = ['top', 'supervisor', 'manager'];
+
+    /** Livelli conteggiati SOTTO il primo pari grado incontrato ("fino al 5° livello del TOP seguente"). */
+    private const LEVELS_BELOW_NEXT_SAME_RANK = 5;
 
     public function __construct(private readonly MlmTreeService $tree) {}
 
-    public function directPercentage(int $activePoints): float
+    /** I punti attivi possono essere frazionari dal 2026-07-20 (1 punto ogni 50 EUR di importo mensile). */
+    public function directPercentage(int|float $activePoints): float
     {
         foreach (self::DIRECT_TABLE as $threshold => $pct) {
             if ($activePoints >= $threshold) {
@@ -119,7 +128,7 @@ class MlmCommissionEngine
      *
      * @return array<int, array{required_points:int, required_basics:int, points_ok:bool, basics_ok:bool, met:bool}>
      */
-    public function indirectGatingStatus(int $activePoints, int $level1BasicCount): array
+    public function indirectGatingStatus(int|float $activePoints, int $level1BasicCount): array
     {
         $status = [];
 
@@ -253,12 +262,20 @@ class MlmCommissionEngine
      * livello (BFS), sommando le commissioni sui clienti di ogni agente
      * incontrato. Livelli 1-5: percentuale fissa per tutti (vedi
      * INDIRECT_PERCENTAGES). Livello 6+: solo se $agent ha gia' grado
-     * Top/SuperVisor/Manager, con breakaway sul primo nodo Top+ incontrato
-     * (vedi classe docblock).
+     * Top/SuperVisor/Manager.
+     *
+     * LIMITE "SLIDE LETTERALE" (2026-07-20, vedi classe docblock): lungo
+     * ciascun ramo, quando si incontra il primo agente con lo STESSO grado
+     * del beneficiario (il "TOP seguente" per un Top, "SPV seguente" per un
+     * SuperVisor, "MNG seguente" per un Manager), la discesa prosegue solo
+     * fino a 5 livelli sotto quel nodo (il suo "5° livello", incluso) e poi
+     * si ferma. Gli altri gradi estesi NON bloccano (un SuperVisor sotto un
+     * Top non interrompe il conteggio del Top). Senza pari grado nel ramo la
+     * discesa e' illimitata.
      */
     private function calculateIndirect(User $agent, array $clientsByAgent, MlmCommissionRun $run, Carbon $periodMonth): void
     {
-        $agentQualifiesForExtension = in_array($agent->mlm_rank, self::BREAKAWAY_RANKS, true);
+        $agentQualifiesForExtension = in_array($agent->mlm_rank, self::EXTENDED_RANKS, true);
 
         // Requisiti personali dell'agente beneficiario per il gating dei
         // livelli 1-5 (punti attivi a inizio mese + Basic diretti attuali).
@@ -272,15 +289,18 @@ class MlmCommissionEngine
             return;
         }
 
+        // 'stop_depth': profondita' massima conteggiabile lungo questo ramo
+        // (null = nessun pari grado incontrato finora, discesa illimitata).
         $queue = [];
         foreach ($this->tree->directDownline($agent) as $child) {
-            $queue[] = ['agent' => $child, 'depth' => 1];
+            $queue[] = ['agent' => $child, 'depth' => 1, 'stop_depth' => null];
         }
 
         while (! empty($queue)) {
             $item = array_shift($queue);
             $node = $item['agent'];
             $depth = $item['depth'];
+            $stopDepth = $item['stop_depth'];
 
             if ($depth <= 5) {
                 [$requiredPoints, $requiredBasics] = self::INDIRECT_REQUIREMENTS[$depth];
@@ -322,12 +342,19 @@ class MlmCommissionEngine
                 continue;
             }
 
-            $isBreakawayPoint = $depth >= 5 && in_array($node->mlm_rank, self::BREAKAWAY_RANKS, true);
+            // Primo PARI GRADO del beneficiario lungo questo ramo: da qui la
+            // discesa prosegue solo fino al suo "5° livello" (depth + 5).
+            if ($agentQualifiesForExtension && $stopDepth === null && $node->mlm_rank === $agent->mlm_rank) {
+                $stopDepth = $depth + self::LEVELS_BELOW_NEXT_SAME_RANK;
+            }
 
-            if (! $isBreakawayPoint) {
-                foreach ($this->tree->directDownline($node) as $child) {
-                    $queue[] = ['agent' => $child, 'depth' => $depth + 1];
-                }
+            // Raggiunto il 5° livello del pari grado seguente: stop al ramo.
+            if ($stopDepth !== null && $depth >= $stopDepth) {
+                continue;
+            }
+
+            foreach ($this->tree->directDownline($node) as $child) {
+                $queue[] = ['agent' => $child, 'depth' => $depth + 1, 'stop_depth' => $stopDepth];
             }
         }
     }

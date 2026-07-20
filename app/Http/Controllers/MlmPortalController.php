@@ -37,11 +37,11 @@ class MlmPortalController extends Controller
         // residui scenderebbero sotto il requisito della qualifica attuale
         // (=> retrocessione in arrivo se non si generano nuovi punti).
         $activePoints = $agent->mlmActivePoints();
-        $expiringPoints = (int) $agent->mlmPointLedgerEntries()
+        $expiringPoints = mlm_points_normalize((float) $agent->mlmPointLedgerEntries()
             ->whereDate('valid_from', '<=', now()->toDateString())
             ->whereDate('valid_until', '>=', now()->toDateString())
             ->whereDate('valid_until', '<=', now()->addDays(30)->toDateString())
-            ->sum('points');
+            ->sum('points'));
 
         $pointsRequirement = ['start' => 0, 'basic' => 12, 'key' => 24][$agent->mlm_rank] ?? 48;
         $rankAtRisk = $agent->mlm_rank !== 'start'

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\EcommercePairingController;
 use App\Http\Controllers\Api\V1\PaymentPlanController;
 use App\Http\Controllers\Api\V1\PaymentRequestController;
 use App\Http\Controllers\Api\V1\TransferController;
@@ -14,6 +15,14 @@ use Illuminate\Support\Facades\Route;
 | Header richiesto: Authorization: Bearer km_xxxxxxxxxxxx
 | Tutti gli endpoint restituiscono JSON.
 */
+
+// Collegamento plugin e-commerce con solo numero di conto: endpoint PUBBLICI
+// (il plugin non ha ancora un token). Rate limit stretto; le credenziali sono
+// emesse solo dopo approvazione dell'admin e ritirate col claim_secret.
+Route::prefix('v1/ecommerce')->middleware('throttle:10,1')->group(function () {
+    Route::post('/pairings', [EcommercePairingController::class, 'store'])->name('api.v1.ecommerce.pairings.store');
+    Route::get('/pairings/{uuid}', [EcommercePairingController::class, 'show'])->name('api.v1.ecommerce.pairings.show');
+});
 
 Route::prefix('v1')->middleware([ApiTokenAuth::class, 'throttle:60,1'])->group(function () {
 

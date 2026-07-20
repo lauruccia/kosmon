@@ -756,11 +756,15 @@ class User extends Authenticatable implements MustVerifyEmail
      * MlmMetricGrantController::store()): il totale combinato NON scende
      * mai sotto zero, anche se la correzione supera i punti reali.
      */
-    public function mlmActivePoints(?\Illuminate\Support\Carbon $asOf = null): int
+    public function mlmActivePoints(?\Illuminate\Support\Carbon $asOf = null): int|float
     {
         $asOf ??= now();
 
-        $ledgerPoints = (int) $this->mlmPointLedgerEntries()
+        // Frazionari dal 2026-07-20 (1 punto ogni 50 EUR di importo mensile,
+        // slide "Importo Personale Mensile"): la somma e' un decimale;
+        // mlm_points_normalize() la arrotonda a 2 decimali e restituisce un
+        // int quando il totale e' intero (viste e confronti restano puliti).
+        $ledgerPoints = (float) $this->mlmPointLedgerEntries()
             ->where('valid_from', '<=', $asOf)
             ->where('valid_until', '>=', $asOf)
             ->sum('points');
@@ -771,7 +775,7 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('created_at', '<=', $asOf)
             ->sum('amount');
 
-        return max(0, $ledgerPoints + $grantedPoints);
+        return max(0, mlm_points_normalize($ledgerPoints + $grantedPoints));
     }
 
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */

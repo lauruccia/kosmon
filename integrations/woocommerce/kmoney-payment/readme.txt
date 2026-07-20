@@ -5,7 +5,7 @@ Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
 WC requires at least: 8.0
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv2 or later
 
 Accetta pagamenti in KY (KMoney) su WooCommerce tramite checkout hosted sicuro: redirect + webhook,
@@ -41,14 +41,24 @@ riferimento API, checklist di test).
 1. Disattiva ed elimina il vecchio plugin "KMoney" (cartella kmoney/), se presente.
 2. Carica la cartella kmoney-payment/ in wp-content/plugins/.
 3. Attiva "KMoney Payment Gateway" da Plugin.
-4. Configura in WooCommerce > Impostazioni > Pagamenti > KMoney: la pagina mostra subito lo stato
-   della connessione API e del conto (incluso l'avviso "conto in negativo → 100% forzato").
-5. Registra il webhook sul portale KMoney (Impostazioni > Webhook): URL e secret sono mostrati
-   nella pagina di configurazione del plugin.
+4. In WooCommerce > Impostazioni > Pagamenti > KMoney inserisci il NUMERO DI CONTO KMoney del
+   negozio (es. KYB seguito da 13 caratteri) e salva: la richiesta di collegamento viene inviata
+   all'amministratore del circuito e, appena approvata, token API e webhook si configurano da soli
+   (ricarica la pagina per verificare). In alternativa resta possibile la configurazione manuale
+   con token API e secret webhook.
+5. La pagina mostra sempre lo stato della connessione API e del conto (incluso l'avviso
+   "conto in negativo → 100% forzato").
 6. (Facoltativo) Imposta la % KMoney per categoria (Prodotti > Categorie) o per singolo prodotto
    (Dati prodotto > Generale).
 
 == Changelog ==
+
+= 2.2.0 =
+* Collegamento del conto con il SOLO numero di conto: il negoziante inserisce il KYB e salva;
+  l'admin del circuito approva da KMoney e il plugin ritira e salva da solo token API e secret
+  webhook (consegna una tantum, protetta da claim secret). Niente più copia-incolla.
+* URL base API precompilato con https://kmoney.it/api/v1.
+* Validazione del numero di conto (formato KYB/KYP + 13 caratteri) nelle impostazioni.
 
 = 2.1.0 =
 * Percentuale KY configurabile: globale, per categoria (vince la più alta) o per singolo prodotto.

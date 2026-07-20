@@ -279,7 +279,12 @@ class MlmRankEngine
                     continue;
                 }
 
-                $current = (int) $evaluation[$metric];
+                // I punti attivi possono essere frazionari dal 2026-07-20
+                // (slide "Importo Personale Mensile"): niente cast a int,
+                // che troncherebbe 12,2 a 12 nella checklist.
+                $current = $metric === 'points'
+                    ? mlm_points_normalize($evaluation[$metric])
+                    : (int) $evaluation[$metric];
                 $items[] = [
                     'label' => self::RANK_LABELS[$field],
                     'required' => $required,

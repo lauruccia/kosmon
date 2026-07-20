@@ -145,11 +145,12 @@ class MlmTreeService
                 ->groupBy('mlm_rank')
                 ->pluck('total', 'mlm_rank');
 
-            $activePoints = (int) DB::table('mlm_point_ledger')
+            // Frazionari dal 2026-07-20 (1 punto ogni 50 EUR di importo mensile).
+            $activePoints = mlm_points_normalize((float) DB::table('mlm_point_ledger')
                 ->whereIn('agent_user_id', $descendantIds)
                 ->whereDate('valid_from', '<=', now()->toDateString())
                 ->whereDate('valid_until', '>=', now()->toDateString())
-                ->sum('points');
+                ->sum('points'));
 
             return [
                 'branch_root'   => $branchRoot,
@@ -215,7 +216,7 @@ class MlmTreeService
                 'id'            => $user->id,
                 'name'          => $user->name,
                 'rank'          => $user->mlm_rank ?: 'start',
-                'points'        => (int) ($points[$id] ?? 0),
+                'points'        => mlm_points_normalize((float) ($points[$id] ?? 0)),
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
                 'agents_count'  => count($children),
                 'children'      => $children,

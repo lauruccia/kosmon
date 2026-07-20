@@ -12,10 +12,15 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Copre il motore commissioni mensili (dirette + indirette), incluso il
- * caso confermato da Laura il 2026-07-03: livello 5 = 8% uniforme per
- * qualsiasi agente, 0,5% dal livello 6 in poi SOLO per Top/SuperVisor/Manager,
- * con breakaway sul primo nodo Top+ incontrato in ciascun ramo.
+ * Copre il motore commissioni mensili (dirette + indirette): livello 5 = 8%
+ * uniforme per qualsiasi agente, 0,5% dal livello 6 in poi SOLO per
+ * Top/SuperVisor/Manager.
+ *
+ * LIMITE "SLIDE LETTERALE" degli estesi (2026-07-20, decisione di Laura —
+ * sostituisce la breakaway del 2026-07-03 sul primo Top+ incontrato): il
+ * blocco e' PER PARI GRADO (TOP blocca TOP, SPV blocca SPV, MNG blocca MNG)
+ * e la discesa prosegue fino al 5° livello SOTTO il primo pari grado
+ * incontrato ("fino al 5° livello del TOP seguente"), incluso.
  *
  * Dal 2026-07-13 (conferma di Laura): GATING dei livelli indiretti 1-5 in
  * base ai requisiti personali del beneficiario (tabella "Criteri per i
@@ -367,9 +372,12 @@ class MlmCommissionEngineTest extends TestCase
         $this->assertSame(200, $commission->amount_eur_cents, '20% di 10 EUR = 2 EUR.');
     }
 
-    public function test_indirect_commission_beyond_level_5_applies_for_breakaway_rank_and_stops_descent(): void
+    public function test_extended_indirect_stops_5_levels_below_the_next_same_rank(): void
     {
-        $root = $this->makeAgent('top'); // qualifica per l'estensione oltre il 5° livello
+        // Slide letterale (2026-07-20): "il TOP percepisce lo 0,5% ... fino
+        // al 5° livello del TOP seguente". TOP seguente al livello 6 =>
+        // conteggio fino al livello 11 (6+5) incluso, livello 12 escluso.
+        $root = $this->makeAgent('top');
 
         $this->tree->attachAgent($root, null);
         $this->givePoints($root, 48);
@@ -377,9 +385,47 @@ class MlmCommissionEngineTest extends TestCase
 
         $sponsor = $root;
         $agents = [];
-        for ($i = 1; $i <= 6; $i++) {
-            // Il nodo di livello 6 e' a sua volta un rank "breakaway" (supervisor):
-            // deve ricevere la commissione ma bloccare la discesa oltre di lui.
+        for ($i = 1; $i <= 12; $i++) {
+            $rank = $i === 6 ? 'top' : 'start'; // il "TOP seguente" al livello 6
+            $agent = $this->makeAgent($rank);
+            $this->tree->attachAgent($agent, $sponsor);
+            $this->giveMonthlyBase($agent, 10_000);
+            $agents[$i] = $agent;
+            $sponsor = $agent;
+        }
+
+        $this->engine->runForMonth(now());
+
+        // Il TOP seguente stesso (livello 6) e i 5 livelli sotto di lui
+        // (7..11) pagano lo 0,5%.
+        foreach ([6, 7, 8, 9, 10, 11] as $level) {
+            $commission = MlmCommission::where('agent_user_id', $root->id)
+                ->where('source_agent_id', $agents[$level]->id)->first();
+            $this->assertNotNull($commission, "Il livello {$level} deve pagare (fino al 5° livello del TOP seguente).");
+            $this->assertEqualsWithDelta(0.5, (float) $commission->percentage, 0.01);
+            $this->assertSame(50, $commission->amount_eur_cents);
+        }
+
+        $this->assertSame(
+            0,
+            MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $agents[12]->id)->count(),
+            'Oltre il 5° livello del TOP seguente (livello 12) il conteggio si ferma.'
+        );
+    }
+
+    public function test_extended_indirect_is_not_blocked_by_a_different_extended_rank(): void
+    {
+        // Slide letterale: il blocco e' PER PARI GRADO. Un SuperVisor al
+        // livello 6 NON ferma un beneficiario TOP: il livello 7 paga.
+        $root = $this->makeAgent('top');
+
+        $this->tree->attachAgent($root, null);
+        $this->givePoints($root, 48);
+        $this->attachBasicChildren($root, 4);
+
+        $sponsor = $root;
+        $agents = [];
+        for ($i = 1; $i <= 7; $i++) {
             $rank = $i === 6 ? 'supervisor' : 'start';
             $agent = $this->makeAgent($rank);
             $this->tree->attachAgent($agent, $sponsor);
@@ -388,23 +434,22 @@ class MlmCommissionEngineTest extends TestCase
             $sponsor = $agent;
         }
 
-        // Livello 7, oltre il breakaway: non deve mai essere raggiunto.
-        $levelSeven = $this->makeAgent();
-        $this->tree->attachAgent($levelSeven, $sponsor);
-        $this->giveMonthlyBase($levelSeven, 10_000);
-
         $this->engine->runForMonth(now());
 
-        $levelSixCommission = MlmCommission::where('agent_user_id', $root->id)
-            ->where('source_agent_id', $agents[6]->id)->first();
-        $this->assertNotNull($levelSixCommission);
-        $this->assertEqualsWithDelta(0.5, (float) $levelSixCommission->percentage, 0.01);
-        $this->assertSame(50, $levelSixCommission->amount_eur_cents);
+        $levelSeven = MlmCommission::where('agent_user_id', $root->id)
+            ->where('source_agent_id', $agents[7]->id)->first();
+        $this->assertNotNull($levelSeven, 'Un SuperVisor al livello 6 non deve bloccare un beneficiario TOP.');
+        $this->assertEqualsWithDelta(0.5, (float) $levelSeven->percentage, 0.01);
+        $this->assertSame(50, $levelSeven->amount_eur_cents);
+    }
 
-        $this->assertSame(
-            0,
-            MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $levelSeven->id)->count(),
-            'Il breakaway al livello 6 (rank supervisor) deve bloccare la discesa al livello 7.'
-        );
+    public function test_direct_percentage_accepts_fractional_points(): void
+    {
+        // Punti frazionari dal 2026-07-20 (1 punto ogni 50 EUR di importo
+        // mensile): le soglie della tabella restano confronti ">=".
+        $this->assertSame(0.0, $this->engine->directPercentage(5.8));
+        $this->assertSame(0.05, $this->engine->directPercentage(6.2));
+        $this->assertSame(0.05, $this->engine->directPercentage(11.99));
+        $this->assertSame(0.10, $this->engine->directPercentage(12.2));
     }
 }

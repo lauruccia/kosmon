@@ -12,7 +12,7 @@
        data-initials="{{ $initials }}"
        data-rank-label="{{ $meta['label'] }}"
        data-color="{{ $meta['color'] }}"
-       data-points="{{ $node['points'] }}"
+       data-points="{{ mlm_points_format($node['points']) }}"
        data-agents="{{ $node['agents_count'] }}"
        data-clients="{{ $node['clients_count'] }}"
        @if(($mode ?? 'portal') === 'admin')
@@ -22,7 +22,7 @@
         <span class="mlm-node-avatar">{{ $initials }}</span>
         <span class="mlm-node-text">
             <span class="mlm-node-name" title="{{ $node['name'] }}">{{ $node['name'] }}</span>
-            <span class="mlm-node-points">{{ $meta['label'] }} · {{ $node['points'] }} pt</span>
+            <span class="mlm-node-points">{{ $meta['label'] }} · {{ mlm_points_format($node['points']) }} pt</span>
         </span>
     </a>
     @if(count($node['children']))

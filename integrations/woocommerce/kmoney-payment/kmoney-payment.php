@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KMoney Payment Gateway
  * Description: Accetta pagamenti KMoney (KY) su WooCommerce tramite checkout hosted sicuro: il cliente viene reindirizzato su KMoney per autenticarsi (2FA/passkey) e confermare l'importo. Supporta pagamento misto KY + euro con percentuale configurabile per negozio, categoria o singolo prodotto. Nessuna credenziale KMoney del cliente viene mai raccolta o gestita da questo sito.
- * Version: 2.1.0
+ * Version: 2.2.0
  * Requires Plugins: woocommerce
  * Author: KMoney
  * Text Domain: kmoney-payment
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KMONEY_PAYMENT_VERSION', '2.1.0' );
+define( 'KMONEY_PAYMENT_VERSION', '2.2.0' );
 define( 'KMONEY_PAYMENT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 /**
@@ -63,6 +63,7 @@ function kmoney_payment_init() {
 	}
 
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-api-client.php';
+	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-pairing.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-merchant-status.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-percentages.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-order-finalizer.php';

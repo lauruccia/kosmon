@@ -2,7 +2,7 @@
 
 Guida per il programmatore incaricato di installare/adattare il plugin di pagamento
 KMoney su WooCommerce. Il plugin allegato (`kmoney-woocommerce-plugin.zip`, cartella
-`kmoney-payment/`, **versione 2.1.0**) è completo e pronto all'uso — non c'è nulla da costruire
+`kmoney-payment/`, **versione 2.2.0**) è completo e pronto all'uso — non c'è nulla da costruire
 da zero, solo da installare, configurare e testare secondo la checklist alla fine di questo
 documento. Il sorgente completo è anche nell'appendice in fondo e, nel repo kmoney-app, in
 `integrations/woocommerce/kmoney-payment/`.
@@ -21,8 +21,15 @@ WooCommerce e le inoltrava a un'API esterna diversa (`kosmomoney.com`, non l'att
 sito terzo — un problema di sicurezza serio, non solo di manutenibilità. Il nuovo plugin non
 raccoglie mai credenziali KMoney: il cliente si autentica solo sul dominio KMoney.
 
-## 2. Cosa fa (v2.1.0)
+## 2. Cosa fa (v2.2.0)
 
+- **Collegamento del conto con il SOLO numero di conto** (novità 2.2.0): il negoziante
+  inserisce il numero di conto KMoney (es. `KYB` + 13 caratteri) nelle impostazioni e salva.
+  Il plugin invia una richiesta di collegamento a KMoney; l'amministratore del circuito la
+  approva da `/admin/companies/{id}` e alla successiva apertura (o salvataggio) della pagina
+  impostazioni il plugin ritira e salva da solo token API e secret webhook — consegna una
+  tantum protetta da *claim secret*. Niente copia-incolla; resta comunque possibile la
+  configurazione manuale con token e secret.
 - **Metodo di pagamento "KMoney" al checkout**, come PayPal/Stripe. Il cliente che ha un conto
   KMoney lo sceglie e paga la quota KY sulla pagina hosted KMoney (2FA/passkey); chi non ce l'ha
   trova il link **"Registrati su KMoney"** (checkout e pagina prodotto) oppure paga tutto in
@@ -131,7 +138,22 @@ gestisce il redirect esterno tramite il valore di ritorno di `process_payment()`
 Stessa struttura, `status` in `pending|paid|expired|cancelled`. Usato per la verifica
 server-side al ritorno del cliente — mai fidarsi dei soli parametri nell'URL di ritorno.
 
-### 4.3 `GET /balance`
+### 4.3 `POST /ecommerce/pairings` e `GET /ecommerce/pairings/{uuid}` (senza token)
+
+Endpoint **pubblici** (rate limit 10/min) usati dal collegamento col numero di conto:
+
+- `POST /ecommerce/pairings` — body: `account_number` (KYB/KYP + 13), `site_url`,
+  `webhook_url`, `claim_secret` (20–64 caratteri, generato dal plugin), `platform`.
+  Risposta `201`: `{uuid, status: "pending"}`. Il server salva solo l'hash SHA-256 del
+  claim secret. Una nuova richiesta per lo stesso sito+conto sostituisce la precedente
+  in attesa.
+- `GET /ecommerce/pairings/{uuid}?claim_secret=...` — stato del collegamento. Dopo
+  l'approvazione dell'admin, la **prima** chiamata con il claim secret corretto riceve
+  `api_token` (`km_...`, ability read+write) e `webhook_secret`; le chiamate successive
+  ricevono solo `{status: "approved", claimed: true}`. Claim secret errato o uuid
+  inesistente → `404` (stessa risposta, nessun oracolo).
+
+### 4.4 `GET /balance`
 
 Saldo dettagliato del conto principale del negoziante. Campi usati dal plugin:
 `is_in_debit` (bool — conto sottozero → 100% forzato), `balance`, `account_number`,
@@ -168,19 +190,27 @@ reale, non il percorso standard.
    entrambi restano attivi, WooCommerce mostrerà comunque un avviso di conflitto in bacheca.
 2. Caricare la cartella `kmoney-payment/` in `wp-content/plugins/`.
 3. Attivare "KMoney Payment Gateway" da Plugin.
-4. Configurare in **WooCommerce → Impostazioni → Pagamenti → KMoney**:
-   - Abilita
-   - Titolo / Descrizione / Istruzioni (testo libero mostrato al cliente)
-   - URL base API KMoney (es. `https://kmoney.tuodominio.com/api/v1`)
-   - Token API KMoney (da `/api-tokens` sul portale, ability `write`)
-   - Secret webhook (da Sezione 5)
-   - **% KMoney predefinita** (0/25/50/75/100 — vale per tutto il negozio, spedizione inclusa)
-   - URL registrazione KMoney (vuoto = ricavato dall'URL base API: `https://dominio/register`)
-   - Badge pagina prodotto (on/off)
+4. Configurare in **WooCommerce → Impostazioni → Pagamenti → KMoney**. Il modo semplice
+   (consigliato) richiede UN solo dato:
+   - **Numero di conto KMoney** del negozio (es. `KYB` + 13 caratteri) → **Salva**. Compare
+     l'avviso "Collegamento in attesa di approvazione". L'amministratore del circuito approva
+     la richiesta da KMoney (`/admin/companies/{id}`, riquadro "Richieste di collegamento in
+     attesa"); alla successiva apertura o salvataggio della pagina il plugin scarica e salva
+     da solo Token API e Secret webhook, e compare "Conto collegato!". Il webhook su KMoney
+     viene creato automaticamente: non serve la Sezione 5.
+   - Gli altri campi:
+     - Abilita
+     - Titolo / Descrizione / Istruzioni (testo libero mostrato al cliente)
+     - URL base API KMoney (precompilato con `https://kmoney.it/api/v1`, di norma non si tocca)
+     - Token API KMoney e Secret webhook (solo per configurazione **manuale** alternativa:
+       token da `/api-tokens` sul portale con ability `write`, secret come da Sezione 5)
+     - **% KMoney predefinita** (0/25/50/75/100 — vale per tutto il negozio, spedizione inclusa)
+     - URL registrazione KMoney (vuoto = ricavato dall'URL base API: `https://dominio/register`)
+     - Badge pagina prodotto (on/off)
 
    In cima alla pagina compare lo **stato della connessione**: conto, saldo e l'eventuale
    avviso "conto in negativo → 100% forzato". Se c'è un errore di URL/token si vede subito qui.
-5. Registrare il webhook sul portale KMoney come da Sezione 5.
+5. (Solo configurazione manuale) Registrare il webhook sul portale KMoney come da Sezione 5.
 6. Percentuali più fini (facoltative, solo con conto in positivo):
    - **Per categoria**: Prodotti → Categorie → modifica categoria → "% pagabile in KMoney".
      Se un prodotto è in più categorie con % diverse vale la **più alta**.
@@ -209,8 +239,13 @@ plugin dichiara compatibilità HPOS (High-Performance Order Storage) di WooComme
 
 ## 8. Checklist di test end-to-end
 
-1. Plugin vecchio disattivato, nuovo plugin attivo e configurato, webhook registrato sul
-   portale KMoney. La pagina impostazioni mostra "Connessione API KMoney: OK".
+0. **Collegamento col numero di conto**: inserisci il KYB del conto di test e salva → avviso
+   "in attesa di approvazione"; approva da `/admin/companies/{id}` su KMoney; ricarica la
+   pagina impostazioni → "Conto collegato!", token e secret risultano compilati, su KMoney il
+   pairing risulta "collegato ✔". Un numero di conto inesistente o malformato deve produrre
+   un errore chiaro senza creare nulla.
+1. Plugin vecchio disattivato, nuovo plugin attivo e configurato (tramite collegamento o
+   manualmente). La pagina impostazioni mostra "Connessione API KMoney: OK".
 2. Ordine di prova **tutto al 100%** con metodo "KMoney" → si atterra su una pagina con dominio
    KMoney (non WooCommerce); login con account KMoney di test con saldo sufficiente, conferma;
    redirect di ritorno sulla pagina "grazie per l'ordine"; ordine "In lavorazione"/"Completato"
@@ -253,6 +288,8 @@ kmoney-payment/
     ├── class-wc-gateway-kmoney.php          (gateway: process_payment, webhook, verifica ritorno,
     │                                         pannello stato admin, esclusione su "paga ordine")
     ├── class-kmoney-api-client.php          (client HTTP: payment-requests + balance)
+    ├── class-kmoney-pairing.php             (collegamento conto col solo numero di conto:
+    │                                         richiesta, polling, ritiro credenziali una tantum)
     ├── class-kmoney-merchant-status.php     (cache stato conto: is_in_debit, 100% forzato)
     ├── class-kmoney-percentages.php         (risoluzione % prodotto/categoria/globale, split KY/€)
     ├── class-kmoney-order-finalizer.php     (completamento ordine idempotente, gestione saldo €)
@@ -264,6 +301,7 @@ Meta ordine usati: `_kmoney_pr_uuid`, `_kmoney_pr_token`, `_kmoney_ky_amount_cen
 `_kmoney_residual_eur`, `_kmoney_ky_paid`, `_kmoney_transfer_uuid`,
 `_kmoney_balance_invoice_sent`, `_kmoney_balance_noted`.
 Meta prodotto: `_kmoney_ky_percentage`. Meta categoria (term): `kmoney_ky_percentage`.
+Opzione WordPress: `kmoney_pairing_state` (stato del collegamento col numero di conto).
 
 ---
 
@@ -279,7 +317,7 @@ Incluso anche, pronto all'uso, in `kmoney-woocommerce-plugin.zip` e in
 /**
  * Plugin Name: KMoney Payment Gateway
  * Description: Accetta pagamenti KMoney (KY) su WooCommerce tramite checkout hosted sicuro: il cliente viene reindirizzato su KMoney per autenticarsi (2FA/passkey) e confermare l'importo. Supporta pagamento misto KY + euro con percentuale configurabile per negozio, categoria o singolo prodotto. Nessuna credenziale KMoney del cliente viene mai raccolta o gestita da questo sito.
- * Version: 2.1.0
+ * Version: 2.2.0
  * Requires Plugins: woocommerce
  * Author: KMoney
  * Text Domain: kmoney-payment
@@ -291,7 +329,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KMONEY_PAYMENT_VERSION', '2.1.0' );
+define( 'KMONEY_PAYMENT_VERSION', '2.2.0' );
 define( 'KMONEY_PAYMENT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 /**
@@ -340,6 +378,7 @@ function kmoney_payment_init() {
 	}
 
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-api-client.php';
+	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-pairing.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-merchant-status.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-percentages.php';
 	require_once KMONEY_PAYMENT_PLUGIN_DIR . 'includes/class-kmoney-order-finalizer.php';
@@ -386,7 +425,7 @@ Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
 WC requires at least: 8.0
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv2 or later
 
 Accetta pagamenti in KY (KMoney) su WooCommerce tramite checkout hosted sicuro: redirect + webhook,
@@ -422,14 +461,24 @@ riferimento API, checklist di test).
 1. Disattiva ed elimina il vecchio plugin "KMoney" (cartella kmoney/), se presente.
 2. Carica la cartella kmoney-payment/ in wp-content/plugins/.
 3. Attiva "KMoney Payment Gateway" da Plugin.
-4. Configura in WooCommerce > Impostazioni > Pagamenti > KMoney: la pagina mostra subito lo stato
-   della connessione API e del conto (incluso l'avviso "conto in negativo → 100% forzato").
-5. Registra il webhook sul portale KMoney (Impostazioni > Webhook): URL e secret sono mostrati
-   nella pagina di configurazione del plugin.
+4. In WooCommerce > Impostazioni > Pagamenti > KMoney inserisci il NUMERO DI CONTO KMoney del
+   negozio (es. KYB seguito da 13 caratteri) e salva: la richiesta di collegamento viene inviata
+   all'amministratore del circuito e, appena approvata, token API e webhook si configurano da soli
+   (ricarica la pagina per verificare). In alternativa resta possibile la configurazione manuale
+   con token API e secret webhook.
+5. La pagina mostra sempre lo stato della connessione API e del conto (incluso l'avviso
+   "conto in negativo → 100% forzato").
 6. (Facoltativo) Imposta la % KMoney per categoria (Prodotti > Categorie) o per singolo prodotto
    (Dati prodotto > Generale).
 
 == Changelog ==
+
+= 2.2.0 =
+* Collegamento del conto con il SOLO numero di conto: il negoziante inserisce il KYB e salva;
+  l'admin del circuito approva da KMoney e il plugin ritira e salva da solo token API e secret
+  webhook (consegna una tantum, protetta da claim secret). Niente più copia-incolla.
+* URL base API precompilato con https://kmoney.it/api/v1.
+* Validazione del numero di conto (formato KYB/KYP + 13 caratteri) nelle impostazioni.
 
 = 2.1.0 =
 * Percentuale KY configurabile: globale, per categoria (vince la più alta) o per singolo prodotto.
@@ -520,6 +569,13 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 				'type'    => 'checkbox',
 				'default' => 'no',
 			),
+			'account_number'        => array(
+				'title'       => __( 'Numero di conto KMoney', 'kmoney-payment' ),
+				'type'        => 'text',
+				'description' => __( 'Per collegare il conto del negozio basta questo: inserisci il numero di conto KMoney (es. KYB seguito da 13 caratteri) e salva. La richiesta di collegamento viene inviata all\'amministratore del circuito e, appena approvata, token API e webhook si configurano da soli.', 'kmoney-payment' ),
+				'default'     => '',
+				'placeholder' => 'KYB0000000000000',
+			),
 			'title'                 => array(
 				'title'       => __( 'Titolo', 'kmoney-payment' ),
 				'type'        => 'text',
@@ -542,14 +598,14 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 			'api_base_url'          => array(
 				'title'       => __( 'URL base API KMoney', 'kmoney-payment' ),
 				'type'        => 'text',
-				'description' => __( 'Es. https://kmoney.tuodominio.com/api/v1 (senza slash finale).', 'kmoney-payment' ),
-				'default'     => '',
+				'description' => __( 'Normalmente non va cambiato. Modificalo solo se il circuito usa un dominio diverso (es. ambiente di test).', 'kmoney-payment' ),
+				'default'     => 'https://kmoney.it/api/v1',
 				'desc_tip'    => true,
 			),
 			'api_token'             => array(
 				'title'       => __( 'Token API KMoney', 'kmoney-payment' ),
 				'type'        => 'password',
-				'description' => __( 'Token generato dal portale KMoney in /api-tokens, con ability "write" abilitata.', 'kmoney-payment' ),
+				'description' => __( 'Compilato automaticamente quando il collegamento del conto viene approvato. Inseriscilo a mano solo per una configurazione manuale avanzata (portale KMoney &gt; /api-tokens, ability "write").', 'kmoney-payment' ),
 				'default'     => '',
 				'desc_tip'    => true,
 			),
@@ -558,7 +614,7 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 				'type'        => 'password',
 				/* translators: %s: webhook callback URL */
 				'description' => sprintf(
-					__( 'Il "secret" mostrato una sola volta alla creazione del webhook sul portale KMoney (Impostazioni &gt; Webhook, evento payment_request.paid). URL webhook da registrare: %s', 'kmoney-payment' ),
+					__( 'Compilato automaticamente al collegamento del conto. Per la configurazione manuale: è il "secret" mostrato una sola volta alla creazione del webhook sul portale KMoney (evento payment_request.paid). URL webhook di questo sito: %s', 'kmoney-payment' ),
 					'<code>' . esc_html( home_url( '/?wc-api=' . strtolower( get_class( $this ) ) ) ) . '</code>'
 				),
 				'default'     => '',
@@ -592,15 +648,26 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 	 * conto è in debito (→ 100% forzato).
 	 */
 	public function admin_options() {
+		// Se c'è un collegamento in attesa, verifica ORA se è stato approvato:
+		// in tal caso token e webhook vengono salvati automaticamente qui.
+		Kmoney_Pairing::maybe_poll( $this );
+
 		$status = Kmoney_Merchant_Status::get( true );
 
 		echo '<h2>' . esc_html( $this->get_method_title() ) . '</h2>';
 		echo '<p>' . esc_html( $this->get_method_description() ) . '</p>';
 
-		if ( ! $this->get_option( 'api_base_url' ) || ! $this->get_option( 'api_token' ) ) {
-			echo '<div class="notice notice-info inline"><p>' .
-				esc_html__( 'Per iniziare: inserisci URL base API e token (dal portale KMoney, sezione /api-tokens, ability "write"), salva, poi registra il webhook come indicato nel campo "Secret webhook".', 'kmoney-payment' ) .
-				'</p></div>';
+		$pairing_notice = Kmoney_Pairing::admin_notice_html();
+		if ( $pairing_notice ) {
+			echo $pairing_notice; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML già escapato in admin_notice_html().
+		}
+
+		if ( ! $this->get_option( 'api_token' ) ) {
+			if ( ! $pairing_notice ) {
+				echo '<div class="notice notice-info inline"><p>' .
+					esc_html__( 'Per iniziare basta il numero di conto: inseriscilo nel campo "Numero di conto KMoney" e salva. L\'amministratore del circuito approverà il collegamento e token API e webhook verranno configurati automaticamente. (In alternativa, configurazione manuale con token e secret webhook.)', 'kmoney-payment' ) .
+					'</p></div>';
+			}
 		} elseif ( ! empty( $status['ok'] ) ) {
 			$balance_html = Kmoney_Percentages::format_ky( isset( $status['balance'] ) ? $status['balance'] : 0 ) . ' KY';
 			echo '<div class="notice notice-success inline"><p><strong>' .
@@ -634,7 +701,33 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 	public function process_admin_options() {
 		$saved = parent::process_admin_options();
 		Kmoney_Merchant_Status::flush_cache();
+
+		// Collegamento con solo numero di conto: avvia la richiesta se serve,
+		// poi controlla subito se è già stata approvata (riconfigurazioni).
+		Kmoney_Pairing::maybe_start( $this );
+		Kmoney_Pairing::maybe_poll( $this );
+
 		return $saved;
+	}
+
+	/**
+	 * Normalizza e valida il numero di conto inserito (campo account_number):
+	 * maiuscole, senza spazi, formato KYB/KYP + 13 caratteri alfanumerici.
+	 *
+	 * @param string $key
+	 * @param string $value
+	 * @return string
+	 */
+	public function validate_account_number_field( $key, $value ) {
+		$value = strtoupper( preg_replace( '/\s+/', '', (string) $value ) );
+
+		if ( '' !== $value && ! preg_match( '/^KY[BP][A-Z0-9]{13}$/', $value ) ) {
+			WC_Admin_Settings::add_error(
+				__( 'Numero di conto KMoney non valido: il formato è KYB (o KYP) seguito da 13 caratteri, es. KYB0A1B2C3D4E5F6G.', 'kmoney-payment' )
+			);
+		}
+
+		return $value;
 	}
 
 	public function is_available() {
@@ -1010,6 +1103,289 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 		} else {
 			error_log( '[KMoney] ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
+	}
+}
+```
+
+### `kmoney-payment/includes/class-kmoney-pairing.php`
+
+```php
+<?php
+/**
+ * Collegamento del conto KMoney con il solo numero di conto.
+ *
+ * Il negoziante inserisce il numero di conto (KYB...) nelle impostazioni del
+ * gateway e salva: il plugin invia una richiesta di collegamento a KMoney
+ * (POST /api/v1/ecommerce/pairings) con un claim_secret generato qui.
+ * L'amministratore del circuito approva da /admin/companies/{id}; alla
+ * successiva apertura (o salvataggio) delle impostazioni il plugin ritira
+ * token API e secret webhook — una sola volta, autenticandosi con il
+ * claim_secret — e li salva da solo. Nessun copia-incolla.
+ *
+ * @package KMoneyPayment
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class Kmoney_Pairing {
+
+	const OPTION = 'kmoney_pairing_state';
+
+	/**
+	 * Stato corrente del collegamento.
+	 *
+	 * @return array{uuid?:string,claim_secret?:string,account_number?:string,status?:string,message?:string}
+	 */
+	public static function state() {
+		$state = get_option( self::OPTION, array() );
+		return is_array( $state ) ? $state : array();
+	}
+
+	private static function save_state( $state ) {
+		update_option( self::OPTION, $state, false );
+	}
+
+	public static function clear() {
+		delete_option( self::OPTION );
+	}
+
+	/**
+	 * Dopo il salvataggio delle impostazioni: avvia (o riavvia) il pairing se
+	 * c'è un numero di conto ma non ancora un token, oppure se il numero di
+	 * conto è cambiato rispetto alla richiesta precedente.
+	 *
+	 * @param WC_Payment_Gateway $gateway
+	 */
+	public static function maybe_start( $gateway ) {
+		$account_number = strtoupper( preg_replace( '/\s+/', '', (string) $gateway->get_option( 'account_number' ) ) );
+
+		if ( '' === $account_number ) {
+			self::clear();
+			return;
+		}
+
+		$state = self::state();
+
+		$account_changed = isset( $state['account_number'] ) && $state['account_number'] !== $account_number;
+		$has_token       = (string) $gateway->get_option( 'api_token' ) !== '';
+
+		// Già collegato con lo stesso conto, o richiesta già in corso: nulla da fare.
+		if ( ! $account_changed && ( $has_token || ( isset( $state['status'] ) && 'pending' === $state['status'] ) ) ) {
+			return;
+		}
+
+		$base_url = rtrim( (string) $gateway->get_option( 'api_base_url' ), '/' );
+		if ( '' === $base_url ) {
+			self::save_state(
+				array(
+					'status'  => 'error',
+					'message' => __( 'URL base API KMoney mancante.', 'kmoney-payment' ),
+				)
+			);
+			return;
+		}
+
+		$claim_secret = wp_generate_password( 40, false, false );
+
+		$response = wp_remote_post(
+			$base_url . '/ecommerce/pairings',
+			array(
+				'timeout' => 20,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Accept'       => 'application/json',
+				),
+				'body'    => wp_json_encode(
+					array(
+						'account_number' => $account_number,
+						'site_url'       => home_url( '/' ),
+						'webhook_url'    => home_url( '/?wc-api=wc_gateway_kmoney' ),
+						'claim_secret'   => $claim_secret,
+						'platform'       => 'woocommerce',
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			self::save_state(
+				array(
+					'account_number' => $account_number,
+					'status'         => 'error',
+					'message'        => sprintf(
+						/* translators: %s: error message */
+						__( 'Impossibile contattare KMoney: %s', 'kmoney-payment' ),
+						$response->get_error_message()
+					),
+				)
+			);
+			return;
+		}
+
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( 201 === $status && is_array( $decoded ) && ! empty( $decoded['uuid'] ) ) {
+			self::save_state(
+				array(
+					'uuid'           => sanitize_text_field( $decoded['uuid'] ),
+					'claim_secret'   => $claim_secret,
+					'account_number' => $account_number,
+					'status'         => 'pending',
+				)
+			);
+			return;
+		}
+
+		$message = is_array( $decoded ) && ! empty( $decoded['error'] )
+			? $decoded['error']
+			: sprintf(
+				/* translators: %d: HTTP status code */
+				__( 'Risposta inattesa da KMoney (HTTP %d).', 'kmoney-payment' ),
+				$status
+			);
+
+		self::save_state(
+			array(
+				'account_number' => $account_number,
+				'status'         => 'error',
+				'message'        => sanitize_text_field( $message ),
+			)
+		);
+	}
+
+	/**
+	 * All'apertura della pagina impostazioni: se c'è una richiesta in attesa,
+	 * verifica lo stato; se approvata, ritira le credenziali e le salva nelle
+	 * impostazioni del gateway.
+	 *
+	 * @param WC_Payment_Gateway $gateway
+	 */
+	public static function maybe_poll( $gateway ) {
+		$state = self::state();
+
+		if ( ! isset( $state['status'] ) || 'pending' !== $state['status'] || empty( $state['uuid'] ) || empty( $state['claim_secret'] ) ) {
+			return;
+		}
+
+		$base_url = rtrim( (string) $gateway->get_option( 'api_base_url' ), '/' );
+		if ( '' === $base_url ) {
+			return;
+		}
+
+		$response = wp_remote_get(
+			$base_url . '/ecommerce/pairings/' . rawurlencode( $state['uuid'] ) . '?claim_secret=' . rawurlencode( $state['claim_secret'] ),
+			array(
+				'timeout' => 20,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return; // Errore di rete temporaneo: riproverà alla prossima apertura.
+		}
+
+		$http    = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( ! is_array( $decoded ) ) {
+			return;
+		}
+
+		if ( 404 === $http ) {
+			// La richiesta non esiste più lato KMoney (es. sostituita): riparte
+			// da capo al prossimo salvataggio.
+			$state['status']  = 'error';
+			$state['message'] = __( 'La richiesta di collegamento non è più valida: salva di nuovo le impostazioni per inviarne una nuova.', 'kmoney-payment' );
+			self::save_state( $state );
+			return;
+		}
+
+		$remote_status = isset( $decoded['status'] ) ? $decoded['status'] : '';
+
+		if ( 'approved' === $remote_status && ! empty( $decoded['api_token'] ) ) {
+			// Consegna una tantum: salva subito le credenziali nel gateway.
+			$gateway->update_option( 'api_token', sanitize_text_field( $decoded['api_token'] ) );
+			if ( ! empty( $decoded['webhook_secret'] ) ) {
+				$gateway->update_option( 'webhook_secret', sanitize_text_field( $decoded['webhook_secret'] ) );
+			}
+
+			if ( class_exists( 'Kmoney_Merchant_Status' ) ) {
+				Kmoney_Merchant_Status::flush_cache();
+			}
+
+			self::save_state(
+				array(
+					'account_number' => isset( $state['account_number'] ) ? $state['account_number'] : '',
+					'status'         => 'linked',
+					'just_linked'    => 1, // per mostrare l'avviso di successo una volta
+				)
+			);
+			return;
+		}
+
+		if ( 'approved' === $remote_status && ! empty( $decoded['claimed'] ) ) {
+			// Credenziali già ritirate (es. da un'altra installazione) ma qui non
+			// presenti: serve un nuovo collegamento.
+			$state['status']  = 'error';
+			$state['message'] = __( 'Le credenziali di questo collegamento risultano già ritirate. Salva di nuovo le impostazioni per inviare una nuova richiesta di collegamento.', 'kmoney-payment' );
+			self::save_state( $state );
+			return;
+		}
+
+		if ( 'rejected' === $remote_status ) {
+			$state['status']  = 'rejected';
+			$state['message'] = __( 'L\'amministratore del circuito ha rifiutato la richiesta di collegamento. Controlla il numero di conto o contatta l\'assistenza KMoney.', 'kmoney-payment' );
+			self::save_state( $state );
+		}
+		// "pending": nessun cambiamento, si riproverà alla prossima apertura.
+	}
+
+	/**
+	 * Avvisi da mostrare in testa alla pagina impostazioni del gateway.
+	 * Restituisce HTML già escapato.
+	 *
+	 * @return string
+	 */
+	public static function admin_notice_html() {
+		$state = self::state();
+
+		if ( empty( $state['status'] ) ) {
+			return '';
+		}
+
+		if ( 'pending' === $state['status'] ) {
+			return '<div class="notice notice-warning inline"><p><strong>' .
+				esc_html__( 'Collegamento in attesa di approvazione.', 'kmoney-payment' ) . '</strong> ' .
+				esc_html( sprintf(
+					/* translators: %s: account number */
+					__( 'La richiesta per il conto %s è stata inviata all\'amministratore del circuito KMoney. Appena approvata, il plugin si configurerà da solo: ricarica questa pagina (o salva) per verificare.', 'kmoney-payment' ),
+					isset( $state['account_number'] ) ? $state['account_number'] : ''
+				) ) .
+				'</p></div>';
+		}
+
+		if ( 'linked' === $state['status'] && ! empty( $state['just_linked'] ) ) {
+			// Mostra il successo una volta sola.
+			unset( $state['just_linked'] );
+			self::save_state( $state );
+
+			return '<div class="notice notice-success inline"><p><strong>' .
+				esc_html__( 'Conto collegato!', 'kmoney-payment' ) . '</strong> ' .
+				esc_html__( 'Token API e webhook sono stati configurati automaticamente. Ricordati di abilitare il metodo di pagamento se non l\'hai già fatto.', 'kmoney-payment' ) .
+				'</p></div>';
+		}
+
+		if ( in_array( $state['status'], array( 'error', 'rejected' ), true ) ) {
+			return '<div class="notice notice-error inline"><p><strong>' .
+				esc_html__( 'Collegamento non riuscito:', 'kmoney-payment' ) . '</strong> ' .
+				esc_html( isset( $state['message'] ) ? $state['message'] : '' ) .
+				'</p></div>';
+		}
+
+		return '';
 	}
 }
 ```

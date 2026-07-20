@@ -12,17 +12,26 @@ use Illuminate\Support\Facades\DB;
 /**
  * Cascata bonus di struttura. Vedi MLM_PROPOSAL.md §6.
  *
- * Quando un agente diventa BasiQ, si genera un bonus pari all'importo della
- * qualifica piu' alta presente nella catena upline (dal BasiQ fino alla
- * radice). L'importo si distribuisce fra TUTTE le qualifiche bonus-eligibili
- * (key..manager) effettivamente presenti in catena, dal basso verso l'alto,
- * a sottrazione telescopica:
+ * Quando un agente diventa BasiQ, ogni membro bonus-eligibile (key..manager)
+ * della catena upline percepisce — TESTO LETTERALE della slide "BasiQ/Bonus"
+ * (regola "per POSIZIONE", decisione di Laura del 2026-07-20 che sostituisce
+ * la precedente sottrazione telescopica per ordine di grado):
  *
- *   payout(rank) = importo(rank) - importo(rank presente immediatamente inferiore)
+ *   "i bonus percepiti da ognuno dei livelli superiori vengono calcolati
+ *    sottraendo al bonus relativo alla propria qualifica il bonus relativo
+ *    alla maggiore qualifica presente fra chi diventa BasiQ e se stesso"
  *
- * Se una qualifica non e' presente in catena viene semplicemente saltata
- * (chi sta sopra assorbe la differenza). La somma dei payout e' sempre pari
- * all'importo della qualifica piu' alta presente — verificato in test.
+ * Ovvero, risalendo la catena dal BasiQ verso la radice:
+ *
+ *   payout(ancestor) = max(0, importo(rank ancestor) - max importo fra i
+ *                      bonus-eligibili incontrati SOTTO di lui nella catena)
+ *
+ * Nel caso normale (gradi crescenti verso l'alto) coincide con la vecchia
+ * telescopica (es. Key 60, Senior 110-60=50). Se pero' una qualifica piu'
+ * ALTA sta piu' vicino al BasiQ di una piu' bassa (es. Senior sotto, Key
+ * sopra), chi sta sopra con qualifica minore non incassa nulla: Senior 110,
+ * Key max(0, 60-110)=0. La somma dei payout e' sempre pari all'importo della
+ * qualifica piu' alta presente in catena — verificato in test.
  *
  * Regola speciale Key: paga solo a partire dal 3° evento BasiQ nella sua
  * downline (i primi 2 sono "consumati" per il requisito di qualifica Key
@@ -117,39 +126,39 @@ class MlmBonusService
 
             $upline = $this->tree->orderedUpline($basiqAgent);
 
-            // Un solo beneficiario per qualifica: il piu' vicino al BasiQ fra
-            // chi ha quella qualifica (evita doppio conteggio se la stessa
-            // qualifica compare piu' volte nella stessa catena).
-            $presentByRank = [];
-            foreach ($upline as $ancestor) {
-                if (! array_key_exists($ancestor->mlm_rank, self::BONUS_AMOUNTS_EUR_CENTS)) {
-                    continue;
-                }
-                if (! isset($presentByRank[$ancestor->mlm_rank])) {
-                    $presentByRank[$ancestor->mlm_rank] = $ancestor;
-                }
-            }
-
-            if (isset($presentByRank['key']) && ! $this->keyIsBonusEligible($presentByRank['key'], $event->triggered_at)) {
-                unset($presentByRank['key']);
-            }
-
-            if (empty($presentByRank)) {
-                $event->forceFill(['status' => 'processed', 'processed_at' => now(), 'upline_chain_snapshot' => []])->save();
-
-                return;
-            }
-
-            uksort($presentByRank, fn (string $a, string $b) => $this->rankOrderIndex($a) <=> $this->rankOrderIndex($b));
-
+            // Regola "per POSIZIONE" (2026-07-20, testo letterale della
+            // slide): si risale la catena dal BasiQ verso la radice e ogni
+            // bonus-eligibile percepisce il bonus della propria qualifica
+            // MENO il bonus della maggiore qualifica presente fra il BasiQ e
+            // se stesso (cioe' gia' incontrata sotto di lui). Un Key sopra un
+            // Senior quindi non incassa nulla (60 - 110 < 0), e una qualifica
+            // ripetuta paga solo alla prima occorrenza (la seconda sottrae se
+            // stessa). Un Key non ancora eleggibile (regola del 3° BasiQ) e'
+            // trattato come ASSENTE: niente payout e non abbassa il bonus di
+            // chi sta sopra.
             $weekEnding = $this->nextWednesday(now());
-            $previousAmount = 0;
+            $highestBelowAmount = 0;
             $snapshot = [];
 
-            foreach ($presentByRank as $rank => $beneficiary) {
+            foreach ($upline as $ancestor) {
+                $rank = $ancestor->mlm_rank;
+                if (! array_key_exists($rank, self::BONUS_AMOUNTS_EUR_CENTS)) {
+                    continue;
+                }
+
+                if ($rank === 'key' && ! $this->keyIsBonusEligible($ancestor, $event->triggered_at)) {
+                    continue;
+                }
+
                 $tierAmount = self::BONUS_AMOUNTS_EUR_CENTS[$rank];
-                $payoutAmount = $tierAmount - $previousAmount;
-                $previousAmount = $tierAmount;
+                $payoutAmount = $tierAmount - $highestBelowAmount;
+                $highestBelowAmount = max($highestBelowAmount, $tierAmount);
+
+                if ($payoutAmount <= 0) {
+                    continue;
+                }
+
+                $beneficiary = $ancestor;
 
                 MlmBonusPayout::create([
                     'mlm_bonus_event_id' => $event->id,
@@ -213,12 +222,5 @@ class MlmBonusService
         $date = $from->copy()->startOfDay();
 
         return $date->isWednesday() ? $date : $date->next(Carbon::WEDNESDAY);
-    }
-
-    private function rankOrderIndex(string $rank): int
-    {
-        $index = array_search($rank, array_keys(self::BONUS_AMOUNTS_EUR_CENTS), true);
-
-        return $index === false ? 0 : $index;
     }
 }

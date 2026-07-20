@@ -73,6 +73,13 @@ class CompanyController extends Controller
         $apiTokens = ApiToken::where('company_id', $company->id)->with('creator')->latest()->get();
         $webhooks  = Webhook::where('company_id', $company->id)->withCount('deliveries')->latest()->get();
 
+        // Richieste di collegamento inviate dai plugin col solo numero di
+        // conto (pairing): l'admin le approva o rifiuta da questa pagina.
+        $ecommercePairings = \App\Models\EcommercePairing::where('company_id', $company->id)
+            ->latest()
+            ->limit(20)
+            ->get();
+
         return view('admin.company-show', [
             'pageTitle'       => $company->name,
             'company'         => $company,
@@ -82,6 +89,7 @@ class CompanyController extends Controller
             'recentTransfers' => $recentTransfers,
             'apiTokens'       => $apiTokens,
             'webhooks'        => $webhooks,
+            'ecommercePairings' => $ecommercePairings,
             'activeNav'       => 'companies',
         ]);
     }

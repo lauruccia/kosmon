@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ApiToken;
 use App\Models\AuditLog;
 use App\Models\Company;
+use App\Models\EcommercePairing;
 use App\Models\Webhook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -141,6 +142,100 @@ class CompanyEcommerceController extends Controller
         ]);
 
         return back()->with('portal_success', 'Webhook ' . ($webhook->is_active ? 'riattivato' : 'disattivato') . '.');
+    }
+
+    /**
+     * POST /admin/companies/{company}/ecommerce/pairings/{pairing}/approve
+     *
+     * Approva la richiesta di collegamento inviata dal plugin col solo numero
+     * di conto: crea token API (read+write) e webhook payment_request.paid e
+     * lascia le credenziali cifrate sul pairing, che il plugin ritirerà da
+     * solo (una sola volta) alla prossima verifica. L'admin non deve copiare
+     * o incollare nulla.
+     */
+    public function approvePairing(Request $request, Company $company, EcommercePairing $pairing): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+        abort_unless($pairing->company_id === $company->id, 404);
+
+        if (! $pairing->isPending()) {
+            return back()->with('portal_error', 'Questa richiesta di collegamento è già stata gestita.');
+        }
+
+        $host = parse_url($pairing->site_url, PHP_URL_HOST) ?: $pairing->site_url;
+
+        [$raw, $hash, $prefix] = ApiToken::generateRaw();
+
+        $token = ApiToken::create([
+            'company_id'   => $company->id,
+            'created_by'   => $request->user()->id,
+            'name'         => 'Plugin ' . ucfirst($pairing->platform) . ' — ' . $host,
+            'token_hash'   => $hash,
+            'token_prefix' => $prefix,
+            'abilities'    => ['read', 'write'],
+            'expires_at'   => null,
+        ]);
+
+        $webhook = Webhook::create([
+            'company_id' => $company->id,
+            'url'        => $pairing->webhook_url,
+            'events'     => ['payment_request.paid'],
+        ]);
+
+        $pairing->forceFill([
+            'status'       => EcommercePairing::STATUS_APPROVED,
+            'api_token_id' => $token->id,
+            'webhook_id'   => $webhook->id,
+            'credentials'  => [
+                'api_token'      => $raw,
+                'webhook_secret' => $webhook->secret,
+            ],
+            'approved_by'  => $request->user()->id,
+            'approved_at'  => now(),
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.company.ecommerce_pairing_approved',
+            'auditable_type' => EcommercePairing::class,
+            'auditable_id'   => $pairing->id,
+            'context'        => [
+                'company_id'     => $company->id,
+                'account_number' => $pairing->account_number,
+                'site_url'       => $pairing->site_url,
+                'api_token_id'   => $token->id,
+                'webhook_id'     => $webhook->id,
+            ],
+        ]);
+
+        return back()->with('portal_success', 'Collegamento approvato per ' . $host . '. Il plugin riceverà token e webhook automaticamente alla prossima verifica (basta riaprire o salvare le impostazioni del plugin).');
+    }
+
+    /** POST /admin/companies/{company}/ecommerce/pairings/{pairing}/reject */
+    public function rejectPairing(Request $request, Company $company, EcommercePairing $pairing): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+        abort_unless($pairing->company_id === $company->id, 404);
+
+        if (! $pairing->isPending()) {
+            return back()->with('portal_error', 'Questa richiesta di collegamento è già stata gestita.');
+        }
+
+        $pairing->forceFill(['status' => EcommercePairing::STATUS_REJECTED])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.company.ecommerce_pairing_rejected',
+            'auditable_type' => EcommercePairing::class,
+            'auditable_id'   => $pairing->id,
+            'context'        => [
+                'company_id'     => $company->id,
+                'account_number' => $pairing->account_number,
+                'site_url'       => $pairing->site_url,
+            ],
+        ]);
+
+        return back()->with('portal_success', 'Richiesta di collegamento rifiutata.');
     }
 
     /** DELETE /admin/companies/{company}/ecommerce/webhooks/{webhook} */

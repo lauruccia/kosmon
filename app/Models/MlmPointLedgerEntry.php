@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  * @property int $client_user_id
  * @property string $source_type
  * @property int|null $source_transfer_id
- * @property int $points
+ * @property int|float $points
  * @property \Illuminate\Support\Carbon $valid_from
  * @property \Illuminate\Support\Carbon $valid_until
  * @property-read User $agent
@@ -37,6 +37,11 @@ class MlmPointLedgerEntry extends Model
     ];
 
     protected $casts = [
+        // Decimale dal 2026-07-20 (punti frazionari, slide "Importo Personale
+        // Mensile": 1 punto ogni 50 EUR di importo mensile — es. 0,2 punti
+        // per un deposito da 120 EUR). Vedi migration
+        // 2026_07_20_100000_convert_mlm_point_ledger_points_to_decimal.
+        'points'      => 'float',
         // Datetime (non solo date) dal 2026-07-13: permette all'admin di
         // impostare una scadenza punti in MINUTI (vedi SystemSetting::mlmSettings()
         // e MlmPointsService) per verificare rapidamente il calcolo qualifiche

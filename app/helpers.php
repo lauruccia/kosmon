@@ -225,3 +225,40 @@ if (! function_exists('sanitize_html')) {
         return $out;
     }
 }
+
+if (! function_exists('mlm_points_normalize')) {
+    /**
+     * Normalizza un valore di punti MLM: arrotonda a 2 decimali e restituisce
+     * un int quando il valore e' intero (cosi' viste e assert restano puliti),
+     * un float solo quando la parte frazionaria e' reale.
+     *
+     * Introdotto il 2026-07-20 con i punti frazionari della slide "Importo
+     * Personale Mensile" (1 punto ogni 50 EUR di importo mensile: 10 EUR/mese
+     * = 0,2 punti). Vive in helpers.php (always-run) per il vincolo di deploy
+     * file-only su cPanel — vedi memoria incident_classe_nuova_500_prod.
+     */
+    function mlm_points_normalize(int|float|null $points): int|float
+    {
+        $points = round((float) ($points ?? 0), 2);
+        $asInt = (int) round($points);
+
+        return abs($points - $asInt) < 0.005 ? $asInt : $points;
+    }
+}
+
+if (! function_exists('mlm_points_format')) {
+    /**
+     * Formatta i punti MLM per la UI (virgola italiana, senza zeri finali):
+     * 12 -> "12", 12.2 -> "12,2", 0.25 -> "0,25".
+     */
+    function mlm_points_format(int|float|null $points): string
+    {
+        $points = mlm_points_normalize($points);
+
+        if (is_int($points)) {
+            return (string) $points;
+        }
+
+        return rtrim(rtrim(number_format($points, 2, ',', '.'), '0'), ',');
+    }
+}

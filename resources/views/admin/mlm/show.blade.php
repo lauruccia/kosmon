@@ -45,7 +45,7 @@
             @foreach($nextRank['items'] as $item)
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:{{ $item['met'] ? 'rgba(26,122,74,0.08)' : 'var(--surface)' }};">
                     <span style="font-weight:700;font-size:13px;color:{{ $item['met'] ? '#1a7a4a' : '#c9313e' }};">{{ $item['met'] ? '✓' : '✗' }}</span>
-                    <span style="font-size:12.5px;">{{ $item['label'] }}: {{ $item['current'] }} / {{ $item['required'] }}</span>
+                    <span style="font-size:12.5px;">{{ $item['label'] }}: {{ mlm_points_format($item['current']) }} / {{ $item['required'] }}</span>
                 </div>
             @endforeach
         </div>
@@ -77,7 +77,7 @@
                     </td>
                     <td><span class="pill">{{ ucfirst($branch['branch_root']->mlm_rank) }}</span></td>
                     <td>{{ $branch['agent_count'] }}</td>
-                    <td>{{ $branch['active_points'] }}</td>
+                    <td>{{ mlm_points_format($branch['active_points']) }}</td>
                     <td style="font-size:12px;color:var(--ink-muted);">
                         @forelse($branch['rank_counts'] as $rank => $count)
                             {{ ucfirst($rank) }}: {{ $count }}@if(!$loop->last), @endif
@@ -114,7 +114,7 @@
                 <tr>
                     <td>{{ $entry->client->name ?? '—' }}</td>
                     <td>{{ $entry->source_type === 'registration' ? 'Registrazione' : 'Deposito' }}</td>
-                    <td>{{ $entry->points }}</td>
+                    <td>{{ mlm_points_format($entry->points) }}</td>
                     <td>{{ $entry->valid_from->format('d/m/Y') }}</td>
                     <td>{{ $entry->valid_until->format('d/m/Y') }}</td>
                     <td>

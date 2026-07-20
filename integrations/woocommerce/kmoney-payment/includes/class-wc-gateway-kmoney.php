@@ -72,6 +72,13 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 				'type'    => 'checkbox',
 				'default' => 'no',
 			),
+			'account_number'        => array(
+				'title'       => __( 'Numero di conto KMoney', 'kmoney-payment' ),
+				'type'        => 'text',
+				'description' => __( 'Per collegare il conto del negozio basta questo: inserisci il numero di conto KMoney (es. KYB seguito da 13 caratteri) e salva. La richiesta di collegamento viene inviata all\'amministratore del circuito e, appena approvata, token API e webhook si configurano da soli.', 'kmoney-payment' ),
+				'default'     => '',
+				'placeholder' => 'KYB0000000000000',
+			),
 			'title'                 => array(
 				'title'       => __( 'Titolo', 'kmoney-payment' ),
 				'type'        => 'text',
@@ -94,14 +101,14 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 			'api_base_url'          => array(
 				'title'       => __( 'URL base API KMoney', 'kmoney-payment' ),
 				'type'        => 'text',
-				'description' => __( 'Es. https://kmoney.tuodominio.com/api/v1 (senza slash finale).', 'kmoney-payment' ),
-				'default'     => '',
+				'description' => __( 'Normalmente non va cambiato. Modificalo solo se il circuito usa un dominio diverso (es. ambiente di test).', 'kmoney-payment' ),
+				'default'     => 'https://kmoney.it/api/v1',
 				'desc_tip'    => true,
 			),
 			'api_token'             => array(
 				'title'       => __( 'Token API KMoney', 'kmoney-payment' ),
 				'type'        => 'password',
-				'description' => __( 'Token generato dal portale KMoney in /api-tokens, con ability "write" abilitata.', 'kmoney-payment' ),
+				'description' => __( 'Compilato automaticamente quando il collegamento del conto viene approvato. Inseriscilo a mano solo per una configurazione manuale avanzata (portale KMoney &gt; /api-tokens, ability "write").', 'kmoney-payment' ),
 				'default'     => '',
 				'desc_tip'    => true,
 			),
@@ -110,7 +117,7 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 				'type'        => 'password',
 				/* translators: %s: webhook callback URL */
 				'description' => sprintf(
-					__( 'Il "secret" mostrato una sola volta alla creazione del webhook sul portale KMoney (Impostazioni &gt; Webhook, evento payment_request.paid). URL webhook da registrare: %s', 'kmoney-payment' ),
+					__( 'Compilato automaticamente al collegamento del conto. Per la configurazione manuale: è il "secret" mostrato una sola volta alla creazione del webhook sul portale KMoney (evento payment_request.paid). URL webhook di questo sito: %s', 'kmoney-payment' ),
 					'<code>' . esc_html( home_url( '/?wc-api=' . strtolower( get_class( $this ) ) ) ) . '</code>'
 				),
 				'default'     => '',
@@ -144,15 +151,26 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 	 * conto è in debito (→ 100% forzato).
 	 */
 	public function admin_options() {
+		// Se c'è un collegamento in attesa, verifica ORA se è stato approvato:
+		// in tal caso token e webhook vengono salvati automaticamente qui.
+		Kmoney_Pairing::maybe_poll( $this );
+
 		$status = Kmoney_Merchant_Status::get( true );
 
 		echo '<h2>' . esc_html( $this->get_method_title() ) . '</h2>';
 		echo '<p>' . esc_html( $this->get_method_description() ) . '</p>';
 
-		if ( ! $this->get_option( 'api_base_url' ) || ! $this->get_option( 'api_token' ) ) {
-			echo '<div class="notice notice-info inline"><p>' .
-				esc_html__( 'Per iniziare: inserisci URL base API e token (dal portale KMoney, sezione /api-tokens, ability "write"), salva, poi registra il webhook come indicato nel campo "Secret webhook".', 'kmoney-payment' ) .
-				'</p></div>';
+		$pairing_notice = Kmoney_Pairing::admin_notice_html();
+		if ( $pairing_notice ) {
+			echo $pairing_notice; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML già escapato in admin_notice_html().
+		}
+
+		if ( ! $this->get_option( 'api_token' ) ) {
+			if ( ! $pairing_notice ) {
+				echo '<div class="notice notice-info inline"><p>' .
+					esc_html__( 'Per iniziare basta il numero di conto: inseriscilo nel campo "Numero di conto KMoney" e salva. L\'amministratore del circuito approverà il collegamento e token API e webhook verranno configurati automaticamente. (In alternativa, configurazione manuale con token e secret webhook.)', 'kmoney-payment' ) .
+					'</p></div>';
+			}
 		} elseif ( ! empty( $status['ok'] ) ) {
 			$balance_html = Kmoney_Percentages::format_ky( isset( $status['balance'] ) ? $status['balance'] : 0 ) . ' KY';
 			echo '<div class="notice notice-success inline"><p><strong>' .
@@ -186,7 +204,33 @@ class WC_Gateway_Kmoney extends WC_Payment_Gateway {
 	public function process_admin_options() {
 		$saved = parent::process_admin_options();
 		Kmoney_Merchant_Status::flush_cache();
+
+		// Collegamento con solo numero di conto: avvia la richiesta se serve,
+		// poi controlla subito se è già stata approvata (riconfigurazioni).
+		Kmoney_Pairing::maybe_start( $this );
+		Kmoney_Pairing::maybe_poll( $this );
+
 		return $saved;
+	}
+
+	/**
+	 * Normalizza e valida il numero di conto inserito (campo account_number):
+	 * maiuscole, senza spazi, formato KYB/KYP + 13 caratteri alfanumerici.
+	 *
+	 * @param string $key
+	 * @param string $value
+	 * @return string
+	 */
+	public function validate_account_number_field( $key, $value ) {
+		$value = strtoupper( preg_replace( '/\s+/', '', (string) $value ) );
+
+		if ( '' !== $value && ! preg_match( '/^KY[BP][A-Z0-9]{13}$/', $value ) ) {
+			WC_Admin_Settings::add_error(
+				__( 'Numero di conto KMoney non valido: il formato è KYB (o KYP) seguito da 13 caratteri, es. KYB0A1B2C3D4E5F6G.', 'kmoney-payment' )
+			);
+		}
+
+		return $value;
 	}
 
 	public function is_available() {

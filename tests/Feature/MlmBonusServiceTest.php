@@ -12,9 +12,12 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Copre la cascata bonus di struttura: sottrazione telescopica lungo la
- * catena upline, regola speciale Key (paga solo dal 3° evento BasiQ nella
- * sua downline) e idempotenza dell'evento.
+ * Copre la cascata bonus di struttura con la regola "per POSIZIONE"
+ * (2026-07-20, testo letterale della slide: ogni upline sottrae il bonus
+ * della maggiore qualifica presente fra il BasiQ e se stesso), la regola
+ * speciale Key (paga solo dal 3° evento BasiQ nella sua downline) e
+ * l'idempotenza dell'evento. Nel caso normale di gradi crescenti verso
+ * l'alto la regola per posizione coincide con la vecchia telescopica.
  *
  * Vedi app/Services/MlmBonusService.php e MLM_PROPOSAL.md §6.
  */
@@ -192,6 +195,80 @@ class MlmBonusServiceTest extends TestCase
         // Idempotente: rieseguire non elabora nulla di nuovo.
         $this->assertSame(0, $this->service->processPendingEvents());
         $this->assertSame(2, MlmBonusPayout::where('beneficiary_user_id', $senior->id)->count());
+    }
+
+    public function test_positional_rule_a_lower_rank_above_a_higher_rank_earns_nothing(): void
+    {
+        // Slide letterale (2026-07-20): "sottraendo al bonus relativo alla
+        // propria qualifica il bonus relativo alla maggiore qualifica
+        // presente fra chi diventa BasiQ e se stesso". Catena (dal basso):
+        // BasiQ -> Senior -> Key -> Top. Il Senior (primo sopra il BasiQ)
+        // incassa 110 pieni; il Key sopra di lui avrebbe 60 - 110 < 0 => 0;
+        // il Top incassa 150 - 110 = 40. Totale = 150 (grado piu' alto).
+        $top = $this->makeAgent('top');
+        $key = $this->makeAgent('key');
+        $senior = $this->makeAgent('senior');
+        $basiq = $this->makeAgent('basic');
+
+        $this->tree->attachAgent($top, null);
+        $this->tree->attachAgent($key, $top);
+        $this->tree->attachAgent($senior, $key);
+        $this->tree->attachAgent($basiq, $senior);
+
+        // Il Key e' eleggibile (3 eventi nella sua downline), ma la regola
+        // per posizione lo esclude comunque perche' sotto di lui c'e' gia'
+        // un Senior (110 > 60).
+        $this->preloadBasiqEvents($key, 2);
+
+        $event = $this->service->processBasiqEvent($basiq);
+
+        $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
+
+        $this->assertSame(11_000, (int) $payouts[$senior->id]->amount_eur_cents);
+        $this->assertArrayNotHasKey($key->id, $payouts->toArray(), 'Il Key sopra un Senior non deve incassare nulla (60 - 110 < 0).');
+        $this->assertSame(4_000, (int) $payouts[$top->id]->amount_eur_cents); // 150 - 110
+        $this->assertSame(15_000, (int) $payouts->sum('amount_eur_cents'), 'La somma resta il bonus del grado piu\' alto presente.');
+    }
+
+    public function test_positional_rule_pays_only_the_first_occurrence_of_a_repeated_rank(): void
+    {
+        // Due Senior in catena: il piu' vicino al BasiQ incassa 110, il
+        // secondo sottrae il Senior sotto di se' (110 - 110 = 0).
+        $seniorFar = $this->makeAgent('senior');
+        $seniorNear = $this->makeAgent('senior');
+        $basiq = $this->makeAgent('basic');
+
+        $this->tree->attachAgent($seniorFar, null);
+        $this->tree->attachAgent($seniorNear, $seniorFar);
+        $this->tree->attachAgent($basiq, $seniorNear);
+
+        $event = $this->service->processBasiqEvent($basiq);
+
+        $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
+
+        $this->assertSame(11_000, (int) $payouts[$seniorNear->id]->amount_eur_cents);
+        $this->assertArrayNotHasKey($seniorFar->id, $payouts->toArray());
+    }
+
+    public function test_positional_rule_an_ineligible_key_does_not_lower_the_bonus_above(): void
+    {
+        // Key NON eleggibile (sotto il 3° evento) fra BasiQ e Senior: e'
+        // trattato come assente, quindi il Senior incassa 110 pieni e il Key
+        // non abbassa nulla.
+        $senior = $this->makeAgent('senior');
+        $key = $this->makeAgent('key');
+        $basiq = $this->makeAgent('basic');
+
+        $this->tree->attachAgent($senior, null);
+        $this->tree->attachAgent($key, $senior);
+        $this->tree->attachAgent($basiq, $key);
+
+        $event = $this->service->processBasiqEvent($basiq);
+
+        $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
+
+        $this->assertArrayNotHasKey($key->id, $payouts->toArray());
+        $this->assertSame(11_000, (int) $payouts[$senior->id]->amount_eur_cents);
     }
 
     public function test_key_eligibility_depends_on_detection_order_not_processing_order(): void

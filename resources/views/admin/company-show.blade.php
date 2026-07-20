@@ -660,6 +660,62 @@
                 URL base API da usare nel plugin: <code style="font-size:11px;">{{ rtrim(config('app.url'), '/') }}/api/v1</code>
             </div>
 
+            {{-- Richieste di collegamento dal plugin (pairing col numero di conto) --}}
+            @php $pendingPairings = ($ecommercePairings ?? collect())->where('status', 'pending'); @endphp
+            @if($pendingPairings->isNotEmpty())
+                <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#854d0e;margin-bottom:8px;">
+                        🔗 Richieste di collegamento in attesa
+                    </div>
+                    <div style="font-size:12px;color:#854d0e;margin-bottom:10px;">
+                        Il plugin di un sito ha chiesto di collegarsi a questo conto inserendo il numero di conto.
+                        Approvando, token API e webhook vengono creati e consegnati <strong>automaticamente</strong> al plugin:
+                        non c'è nulla da copiare o incollare.
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        @foreach($pendingPairings as $pairing)
+                            <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;flex-wrap:wrap;">
+                                <div style="flex:1;min-width:200px;">
+                                    <strong>{{ parse_url($pairing->site_url, PHP_URL_HOST) ?: $pairing->site_url }}</strong>
+                                    <span style="color:var(--text-muted);">
+                                        · conto <code style="font-size:11px;">{{ $pairing->account_number }}</code>
+                                        · {{ ucfirst($pairing->platform) }}
+                                        · {{ $pairing->created_at?->format('d/m/Y H:i') }}
+                                    </span>
+                                    <div style="color:var(--text-muted);font-size:11px;word-break:break-all;">{{ $pairing->site_url }}</div>
+                                </div>
+                                <form method="POST" action="{{ route('admin.companies.ecommerce.pairing.approve', [$company, $pairing]) }}"
+                                      onsubmit="return confirm('Approvare il collegamento di {{ parse_url($pairing->site_url, PHP_URL_HOST) ?: $pairing->site_url }}? Verranno creati token API (read+write) e webhook per questa azienda.');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-primary" style="font-size:12px;padding:5px 12px;">Approva</button>
+                                </form>
+                                <form method="POST" action="{{ route('admin.companies.ecommerce.pairing.reject', [$company, $pairing]) }}">
+                                    @csrf
+                                    <button type="submit" class="btn" style="font-size:12px;padding:5px 12px;">Rifiuta</button>
+                                </form>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @php $handledPairings = ($ecommercePairings ?? collect())->where('status', '!=', 'pending')->take(5); @endphp
+            @if($handledPairings->isNotEmpty())
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">
+                    Collegamenti recenti:
+                    @foreach($handledPairings as $pairing)
+                        <span style="white-space:nowrap;">
+                            {{ parse_url($pairing->site_url, PHP_URL_HOST) ?: $pairing->site_url }}
+                            @if($pairing->status === 'approved')
+                                <span style="color:#16a34a;font-weight:700;">{{ $pairing->claimed_at ? 'collegato ✔' : 'approvato (in attesa del plugin)' }}</span>
+                            @else
+                                <span style="color:#dc2626;">rifiutato</span>
+                            @endif
+                        </span>@if(! $loop->last) · @endif
+                    @endforeach
+                </div>
+            @endif
+
             @if(session('ecommerce_token_plain'))
                 <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
                     <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:6px;">Token API — visibile solo ora, copialo nel campo "Token API KMoney" del plugin:</div>

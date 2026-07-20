@@ -611,26 +611,30 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/webhook/{webhook}', [WebhookController::class, 'destroy'])->name('portal.webhooks.destroy')->middleware('step.up');
 
     // Token API
-    // Dati bancari agente KNM (liquidazione EUR)
-    Route::get('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'edit'])->name('portal.mlm.payment-details.edit');
-    Route::post('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'update'])->name('portal.mlm.payment-details.update')->middleware('step.up');
+    // MLM (KNM) — dietro il flag kmoney.mlm_enabled (vedi config/kmoney.php e
+    // EnsureMlmEnabled): a flag spento tutte queste rotte rispondono 404.
+    Route::middleware('mlm.enabled')->group(function () {
+        // Dati bancari agente KNM (liquidazione EUR)
+        Route::get('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'edit'])->name('portal.mlm.payment-details.edit');
+        Route::post('/mlm/dati-bancari', [MlmPaymentDetailController::class, 'update'])->name('portal.mlm.payment-details.update')->middleware('step.up');
 
-    // MLM (KNM) — pagine agente: struttura, clienti, invitati, prelievi
-    Route::get('/mlm/struttura', [MlmPortalController::class, 'struttura'])->name('portal.mlm.struttura');
-    Route::get('/mlm/clienti', [MlmPortalController::class, 'clienti'])->name('portal.mlm.clienti');
-    Route::get('/mlm/invitati', [MlmPortalController::class, 'invitati'])->name('portal.mlm.invitati');
-    Route::post('/mlm/invitati', [MlmPortalController::class, 'invitatiStore'])->name('portal.mlm.invitati.store');
-    Route::post('/mlm/invitati/{invitation}/reinvia', [MlmPortalController::class, 'invitatiResend'])->name('portal.mlm.invitati.resend');
-    Route::delete('/mlm/invitati/{invitation}', [MlmPortalController::class, 'invitatiDestroy'])->name('portal.mlm.invitati.destroy');
-    Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
-    Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
+        // MLM (KNM) — pagine agente: struttura, clienti, invitati, prelievi
+        Route::get('/mlm/struttura', [MlmPortalController::class, 'struttura'])->name('portal.mlm.struttura');
+        Route::get('/mlm/clienti', [MlmPortalController::class, 'clienti'])->name('portal.mlm.clienti');
+        Route::get('/mlm/invitati', [MlmPortalController::class, 'invitati'])->name('portal.mlm.invitati');
+        Route::post('/mlm/invitati', [MlmPortalController::class, 'invitatiStore'])->name('portal.mlm.invitati.store');
+        Route::post('/mlm/invitati/{invitation}/reinvia', [MlmPortalController::class, 'invitatiResend'])->name('portal.mlm.invitati.resend');
+        Route::delete('/mlm/invitati/{invitation}', [MlmPortalController::class, 'invitatiDestroy'])->name('portal.mlm.invitati.destroy');
+        Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
+        Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
 
-    // MLM (KNM) — richiesta di diventare agente + firma contratto di nomina
-    Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
-    Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');
-    Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
-    Route::post('/mlm/contratto-agente/otp', [MlmAgentContractController::class, 'sendOtp'])->name('portal.mlm.agent-contract.send-otp')->middleware('throttle:3,10');
-    Route::post('/mlm/contratto-agente/firma', [MlmAgentContractController::class, 'sign'])->name('portal.mlm.agent-contract.sign')->middleware('throttle:10,1');
+        // MLM (KNM) — richiesta di diventare agente + firma contratto di nomina
+        Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
+        Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');
+        Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
+        Route::post('/mlm/contratto-agente/otp', [MlmAgentContractController::class, 'sendOtp'])->name('portal.mlm.agent-contract.send-otp')->middleware('throttle:3,10');
+        Route::post('/mlm/contratto-agente/firma', [MlmAgentContractController::class, 'sign'])->name('portal.mlm.agent-contract.sign')->middleware('throttle:10,1');
+    });
 
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
     Route::get('/api-tokens/nuovo', [ApiTokenController::class, 'create'])->name('portal.api-tokens.create');
@@ -723,12 +727,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/admin/companies/{company}/deactivate', [CompanyController::class, 'deactivateCompany'])->name('admin.companies.deactivate')->middleware('backoffice');
     Route::post('/admin/companies/{company}/plan', [CompanyController::class, 'updatePlan'])->name('admin.companies.plan')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ky-percentage', [CompanyController::class, 'updateKyPercentage'])->name('admin.companies.ky-percentage')->middleware('backoffice');
-    // Integrazione e-commerce per conto del negoziante (token API + webhook plugin WooCommerce)
     Route::post('/admin/companies/{company}/ecommerce/tokens', [CompanyEcommerceController::class, 'createToken'])->name('admin.companies.ecommerce.token')->middleware('backoffice');
     Route::delete('/admin/companies/{company}/ecommerce/tokens/{apiToken}', [CompanyEcommerceController::class, 'revokeToken'])->name('admin.companies.ecommerce.token.revoke')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ecommerce/webhooks', [CompanyEcommerceController::class, 'createWebhook'])->name('admin.companies.ecommerce.webhook')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ecommerce/webhooks/{webhook}/toggle', [CompanyEcommerceController::class, 'toggleWebhook'])->name('admin.companies.ecommerce.webhook.toggle')->middleware('backoffice');
     Route::delete('/admin/companies/{company}/ecommerce/webhooks/{webhook}', [CompanyEcommerceController::class, 'deleteWebhook'])->name('admin.companies.ecommerce.webhook.delete')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/ecommerce/pairings/{pairing}/approve', [CompanyEcommerceController::class, 'approvePairing'])->name('admin.companies.ecommerce.pairing.approve')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/ecommerce/pairings/{pairing}/reject', [CompanyEcommerceController::class, 'rejectPairing'])->name('admin.companies.ecommerce.pairing.reject')->middleware('backoffice');
     Route::get('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'confirmCompany'])->name('admin.companies.purge-test')->middleware('backoffice');
     Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');
@@ -827,41 +832,46 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     // ── Visibilità menu utenti (admin) ────────────────────────────────────────
     Route::get('/admin/menu-visibility',          [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'index'])  ->name('admin.menu-visibility.index')->middleware('backoffice');
 
-    // MLM (KNM) — albero agenti, punti, qualifiche, bonus, commissioni
-    Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
-    // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
-    Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
-    Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
-    Route::get('/admin/mlm/{user}/promuovi', [MlmController::class, 'promoteForm'])->name('admin.mlm.promote-form')->middleware('backoffice');
-    Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
-    Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
-    Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');
-    Route::post('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'move'])->name('admin.mlm.tree.move')->middleware('backoffice');
+    // MLM (KNM) — albero agenti, punti, qualifiche, bonus, commissioni.
+    // Dietro il flag kmoney.mlm_enabled (vedi config/kmoney.php e
+    // EnsureMlmEnabled): a flag spento tutte queste rotte rispondono 404.
+    Route::middleware('mlm.enabled')->group(function () {
+        Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
+        // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
+        Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
+        Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
+        Route::get('/admin/mlm/{user}/promuovi', [MlmController::class, 'promoteForm'])->name('admin.mlm.promote-form')->middleware('backoffice');
+        Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');
+        Route::get('/admin/mlm-albero/{user}', [MlmController::class, 'tree'])->name('admin.mlm.tree')->middleware('backoffice');
+        Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');
+        Route::post('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'move'])->name('admin.mlm.tree.move')->middleware('backoffice');
 
-    // Impostazioni MLM (requisiti qualifiche + scadenza punti) — per test rapidi, vedi MlmSettingsController.
-    Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
-    Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
-    Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
+        // Impostazioni MLM (requisiti qualifiche + scadenza punti) — per test rapidi, vedi MlmSettingsController.
+        Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
+        Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
+        Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
 
-    // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
-    Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');
-    Route::post('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'updateRootAgent'])->name('admin.mlm.settings.root-agent.update')->middleware('backoffice');
+        // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
+        Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');
+        Route::post('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'updateRootAgent'])->name('admin.mlm.settings.root-agent.update')->middleware('backoffice');
 
-    // Punti/agenti "omaggio" (2026-07-14): assegnazione in blocco da /admin/mlm, vedi MlmMetricGrantController.
-    Route::post('/admin/mlm-punti-omaggio', [MlmMetricGrantController::class, 'store'])->name('admin.mlm.metric-grants.store')->middleware('backoffice');
-    Route::delete('/admin/mlm-punti-omaggio/{mlmMetricGrant}', [MlmMetricGrantController::class, 'destroy'])->name('admin.mlm.metric-grants.destroy')->middleware('backoffice');
+        // Punti/agenti "omaggio" (2026-07-14): assegnazione in blocco da /admin/mlm, vedi MlmMetricGrantController.
+        Route::post('/admin/mlm-punti-omaggio', [MlmMetricGrantController::class, 'store'])->name('admin.mlm.metric-grants.store')->middleware('backoffice');
+        Route::delete('/admin/mlm-punti-omaggio/{mlmMetricGrant}', [MlmMetricGrantController::class, 'destroy'])->name('admin.mlm.metric-grants.destroy')->middleware('backoffice');
 
-    Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
-    Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');
-    Route::post('/admin/users/{user}/mlm/rendi-agente', [AdminMlmAgentRequestController::class, 'promote'])->name('admin.mlm.requests.promote')->middleware('backoffice');
+        Route::post('/admin/mlm/richieste/{user}/approva', [AdminMlmAgentRequestController::class, 'approve'])->name('admin.mlm.requests.approve')->middleware('backoffice');
+        Route::post('/admin/mlm/richieste/{user}/rifiuta', [AdminMlmAgentRequestController::class, 'reject'])->name('admin.mlm.requests.reject')->middleware('backoffice');
+        Route::post('/admin/users/{user}/mlm/rendi-agente', [AdminMlmAgentRequestController::class, 'promote'])->name('admin.mlm.requests.promote')->middleware('backoffice');
 
-    Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
-    Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');
-    Route::post('/admin/mlm-payouts/calcola-commissioni', [MlmPayoutController::class, 'calculateCommissions'])->name('admin.mlm.payouts.calculate-commissions')->middleware('backoffice');
-    Route::get('/admin/mlm-payouts/{mlmPayout}', [MlmPayoutController::class, 'show'])->name('admin.mlm.payouts.show')->middleware('backoffice');
-    Route::post('/admin/mlm-payouts/{mlmPayout}/approva', [MlmPayoutController::class, 'approve'])->name('admin.mlm.payouts.approve')->middleware('backoffice');
-    Route::post('/admin/mlm-payouts/{mlmPayout}/paga', [MlmPayoutController::class, 'markPaid'])->name('admin.mlm.payouts.mark-paid')->middleware('backoffice');
-    Route::post('/admin/mlm-payouts/{mlmPayout}/rifiuta', [MlmPayoutController::class, 'reject'])->name('admin.mlm.payouts.reject')->middleware('backoffice');
+        Route::get('/admin/mlm-payouts', [MlmPayoutController::class, 'index'])->name('admin.mlm.payouts.index')->middleware('backoffice');
+        Route::post('/admin/mlm-payouts/genera', [MlmPayoutController::class, 'generate'])->name('admin.mlm.payouts.generate')->middleware('backoffice');
+        Route::post('/admin/mlm-payouts/calcola-commissioni', [MlmPayoutController::class, 'calculateCommissions'])->name('admin.mlm.payouts.calculate-commissions')->middleware('backoffice');
+        Route::get('/admin/mlm-payouts/{mlmPayout}', [MlmPayoutController::class, 'show'])->name('admin.mlm.payouts.show')->middleware('backoffice');
+        Route::post('/admin/mlm-payouts/{mlmPayout}/approva', [MlmPayoutController::class, 'approve'])->name('admin.mlm.payouts.approve')->middleware('backoffice');
+        Route::post('/admin/mlm-payouts/{mlmPayout}/paga', [MlmPayoutController::class, 'markPaid'])->name('admin.mlm.payouts.mark-paid')->middleware('backoffice');
+        Route::post('/admin/mlm-payouts/{mlmPayout}/rifiuta', [MlmPayoutController::class, 'reject'])->name('admin.mlm.payouts.reject')->middleware('backoffice');
+    });
+
     Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store')->middleware('backoffice');
     Route::delete('/admin/menu-visibility',       [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'destroy'])->name('admin.menu-visibility.destroy')->middleware('backoffice');
     Route::delete('/admin/menu-visibility/{key}', [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'reset'])  ->name('admin.menu-visibility.reset')->middleware('backoffice');

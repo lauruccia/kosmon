@@ -40,17 +40,20 @@ Ho anche verificato la struttura attuale del progetto: esiste già un sistema di
 
 ### 4.1 Punti Cliente (PC) — da registrazioni e depositi
 
-Fonte: `mlm_piano.xlsx`, foglio *PC PUNTI CLIENTI* (coerente col tuo esempio). Il deposito minimo perché un utente conti come "cliente attivo" è **120 €**.
+**AGGIORNATO IL 2026-07-20** (decisione di Laura: "sempre /12 come slide" — la slide "L'Importo Personale Mensile" fa fede e sostituisce gli scaglioni di `mlm_piano.xlsx`):
 
-| Azione | Punti | Durata (mesi in cui restano attivi) | Punti totali generati |
+- Ogni deposito sopra la soglia minima "cliente attivo" di **120 €** viene diviso **sempre per 12** e imputato per **12 mesi** dal mese di fatturazione (sia per i punti sia per la base commissioni, §5).
+- I punti sono **frazionari**: **1 punto ogni 50 € di importo personale mensile** (slide "Importo Personale Mensile", righe "/50": 2.400 €/mese = 48 punti). Colonna `mlm_point_ledger.points` in DECIMAL(8,2) dal 2026-07-20.
+
+| Azione | Importo mensile | Punti/mese | Durata (mesi) |
 |---|---|---|---|
-| Apertura conto | 1 | 1 | 1 |
-| Deposito 120 € | 1 | 1 | 1 |
-| Deposito 1.200 € | 2/mese | 12 | 24 |
-| Deposito 2.400 € | 2/mese | 24 | 48 |
-| Deposito 3.600 € | 2/mese | 36 | 72 |
+| Apertura conto | — | 1 | 1 |
+| Deposito 120 € | 10 € | 0,2 | 12 |
+| Deposito 1.200 € | 100 € | 2 | 12 |
+| Deposito 2.400 € | 200 € | 4 | 12 |
+| Deposito 3.600 € | 300 € | 6 | 12 |
 
-I punti oltre la soglia minima **si ripetono ogni mese** per la durata indicata (coerente con la decisione "smoothing 12 mesi" del §2.3) e poi scadono. "Punti attivi" di un agente = somma dei punti non ancora scaduti nel suo ledger personale.
+I punti **si ripetono ogni mese** per 12 mesi e poi scadono. "Punti attivi" di un agente = somma (decimale) dei punti non ancora scaduti nel suo ledger personale. Le righe ledger emesse prima del 2026-07-20 con i vecchi scaglioni (1/12/24/36 mesi, punti interi) restano valide così come sono: storico non ricalcolato.
 
 ### 4.2 Qualifiche agente
 
@@ -86,7 +89,7 @@ Un nuovo agente diventa **BasiQ** se raggiunge 12 punti personali entro 30 giorn
 
 ## 5. Commissioni (in EUR, calcolate il 1° del mese alle 2:00)
 
-Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la durata di smoothing (§4.1, es. deposito 1.200€ → 100€/mese per 12 mesi), sommato su tutti i mesi ancora "attivi" per quel cliente. Non solo il deposito del mese corrente.
+Base di calcolo: **"importo mensile"** = deposito del cliente diviso **sempre per 12** (§4.1, dal 2026-07-20 — es. deposito 1.200€ → 100€/mese per 12 mesi), sommato su tutti i mesi ancora "attivi" per quel cliente. Non solo il deposito del mese corrente.
 
 **Aggiornato il 2026-07-16 — base = "Prov K", non l'importo pieno ("le slide fanno fede")**: le tabelle "Esempio compensi" delle slide applicano tutte le percentuali (dirette §5.1 e indirette §5.2) a **Prov K = importo mensile × margine KNM** — il margine è il parametro "30 %" / "10 %" in testa alle tabelle (colonna "Prov K" = 30% di "MontImp"), riprodotte al centesimo con script il 2026-07-16. Coerente con la slide del residuale: "fino al 40% del **compenso KNM** sulle vendite dirette". Il margine è configurabile da admin (`/admin/mlm-impostazioni`, default 30%) e viene **fotografato per deposito** in `mlm_commission_base_ledger.knm_margin_percent`: un cambio del margine vale solo per i depositi futuri. Le commissioni già calcolate nei run passati restano storiche (stesso principio della retrocessione §4.2). Nota: la slide riepilogativa "Reddito residuale" fa 8% di 140.000€ saltando Prov K — le 4 tabelle dettagliate (con due margini diversi) sono la fonte coerente e sono quelle seguite. Vedi `MlmCommissionEngine` e `MlmSlideCompensationTablesTest`.
 
@@ -114,11 +117,13 @@ Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la dura
 | 3 | 1% | 24 punti personali attivi + 2 Basic al 1° livello |
 | 4 | 0,5% | 24 punti personali attivi + 2 Basic al 1° livello |
 | 5 | 8% | 48 punti personali attivi + 3 Basic al 1° livello |
-| 6+ | 0,5% | solo agenti di grado Top/SuperVisor/Manager, con breakaway al primo Top/SuperVisor/Manager incontrato in ciascun ramo |
+| 6+ | 0,5% | solo agenti di grado Top/SuperVisor/Manager; il conteggio scende fino al **5° livello sotto il primo PARI grado** incontrato in ciascun ramo (2026-07-20, "slide letterale") |
 
 **Gating aggiunto il 2026-07-13** (confermato da Laura): la tabella "Criteri per i Compensi Indiretti" (2°ParteKnm slide 7) non dà solo le percentuali ma anche i requisiti personali minimi per incassare ciascun livello. I punti sono quelli attivi all'inizio del mese di calcolo; i Basic al 1° livello sono contati sul grado corrente dei figli diretti. Un agente che perde i requisiti (es. punti scaduti) smette di percepire i livelli corrispondenti dal mese successivo.
 
-**Deciso il 2026-07-03** (vedi memoria `mlm_livello5_8percento_da_confermare`): il 5° livello ha un'aliquota propria dell'8%, uniforme per qualsiasi agente — non è "0,5% oltre il 4°" come implementato inizialmente. Lo 0,5% con breakaway (sezione "Compensi indiretti estesi" delle slide) si applica solo dal 6° livello in poi, e solo per agenti che hanno già raggiunto grado Top/SuperVisor/Manager. Confermato numericamente da tutte le tabelle "Esempio compensi" nelle 3 slide (es. Presentazione KNM slide 18: 18.432€ di V.A.P. al 5° livello × 8% = 1.475€, coerente con il "Guadagno mensile" totale mostrato).
+**Deciso il 2026-07-03** (vedi memoria `mlm_livello5_8percento_da_confermare`): il 5° livello ha un'aliquota propria dell'8%, uniforme per qualsiasi agente — non è "0,5% oltre il 4°" come implementato inizialmente. Lo 0,5% si applica solo dal 6° livello in poi, e solo per agenti che hanno già raggiunto grado Top/SuperVisor/Manager. Confermato numericamente da tutte le tabelle "Esempio compensi" nelle 3 slide (es. Presentazione KNM slide 18: 18.432€ di V.A.P. al 5° livello × 8% = 1.475€, coerente con il "Guadagno mensile" totale mostrato).
+
+**AGGIORNATO IL 2026-07-20** (decisione di Laura, "slide letterale" — sostituisce la breakaway del 2026-07-03 che si fermava al primo Top+ incontrato): il testo della slide "Compensi indiretti estesi" ("il TOP percepisce provvigioni dello 0,5% ... per un numero illimitato di livelli e fino al 5° livello del TOP seguente", e analogamente SPV/MNG) si applica alla lettera. Quindi: il blocco è **per PARI grado** (TOP blocca TOP, SuperVisor blocca SuperVisor, Manager blocca Manager — un SuperVisor NON ferma un Top), e il conteggio non si ferma AL nodo pari grado ma prosegue fino a **5 livelli sotto** il primo pari grado incontrato lungo il ramo (il suo "5° livello", incluso). Senza pari grado nel ramo la discesa è illimitata.
 
 ---
 
@@ -136,11 +141,15 @@ Base di calcolo: **"importo mensile"** = deposito del cliente diviso per la dura
 
 ### 6.2 Meccanismo
 
-Ogni volta che un agente in downline diventa **BasiQ**, si genera un evento bonus. Si individua la qualifica più alta presente nella catena upline (dal BasiQ fino alla radice, o fino al prossimo breakaway — stesso punto aperto del §5.2 sulla compressione). Il bonus totale generato = importo della qualifica più alta presente. Questo importo si distribuisce tra **tutte** le qualifiche (da Key in su) effettivamente presenti in quella catena, dal basso verso l'alto:
+Ogni volta che un agente in downline diventa **BasiQ**, si genera un evento bonus.
 
-> `payout(qualifica) = importo_bonus(qualifica) − importo_bonus(qualifica presente immediatamente inferiore nella catena)`
+**AGGIORNATO IL 2026-07-20** (decisione di Laura, "slide letterale: per posizione" — sostituisce la distribuzione telescopica per ordine di grado): risalendo la catena dal BasiQ verso la radice, ogni bonus-eligibile (Key..Manager) percepisce
 
-Se non c'è nessuna qualifica inferiore presente, l'agente incassa l'intero importo della propria fascia.
+> `payout(antenato) = max(0, importo_bonus(propria qualifica) − max importo_bonus fra i bonus-eligibili già incontrati SOTTO di lui nella catena)`
+
+come da testo della slide: "i bonus percepiti da ognuno dei livelli superiori vengono calcolati sottraendo al bonus relativo alla propria qualifica il bonus relativo alla maggiore qualifica presente fra chi diventa BasiQ e se stesso". Nel caso normale (gradi crescenti verso l'alto) coincide con la vecchia telescopica; se una qualifica più alta sta più vicino al BasiQ di una più bassa, chi sta sopra con qualifica minore non incassa nulla (es. BasiQ → Senior → Key: Senior 110 €, Key 0 €). Una qualifica ripetuta paga solo alla prima occorrenza. La somma dei payout resta sempre pari all'importo della qualifica più alta presente in catena. Un Key non eleggibile (§6.3) è trattato come assente e non abbassa il bonus di chi sta sopra.
+
+Se non c'è nessuna qualifica presente sotto di lui, l'agente incassa l'intero importo della propria fascia.
 
 ### 6.3 Regola speciale Key
 
