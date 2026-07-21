@@ -10,6 +10,7 @@
         <div style="display:flex;align-items:center;gap:10px;">
             <a href="{{ route('admin.mlm.tree.roots') }}" class="btn btn-secondary">Albero agenti</a>
             <a href="{{ route('admin.mlm.payouts.index') }}" class="btn btn-secondary">Liquidazioni EUR</a>
+            <a href="{{ route('admin.mlm.simulator.show') }}" class="btn btn-secondary">Simulatore compensi</a>
             <a href="{{ route('admin.mlm.settings.edit') }}" class="btn btn-secondary">Impostazioni qualifiche</a>
             <span class="pill">{{ $agents->total() }} agenti</span>
         </div>

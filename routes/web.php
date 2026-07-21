@@ -62,6 +62,7 @@ use App\Http\Controllers\Admin\AdminNfcCardController;
 use App\Http\Controllers\Admin\MlmController;
 use App\Http\Controllers\Admin\MlmMetricGrantController;
 use App\Http\Controllers\Admin\MlmSettingsController;
+use App\Http\Controllers\Admin\MlmSimulatorController;
 use App\Http\Controllers\Admin\MlmPayoutController;
 use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
@@ -854,6 +855,12 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
         Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');
         Route::post('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'updateRootAgent'])->name('admin.mlm.settings.root-agent.update')->middleware('backoffice');
+
+        // Simulatore compensi (2026-07-21): anteprima punti/commissioni/bonus
+        // coi motori reali in transazione sempre annullata — non scrive nulla.
+        Route::get('/admin/mlm-simulatore', [MlmSimulatorController::class, 'show'])->name('admin.mlm.simulator.show')->middleware('backoffice');
+        Route::post('/admin/mlm-simulatore/ricarica', [MlmSimulatorController::class, 'simulateDeposit'])->name('admin.mlm.simulator.deposit')->middleware('backoffice');
+        Route::post('/admin/mlm-simulatore/basiq', [MlmSimulatorController::class, 'simulateBasiq'])->name('admin.mlm.simulator.basiq')->middleware('backoffice');
 
         // Punti/agenti "omaggio" (2026-07-14): assegnazione in blocco da /admin/mlm, vedi MlmMetricGrantController.
         Route::post('/admin/mlm-punti-omaggio', [MlmMetricGrantController::class, 'store'])->name('admin.mlm.metric-grants.store')->middleware('backoffice');

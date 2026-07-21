@@ -51,7 +51,8 @@ use Illuminate\Support\Facades\DB;
  */
 class MlmBonusService
 {
-    private const BONUS_AMOUNTS_EUR_CENTS = [
+    /** Pubbliche dal 2026-07-21: riusate dal simulatore admin (MlmSimulationService) per spiegare la cascata senza duplicare gli importi. */
+    public const BONUS_AMOUNTS_EUR_CENTS = [
         'key' => 6_000,
         'senior' => 11_000,
         'top' => 15_000,
@@ -59,7 +60,7 @@ class MlmBonusService
         'manager' => 20_000,
     ];
 
-    private const KEY_MIN_BASIQ_EVENTS = 3;
+    public const KEY_MIN_BASIQ_EVENTS = 3;
 
     public function __construct(private readonly MlmTreeService $tree) {}
 
@@ -205,16 +206,23 @@ class MlmBonusService
      * cosi' l'ordine di elaborazione settimanale in batch non altera
      * l'eleggibilita', che dipende solo da quando l'evento e' stato
      * rilevato, non da quando viene calcolato il payout.
+     *
+     * Pubblica dal 2026-07-21: riusata dal simulatore admin per annotare
+     * PERCHE' un Key non incassa (stessa query, nessuna logica duplicata).
      */
-    private function keyIsBonusEligible(User $keyAgent, Carbon $upToTime): bool
+    public function keyIsBonusEligible(User $keyAgent, Carbon $upToTime): bool
     {
-        $count = DB::table('mlm_bonus_events')
+        return $this->keyBasiqEventCount($keyAgent, $upToTime) >= self::KEY_MIN_BASIQ_EVENTS;
+    }
+
+    /** Numero di eventi BasiQ rilevati nella downline del Key fino a $upToTime incluso (vedi keyIsBonusEligible). */
+    public function keyBasiqEventCount(User $keyAgent, Carbon $upToTime): int
+    {
+        return DB::table('mlm_bonus_events')
             ->join('mlm_agent_closure', 'mlm_agent_closure.descendant_id', '=', 'mlm_bonus_events.basiq_user_id')
             ->where('mlm_agent_closure.ancestor_id', $keyAgent->id)
             ->where('mlm_bonus_events.triggered_at', '<=', $upToTime)
             ->count();
-
-        return $count >= self::KEY_MIN_BASIQ_EVENTS;
     }
 
     private function nextWednesday(Carbon $from): Carbon
