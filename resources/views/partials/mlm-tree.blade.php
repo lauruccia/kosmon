@@ -106,6 +106,11 @@
 }
 #mlmNodeModal .mlm-modal-basiq.is-basiq { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
 #mlmNodeModal .mlm-modal-basiq.not-basiq { background:var(--surface-soft,#f1f5f9); color:var(--ink-muted); border:1px solid var(--line,#e2e8f0); }
+#mlmNodeModal .mlm-modal-granted {
+    display:inline-flex; align-items:center; gap:5px; margin-top:6px; margin-left:6px;
+    padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700;
+    background:#fef3c7; color:#b45309; border:1px solid #fde68a;
+}
 #mlmNodeModal table { width:calc(100% - 32px); margin:0 16px 16px; border-collapse:collapse; font-size:13px; }
 #mlmNodeModal th, #mlmNodeModal td { border:1px solid var(--line); padding:8px 10px; text-align:center; }
 #mlmNodeModal th { background:var(--surface-soft,#f8fafc); font-weight:700; }
@@ -156,6 +161,7 @@
                 <div class="mlm-modal-name" id="mlmModalName">&mdash;</div>
                 <div class="mlm-modal-rank" id="mlmModalRank">&mdash;</div>
                 <span class="mlm-modal-basiq" id="mlmModalBasiq" style="display:none;"></span>
+                <span class="mlm-modal-granted" id="mlmModalGranted" style="display:none;" title="Punti omaggio assegnati dall'amministrazione: contano per qualifiche e BasiQ, non compaiono nei punti del riquadro (solo ledger reale)."></span>
             </div>
         </div>
         <table>
@@ -184,6 +190,15 @@
             if (suppressClick) return;
             document.getElementById('mlmModalName').textContent = node.dataset.name || '';
             document.getElementById('mlmModalRank').textContent = (node.dataset.rankLabel || '') + ' \u2605 ' + (node.dataset.points || '0') + ' pt';
+            var grantedEl = document.getElementById('mlmModalGranted');
+            if (grantedEl) {
+                if (node.dataset.granted) {
+                    grantedEl.textContent = node.dataset.granted + ' pt omaggio';
+                    grantedEl.style.display = 'inline-flex';
+                } else {
+                    grantedEl.style.display = 'none';
+                }
+            }
             var basiqEl = document.getElementById('mlmModalBasiq');
             if (basiqEl) {
                 basiqEl.style.display = 'inline-flex';

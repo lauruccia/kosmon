@@ -54,4 +54,54 @@ class MlmMetricGrantSmokeTest extends TestCase
 
         $this->assertStringContainsString('Punti bonus assegnati', $html);
     }
+
+    public function test_tree_partial_shows_granted_points_only_to_admin_or_owner(): void
+    {
+        $tree = app(\App\Services\MlmTreeService::class);
+
+        $admin = User::create([
+            'name' => 'Admin', 'email' => 'admin-'.Str::random(10).'@test.test',
+            'password' => 'secret123', 'account_holder_type' => 'private',
+            'company_id' => null, 'is_active' => true, 'is_super_admin' => true,
+        ]);
+
+        $agentA = User::create([
+            'name' => 'Agente A', 'email' => 'agente-a-'.Str::random(10).'@test.test',
+            'password' => 'secret123', 'account_holder_type' => 'private',
+            'company_id' => null, 'is_active' => true,
+            'mlm_role' => 'agente', 'mlm_rank' => 'key', 'mlm_activated_at' => now(),
+        ]);
+        $agentB = User::create([
+            'name' => 'Agente B', 'email' => 'agente-b-'.Str::random(10).'@test.test',
+            'password' => 'secret123', 'account_holder_type' => 'private',
+            'company_id' => null, 'is_active' => true,
+            'mlm_role' => 'agente', 'mlm_rank' => 'basic', 'mlm_activated_at' => now(),
+        ]);
+
+        $tree->attachAgent($agentA, null);
+        $tree->attachAgent($agentB, $agentA);
+
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $agentA->id, 'metric' => 'points',
+            'amount' => 10, 'granted_by_admin_id' => $admin->id,
+        ]);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $agentB->id, 'metric' => 'points',
+            'amount' => 30, 'granted_by_admin_id' => $admin->id,
+        ]);
+
+        $subtree = $tree->subtree($agentA);
+
+        // Portale, loggata come A: vede i PROPRI +10, non i +30 di B.
+        $this->actingAs($agentA);
+        $html = view('partials.mlm-tree', ['tree' => $subtree, 'mode' => 'portal'])->render();
+        $this->assertStringContainsString('data-granted="+10"', $html);
+        $this->assertStringNotContainsString('data-granted="+30"', $html);
+
+        // Admin: vede tutto.
+        $this->actingAs($admin);
+        $html = view('partials.mlm-tree', ['tree' => $subtree, 'mode' => 'admin'])->render();
+        $this->assertStringContainsString('data-granted="+10"', $html);
+        $this->assertStringContainsString('data-granted="+30"', $html);
+    }
 }

@@ -284,4 +284,37 @@ class MlmTreeServiceTest extends TestCase
         $this->assertTrue($children[$basiq->id]['basiq']);
         $this->assertFalse($children[$notBasiq->id]['basiq']);
     }
+
+    public function test_subtree_exposes_net_admin_granted_points_per_node(): void
+    {
+        $sponsor = $this->makeAgent('key');
+        $gifted = $this->makeAgent('basic');
+
+        $this->tree->attachAgent($sponsor, null);
+        $this->tree->attachAgent($gifted, $sponsor);
+
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'points',
+            'amount' => 30, 'granted_by_admin_id' => $sponsor->id,
+        ]);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'points',
+            'amount' => -5, 'granted_by_admin_id' => $sponsor->id,
+        ]);
+        // Revocato: non deve contare.
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'points',
+            'amount' => 100, 'granted_by_admin_id' => $sponsor->id,
+        ])->forceFill(['revoked_at' => now()])->save();
+        // Metrica diversa: non deve contare nei punti.
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'level1_basic_count',
+            'amount' => 2, 'granted_by_admin_id' => $sponsor->id,
+        ]);
+
+        $tree = $this->tree->subtree($sponsor);
+
+        $this->assertSame(0, $tree['granted_points']);
+        $this->assertSame(25, $tree['children'][0]['granted_points']);
+    }
 }

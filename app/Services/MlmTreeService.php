@@ -166,7 +166,10 @@ class MlmTreeService
      * rendering dell'albero (portale "Struttura" e admin "Albero agenti").
      * Ogni nodo: id, name, rank, points (attivi oggi), basiq (bool,
      * mlm_basiq_at valorizzato — mostrato come spunta "BasiQ" nel popup),
-     * clients_count, agents_count (figli diretti), children[].
+     * granted_points (netto dei punti omaggio admin attivi — la VISIBILITA'
+     * è decisa dalla vista: admin sempre, portale solo sul proprio nodo,
+     * vedi mlm-tree-node.blade.php), clients_count, agents_count (figli
+     * diretti), children[].
      */
     public function subtree(User $root): array
     {
@@ -193,12 +196,23 @@ class MlmTreeService
             ->groupBy('agent_user_id')
             ->pluck('pts', 'agent_user_id');
 
+        // Punti omaggio admin attivi (netto, può essere negativo per le
+        // correzioni). Mostrati in modo discreto nel popup dell'albero:
+        // sempre in admin, solo sul proprio nodo nel portale.
+        $grantedPoints = DB::table('mlm_metric_grants')
+            ->whereIn('agent_user_id', $ids)
+            ->where('metric', 'points')
+            ->whereNull('revoked_at')
+            ->selectRaw('agent_user_id, sum(amount) as pts')
+            ->groupBy('agent_user_id')
+            ->pluck('pts', 'agent_user_id');
+
         $childrenByParent = [];
         foreach ($parentMap as $child => $parent) {
             $childrenByParent[$parent][] = $child;
         }
 
-        $build = function (int $id) use (&$build, $users, $clientCounts, $points, $childrenByParent): ?array {
+        $build = function (int $id) use (&$build, $users, $clientCounts, $points, $grantedPoints, $childrenByParent): ?array {
             $user = $users->get($id);
             if (! $user) {
                 return null;
@@ -219,6 +233,7 @@ class MlmTreeService
                 'rank'          => $user->mlm_rank ?: 'start',
                 'points'        => mlm_points_normalize((float) ($points[$id] ?? 0)),
                 'basiq'         => $user->mlm_basiq_at !== null,
+                'granted_points' => (int) ($grantedPoints[$id] ?? 0),
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
                 'agents_count'  => count($children),
                 'children'      => $children,
