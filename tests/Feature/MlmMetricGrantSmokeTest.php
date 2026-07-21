@@ -49,10 +49,15 @@ class MlmMetricGrantSmokeTest extends TestCase
             'rankAtRisk'         => false,
             'grantedPoints'      => $agent->mlmGrantedPoints(),
             'grantedLevel1Basic' => $agent->mlmGrantedLevel1Basic(),
+            'nextRank'           => app(\App\Services\MlmRankEngine::class)->nextRankRequirements($agent),
             'activeNav'          => 'mlm-struttura',
         ])->render();
 
         $this->assertStringContainsString('Punti bonus assegnati', $html);
+        // Checklist "verso la prossima qualifica" (2026-07-21): l'agente
+        // start vede cosa gli manca per Basic.
+        $this->assertStringContainsString('Verso la qualifica Basic', $html);
+        $this->assertStringContainsString('Punti attivi', $html);
     }
 
     public function test_tree_partial_shows_granted_points_only_to_admin_or_owner(): void

@@ -29,6 +29,33 @@
 </div>
 @endif
 
+@if(!empty($nextRank))
+<section class="card light-card" style="margin-bottom:14px;">
+    <div style="padding:14px 16px;">
+        <h3 style="margin:0 0 4px;font-size:15px;">Verso la qualifica {{ ucfirst($nextRank['rank']) }}</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">
+            Cosa ti manca per il prossimo grado. I requisiti vengono verificati automaticamente ogni notte: appena sono tutti soddisfatti, la promozione scatta da sola.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            @foreach($nextRank['items'] as $item)
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:{{ $item['met'] ? 'rgba(26,122,74,0.08)' : 'var(--surface)' }};">
+                    <span style="font-weight:700;font-size:13px;color:{{ $item['met'] ? '#1a7a4a' : '#c9313e' }};">{{ $item['met'] ? '✓' : '✗' }}</span>
+                    <span style="font-size:12.5px;">{{ $item['label'] }}: <strong>{{ mlm_points_format($item['current']) }} / {{ $item['required'] }}</strong></span>
+                </div>
+            @endforeach
+        </div>
+        @php $allMet = collect($nextRank['items'])->every(fn ($i) => $i['met']); @endphp
+        @if($allMet && count($nextRank['items']))
+            <p style="margin:10px 0 0;font-size:12.5px;color:#1a7a4a;font-weight:600;">Tutti i requisiti sono soddisfatti: la promozione a {{ ucfirst($nextRank['rank']) }} arriverà con il prossimo ricalcolo automatico.</p>
+        @endif
+    </div>
+</section>
+@elseif(($agent->mlm_rank ?? 'start') === 'manager')
+<div class="card card-pad" style="margin-bottom:14px;border-left:4px solid #16a34a;">
+    <p style="margin:0;font-size:13px;"><strong>Complimenti:</strong> hai raggiunto la qualifica massima (Manager).</p>
+</div>
+@endif
+
 @if(($expiringPoints ?? 0) > 0)
 <div class="card card-pad" style="margin-bottom:14px;border-left:4px solid {{ ($rankAtRisk ?? false) ? '#dc2626' : '#d97706' }};">
     <p style="margin:0;font-size:13px;">

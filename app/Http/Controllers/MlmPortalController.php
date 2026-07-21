@@ -7,6 +7,7 @@ use App\Models\KyCardPurchase;
 use App\Models\MlmInvitation;
 use App\Models\User;
 use App\Services\MlmPayoutService;
+use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class MlmPortalController extends Controller
     }
 
     /** GET /portale/mlm/struttura — albero della propria struttura. */
-    public function struttura(Request $request, MlmTreeService $tree): View
+    public function struttura(Request $request, MlmTreeService $tree, MlmRankEngine $rankEngine): View
     {
         $agent = $this->agentOrAbort($request);
 
@@ -54,6 +55,11 @@ class MlmPortalController extends Controller
         $grantedPoints = $agent->mlmGrantedPoints();
         $grantedLevel1Basic = $agent->mlmGrantedLevel1Basic();
 
+        // Checklist "cosa mi manca per la prossima qualifica" (2026-07-21,
+        // richiesta di Laura): stessa fonte dell'admin (MlmRankEngine::
+        // nextRankRequirements), null quando l'agente e' gia' Manager.
+        $nextRank = $rankEngine->nextRankRequirements($agent);
+
         return view('portal.mlm.struttura', [
             'pageTitle'          => 'La mia struttura',
             'tree'               => $tree->subtree($agent),
@@ -63,6 +69,7 @@ class MlmPortalController extends Controller
             'rankAtRisk'         => $rankAtRisk,
             'grantedPoints'      => $grantedPoints,
             'grantedLevel1Basic' => $grantedLevel1Basic,
+            'nextRank'           => $nextRank,
             'activeNav'          => 'mlm-struttura',
         ]);
     }
