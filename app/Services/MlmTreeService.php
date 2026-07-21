@@ -164,8 +164,9 @@ class MlmTreeService
     /**
      * Sottoalbero completo di un agente come array annidato, pronto per il
      * rendering dell'albero (portale "Struttura" e admin "Albero agenti").
-     * Ogni nodo: id, name, rank, points (attivi oggi), clients_count,
-     * agents_count (figli diretti), children[].
+     * Ogni nodo: id, name, rank, points (attivi oggi), basiq (bool,
+     * mlm_basiq_at valorizzato — mostrato come spunta "BasiQ" nel popup),
+     * clients_count, agents_count (figli diretti), children[].
      */
     public function subtree(User $root): array
     {
@@ -176,7 +177,7 @@ class MlmTreeService
             ->pluck('ancestor_id', 'descendant_id');
 
         $users = User::whereIn('id', $ids)
-            ->get(['id', 'name', 'mlm_rank', 'mlm_activated_at'])
+            ->get(['id', 'name', 'mlm_rank', 'mlm_activated_at', 'mlm_basiq_at'])
             ->keyBy('id');
 
         $clientCounts = User::whereIn('mlm_client_agent_id', $ids)
@@ -217,6 +218,7 @@ class MlmTreeService
                 'name'          => $user->name,
                 'rank'          => $user->mlm_rank ?: 'start',
                 'points'        => mlm_points_normalize((float) ($points[$id] ?? 0)),
+                'basiq'         => $user->mlm_basiq_at !== null,
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
                 'agents_count'  => count($children),
                 'children'      => $children,

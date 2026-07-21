@@ -13,6 +13,7 @@
        data-rank-label="{{ $meta['label'] }}"
        data-color="{{ $meta['color'] }}"
        data-points="{{ mlm_points_format($node['points']) }}"
+       data-basiq="{{ !empty($node['basiq']) ? '1' : '' }}"
        data-agents="{{ $node['agents_count'] }}"
        data-clients="{{ $node['clients_count'] }}"
        @if(($mode ?? 'portal') === 'admin')

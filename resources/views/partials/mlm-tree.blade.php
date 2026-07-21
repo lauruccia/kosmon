@@ -100,6 +100,12 @@
 }
 #mlmNodeModal .mlm-modal-hero .mlm-modal-name { font-size:17px; font-weight:800; color:var(--ink); }
 #mlmNodeModal .mlm-modal-hero .mlm-modal-rank { font-size:13px; color:var(--ink-muted); margin-top:2px; }
+#mlmNodeModal .mlm-modal-basiq {
+    display:inline-flex; align-items:center; gap:5px; margin-top:6px;
+    padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700;
+}
+#mlmNodeModal .mlm-modal-basiq.is-basiq { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+#mlmNodeModal .mlm-modal-basiq.not-basiq { background:var(--surface-soft,#f1f5f9); color:var(--ink-muted); border:1px solid var(--line,#e2e8f0); }
 #mlmNodeModal table { width:calc(100% - 32px); margin:0 16px 16px; border-collapse:collapse; font-size:13px; }
 #mlmNodeModal th, #mlmNodeModal td { border:1px solid var(--line); padding:8px 10px; text-align:center; }
 #mlmNodeModal th { background:var(--surface-soft,#f8fafc); font-weight:700; }
@@ -149,6 +155,7 @@
             <div>
                 <div class="mlm-modal-name" id="mlmModalName">&mdash;</div>
                 <div class="mlm-modal-rank" id="mlmModalRank">&mdash;</div>
+                <span class="mlm-modal-basiq" id="mlmModalBasiq" style="display:none;"></span>
             </div>
         </div>
         <table>
@@ -177,6 +184,17 @@
             if (suppressClick) return;
             document.getElementById('mlmModalName').textContent = node.dataset.name || '';
             document.getElementById('mlmModalRank').textContent = (node.dataset.rankLabel || '') + ' \u2605 ' + (node.dataset.points || '0') + ' pt';
+            var basiqEl = document.getElementById('mlmModalBasiq');
+            if (basiqEl) {
+                basiqEl.style.display = 'inline-flex';
+                if (node.dataset.basiq) {
+                    basiqEl.className = 'mlm-modal-basiq is-basiq';
+                    basiqEl.textContent = 'BasiQ ✓';
+                } else {
+                    basiqEl.className = 'mlm-modal-basiq not-basiq';
+                    basiqEl.textContent = 'Non BasiQ';
+                }
+            }
             document.getElementById('mlmModalAgents').textContent = node.dataset.agents || '0';
             document.getElementById('mlmModalClients').textContent = node.dataset.clients || '0';
             var avatar = document.getElementById('mlmModalAvatar');

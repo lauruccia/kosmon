@@ -13,6 +13,20 @@
             <a href="{{ route('admin.mlm.tree.move-form', $agent) }}" class="btn btn-secondary">Sposta sponsor</a>
             <a href="{{ route('admin.mlm.promote-form', $agent) }}" class="btn btn-secondary">Promuovi agente</a>
             <span class="pill">{{ ucfirst($agent->mlm_rank) }}</span>
+            @php
+                // Stato BasiQ (finestra di 30 giorni da mlm_activated_at,
+                // stessa regola di mlm:recalculate-points).
+                $basiqDeadline = $agent->mlm_activated_at?->copy()->addDays(30);
+            @endphp
+            @if($agent->mlm_basiq_at)
+                <span class="pill" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;" title="Ha raggiunto 12 punti entro 30 giorni dall'attivazione: genera bonus di struttura per l'upline.">BasiQ ✓ {{ $agent->mlm_basiq_at->format('d/m/Y') }}</span>
+            @elseif(!$agent->mlm_activated_at)
+                <span class="pill" style="color:var(--ink-muted);" title="Diventa candidato BasiQ solo dopo l'attivazione (firma contratto agente).">Non BasiQ — non attivato</span>
+            @elseif($basiqDeadline->isPast())
+                <span class="pill" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;" title="Non ha raggiunto 12 punti entro 30 giorni dall'attivazione: non diventera' mai BasiQ (nessun bonus di struttura per l'upline). Puo' comunque salire di qualifica.">Non BasiQ — finestra scaduta il {{ $basiqDeadline->format('d/m/Y') }}</span>
+            @else
+                <span class="pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;" title="Diventa BasiQ raggiungendo 12 punti attivi (omaggio inclusi) entro questa data. Rilevato dal job notturno o dal ricalcolo immediato dopo un grant.">Non ancora BasiQ — entro il {{ $basiqDeadline->format('d/m/Y') }}</span>
+            @endif
         </div>
     </div>
 </div>

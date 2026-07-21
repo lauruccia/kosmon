@@ -265,4 +265,23 @@ class MlmTreeServiceTest extends TestCase
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         $this->tree->moveAgent($client, $sponsor);
     }
+
+    public function test_subtree_exposes_the_basiq_flag_per_node(): void
+    {
+        $sponsor = $this->makeAgent('key');
+        $basiq = $this->makeAgent('basic', ['mlm_basiq_at' => now()]);
+        $notBasiq = $this->makeAgent('basic');
+
+        $this->tree->attachAgent($sponsor, null);
+        $this->tree->attachAgent($basiq, $sponsor);
+        $this->tree->attachAgent($notBasiq, $sponsor);
+
+        $tree = $this->tree->subtree($sponsor);
+
+        $this->assertFalse($tree['basiq'], 'Lo sponsor senza mlm_basiq_at non deve risultare BasiQ.');
+
+        $children = collect($tree['children'])->keyBy('id');
+        $this->assertTrue($children[$basiq->id]['basiq']);
+        $this->assertFalse($children[$notBasiq->id]['basiq']);
+    }
 }
