@@ -56,7 +56,13 @@
             @foreach($nextRank['items'] as $item)
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:{{ $item['met'] ? 'rgba(26,122,74,0.08)' : 'var(--surface)' }};">
                     <span style="font-weight:700;font-size:13px;color:{{ $item['met'] ? '#1a7a4a' : '#c9313e' }};">{{ $item['met'] ? '✓' : '✗' }}</span>
-                    <span style="font-size:12.5px;">{{ $item['label'] }}: {{ $item['current'] }} / {{ $item['required'] }}</span>
+                    <span style="font-size:12.5px;">{{ $item['label'] }}: {{ mlm_points_format($item['current']) }} / {{ $item['required'] }}</span>
+                    @php $itemGranted = $item['granted'] ?? 0; $itemReal = $item['current'] - $itemGranted; @endphp
+                    @if($itemGranted > 0 && $itemReal >= 0)
+                        <span style="font-size:11.5px;color:var(--ink-muted);">({{ mlm_points_format($itemReal) }} {{ $itemReal == 1 ? 'reale' : 'reali' }} + {{ $itemGranted }} omaggio)</span>
+                    @elseif($itemGranted < 0)
+                        <span style="font-size:11.5px;color:var(--ink-muted);">(incl. {{ $itemGranted }} omaggio)</span>
+                    @endif
                 </div>
             @endforeach
         </div>

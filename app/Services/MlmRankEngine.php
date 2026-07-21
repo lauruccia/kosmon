@@ -285,10 +285,19 @@ class MlmRankEngine
                 $current = $metric === 'points'
                     ? mlm_points_normalize($evaluation[$metric])
                     : (int) $evaluation[$metric];
+
+                // Quota "omaggio" (netto dei grant admin attivi) inclusa in
+                // $current: esposta a parte cosi' le viste possono mostrare
+                // la scomposizione "X reali + Y omaggio" (2026-07-21, dopo
+                // che un "3/2" senza spiegazione ha confuso — il valore
+                // combinato resta l'unico che conta per la promozione).
+                $granted = $agent->mlmGrantedMetric($metric);
+
                 $items[] = [
                     'label' => self::RANK_LABELS[$field],
                     'required' => $required,
                     'current' => $current,
+                    'granted' => $granted,
                     'met' => $current >= $required,
                 ];
             }

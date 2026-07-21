@@ -58,6 +58,9 @@ class MlmMetricGrantSmokeTest extends TestCase
         // start vede cosa gli manca per Basic.
         $this->assertStringContainsString('Verso la qualifica Basic', $html);
         $this->assertStringContainsString('Punti attivi', $html);
+        // Scomposizione reale+omaggio nei chip (2026-07-21): l'agente ha
+        // 0 punti reali e 5 omaggio.
+        $this->assertStringContainsString('(0 reali + 5 omaggio)', $html);
     }
 
     public function test_tree_partial_shows_granted_points_only_to_admin_or_owner(): void
