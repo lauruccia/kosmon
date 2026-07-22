@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Payment:etc/payment.xsd">
+    <default>
+        <payment>
+            <kmoney>
+                <active>0</active>
+                <model>Kmoney\Payment\Model\Kmoney</model>
+                <title>KMoney</title>
+                <instructions>Pay with your KMoney account. You will be redirected to KMoney to confirm the payment securely with your own credentials (2FA/passkey supported). You never enter your KMoney password on this site.</instructions>
+                <order_status>pending</order_status>
+                <allowspecific>0</allowspecific>
+                <group>offline</group>
+                <sort_order>50</sort_order>
+                <can_use_checkout>1</can_use_checkout>
+                <can_use_internal>0</can_use_internal>
+                <api_base_url>https://kmoney.it/api/v1</api_base_url>
+            </kmoney>
+        </payment>
+    </default>
+</config>

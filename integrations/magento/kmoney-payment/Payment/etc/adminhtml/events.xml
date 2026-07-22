@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!--
+        Account-number pairing (same flow as the KMoney WooCommerce plugin):
+        the merchant only enters the KMoney account number below. These two
+        observers drive the pairing request and its follow-up, so the API
+        token and webhook secret above get filled in automatically once the
+        circuit administrator approves the connection.
+    -->
+    <event name="admin_system_config_changed">
+        <observer name="kmoney_start_pairing_on_config_save" instance="Kmoney\Payment\Observer\StartPairingOnConfigSave"/>
+    </event>
+    <event name="controller_action_predispatch_adminhtml_system_config_edit">
+        <observer name="kmoney_poll_pairing_on_config_edit" instance="Kmoney\Payment\Observer\PollPairingOnConfigEdit"/>
+    </event>
+</config>

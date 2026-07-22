@@ -1,0 +1,22 @@
+{
+    "name": "kmoney/module-payment",
+    "version": "1.1.0",
+    "description": "KMoney hosted-checkout payment method for Magento 2 (redirect + webhook, no card/PSD2 data touches the store). Store connection is by account number only: enter it and save, an admin approval on the KMoney side fills in the API token and webhook secret automatically.",
+    "type": "magento2-module",
+    "license": "proprietary",
+    "require": {
+        "php": "~8.1.0||~8.2.0||~8.3.0",
+        "magento/framework": "*",
+        "magento/module-payment": "*",
+        "magento/module-sales": "*",
+        "magento/module-checkout": "*"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Kmoney\\Payment\\": ""
+        }
+    }
+}

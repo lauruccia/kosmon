@@ -5,6 +5,16 @@ KMoney backend (API v1) — you are not waiting on anything to start building. A
 ready-to-install Magento 2 module implementing this integration is included: see
 **Appendix B** for the full source, or use the accompanying `kmoney-magento2-module.zip`.
 
+**Connecting the store to a KMoney account needs only the account number.** The merchant
+enters their KMoney account number (KYB.../KYP...) in **Stores > Configuration > Sales >
+Payment Methods > KMoney** and saves — no API token, no webhook secret to create or paste.
+KMoney notifies its circuit administrator, who approves the connection from the merchant's
+company page; the module then retrieves the API token and webhook signing secret by itself
+the next time the configuration page is opened, and stores them encrypted. This is the exact
+same account-number pairing already used by the KMoney WooCommerce plugin — see Section 7 for
+the full flow. Manual/classic setup (pasting a token and webhook secret yourself) still works
+if you prefer it.
+
 If anything here is ambiguous, ask the store owner (KMoney merchant account holder) before
 guessing — in particular the currency assumption in Section 4 and the refund gap in Section 8.
 
@@ -238,13 +248,49 @@ Then configure: **Stores → Configuration → Sales → Payment Methods → KMo
 | Enabled | Yes |
 | Title | Whatever the customer should see (default "KMoney") |
 | Instructions | Free text shown under the method at checkout |
-| KMoney API base URL | `https://kmoney.example.com/api/v1` (no trailing slash needed) |
-| KMoney API token | The Bearer token from `/api-tokens` on the KMoney portal, **`write`** ability |
-| Webhook signing secret | From Section 6.1 |
+| KMoney account number | The merchant's KMoney account number (KYB.../KYP...). This is the only field the merchant has to fill in — see 7.1 below. |
+| KMoney API base URL | Pre-filled `https://kmoney.it/api/v1`; change only for a different KMoney instance |
+| KMoney API token | Filled in automatically once the account number is linked (7.1). Can also be pasted manually. |
+| Webhook signing secret | Filled in automatically together with the token. Can also be pasted manually (Section 6.1). |
 
 Both the token and the webhook secret fields use Magento's built-in encryption
 (`Magento\Config\Model\Config\Backend\Encrypted`) — they are not stored in plaintext in the
-database.
+database, whether they were typed in by hand or filled in automatically by the pairing flow
+below.
+
+### 7.1 Account-number pairing (default, no token/secret to copy)
+
+This is the same pairing flow already used by the KMoney WooCommerce plugin, ported as-is to
+Magento — see `Model/Pairing.php`, `Observer/StartPairingOnConfigSave.php` and
+`Observer/PollPairingOnConfigEdit.php` in Appendix B.
+
+1. The merchant enters **only the KMoney account number** above and saves the configuration
+   page (`Stores → Configuration → Sales → Payment Methods → KMoney`).
+2. On save, `admin_system_config_changed` fires `StartPairingOnConfigSave`, which calls
+   `Pairing::maybeStart()`: it generates a random `claim_secret` and calls
+   `POST /api/v1/ecommerce/pairings` with `account_number`, `site_url`, `webhook_url`
+   (`<store base url>/kmoney/webhook/index`), `claim_secret` and `platform: "magento"` — the
+   same public, rate-limited endpoint the WooCommerce plugin uses, with a different
+   `platform` value. The request state (`uuid`, `claim_secret`, `status: pending`) is stored
+   encrypted in `core_config_data` (`payment/kmoney/pairing_state`), not shown in the admin UI.
+3. The circuit administrator sees the pending request on the KMoney portal
+   (`/admin/companies/{id}`, "Richieste di collegamento in attesa") and approves or rejects it.
+   Approval creates an API token (`read`+`write`) named `Plugin Magento — <host>` and a
+   `payment_request.paid` webhook pointing at the store's webhook URL, and leaves the raw
+   credentials encrypted on the pairing record until the module retrieves them.
+4. The next time `Stores → Configuration → Sales → Payment Methods` is opened,
+   `controller_action_predispatch_adminhtml_system_config_edit` fires `PollPairingOnConfigEdit`,
+   which calls `Pairing::maybePoll()`: `GET /api/v1/ecommerce/pairings/{uuid}?claim_secret=...`.
+   If approved, the API token and webhook secret are retrieved **exactly once** (the server
+   zeroes them out after this call) and saved into the same encrypted config fields a manual
+   setup would use — `Helper\Data::getApiToken()`/`getWebhookSecret()` decrypt them exactly the
+   same way regardless of how they got there. An admin notice ("connection pending" / "account
+   connected!" / "connection failed: ...") is shown at the top of the configuration page.
+5. Changing the account number to a different one restarts the pairing from step 2.
+
+Nothing about the actual payment flow (Sections 3–6, Controller/Redirect, Controller/Return,
+Controller/Webhook) changes because of this — pairing only affects how the API token and
+webhook secret get into the two encrypted config fields.
 
 ## 8. What is intentionally NOT included (be upfront with the store owner)
 
@@ -261,6 +307,10 @@ database.
 
 ## 9. End-to-end test checklist
 
+0. **Pairing**: enter only the KMoney account number and save → confirm a "connection pending"
+   notice appears. Approve the request from the KMoney admin (`/admin/companies/{id}`). Reopen
+   the configuration page → confirm the "account connected!" notice and that the API token /
+   webhook secret fields are now populated (still shown as dots, like any obscure field).
 1. Config saved, module enabled, `bin/magento cache:flush` run.
 2. Place a test order selecting "KMoney" as the payment method → confirm you land on
    `https://kmoney.../pay/...` (a KMoney-branded page, not a Magento page).
@@ -280,6 +330,9 @@ database.
    confirm KMoney shows "expired" and Magento's order stays pending / uninvoiced.
 10. Tamper with the webhook signature (e.g. curl the endpoint with a wrong `X-KMoney-Signature`)
     — confirm Magento responds `401` and does **not** invoice the order.
+11. Change the account number to a different one and save → confirm a new pairing request is
+    sent (visible as a new pending request on the KMoney admin side) rather than reusing the old
+    token.
 
 ## 10. File manifest
 
@@ -291,7 +344,9 @@ Kmoney/Payment/
 ├── etc/
 │   ├── module.xml
 │   ├── config.xml
-│   ├── adminhtml/system.xml
+│   ├── adminhtml/
+│   │   ├── system.xml
+│   │   └── events.xml             (wires the two pairing observers below)
 │   └── frontend/
 │       ├── routes.xml
 │       └── di.xml
@@ -299,8 +354,12 @@ Kmoney/Payment/
 │   ├── Kmoney.php                 (payment method)
 │   ├── ConfigProvider.php         (exposes title/instructions to checkout JS)
 │   ├── OrderFinalizer.php         (shared invoicing logic, idempotent)
-│   └── Api/Client.php             (KMoney API HTTP client)
-├── Helper/Data.php                (reads admin config)
+│   ├── Pairing.php                (account-number pairing: start + poll + admin notice)
+│   └── Api/Client.php             (KMoney API HTTP client, used for the actual payment flow)
+├── Observer/
+│   ├── StartPairingOnConfigSave.php   (admin_system_config_changed)
+│   └── PollPairingOnConfigEdit.php    (controller_action_predispatch_adminhtml_system_config_edit)
+├── Helper/Data.php                (reads + decrypts admin config)
 ├── Controller/
 │   ├── Redirect/Index.php         (GET /kmoney/redirect/index — creates the payment request)
 │   ├── Return/Index.php           (GET /kmoney/return/index — verifies + invoices)
@@ -348,7 +407,8 @@ Every file below is also included, ready to use, in `kmoney-magento2-module.zip`
 ```json
 {
     "name": "kmoney/module-payment",
-    "description": "KMoney hosted-checkout payment method for Magento 2 (redirect + webhook, no card/PSD2 data touches the store).",
+    "version": "1.1.0",
+    "description": "KMoney hosted-checkout payment method for Magento 2 (redirect + webhook, no card/PSD2 data touches the store). Store connection is by account number only: enter it and save, an admin approval on the KMoney side fills in the API token and webhook secret automatically.",
     "type": "magento2-module",
     "license": "proprietary",
     "require": {
@@ -374,7 +434,7 @@ Every file below is also included, ready to use, in `kmoney-magento2-module.zip`
 ```xml
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/module.xsd">
-    <module name="Kmoney_Payment" setup_version="1.0.0">
+    <module name="Kmoney_Payment" setup_version="1.1.0">
         <sequence>
             <module name="Magento_Sales"/>
             <module name="Magento_Payment"/>
@@ -402,6 +462,7 @@ Every file below is also included, ready to use, in `kmoney-magento2-module.zip`
                 <sort_order>50</sort_order>
                 <can_use_checkout>1</can_use_checkout>
                 <can_use_internal>0</can_use_internal>
+                <api_base_url>https://kmoney.it/api/v1</api_base_url>
             </kmoney>
         </payment>
     </default>
@@ -455,18 +516,22 @@ Every file below is also included, ready to use, in `kmoney-magento2-module.zip`
                 <field id="instructions" translate="label" type="textarea" sortOrder="25" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Instructions (shown at checkout, under the method)</label>
                 </field>
+                <field id="account_number" translate="label" type="text" sortOrder="28" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>KMoney account number</label>
+                    <comment><![CDATA[Enter your KMoney account number (starts with KYB or KYP) and save. That is the only thing you need to do: KMoney notifies its circuit administrator, who approves the connection from the merchant's company page. As soon as it is approved, this module retrieves the API token and webhook signing secret below by itself — nothing to copy or paste.]]></comment>
+                </field>
                 <field id="api_base_url" translate="label" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>KMoney API base URL</label>
-                    <comment><![CDATA[e.g. https://kmoney.yourdomain.com/api/v1 (no trailing slash needed)]]></comment>
+                    <comment><![CDATA[Pre-filled for kmoney.it. Change it only if this store connects to a different KMoney instance.]]></comment>
                 </field>
                 <field id="api_token" translate="label" type="obscure" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>KMoney API token</label>
-                    <comment><![CDATA[Bearer token generated on the KMoney portal under /api-tokens, with the "write" ability enabled. Required to create payment requests.]]></comment>
+                    <comment><![CDATA[Filled in automatically once the account number above is linked and approved. You can also paste a token here yourself if you prefer the classic manual setup (token generated on the KMoney portal under /api-tokens, "write" ability).]]></comment>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                 </field>
                 <field id="webhook_secret" translate="label" type="obscure" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Webhook signing secret</label>
-                    <comment><![CDATA[The "secret" shown once when creating the webhook on the KMoney portal (Settings > Webhooks > New webhook, URL = https://your-store.com/kmoney/webhook/index, event = payment_request.paid). Used to verify the X-KMoney-Signature header on incoming webhook calls.]]></comment>
+                    <comment><![CDATA[Filled in automatically together with the API token above. Manual alternative: the "secret" shown once when creating a webhook on the KMoney portal (Settings > Webhooks > New webhook, URL = https://your-store.com/kmoney/webhook/index, event = payment_request.paid).]]></comment>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                 </field>
                 <field id="sort_order" translate="label" type="text" sortOrder="60" showInDefault="1" showInWebsite="1" showInStore="0">
@@ -476,6 +541,27 @@ Every file below is also included, ready to use, in `kmoney-magento2-module.zip`
             </group>
         </section>
     </system>
+</config>
+```
+
+### `app/code/Kmoney/Payment/etc/adminhtml/events.xml`
+
+```xml
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!--
+        Account-number pairing (same flow as the KMoney WooCommerce plugin):
+        the merchant only enters the KMoney account number below. These two
+        observers drive the pairing request and its follow-up, so the API
+        token and webhook secret above get filled in automatically once the
+        circuit administrator approves the connection.
+    -->
+    <event name="admin_system_config_changed">
+        <observer name="kmoney_start_pairing_on_config_save" instance="Kmoney\Payment\Observer\StartPairingOnConfigSave"/>
+    </event>
+    <event name="controller_action_predispatch_adminhtml_system_config_edit">
+        <observer name="kmoney_poll_pairing_on_config_edit" instance="Kmoney\Payment\Observer\PollPairingOnConfigEdit"/>
+    </event>
 </config>
 ```
 
@@ -648,6 +734,356 @@ class OrderFinalizer
 }
 ```
 
+### `app/code/Kmoney/Payment/Model/Pairing.php`
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Kmoney\Payment\Model;
+
+use Kmoney\Payment\Helper\Data as ConfigHelper;
+use Magento\Framework\App\Cache\TypeListInterface;
+use Magento\Framework\App\Config\ReinitableConfigInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\Config\Storage\WriterInterface;
+use Magento\Framework\Encryption\EncryptorInterface;
+use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\HTTP\Client\CurlFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Framework\UrlInterface;
+use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Links the store's KMoney account using only the account number (pairing).
+ *
+ * Same flow as the KMoney WooCommerce plugin: the merchant enters only the
+ * KMoney account number (KYB... or KYP...) in the payment method settings
+ * and saves. This module then sends a connection request to KMoney
+ * (POST /api/v1/ecommerce/pairings) with a claim secret generated here. The
+ * circuit administrator approves the request from /admin/companies/{id} on
+ * the KMoney side; the next time the configuration page is opened (or
+ * saved), this module checks the request status, retrieves the API token
+ * and webhook signing secret exactly once (authenticating with the claim
+ * secret) and stores them itself, encrypted like any other "obscure"
+ * Magento config field. The merchant never copies or pastes a token or a
+ * webhook secret.
+ */
+class Pairing
+{
+    private const CONFIG_PATH_STATE          = 'payment/kmoney/pairing_state';
+    private const CONFIG_PATH_ACCOUNT_NUMBER = 'payment/kmoney/account_number';
+    private const CONFIG_PATH_API_TOKEN      = 'payment/kmoney/api_token';
+    private const CONFIG_PATH_WEBHOOK_SECRET = 'payment/kmoney/webhook_secret';
+    private const PLATFORM                   = 'magento';
+
+    public function __construct(
+        private readonly ConfigHelper $configHelper,
+        private readonly CurlFactory $curlFactory,
+        private readonly Json $json,
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly WriterInterface $configWriter,
+        private readonly ReinitableConfigInterface $reinitableConfig,
+        private readonly TypeListInterface $cacheTypeList,
+        private readonly EncryptorInterface $encryptor,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly LoggerInterface $logger
+    ) {
+    }
+
+    /**
+     * Called right after the payment settings are saved. Starts (or
+     * restarts) the pairing if an account number was entered but there is
+     * no token yet, or if the account number changed since the previous
+     * request.
+     */
+    public function maybeStart(): void
+    {
+        $accountNumber = $this->normalizeAccountNumber(
+            (string) $this->scopeConfig->getValue(self::CONFIG_PATH_ACCOUNT_NUMBER)
+        );
+
+        if ($accountNumber === '') {
+            $this->clearState();
+            return;
+        }
+
+        $state = $this->readState();
+        $accountChanged = isset($state['account_number']) && $state['account_number'] !== $accountNumber;
+        $hasToken = $this->configHelper->getApiToken() !== '';
+
+        // Already linked with this exact account, or a request is already
+        // in flight: nothing to do.
+        if (!$accountChanged && ($hasToken || (($state['status'] ?? null) === 'pending'))) {
+            return;
+        }
+
+        $baseUrl = $this->configHelper->getApiBaseUrl();
+        if ($baseUrl === '') {
+            $this->writeState([
+                'status'  => 'error',
+                'message' => 'KMoney API base URL is missing.',
+            ]);
+            return;
+        }
+
+        $claimSecret = bin2hex(random_bytes(20));
+        $siteUrl = rtrim($this->getStoreBaseUrl(), '/') . '/';
+        $webhookUrl = rtrim($siteUrl, '/') . '/kmoney/webhook/index';
+
+        try {
+            /** @var Curl $curl */
+            $curl = $this->curlFactory->create();
+            $curl->addHeader('Content-Type', 'application/json');
+            $curl->addHeader('Accept', 'application/json');
+            $curl->setTimeout(20);
+            $curl->setOption(CURLOPT_CONNECTTIMEOUT, 10);
+            $curl->post($baseUrl . '/ecommerce/pairings', $this->json->serialize([
+                'account_number' => $accountNumber,
+                'site_url'       => $siteUrl,
+                'webhook_url'    => $webhookUrl,
+                'claim_secret'   => $claimSecret,
+                'platform'       => self::PLATFORM,
+            ]));
+
+            $status = (int) $curl->getStatus();
+            $decoded = $this->decodeBody((string) $curl->getBody());
+        } catch (\Throwable $e) {
+            $this->logger->error('Kmoney pairing: unable to reach KMoney', ['error' => $e->getMessage()]);
+            $this->writeState([
+                'account_number' => $accountNumber,
+                'status'         => 'error',
+                'message'        => 'Could not reach KMoney: ' . $e->getMessage(),
+            ]);
+            return;
+        }
+
+        if ($status === 201 && is_array($decoded) && !empty($decoded['uuid'])) {
+            $this->writeState([
+                'uuid'           => (string) $decoded['uuid'],
+                'claim_secret'   => $claimSecret,
+                'account_number' => $accountNumber,
+                'status'         => 'pending',
+            ]);
+            return;
+        }
+
+        $message = is_array($decoded) && !empty($decoded['error'])
+            ? (string) $decoded['error']
+            : ('Unexpected response from KMoney (HTTP ' . $status . ').');
+
+        $this->writeState([
+            'account_number' => $accountNumber,
+            'status'         => 'error',
+            'message'        => $message,
+        ]);
+    }
+
+    /**
+     * Called when the payment settings page is opened. If a request is
+     * pending, checks its status with KMoney; if approved, retrieves the
+     * credentials and stores them.
+     */
+    public function maybePoll(): void
+    {
+        $state = $this->readState();
+
+        if (($state['status'] ?? null) !== 'pending' || empty($state['uuid']) || empty($state['claim_secret'])) {
+            return;
+        }
+
+        $baseUrl = $this->configHelper->getApiBaseUrl();
+        if ($baseUrl === '') {
+            return;
+        }
+
+        try {
+            /** @var Curl $curl */
+            $curl = $this->curlFactory->create();
+            $curl->addHeader('Accept', 'application/json');
+            $curl->setTimeout(20);
+            $curl->setOption(CURLOPT_CONNECTTIMEOUT, 10);
+            $curl->get(
+                $baseUrl . '/ecommerce/pairings/' . rawurlencode((string) $state['uuid'])
+                . '?claim_secret=' . rawurlencode((string) $state['claim_secret'])
+            );
+
+            $http = (int) $curl->getStatus();
+            $decoded = $this->decodeBody((string) $curl->getBody());
+        } catch (\Throwable $e) {
+            // Temporary network error: this will be retried the next time
+            // the page is opened.
+            $this->logger->warning('Kmoney pairing: poll failed', ['error' => $e->getMessage()]);
+            return;
+        }
+
+        if (!is_array($decoded)) {
+            return;
+        }
+
+        if ($http === 404) {
+            // The request no longer exists on the KMoney side (e.g. it was
+            // replaced by a newer one): starts over on the next save.
+            $state['status'] = 'error';
+            $state['message'] = 'This connection request is no longer valid: save the settings again to send a new one.';
+            $this->writeState($state);
+            return;
+        }
+
+        $remoteStatus = $decoded['status'] ?? '';
+
+        if ($remoteStatus === 'approved' && !empty($decoded['api_token'])) {
+            // One-time delivery: store the credentials right away, encrypted
+            // the same way as any other "obscure" field of the payment method.
+            $this->writeEncryptedConfig(self::CONFIG_PATH_API_TOKEN, (string) $decoded['api_token']);
+            if (!empty($decoded['webhook_secret'])) {
+                $this->writeEncryptedConfig(self::CONFIG_PATH_WEBHOOK_SECRET, (string) $decoded['webhook_secret']);
+            }
+
+            $this->writeState([
+                'account_number' => $state['account_number'] ?? '',
+                'status'         => 'linked',
+                'just_linked'    => true,
+            ]);
+            return;
+        }
+
+        if ($remoteStatus === 'approved' && !empty($decoded['claimed'])) {
+            // Credentials were already retrieved elsewhere (e.g. another
+            // installation) but are not present here: a new pairing is needed.
+            $state['status'] = 'error';
+            $state['message'] = 'The credentials for this connection have already been retrieved elsewhere. Save the settings again to send a new connection request.';
+            $this->writeState($state);
+            return;
+        }
+
+        if ($remoteStatus === 'rejected') {
+            $state['status'] = 'rejected';
+            $state['message'] = 'The circuit administrator rejected the connection request. Check the account number or contact KMoney support.';
+            $this->writeState($state);
+        }
+        // "pending": nothing changed, this will be retried on the next page load.
+    }
+
+    /**
+     * Notice to show at the top of the configuration page (the success
+     * notice is shown only once). Returns null if there is nothing to show.
+     *
+     * @return array{type: string, message: string}|null
+     */
+    public function consumeNotice(): ?array
+    {
+        $state = $this->readState();
+
+        if (empty($state['status'])) {
+            return null;
+        }
+
+        if ($state['status'] === 'pending') {
+            return [
+                'type'    => 'warning',
+                'message' => (string) __(
+                    'KMoney: the connection request for account %1 is awaiting approval from the circuit administrator. Once approved, this module configures itself automatically — reopen this page to check.',
+                    $state['account_number'] ?? ''
+                ),
+            ];
+        }
+
+        if ($state['status'] === 'linked' && !empty($state['just_linked'])) {
+            unset($state['just_linked']);
+            $this->writeState($state);
+
+            return [
+                'type'    => 'success',
+                'message' => (string) __('KMoney: account connected! The API token and webhook were configured automatically.'),
+            ];
+        }
+
+        if (in_array($state['status'], ['error', 'rejected'], true)) {
+            return [
+                'type'    => 'error',
+                'message' => (string) __('KMoney: the connection could not be completed. %1', $state['message'] ?? ''),
+            ];
+        }
+
+        return null;
+    }
+
+    private function normalizeAccountNumber(string $accountNumber): string
+    {
+        return strtoupper((string) preg_replace('/\s+/', '', $accountNumber));
+    }
+
+    private function getStoreBaseUrl(): string
+    {
+        try {
+            return (string) $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_WEB);
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    private function clearState(): void
+    {
+        $this->configWriter->delete(self::CONFIG_PATH_STATE);
+        $this->reinitableConfig->reinit();
+        $this->cacheTypeList->cleanType('config');
+    }
+
+    /** @return array<string, mixed> */
+    private function readState(): array
+    {
+        $raw = (string) $this->scopeConfig->getValue(self::CONFIG_PATH_STATE);
+        if ($raw === '') {
+            return [];
+        }
+
+        try {
+            $decrypted = $this->encryptor->decrypt($raw);
+            $decoded = $this->json->unserialize($decrypted);
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @param array<string, mixed> $state */
+    private function writeState(array $state): void
+    {
+        $encrypted = $this->encryptor->encrypt($this->json->serialize($state));
+        $this->configWriter->save(self::CONFIG_PATH_STATE, $encrypted, 'default', 0);
+        $this->reinitableConfig->reinit();
+        $this->cacheTypeList->cleanType('config');
+    }
+
+    private function writeEncryptedConfig(string $path, string $value): void
+    {
+        $this->configWriter->save($path, $this->encryptor->encrypt($value), 'default', 0);
+        $this->reinitableConfig->reinit();
+        $this->cacheTypeList->cleanType('config');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function decodeBody(string $rawBody): ?array
+    {
+        if ($rawBody === '') {
+            return null;
+        }
+
+        try {
+            $decoded = $this->json->unserialize($rawBody);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return is_array($decoded) ? $decoded : null;
+    }
+}
+```
+
 ### `app/code/Kmoney/Payment/Model/Api/Client.php`
 
 ```php
@@ -767,6 +1203,105 @@ class Client
 }
 ```
 
+### `app/code/Kmoney/Payment/Observer/StartPairingOnConfigSave.php`
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Kmoney\Payment\Observer;
+
+use Kmoney\Payment\Model\Pairing;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Event\Observer;
+use Magento\Framework\Event\ObserverInterface;
+
+/**
+ * Fires after the admin saves Stores > Configuration > Sales > Payment
+ * Methods. If an account number was entered but there is no API token yet
+ * (or the account number changed), starts the KMoney account pairing —
+ * same behavior as the KMoney WooCommerce plugin: no token or webhook
+ * secret to copy and paste.
+ */
+class StartPairingOnConfigSave implements ObserverInterface
+{
+    public function __construct(
+        private readonly Pairing $pairing,
+        private readonly RequestInterface $request
+    ) {
+    }
+
+    public function execute(Observer $observer): void
+    {
+        if ($this->request->getParam('section') !== 'payment') {
+            return;
+        }
+
+        $this->pairing->maybeStart();
+    }
+}
+```
+
+### `app/code/Kmoney/Payment/Observer/PollPairingOnConfigEdit.php`
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Kmoney\Payment\Observer;
+
+use Kmoney\Payment\Model\Pairing;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Event\Observer;
+use Magento\Framework\Event\ObserverInterface;
+use Magento\Framework\Message\ManagerInterface;
+
+/**
+ * Fires when Stores > Configuration > Sales > Payment Methods is opened.
+ * If a KMoney account pairing is pending, checks its status; once approved,
+ * the API token and webhook secret were already retrieved and stored by
+ * Pairing::maybePoll() — this observer only surfaces the resulting notice
+ * (pending / connected / failed) to the admin.
+ */
+class PollPairingOnConfigEdit implements ObserverInterface
+{
+    public function __construct(
+        private readonly Pairing $pairing,
+        private readonly RequestInterface $request,
+        private readonly ManagerInterface $messageManager
+    ) {
+    }
+
+    public function execute(Observer $observer): void
+    {
+        if ($this->request->getParam('section') !== 'payment') {
+            return;
+        }
+
+        $this->pairing->maybePoll();
+
+        $notice = $this->pairing->consumeNotice();
+        if ($notice === null) {
+            return;
+        }
+
+        switch ($notice['type']) {
+            case 'success':
+                $this->messageManager->addSuccessMessage($notice['message']);
+                break;
+            case 'warning':
+                $this->messageManager->addWarningMessage($notice['message']);
+                break;
+            default:
+                $this->messageManager->addErrorMessage($notice['message']);
+                break;
+        }
+    }
+}
+```
+
 ### `app/code/Kmoney/Payment/Helper/Data.php`
 
 ```php
@@ -777,6 +1312,8 @@ declare(strict_types=1);
 namespace Kmoney\Payment\Helper;
 
 use Magento\Framework\App\Helper\AbstractHelper;
+use Magento\Framework\App\Helper\Context;
+use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Store\Model\ScopeInterface;
 
 class Data extends AbstractHelper
@@ -784,6 +1321,14 @@ class Data extends AbstractHelper
     private const XML_PATH_API_BASE_URL   = 'payment/kmoney/api_base_url';
     private const XML_PATH_API_TOKEN      = 'payment/kmoney/api_token';
     private const XML_PATH_WEBHOOK_SECRET = 'payment/kmoney/webhook_secret';
+    private const XML_PATH_ACCOUNT_NUMBER = 'payment/kmoney/account_number';
+
+    public function __construct(
+        Context $context,
+        private readonly EncryptorInterface $encryptor
+    ) {
+        parent::__construct($context);
+    }
 
     public function getApiBaseUrl(?int $storeId = null): string
     {
@@ -796,22 +1341,57 @@ class Data extends AbstractHelper
         return rtrim($url, '/');
     }
 
+    /**
+     * Both the account-number pairing (Model\Pairing) and a merchant pasting
+     * a token manually store it through Magento's "obscure" field encryption
+     * (backend_model Encrypted on save). Decrypt here so callers always get
+     * the plain Bearer token.
+     */
     public function getApiToken(?int $storeId = null): string
     {
-        return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_API_TOKEN,
-            ScopeInterface::SCOPE_STORE,
-            $storeId
+        return $this->decrypt(
+            (string) $this->scopeConfig->getValue(self::XML_PATH_API_TOKEN, ScopeInterface::SCOPE_STORE, $storeId)
         );
     }
 
     public function getWebhookSecret(?int $storeId = null): string
     {
+        return $this->decrypt(
+            (string) $this->scopeConfig->getValue(self::XML_PATH_WEBHOOK_SECRET, ScopeInterface::SCOPE_STORE, $storeId)
+        );
+    }
+
+    /**
+     * KMoney account number entered by the merchant (KYB.../KYP...). It is
+     * the only thing the merchant has to provide: the actual connection
+     * (API token + webhook secret) is retrieved automatically — see
+     * Model\Pairing.
+     */
+    public function getAccountNumber(?int $storeId = null): string
+    {
         return (string) $this->scopeConfig->getValue(
-            self::XML_PATH_WEBHOOK_SECRET,
+            self::XML_PATH_ACCOUNT_NUMBER,
             ScopeInterface::SCOPE_STORE,
             $storeId
         );
+    }
+
+    private function decrypt(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        try {
+            $decrypted = $this->encryptor->decrypt($value);
+        } catch (\Throwable $e) {
+            return $value;
+        }
+
+        // A value that fails to decrypt into something meaningful is
+        // treated as already-plain (e.g. a fresh install before the first
+        // encrypted save) rather than silently discarded.
+        return $decrypted !== '' ? $decrypted : $value;
     }
 }
 ```
@@ -1300,10 +1880,14 @@ define([
 "Enabled","Enabled"
 "Title (shown to customer at checkout)","Title (shown to customer at checkout)"
 "Instructions (shown at checkout, under the method)","Instructions (shown at checkout, under the method)"
+"KMoney account number","KMoney account number"
 "KMoney API base URL","KMoney API base URL"
 "KMoney API token","KMoney API token"
 "Webhook signing secret","Webhook signing secret"
 "Sort Order","Sort Order"
+"KMoney: the connection request for account %1 is awaiting approval from the circuit administrator. Once approved, this module configures itself automatically — reopen this page to check.","KMoney: the connection request for account %1 is awaiting approval from the circuit administrator. Once approved, this module configures itself automatically — reopen this page to check."
+"KMoney: account connected! The API token and webhook were configured automatically.","KMoney: account connected! The API token and webhook were configured automatically."
+"KMoney: the connection could not be completed. %1","KMoney: the connection could not be completed. %1"
 ```
 
 ### `app/code/Kmoney/Payment/README.md`
@@ -1321,11 +1905,18 @@ module for setup steps, sequence diagrams and API reference. Quick summary:
 5. `bin/magento setup:static-content:deploy -f` (production mode only)
 6. `bin/magento cache:flush`
 7. Configure: Stores > Configuration > Sales > Payment Methods > KMoney
-   - API base URL (e.g. https://kmoney.yourdomain.com/api/v1)
-   - API token (Bearer token created on the KMoney portal under /api-tokens, "write" ability)
-   - Webhook signing secret (from the KMoney portal, Settings > Webhooks)
-8. On the KMoney portal, create a webhook: URL = https://your-store.com/kmoney/webhook/index,
-   event = payment_request.paid.
+   - Enter your **KMoney account number** (starts with KYB or KYP) and save. That's it —
+     no API token, no webhook secret to create or paste.
+8. The circuit administrator sees the connection request on the KMoney side and approves
+   it. Reopen this configuration page afterwards: the module retrieves the API token and
+   webhook signing secret by itself and stores them, encrypted.
+9. Enable the payment method once you see the "account connected" notice.
+
+Manual/classic setup is still supported if you prefer it or your KMoney account was set up
+before this version: leave "KMoney account number" empty and paste the API token and
+webhook signing secret yourself (token from the KMoney portal under /api-tokens with the
+"write" ability; webhook created under Settings > Webhooks, URL =
+`https://your-store.com/kmoney/webhook/index`, event `payment_request.paid`).
 
 No card, bank or KMoney-account data is ever entered on the Magento site: the customer is
 redirected to KMoney's own hosted page to authenticate and confirm the payment.
