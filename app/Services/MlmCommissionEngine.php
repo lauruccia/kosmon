@@ -45,15 +45,20 @@ use Illuminate\Support\Facades\DB;
  *    estesi") — per gli agenti di grado inferiore la commissione indiretta
  *    si ferma al 5° livello.
  *
- *    LIMITE "SLIDE LETTERALE" (2026-07-20, decisione di Laura — sostituisce
- *    la breakaway del 2026-07-03 che si fermava al primo Top+ incontrato):
- *    "Il TOP percepisce provvigioni dello 0,5% su tutti i clienti al di
- *    sotto del 5° livello per un numero illimitato di livelli e fino al 5°
- *    livello del TOP seguente" (e analogamente SPV con SPV, MNG con MNG).
- *    Quindi: il blocco e' PER PARI GRADO — un SuperVisor non ferma un Top,
- *    e viceversa — e non si ferma AL nodo pari grado, ma 5 livelli SOTTO il
- *    primo pari grado incontrato lungo ciascun ramo (il "5° livello del TOP
- *    seguente", incluso). Senza pari grado nel ramo la discesa e' illimitata.
+ *    LIMITE "SLIDE LETTERALE" (2026-07-20, corretto il 2026-07-22 su
+ *    decisione di Laura — sostituisce la breakaway del 2026-07-03 che si
+ *    fermava al primo Top+ incontrato): "Il TOP percepisce provvigioni
+ *    dello 0,5% su tutti i clienti al di sotto del 5° livello per un numero
+ *    illimitato di livelli e fino al 5° livello del TOP seguente".
+ *    Quindi: il blocco e' per grado PARI O SUPERIORE al beneficiario (un
+ *    Top e' bloccato da Top, SuperVisor e Manager; un grado INFERIORE non
+ *    blocca — un Top non ferma un SuperVisor, gerarchia
+ *    Top < SuperVisor < Manager) e non si ferma AL nodo bloccante, ma 5
+ *    livelli SOTTO il primo grado pari-o-superiore incontrato lungo ciascun
+ *    ramo (il suo "5° livello", incluso). I livelli 1-5 del beneficiario
+ *    pagano SEMPRE a tabella piena, anche se il bloccante sta nei primi 5
+ *    livelli (bloccante al 2° => tabella su 1-5, poi 0,5% al 6° e 7°).
+ *    Senza pari grado o superiore nel ramo la discesa e' illimitata.
  *
  *  - GATING INDIRETTE (tabella "Criteri per i Compensi Indiretti",
  *    2°ParteKnm.pptx slide 7 — implementato il 2026-07-13 su conferma di
@@ -106,8 +111,8 @@ class MlmCommissionEngine
     /** Qualifiche che godono dell'estensione oltre il 5° livello ("compensi indiretti estesi"). */
     private const EXTENDED_RANKS = ['top', 'supervisor', 'manager'];
 
-    /** Livelli conteggiati SOTTO il primo pari grado incontrato ("fino al 5° livello del TOP seguente"). */
-    private const LEVELS_BELOW_NEXT_SAME_RANK = 5;
+    /** Livelli conteggiati SOTTO il primo grado pari o superiore incontrato ("fino al 5° livello del TOP seguente"). */
+    private const LEVELS_BELOW_NEXT_SAME_OR_HIGHER_RANK = 5;
 
     public function __construct(private readonly MlmTreeService $tree) {}
 
@@ -270,14 +275,15 @@ class MlmCommissionEngine
      * INDIRECT_PERCENTAGES). Livello 6+: solo se $agent ha gia' grado
      * Top/SuperVisor/Manager.
      *
-     * LIMITE "SLIDE LETTERALE" (2026-07-20, vedi classe docblock): lungo
-     * ciascun ramo, quando si incontra il primo agente con lo STESSO grado
-     * del beneficiario (il "TOP seguente" per un Top, "SPV seguente" per un
-     * SuperVisor, "MNG seguente" per un Manager), la discesa prosegue solo
-     * fino a 5 livelli sotto quel nodo (il suo "5° livello", incluso) e poi
-     * si ferma. Gli altri gradi estesi NON bloccano (un SuperVisor sotto un
-     * Top non interrompe il conteggio del Top). Senza pari grado nel ramo la
-     * discesa e' illimitata.
+     * LIMITE "SLIDE LETTERALE" (2026-07-20, corretto il 2026-07-22 — vedi
+     * classe docblock): lungo ciascun ramo, quando si incontra il primo
+     * agente con grado PARI O SUPERIORE a quello del beneficiario (per un
+     * Top: un altro Top, un SuperVisor o un Manager), la discesa prosegue
+     * solo fino a 5 livelli sotto quel nodo (il suo "5° livello", incluso)
+     * e poi si ferma. Un grado INFERIORE non blocca (un Top sotto un
+     * SuperVisor non interrompe il conteggio del SuperVisor). I livelli 1-5
+     * pagano sempre a tabella piena. Senza grado pari o superiore nel ramo
+     * la discesa e' illimitata.
      */
     private function calculateIndirect(User $agent, array $clientsByAgent, MlmCommissionRun $run, Carbon $periodMonth): void
     {
@@ -296,7 +302,9 @@ class MlmCommissionEngine
         }
 
         // 'stop_depth': profondita' massima conteggiabile lungo questo ramo
-        // (null = nessun pari grado incontrato finora, discesa illimitata).
+        // (null = nessun grado pari o superiore incontrato finora, discesa
+        // illimitata).
+        $agentRankLevel = $this->rankLevel($agent->mlm_rank);
         $queue = [];
         foreach ($this->tree->directDownline($agent) as $child) {
             $queue[] = ['agent' => $child, 'depth' => 1, 'stop_depth' => null];
@@ -348,13 +356,15 @@ class MlmCommissionEngine
                 continue;
             }
 
-            // Primo PARI GRADO del beneficiario lungo questo ramo: da qui la
-            // discesa prosegue solo fino al suo "5° livello" (depth + 5).
-            if ($agentQualifiesForExtension && $stopDepth === null && $node->mlm_rank === $agent->mlm_rank) {
-                $stopDepth = $depth + self::LEVELS_BELOW_NEXT_SAME_RANK;
+            // Primo grado PARI O SUPERIORE al beneficiario lungo questo ramo
+            // (2026-07-22: un grado superiore blocca come il pari grado; un
+            // grado inferiore no): da qui la discesa prosegue solo fino al
+            // suo "5° livello" (depth + 5).
+            if ($agentQualifiesForExtension && $stopDepth === null && $this->rankLevel($node->mlm_rank) >= $agentRankLevel) {
+                $stopDepth = $depth + self::LEVELS_BELOW_NEXT_SAME_OR_HIGHER_RANK;
             }
 
-            // Raggiunto il 5° livello del pari grado seguente: stop al ramo.
+            // Raggiunto il 5° livello del grado pari-o-superiore seguente: stop al ramo.
             if ($stopDepth !== null && $depth >= $stopDepth) {
                 continue;
             }

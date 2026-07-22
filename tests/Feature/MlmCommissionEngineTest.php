@@ -16,11 +16,14 @@ use Tests\TestCase;
  * uniforme per qualsiasi agente, 0,5% dal livello 6 in poi SOLO per
  * Top/SuperVisor/Manager.
  *
- * LIMITE "SLIDE LETTERALE" degli estesi (2026-07-20, decisione di Laura —
- * sostituisce la breakaway del 2026-07-03 sul primo Top+ incontrato): il
- * blocco e' PER PARI GRADO (TOP blocca TOP, SPV blocca SPV, MNG blocca MNG)
- * e la discesa prosegue fino al 5° livello SOTTO il primo pari grado
- * incontrato ("fino al 5° livello del TOP seguente"), incluso.
+ * LIMITE "SLIDE LETTERALE" degli estesi (2026-07-20, corretto il 2026-07-22
+ * su decisione di Laura — sostituisce la breakaway del 2026-07-03 sul primo
+ * Top+ incontrato): il blocco e' per grado PARI O SUPERIORE al beneficiario
+ * (un Top e' bloccato da Top/SPV/MNG; un grado inferiore NON blocca — un Top
+ * non ferma un SPV, gerarchia Top < SuperVisor < Manager) e la discesa
+ * prosegue fino al 5° livello SOTTO il primo grado pari-o-superiore
+ * incontrato ("fino al 5° livello del TOP seguente"), incluso. I livelli 1-5
+ * pagano SEMPRE a tabella piena, anche col bloccante nei primi 5 livelli.
  *
  * Dal 2026-07-13 (conferma di Laura): GATING dei livelli indiretti 1-5 in
  * base ai requisiti personali del beneficiario (tabella "Criteri per i
@@ -413,11 +416,13 @@ class MlmCommissionEngineTest extends TestCase
         );
     }
 
-    public function test_extended_indirect_is_not_blocked_by_a_different_extended_rank(): void
+    public function test_extended_indirect_is_not_blocked_by_a_lower_extended_rank(): void
     {
-        // Slide letterale: il blocco e' PER PARI GRADO. Un SuperVisor al
-        // livello 6 NON ferma un beneficiario TOP: il livello 7 paga.
-        $root = $this->makeAgent('top');
+        // Correzione 2026-07-22: blocca solo il grado PARI O SUPERIORE. Un
+        // grado INFERIORE non blocca: un Top al livello 6 NON ferma un
+        // beneficiario SuperVisor (Top < SuperVisor < Manager) — il livello
+        // 7 paga.
+        $root = $this->makeAgent('supervisor');
 
         $this->tree->attachAgent($root, null);
         $this->givePoints($root, 48);
@@ -426,7 +431,7 @@ class MlmCommissionEngineTest extends TestCase
         $sponsor = $root;
         $agents = [];
         for ($i = 1; $i <= 7; $i++) {
-            $rank = $i === 6 ? 'supervisor' : 'start';
+            $rank = $i === 6 ? 'top' : 'start';
             $agent = $this->makeAgent($rank);
             $this->tree->attachAgent($agent, $sponsor);
             $this->giveMonthlyBase($agent, 10_000);
@@ -438,9 +443,88 @@ class MlmCommissionEngineTest extends TestCase
 
         $levelSeven = MlmCommission::where('agent_user_id', $root->id)
             ->where('source_agent_id', $agents[7]->id)->first();
-        $this->assertNotNull($levelSeven, 'Un SuperVisor al livello 6 non deve bloccare un beneficiario TOP.');
+        $this->assertNotNull($levelSeven, 'Un Top al livello 6 non deve bloccare un beneficiario SuperVisor.');
         $this->assertEqualsWithDelta(0.5, (float) $levelSeven->percentage, 0.01);
         $this->assertSame(50, $levelSeven->amount_eur_cents);
+    }
+
+    public function test_extended_indirect_is_blocked_by_a_higher_rank_like_a_same_rank(): void
+    {
+        // Correzione 2026-07-22: un grado SUPERIORE blocca esattamente come
+        // il pari grado. SuperVisor al livello 6 di un beneficiario TOP =>
+        // 0,5% fino al livello 11 (6+5) incluso, livello 12 escluso.
+        $root = $this->makeAgent('top');
+
+        $this->tree->attachAgent($root, null);
+        $this->givePoints($root, 48);
+        $this->attachBasicChildren($root, 4);
+
+        $sponsor = $root;
+        $agents = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $rank = $i === 6 ? 'supervisor' : 'start';
+            $agent = $this->makeAgent($rank);
+            $this->tree->attachAgent($agent, $sponsor);
+            $this->giveMonthlyBase($agent, 10_000);
+            $agents[$i] = $agent;
+            $sponsor = $agent;
+        }
+
+        $this->engine->runForMonth(now());
+
+        foreach ([6, 7, 8, 9, 10, 11] as $level) {
+            $commission = MlmCommission::where('agent_user_id', $root->id)
+                ->where('source_agent_id', $agents[$level]->id)->first();
+            $this->assertNotNull($commission, "Il livello {$level} deve pagare (fino al 5° livello sotto il SuperVisor).");
+            $this->assertEqualsWithDelta(0.5, (float) $commission->percentage, 0.01);
+        }
+
+        $this->assertSame(
+            0,
+            MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $agents[12]->id)->count(),
+            'Un SuperVisor (grado superiore) al livello 6 blocca il TOP come un pari grado: livello 12 escluso.'
+        );
+    }
+
+    public function test_blocker_inside_the_first_5_levels_keeps_the_base_table_and_extends_to_l_plus_5(): void
+    {
+        // Correzione 2026-07-22 (esempio di Laura): pari grado al 2° livello
+        // => i livelli 1-5 pagano SEMPRE a tabella piena (4/2/1/0,5/8%),
+        // l'estensione 0,5% arriva fino a 5 livelli sotto di lui (il 7°) e
+        // l'8° e' escluso.
+        $root = $this->makeAgent('top');
+
+        $this->tree->attachAgent($root, null);
+        $this->givePoints($root, 48);
+        $this->attachBasicChildren($root, 3);
+
+        $sponsor = $root;
+        $agents = [];
+        for ($i = 1; $i <= 8; $i++) {
+            $rank = $i === 2 ? 'top' : 'start'; // pari grado al 2° livello
+            $agent = $this->makeAgent($rank);
+            $this->tree->attachAgent($agent, $sponsor);
+            $this->giveMonthlyBase($agent, 10_000);
+            $agents[$i] = $agent;
+            $sponsor = $agent;
+        }
+
+        $this->engine->runForMonth(now());
+
+        $expectedPercentages = [1 => 4.0, 2 => 2.0, 3 => 1.0, 4 => 0.5, 5 => 8.0, 6 => 0.5, 7 => 0.5];
+
+        foreach ($expectedPercentages as $level => $expected) {
+            $commission = MlmCommission::where('agent_user_id', $root->id)
+                ->where('source_agent_id', $agents[$level]->id)->first();
+            $this->assertNotNull($commission, "Il livello {$level} deve pagare anche col pari grado al 2°.");
+            $this->assertEqualsWithDelta($expected, (float) $commission->percentage, 0.01, "Percentuale errata al livello {$level}");
+        }
+
+        $this->assertSame(
+            0,
+            MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $agents[8]->id)->count(),
+            'Pari grado al 2° livello: oltre il suo 5° livello (il 7°) il conteggio si ferma.'
+        );
     }
 
     public function test_direct_percentage_accepts_fractional_points(): void
