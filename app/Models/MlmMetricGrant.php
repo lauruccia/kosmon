@@ -37,15 +37,22 @@ class MlmMetricGrant extends Model
      * dalla tabella "storico regali" — cosi' aggiungere una metrica in
      * futuro richiede di toccare solo questo array.
      */
+    /**
+     * Etichette e ORDINE del menu regali (diciture riviste da Laura il
+     * 22/07: "Clienti" subito sotto i punti, "Agenti Key/Senior/Top/
+     * SuperVisor" al posto di "Colonne con..."). Le chiavi restano le
+     * metriche interne di MlmRankEngine: un "Agente Key" regalato conta
+     * come una colonna con almeno un Key+, ecc.
+     */
     public const METRICS = [
         'points' => 'Punti cliente',
+        'clients_count' => 'Clienti',
         'level1_basic_count' => 'Agenti Basic (1° livello)',
-        'branches_with_key' => 'Colonne con Key+',
-        'branches_with_senior' => 'Colonne con Senior+',
-        'branches_with_top' => 'Colonne con Top+',
-        'branches_with_supervisor' => 'Colonne con SuperVisor+',
+        'branches_with_key' => 'Agenti Key',
+        'branches_with_senior' => 'Agenti Senior',
+        'branches_with_top' => 'Agenti Top',
+        'branches_with_supervisor' => 'Agenti SuperVisor',
         'branches_300pt' => 'Colonne da 300 punti',
-        'clients_count' => 'Clienti registrati',
     ];
 
     public static function metricLabel(string $metric): string
