@@ -66,6 +66,20 @@ class MlmSettingsControllerTest extends TestCase
         return $payload;
     }
 
+    /** Payload valido per la tabella "punti per evento" (2026-07-22): i valori del seed. */
+    private function pointRulesPayload(): array
+    {
+        return [
+            'registration_points' => 1,
+            'registration_duration_days' => 90,
+            'deposit_rules' => [
+                ['amount_eur' => 120, 'points' => 2, 'duration_days' => 30],
+                ['amount_eur' => 600, 'points' => 2, 'duration_days' => 180],
+                ['amount_eur' => 1200, 'points' => 2, 'duration_days' => 360],
+            ],
+        ];
+    }
+
     /** Utente normale: supera auth/verified/onboarding/contract ma NON e' backoffice (stesso pattern di BackofficeAccessGuardTest). */
     private function makeRegularUser(): User
     {
@@ -133,7 +147,7 @@ class MlmSettingsControllerTest extends TestCase
         $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
             'points_validity_override_minutes' => null,
             'requirements' => $payload,
-        ]);
+        ] + $this->pointRulesPayload());
 
         $response->assertRedirect(route('admin.mlm.settings.edit'));
 
@@ -157,7 +171,7 @@ class MlmSettingsControllerTest extends TestCase
         $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
             'points_validity_override_minutes' => null,
             'requirements' => $incomplete,
-        ]);
+        ] + $this->pointRulesPayload());
 
         $response->assertSessionHasErrors('requirements.basic.min_points');
     }
@@ -170,14 +184,14 @@ class MlmSettingsControllerTest extends TestCase
         $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
             'points_validity_override_minutes' => 60,
             'requirements' => $payload,
-        ])->assertRedirect(route('admin.mlm.settings.edit'));
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
 
         $this->assertSame(60, SystemSetting::mlmSettings()->fresh()->mlm_points_validity_override_minutes);
 
         $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
             'points_validity_override_minutes' => null,
             'requirements' => $payload,
-        ])->assertRedirect(route('admin.mlm.settings.edit'));
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
 
         $this->assertNull(SystemSetting::mlmSettings()->fresh()->mlm_points_validity_override_minutes);
     }
@@ -192,7 +206,7 @@ class MlmSettingsControllerTest extends TestCase
             'points_validity_override_minutes' => null,
             'knm_margin_percent' => 10,
             'requirements' => $payload,
-        ])->assertRedirect(route('admin.mlm.settings.edit'));
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
 
         $this->assertSame(10, SystemSetting::mlmSettings()->fresh()->mlmKnmMarginPercent());
 
@@ -200,7 +214,7 @@ class MlmSettingsControllerTest extends TestCase
         $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
             'points_validity_override_minutes' => null,
             'requirements' => $payload,
-        ])->assertRedirect(route('admin.mlm.settings.edit'));
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
 
         $this->assertSame(30, SystemSetting::mlmSettings()->fresh()->mlmKnmMarginPercent());
 
@@ -209,7 +223,7 @@ class MlmSettingsControllerTest extends TestCase
             'points_validity_override_minutes' => null,
             'knm_margin_percent' => 250,
             'requirements' => $payload,
-        ])->assertSessionHasErrors('knm_margin_percent');
+        ] + $this->pointRulesPayload())->assertSessionHasErrors('knm_margin_percent');
     }
 
     public function test_recalculate_now_runs_the_nightly_command_synchronously(): void
@@ -232,6 +246,101 @@ class MlmSettingsControllerTest extends TestCase
 
         $response->assertRedirect(route('admin.mlm.settings.edit'));
         $this->assertSame('basic', $agent->fresh()->mlm_rank);
+    }
+
+    // ── Tabella "punti per evento" (2026-07-22) ─────────────────────────────
+
+    public function test_edit_page_shows_the_point_rules_table(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.settings.edit'));
+
+        $response->assertOk();
+        $response->assertSee('Punti per evento');
+        $response->assertSee('Apertura conto');
+    }
+
+    public function test_admin_can_add_and_remove_deposit_tiers(): void
+    {
+        $admin = $this->makeAdmin();
+
+        // Nuovo assetto: via il taglio 600, dentro un taglio 2.400 da 4 punti
+        // per 720 giorni; il taglio 120 passa a 3 punti / 60 giorni.
+        $rules = $this->pointRulesPayload();
+        $rules['deposit_rules'] = [
+            ['amount_eur' => 120, 'points' => 3, 'duration_days' => 60],
+            ['amount_eur' => 1200, 'points' => 2, 'duration_days' => 360],
+            ['amount_eur' => 2400, 'points' => 4, 'duration_days' => 720],
+        ];
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $this->requirementsPayload(),
+        ] + $rules)->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $tiers = \App\Models\MlmPointRule::where('event_type', 'deposit')
+            ->orderBy('deposit_amount_eur_cents')
+            ->get(['deposit_amount_eur_cents', 'points', 'duration_days']);
+
+        $this->assertSame(
+            [[12_000, 3.0, 60], [120_000, 2.0, 360], [240_000, 4.0, 720]],
+            $tiers->map(fn ($r) => [$r->deposit_amount_eur_cents, (float) $r->points, $r->duration_days])->all()
+        );
+
+        // Il servizio punti segue subito la nuova tabella: 600 EUR non e'
+        // piu' un taglio, ricade sul 120 (3 punti / 60 giorni).
+        $agent = $this->makeAgent();
+        $client = $this->makeClientFor($agent);
+        app(\App\Services\MlmPointsService::class)->awardDepositPoints($client, 60_000);
+
+        $entry = \App\Models\MlmPointLedgerEntry::where('agent_user_id', $agent->id)->sole();
+        $this->assertEqualsWithDelta(3.0, $entry->points, 0.001);
+        $this->assertTrue($entry->valid_until->isSameDay(now()->addDays(60)));
+    }
+
+    public function test_admin_can_update_the_registration_rule(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $rules = $this->pointRulesPayload();
+        $rules['registration_points'] = 2;
+        $rules['registration_duration_days'] = 15;
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $this->requirementsPayload(),
+        ] + $rules)->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $rule = \App\Models\MlmPointRule::registrationRule();
+        $this->assertEqualsWithDelta(2.0, $rule->points, 0.001);
+        $this->assertSame(15, $rule->duration_days);
+    }
+
+    public function test_point_rules_validation_rejects_duplicate_tiers_and_missing_fields(): void
+    {
+        $admin = $this->makeAdmin();
+
+        // Due righe con lo stesso taglio (120 EUR) -> distinct fallisce.
+        $rules = $this->pointRulesPayload();
+        $rules['deposit_rules'] = [
+            ['amount_eur' => 120, 'points' => 2, 'duration_days' => 30],
+            ['amount_eur' => 120, 'points' => 5, 'duration_days' => 90],
+        ];
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $this->requirementsPayload(),
+        ] + $rules)->assertSessionHasErrors('deposit_rules.0.amount_eur');
+
+        // Senza la riga registrazione il form e' invalido.
+        $rules = $this->pointRulesPayload();
+        unset($rules['registration_points']);
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $this->requirementsPayload(),
+        ] + $rules)->assertSessionHasErrors('registration_points');
     }
 
     private function makeClientFor(User $agent): User

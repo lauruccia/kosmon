@@ -452,4 +452,53 @@ class MlmCommissionEngineTest extends TestCase
         $this->assertSame(0.05, $this->engine->directPercentage(11.99));
         $this->assertSame(0.10, $this->engine->directPercentage(12.2));
     }
+
+    // ── Base "una tantum" (2026-07-22) ──────────────────────────────────────
+
+    public function test_deposit_base_is_paid_once_by_the_next_monthly_run_only(): void
+    {
+        // Decisione 2026-07-22: la ricarica genera base commissionabile per
+        // l'INTERO importo, pagata UNA SOLA VOLTA dal run del 1° del mese
+        // successivo (niente piu' smoothing /12 per 12 mesi).
+        $agent = $this->makeAgent();
+
+        // 12 punti attivi anche nei prossimi mesi -> diretta 10%.
+        \App\Models\MlmPointLedgerEntry::create([
+            'agent_user_id'  => $agent->id,
+            'client_user_id' => $this->makeClient($agent)->id,
+            'source_type'    => 'registration',
+            'points'         => 12,
+            'valid_from'     => now()->startOfMonth()->subDay()->toDateString(),
+            'valid_until'    => now()->addMonths(4)->toDateString(),
+        ]);
+
+        $client = $this->makeClient($agent);
+
+        // Ricarica REALE via MlmPointsService (margine 100% dal setUp:
+        // Prov K == importo pieno, attese leggibili).
+        app(\App\Services\MlmPointsService::class)->awardDepositPoints($client, 120_000);
+
+        // Il run del mese CORRENTE non la vede (finestra = 1° del prossimo).
+        $runNow = $this->engine->runForMonth(now()->startOfMonth());
+        $this->assertSame(0, MlmCommission::where('mlm_commission_run_id', $runNow->id)
+            ->where('source_client_id', $client->id)->count());
+
+        // Il run del mese successivo la paga: intero importo, diretta 10%.
+        $nextMonth = now()->addMonthNoOverflow()->startOfMonth();
+        $runNext = $this->engine->runForMonth($nextMonth);
+        $direct = MlmCommission::where('mlm_commission_run_id', $runNext->id)
+            ->where('agent_user_id', $agent->id)
+            ->where('type', 'diretta')
+            ->where('source_client_id', $client->id)
+            ->get();
+
+        $this->assertCount(1, $direct);
+        $this->assertSame(120_000, (int) $direct[0]->base_amount_eur_cents);
+        $this->assertSame(12_000, (int) $direct[0]->amount_eur_cents); // 10%
+
+        // Il run del mese DOPO non la paga piu': una tantum.
+        $runAfter = $this->engine->runForMonth($nextMonth->copy()->addMonthNoOverflow());
+        $this->assertSame(0, MlmCommission::where('mlm_commission_run_id', $runAfter->id)
+            ->where('source_client_id', $client->id)->count());
+    }
 }

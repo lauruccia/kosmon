@@ -42,8 +42,8 @@
     <section class="card card-pad">
         <h3 style="margin:0 0 6px;font-size:15px;">1 · Simula una ricarica cliente</h3>
         <p style="margin:0 0 12px;color:var(--ink-muted);font-size:13px;">
-            Un cliente fa una ricarica di X €: quanti punti prende il suo agente (regola /12, punti frazionari)
-            e quali commissioni mensili — dirette e indirette — produrrà nella struttura.
+            Un cliente fa una ricarica di X €: quanti punti prende il suo agente (tabella "Punti per evento" delle impostazioni MLM)
+            e quali commissioni — dirette e indirette — produrrà nella struttura, una tantum al run del mese successivo.
         </p>
 
         @if($depositError)
@@ -132,11 +132,11 @@
         </p>
 
         {{-- Punti --}}
-        <h4 style="margin:0 0 6px;font-size:14px;">Punti cliente assegnati (regola /12)</h4>
+        <h4 style="margin:0 0 6px;font-size:14px;">Punti cliente assegnati (tabella "Punti per evento")</h4>
         @if(count($depositResult['ledger_entries']) === 0)
             <p style="margin:0 0 14px;font-size:13px;color:var(--danger);font-weight:600;">
-                Nessun punto assegnato: la ricarica è sotto la soglia minima di 120,00 € (cliente non "attivo"),
-                oppure il cliente non ha un agente risolto. Sotto soglia non nasce nemmeno base commissionabile.
+                Nessun punto assegnato: la ricarica è sotto il taglio minimo configurato nella tabella "Punti per evento" (cliente non "attivo"),
+                oppure il cliente non ha un agente risolto. Sotto il taglio minimo non nasce nemmeno base commissionabile.
             </p>
         @else
             <div style="overflow-x:auto;margin-bottom:14px;">
@@ -161,7 +161,7 @@
             <h4 style="margin:0 0 6px;font-size:14px;">Base commissionabile ("Prov K")</h4>
             <div style="overflow-x:auto;margin-bottom:14px;">
                 <table class="admin-table transactions-table">
-                    <thead><tr><th>Importo mensile (ricarica ÷ 12)</th><th>Margine KNM</th><th>Prov K mensile (base di tutte le %)</th></tr></thead>
+                    <thead><tr><th>Importo ricarica (una tantum)</th><th>Margine KNM</th><th>Prov K (base di tutte le %)</th></tr></thead>
                     <tbody>
                         @foreach($depositResult['base_entries'] as $entry)
                             <tr>
@@ -176,11 +176,11 @@
         @endif
 
         {{-- Commissioni mensili --}}
-        <h4 style="margin:0 0 6px;font-size:14px;">Commissioni mensili generate dalla ricarica (run del {{ $depositResult['month']->format('d/m/Y') }})</h4>
+        <h4 style="margin:0 0 6px;font-size:14px;">Commissioni generate dalla ricarica (run del {{ $depositResult['month']->format('d/m/Y') }})</h4>
         <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12px;">
             Il motore commissioni gira il 1° di ogni mese: qui sotto c'è la <strong>differenza</strong> fra il run del
             {{ $depositResult['month']->format('d/m/Y') }} con e senza questa ricarica — cioè l'effetto della sola ricarica simulata,
-            al netto di tutto il resto già attivo. Le stesse cifre si ripeteranno ogni mese per 12 mesi (a parità di struttura e punti).
+            al netto di tutto il resto già attivo. La ricarica paga <strong>una sola volta</strong>, a quel run: nessuna ripetizione nei mesi successivi (decisione del 22/07/2026).
         </p>
         @if(count($depositResult['commissions']) === 0)
             <p style="margin:0;font-size:13px;color:var(--ink-muted);">
@@ -190,7 +190,7 @@
         @else
             <div style="overflow-x:auto;">
                 <table class="admin-table transactions-table">
-                    <thead><tr><th>Beneficiario</th><th>Tipo</th><th>Livello</th><th>Base (Prov K)</th><th>%</th><th>Importo mensile</th></tr></thead>
+                    <thead><tr><th>Beneficiario</th><th>Tipo</th><th>Livello</th><th>Base (Prov K)</th><th>%</th><th>Importo</th></tr></thead>
                     <tbody>
                         @foreach($depositResult['commissions'] as $row)
                             <tr>

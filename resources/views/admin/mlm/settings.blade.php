@@ -30,11 +30,97 @@
 <form method="POST" action="{{ route('admin.mlm.settings.update') }}">
     @csrf
 
-    {{-- ── Scadenza punti ── --}}
+    {{-- ── Punti per evento ── --}}
+    <section class="card light-card" style="margin-bottom:14px;">
+        <div style="padding:14px 16px 0;">
+            <h3 style="margin:0 0 6px;font-size:15px;">Punti per evento</h3>
+            <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
+                Quanti punti matura l'agente diretto per ogni evento del suo cliente e per quanti <strong>giorni</strong> restano attivi (1 mese = 30 giorni).
+                I punti maturano subito, nel momento della ricarica — niente più spalmatura su 12 mesi.
+                Una riga per ogni <strong>taglio di ricarica</strong> disponibile: a una ricarica si applica il taglio più alto che non supera l'importo
+                (es. con i tagli 120/600/1.200 €, una ricarica da 800 € usa la riga dei 600 €). Sotto il taglio minimo la ricarica non genera punti.
+            </p>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="admin-table transactions-table">
+                <thead>
+                    <tr>
+                        <th>Evento</th>
+                        <th>Ricarica (€)</th>
+                        <th>Punti</th>
+                        <th>Durata (giorni)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="point-rules-body">
+                    <tr>
+                        <td><strong>Apertura conto</strong><br><span style="font-size:11px;color:var(--ink-muted);">0 punti = disabilitato</span></td>
+                        <td style="color:var(--ink-muted);font-size:12px;">—</td>
+                        <td>
+                            <input type="number" min="0" step="0.01" name="registration_points"
+                                value="{{ old('registration_points', $registrationRule?->points ?? 1) }}"
+                                style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                        </td>
+                        <td>
+                            <input type="number" min="1" step="1" name="registration_duration_days"
+                                value="{{ old('registration_duration_days', $registrationRule?->duration_days ?? 90) }}"
+                                style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                        </td>
+                        <td></td>
+                    </tr>
+                    @foreach($depositRules as $i => $rule)
+                        <tr class="point-rule-row">
+                            <td><strong>Ricarica</strong></td>
+                            <td>
+                                <input type="number" min="0.01" step="0.01" name="deposit_rules[{{ $i }}][amount_eur]"
+                                    value="{{ old('deposit_rules.'.$i.'.amount_eur', number_format($rule->deposit_amount_eur_cents / 100, 2, '.', '')) }}"
+                                    style="width:110px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                            </td>
+                            <td>
+                                <input type="number" min="0" step="0.01" name="deposit_rules[{{ $i }}][points]"
+                                    value="{{ old('deposit_rules.'.$i.'.points', $rule->points) }}"
+                                    style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                            </td>
+                            <td>
+                                <input type="number" min="1" step="1" name="deposit_rules[{{ $i }}][duration_days]"
+                                    value="{{ old('deposit_rules.'.$i.'.duration_days', $rule->duration_days) }}"
+                                    style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                            </td>
+                            <td><button type="button" class="btn btn-secondary" onclick="this.closest('tr').remove()" title="Rimuovi questo taglio">✕</button></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:0 16px 14px;">
+            <button type="button" class="btn btn-secondary" onclick="addPointRuleRow()">+ Aggiungi taglio di ricarica</button>
+            <p style="margin:10px 0 0;font-size:12px;color:var(--ink-muted);">
+                Rimuovere una riga elimina il taglio al salvataggio (le ricariche sotto il nuovo minimo non matureranno più punti). I punti già assegnati mantengono la loro scadenza originale.
+            </p>
+        </div>
+        <script>
+            function addPointRuleRow() {
+                var body = document.getElementById('point-rules-body');
+                var idx = Date.now(); // indice univoco, non deve essere progressivo
+                var tr = document.createElement('tr');
+                tr.className = 'point-rule-row';
+                var inputStyle = 'border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;';
+                tr.innerHTML =
+                    '<td><strong>Ricarica</strong></td>' +
+                    '<td><input type="number" min="0.01" step="0.01" name="deposit_rules[' + idx + '][amount_eur]" style="width:110px;' + inputStyle + '"></td>' +
+                    '<td><input type="number" min="0" step="0.01" name="deposit_rules[' + idx + '][points]" value="2" style="width:90px;' + inputStyle + '"></td>' +
+                    '<td><input type="number" min="1" step="1" name="deposit_rules[' + idx + '][duration_days]" value="30" style="width:90px;' + inputStyle + '"></td>' +
+                    '<td><button type="button" class="btn btn-secondary" onclick="this.closest(\'tr\').remove()" title="Rimuovi questo taglio">✕</button></td>';
+                body.appendChild(tr);
+            }
+        </script>
+    </section>
+
+    {{-- ── Scadenza punti (override di test) ── --}}
     <section class="card card-pad" style="margin-bottom:14px;">
-        <h3 style="margin:0 0 6px;font-size:15px;">Scadenza punti cliente (PC)</h3>
+        <h3 style="margin:0 0 6px;font-size:15px;">Scadenza punti cliente (PC) — override di test</h3>
         <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
-            In produzione i punti restano attivi per 1/12/24/36 mesi a seconda dello scaglione di deposito (vedi <code>MlmPointsService</code>).
+            In produzione i punti durano i giorni configurati nella tabella "Punti per evento" qui sopra.
             Per verificare subito il ricalcolo qualifiche puoi forzare qui una scadenza breve in MINUTI, valida per i <strong>nuovi</strong> punti assegnati d'ora in poi
             (i punti già esistenti mantengono la loro scadenza originale). Lascia vuoto per usare la durata normale di produzione.
         </p>

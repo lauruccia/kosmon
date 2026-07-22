@@ -103,8 +103,9 @@ class MlmSimulatorTest extends TestCase
         $this->givePoints($agent, 12); // 12 pt -> diretta 10%
         $client = $this->makeClient($agent);
 
-        // 1.200 EUR -> 100 EUR/mese -> 2 punti; Prov K = 100 x 30% = 30 EUR;
-        // diretta 10% (l'agente ha 12 pt) = 3 EUR/mese.
+        // 1.200 EUR -> 2 punti (taglio 1.200, tabella mlm_point_rules);
+        // base una tantum = intero importo; Prov K = 1.200 x 30% = 360 EUR;
+        // diretta 10% (l'agente ha 12 pt) = 36 EUR, una sola volta.
         $result = $this->simulator->simulateDeposit($client, 120_000);
 
         $this->assertCount(1, $result['ledger_entries']);
@@ -112,16 +113,16 @@ class MlmSimulatorTest extends TestCase
         $this->assertSame($agent->name, $result['ledger_entries'][0]['agent_name']);
 
         $this->assertCount(1, $result['base_entries']);
-        $this->assertSame(10_000, $result['base_entries'][0]['monthly_amount_eur_cents']);
+        $this->assertSame(120_000, $result['base_entries'][0]['monthly_amount_eur_cents']);
         $this->assertSame(30, $result['base_entries'][0]['knm_margin_percent']);
-        $this->assertSame(3_000, $result['base_entries'][0]['prov_k_eur_cents']);
+        $this->assertSame(36_000, $result['base_entries'][0]['prov_k_eur_cents']);
 
         $direct = collect($result['commissions'])->firstWhere('type', 'diretta');
         $this->assertNotNull($direct);
         $this->assertSame($agent->id, $direct['agent_id']);
-        $this->assertSame(3_000, $direct['base_amount_eur_cents']);
-        $this->assertSame(300, $direct['amount_eur_cents']);
-        $this->assertSame(300, $result['total_commissions_eur_cents']);
+        $this->assertSame(36_000, $direct['base_amount_eur_cents']);
+        $this->assertSame(3_600, $direct['amount_eur_cents']);
+        $this->assertSame(3_600, $result['total_commissions_eur_cents']);
     }
 
     public function test_deposit_simulation_includes_indirect_commissions_for_the_upline(): void
@@ -143,8 +144,8 @@ class MlmSimulatorTest extends TestCase
         $this->assertNotNull($indirect);
         $this->assertSame($sponsor->id, $indirect['agent_id']);
         $this->assertSame(1, $indirect['level']);
-        $this->assertSame(3_000, $indirect['base_amount_eur_cents']);
-        $this->assertSame(120, $indirect['amount_eur_cents']); // 30 EUR x 4%
+        $this->assertSame(36_000, $indirect['base_amount_eur_cents']);
+        $this->assertSame(1_440, $indirect['amount_eur_cents']); // 360 EUR x 4%
     }
 
     public function test_deposit_simulation_delta_excludes_commissions_from_preexisting_deposits(): void
@@ -160,12 +161,12 @@ class MlmSimulatorTest extends TestCase
 
         $result = $this->simulator->simulateDeposit($client, 120_000);
 
-        // Solo l'effetto della nuova ricarica: base 30 EUR, diretta 10% = 3 EUR
-        // (non 9 EUR, che includerebbe il deposito preesistente da 240k).
+        // Solo l'effetto della nuova ricarica: base Prov K 360 EUR, diretta
+        // 10% = 36 EUR (senza il deposito preesistente da 240k).
         $direct = collect($result['commissions'])->firstWhere('type', 'diretta');
         $this->assertNotNull($direct);
-        $this->assertSame(3_000, $direct['base_amount_eur_cents']);
-        $this->assertSame(300, $direct['amount_eur_cents']);
+        $this->assertSame(36_000, $direct['base_amount_eur_cents']);
+        $this->assertSame(3_600, $direct['amount_eur_cents']);
     }
 
     public function test_deposit_simulation_below_threshold_yields_nothing(): void

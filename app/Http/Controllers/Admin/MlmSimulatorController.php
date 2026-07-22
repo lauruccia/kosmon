@@ -14,7 +14,7 @@ use Illuminate\View\View;
  * semplice per calcolare i bonus e verificare che funzionino").
  *
  * Pagina /admin/mlm-simulatore con due scenari:
- *  - "Simula ricarica cliente": punti (/12 + frazionari), base Prov K e
+ *  - "Simula ricarica cliente": punti (tabella mlm_point_rules), base Prov K e
  *    delta commissioni mensili dirette/indirette;
  *  - "Simula evento BasiQ": cascata bonus di struttura sulla upline, con la
  *    spiegazione di ogni anello.

@@ -703,7 +703,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Models\MlmBonusPayout::class, 'beneficiary_user_id');
     }
 
-    /** Righe del ledger "importo mensile" generate dai MIEI clienti diretti. */
+    /** Righe del ledger della base commissionabile generate dai MIEI clienti diretti (una tantum dal 2026-07-22; storiche = mensili /12). */
     public function mlmCommissionBaseLedgerEntries(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\MlmCommissionBaseLedgerEntry::class, 'direct_agent_id');
@@ -760,8 +760,8 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $asOf ??= now();
 
-        // Frazionari dal 2026-07-20 (1 punto ogni 50 EUR di importo mensile,
-        // slide "Importo Personale Mensile"): la somma e' un decimale;
+        // I punti possono essere frazionari (dal 2026-07-20; dal 2026-07-22
+        // arrivano dalla tabella mlm_point_rules): la somma e' un decimale;
         // mlm_points_normalize() la arrotonda a 2 decimali e restituisce un
         // int quando il totale e' intero (viste e confronti restano puliti).
         $ledgerPoints = (float) $this->mlmPointLedgerEntries()

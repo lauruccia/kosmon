@@ -31,10 +31,11 @@ use Illuminate\Support\Facades\DB;
  * Due scenari:
  *
  *  1. simulateDeposit(): un cliente fa una ricarica di X EUR. Mostra i punti
- *     assegnati all'agente (regola /12 + frazionari), la base commissionabile
- *     (importo mensile x margine KNM = "Prov K") e il DELTA delle commissioni
- *     mensili (dirette + indirette) che quella ricarica produrra' nel primo
- *     run mensile che la include (il 1° del mese successivo). Il delta e'
+ *     assegnati all'agente (tabella "punti per evento" del 2026-07-22, vedi
+ *     mlm_point_rules), la base commissionabile UNA TANTUM (intero importo
+ *     x margine KNM = "Prov K") e il DELTA delle commissioni (dirette +
+ *     indirette) che quella ricarica produrra' nell'unico run che la paga
+ *     (il 1° del mese successivo). Il delta e'
  *     calcolato eseguendo il motore due volte — senza e con la ricarica —
  *     e sottraendo: cosi' le commissioni gia' maturate dagli altri depositi
  *     attivi non inquinano il risultato.
@@ -70,9 +71,9 @@ class MlmSimulationService
      */
     public function simulateDeposit(User $client, int $depositEurCents): array
     {
-        // Primo run mensile che vedra' la ricarica: il motore gira il 1° del
-        // mese sulla base attiva quel giorno, e la nuova riga (valida da oggi
-        // per 12 mesi) sara' inclusa a partire dal 1° del mese prossimo.
+        // L'unico run che paghera' la ricarica: la riga di base ha finestra
+        // di validita' = il solo 1° del mese successivo (una tantum,
+        // 2026-07-22), quindi il run di quel mese la cattura e mai piu'.
         $month = now()->addMonthNoOverflow()->startOfMonth();
 
         $result = [

@@ -12,12 +12,18 @@ use Illuminate\Support\Facades\DB;
 /**
  * Motore commissioni mensili (dirette + indirette). Vedi MLM_PROPOSAL.md §5.
  *
- * Eseguito il 1° di ogni mese sulla base dell'"importo mensile" attivo di
- * ciascun cliente (mlm_commission_base_ledger, stesso smoothing dei punti).
+ * Eseguito il 1° di ogni mese sulle righe attive quel giorno di
+ * mlm_commission_base_ledger. UNA TANTUM DAL 2026-07-22 (decisione di Laura,
+ * sostituisce lo smoothing deposito/12 per 12 mesi): ogni ricarica genera
+ * UNA riga con l'INTERO importo, con finestra di validita' = il solo 1° del
+ * mese successivo — quindi viene pagata dal primo run utile e mai piu'
+ * (vedi MlmPointsService::createCommissionBaseEntry()). Le righe storiche
+ * pre-2026-07-22 (importo mensile = deposito/12, finestra 12 mesi) restano
+ * attive fino a scadenza naturale e continuano a pagare ogni mese.
  *
  * BASE = "PROV K", NON L'IMPORTO PIENO (2026-07-16, "le slide fanno fede"):
  * le tabelle "Esempio compensi" delle slide applicano tutte le percentuali
- * (dirette e indirette) a Prov K = importo mensile x margine KNM — il
+ * (dirette e indirette) a Prov K = importo x margine KNM — il
  * margine e' il parametro "30 %" / "10 %" in testa alle tabelle (colonna
  * "Prov K" = 30% di "MontImp"), configurabile da admin
  * (SystemSetting::mlmKnmMarginPercent(), default 30) e fotografato per

@@ -21,7 +21,7 @@ Ho anche verificato la struttura attuale del progetto: esiste già un sistema di
 |---|---|---|
 | 1 | **Guadagni agente in EUR reali, fuori dal circuito KY** | Commissioni e bonus NON passano da `TransferBookingService` e NON toccano `available_balance` KY. Sono calcolati e accreditati in un ledger EUR separato, con liquidazione esterna (bonifico/altro) gestita dall'admin. |
 | 2 | **Requisiti di qualifica: seguo le slide PowerPoint** | Uso i valori di `Presentazione KNM.pptx` / `2°ParteKnm.pptx` per i requisiti di avanzamento di grado (dettaglio al punto 4). |
-| 3 | **Base commissioni: spalmata su 12 mesi** | Ogni deposito genera un "importo mensile" che resta commissionabile per N mesi consecutivi (come da glossario KNM), non solo nel mese del deposito. |
+| 3 | **Base commissioni: una tantum** (dal 2026-07-22; prima: spalmata su 12 mesi) | Ogni ricarica è commissionabile per l'intero importo, una sola volta, al run del mese successivo. |
 
 ---
 
@@ -40,20 +40,18 @@ Ho anche verificato la struttura attuale del progetto: esiste già un sistema di
 
 ### 4.1 Punti Cliente (PC) — da registrazioni e depositi
 
-**AGGIORNATO IL 2026-07-20** (decisione di Laura: "sempre /12 come slide" — la slide "L'Importo Personale Mensile" fa fede e sostituisce gli scaglioni di `mlm_piano.xlsx`):
+**AGGIORNATO IL 2026-07-22** (decisione di Laura — sostituisce la regola "/12 + frazionari" del 2026-07-20): i punti **non vengono più spalmati su 12 mesi**. Ogni evento matura i suoi punti **subito** ("l'importo vale nel mese in cui viene maturato") e restano attivi per una durata in **giorni** (1 mese = 30 giorni). Quanti punti e per quanti giorni lo decide la tabella **`mlm_point_rules`**, editabile dall'admin in `/admin/mlm-impostazioni` (sezione "Punti per evento"): una riga per l'apertura conto e **una riga per ogni taglio di ricarica disponibile** (i tagli li imposta l'admin). A una ricarica si applica la riga col taglio più alto ≤ importo (es. con i tagli 120/600/1.200 €, una ricarica da 800 € usa la riga dei 600 €); sotto il taglio minimo la ricarica non genera nulla. Eliminare una riga disabilita l'evento.
 
-- Ogni deposito sopra la soglia minima "cliente attivo" di **120 €** viene diviso **sempre per 12** e imputato per **12 mesi** dal mese di fatturazione (sia per i punti sia per la base commissioni, §5).
-- I punti sono **frazionari**: **1 punto ogni 50 € di importo personale mensile** (slide "Importo Personale Mensile", righe "/50": 2.400 €/mese = 48 punti). Colonna `mlm_point_ledger.points` in DECIMAL(8,2) dal 2026-07-20.
+Valori iniziali (seed della migration, decisi da Laura il 22/07):
 
-| Azione | Importo mensile | Punti/mese | Durata (mesi) |
-|---|---|---|---|
-| Apertura conto | — | 1 | 1 |
-| Deposito 120 € | 10 € | 0,2 | 12 |
-| Deposito 1.200 € | 100 € | 2 | 12 |
-| Deposito 2.400 € | 200 € | 4 | 12 |
-| Deposito 3.600 € | 300 € | 6 | 12 |
+| Evento | Punti | Durata (giorni) |
+|---|---|---|
+| Apertura conto | 1 | 90 |
+| Ricarica 120 € | 2 | 30 |
+| Ricarica 600 € | 2 | 180 |
+| Ricarica 1.200 € | 2 | 360 |
 
-I punti **si ripetono ogni mese** per 12 mesi e poi scadono. "Punti attivi" di un agente = somma (decimale) dei punti non ancora scaduti nel suo ledger personale. Le righe ledger emesse prima del 2026-07-20 con i vecchi scaglioni (1/12/24/36 mesi, punti interi) restano valide così come sono: storico non ricalcolato.
+I punti **non si ripetono**: una riga ledger per evento, attiva per la sua durata, poi scade. "Punti attivi" di un agente = somma (decimale, la colonna resta DECIMAL(8,2)) dei punti non ancora scaduti nel suo ledger personale. Le righe ledger emesse con le regole precedenti (scaglioni 1/12/24/36 mesi fino al 20/07, "/12 + frazionari" dal 20/07 al 22/07) restano valide così come sono: storico non ricalcolato.
 
 ### 4.2 Qualifiche agente
 
@@ -89,9 +87,9 @@ Un nuovo agente diventa **BasiQ** se raggiunge 12 punti personali entro 30 giorn
 
 ## 5. Commissioni (in EUR, calcolate il 1° del mese alle 2:00)
 
-Base di calcolo: **"importo mensile"** = deposito del cliente diviso **sempre per 12** (§4.1, dal 2026-07-20 — es. deposito 1.200€ → 100€/mese per 12 mesi), sommato su tutti i mesi ancora "attivi" per quel cliente. Non solo il deposito del mese corrente.
+Base di calcolo — **AGGIORNATA IL 2026-07-22** (decisione di Laura, via anche qui lo smoothing /12): ogni ricarica sopra il taglio minimo genera base commissionabile per l'**intero importo**, pagata **una sola volta** dal run del 1° del mese successivo (finestra di validità = quel solo giorno in `mlm_commission_base_ledger`). Niente più rendita spalmata su 12 mesi. Le righe storiche pre-22/07 (importo mensile = deposito/12, finestra 12 mesi) restano attive fino a scadenza naturale e continuano a pagare ogni mese.
 
-**Aggiornato il 2026-07-16 — base = "Prov K", non l'importo pieno ("le slide fanno fede")**: le tabelle "Esempio compensi" delle slide applicano tutte le percentuali (dirette §5.1 e indirette §5.2) a **Prov K = importo mensile × margine KNM** — il margine è il parametro "30 %" / "10 %" in testa alle tabelle (colonna "Prov K" = 30% di "MontImp"), riprodotte al centesimo con script il 2026-07-16. Coerente con la slide del residuale: "fino al 40% del **compenso KNM** sulle vendite dirette". Il margine è configurabile da admin (`/admin/mlm-impostazioni`, default 30%) e viene **fotografato per deposito** in `mlm_commission_base_ledger.knm_margin_percent`: un cambio del margine vale solo per i depositi futuri. Le commissioni già calcolate nei run passati restano storiche (stesso principio della retrocessione §4.2). Nota: la slide riepilogativa "Reddito residuale" fa 8% di 140.000€ saltando Prov K — le 4 tabelle dettagliate (con due margini diversi) sono la fonte coerente e sono quelle seguite. Vedi `MlmCommissionEngine` e `MlmSlideCompensationTablesTest`.
+**Aggiornato il 2026-07-16 — base = "Prov K", non l'importo pieno ("le slide fanno fede")**: le tabelle "Esempio compensi" delle slide applicano tutte le percentuali (dirette §5.1 e indirette §5.2) a **Prov K = importo × margine KNM** — il margine è il parametro "30 %" / "10 %" in testa alle tabelle (colonna "Prov K" = 30% di "MontImp"), riprodotte al centesimo con script il 2026-07-16. Coerente con la slide del residuale: "fino al 40% del **compenso KNM** sulle vendite dirette". Il margine è configurabile da admin (`/admin/mlm-impostazioni`, default 30%) e viene **fotografato per deposito** in `mlm_commission_base_ledger.knm_margin_percent`: un cambio del margine vale solo per i depositi futuri. Le commissioni già calcolate nei run passati restano storiche (stesso principio della retrocessione §4.2). Nota: la slide riepilogativa "Reddito residuale" fa 8% di 140.000€ saltando Prov K — le 4 tabelle dettagliate (con due margini diversi) sono la fonte coerente e sono quelle seguite. Vedi `MlmCommissionEngine` e `MlmSlideCompensationTablesTest`.
 
 ### 5.1 Commissioni dirette (sui propri clienti)
 
@@ -229,7 +227,7 @@ Tutti gli importi in centesimi interi, coerente con la convenzione del progetto 
 | Job | Frequenza | Compito |
 |---|---|---|
 | `RecalculateMlmPointsAndRanks` | giornaliero | Scadenza punti (fine durata smoothing), verifica BasiQ (12pt entro 30gg), avanzamento qualifica se requisiti soddisfatti |
-| `CalculateMonthlyMlmCommissions` | 1° del mese, 02:00 | Commissioni dirette + indirette su base "importo mensile" attivo |
+| `CalculateMonthlyMlmCommissions` | 1° del mese, 02:00 | Commissioni dirette + indirette sulle ricariche del mese precedente (una tantum dal 2026-07-22) |
 | `CalculateWeeklyMlmBonuses` | ogni mercoledì | Elabora eventi BasiQ della settimana, cascata bonus, crea `mlm_bonus_payouts` |
 
 Tutti idempotenti (idempotency key su periodo+agente), con lock/transazione per evitare doppio calcolo in caso di re-run, e log in stile `AuditLog` per ogni accredito.
