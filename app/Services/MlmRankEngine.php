@@ -25,6 +25,9 @@ use Illuminate\Support\Facades\Log;
  *
  *   Basic = 12 pt
  *   Key   = 24 pt + 2 Basic al 1° liv.
+ *   (dal 2026-07-22 si aggiunge per ogni grado il minimo di CLIENTI
+ *   registrati diretti, richiesta di Laura: Basic 6, Key 12, Senior 24,
+ *   Top/SuperVisor/Manager 24 — vedi migration 2026_07_22_110000)
  *   Senior = 48 pt + 3 Basic al 1° liv. + 2 Key su 2 colonne diverse
  *   Top    = 48 pt + 4 Basic al 1° liv. + 3 colonne da 300 punti attivi
  *   SuperVisor = 48 pt + 5 Basic al 1° liv. + 2 Senior e 2 Top su 4 colonne diverse
@@ -65,6 +68,7 @@ class MlmRankEngine
      */
     private const METRIC_TO_REQUIREMENT_FIELD = [
         'points' => 'min_points',
+        'clients_count' => 'min_clients',
         'level1_basic_count' => 'min_level1_basic',
         'branches_with_key' => 'min_branches_with_key',
         'branches_with_senior' => 'min_branches_with_senior',
@@ -76,6 +80,7 @@ class MlmRankEngine
     /** Etichette leggibili per la checklist di nextRankRequirements(), stesso ordine di METRIC_TO_REQUIREMENT_FIELD. */
     private const RANK_LABELS = [
         'min_points' => 'Punti attivi',
+        'min_clients' => 'Clienti registrati',
         'min_level1_basic' => 'Basic al 1° livello',
         'min_branches_with_key' => 'Colonne con almeno un Key+',
         'min_branches_with_senior' => 'Colonne con almeno un Senior+',
@@ -92,6 +97,7 @@ class MlmRankEngine
     /**
      * Valuta l'agente e restituisce un array diagnostico completo:
      * - 'points' => punti attivi
+     * - 'clients_count' => n. clienti diretti registrati (2026-07-22)
      * - 'level1_basic_count' => n. figli diretti con rank >= basic
      * - 'branches_300pt' => n. colonne con >= 300 punti attivi
      * - 'branches_with_key' => n. colonne con almeno un agente >= key
@@ -120,6 +126,14 @@ class MlmRankEngine
         // correggere/togliere quanto assegnato): il totale combinato con il
         // valore reale non scende mai sotto zero (max(0, ...) sotto).
         $points = $agent->mlmActivePoints();
+
+        // Clienti diretti REGISTRATI (2026-07-22, requisito "minimo N
+        // clienti" per grado): contano tutti i clienti con conto aperto
+        // agganciati all'agente, anche senza ricariche. Chi nel frattempo
+        // e' stato promosso ad agente non e' piu' un cliente e non conta.
+        $clientsCount = max(0, $agent->mlmClients()->where('mlm_role', 'cliente')->count()
+            + $agent->mlmGrantedMetric('clients_count'));
+
         $level1BasicCount = max(0, $branches->filter(
             fn (array $b) => $this->rankLevel($b['branch_root']->mlm_rank) >= $this->rankLevel('basic')
         )->count() + $agent->mlmGrantedLevel1Basic());
@@ -137,6 +151,7 @@ class MlmRankEngine
 
         $metrics = [
             'points' => $points,
+            'clients_count' => $clientsCount,
             'level1_basic_count' => $level1BasicCount,
             'branches_with_key' => $branchesWithKey,
             'branches_with_senior' => $branchesWithSenior,
@@ -161,6 +176,7 @@ class MlmRankEngine
 
         return [
             'points' => $points,
+            'clients_count' => $clientsCount,
             'level1_basic_count' => $level1BasicCount,
             'branches_300pt' => $branches300pt,
             'branches_with_key' => $branchesWithKey,

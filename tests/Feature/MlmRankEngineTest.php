@@ -100,10 +100,29 @@ class MlmRankEngineTest extends TestCase
         ]);
     }
 
+
+    /** Crea N clienti diretti registrati (requisito "min_clients" dal 2026-07-22). */
+    private function makeRegisteredClients(User $agent, int $count): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            User::create([
+                'name'                => 'Cliente ' . Str::random(6),
+                'email'                => 'cliente-' . Str::random(10) . '@test.test',
+                'password'             => 'secret123',
+                'account_holder_type'  => 'private',
+                'company_id'           => null,
+                'is_active'            => true,
+                'mlm_role'             => 'cliente',
+                'mlm_client_agent_id'  => $agent->id,
+            ]);
+        }
+    }
+
     public function test_evaluate_promotes_to_basic_with_12_active_points(): void
     {
         $agent = $this->makeAgent();
         $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         $evaluation = $this->engine->evaluate($agent);
 
@@ -117,6 +136,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 24);
+        $this->makeRegisteredClients($agent, 12);
 
         $child1 = $this->makeAgent('basic');
         $child2 = $this->makeAgent('basic');
@@ -134,6 +154,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 24);
+        $this->makeRegisteredClients($agent, 12);
 
         $child1 = $this->makeAgent('basic');
         $this->tree->attachAgent($child1, $agent);
@@ -148,6 +169,7 @@ class MlmRankEngineTest extends TestCase
     {
         $agent = $this->makeAgent();
         $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         $result = $this->engine->syncRank($agent);
 
@@ -181,6 +203,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent('key');
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 24);
+        $this->makeRegisteredClients($agent, 12);
 
         $result = $this->engine->syncRank($agent);
 
@@ -192,6 +215,7 @@ class MlmRankEngineTest extends TestCase
     {
         $agent = $this->makeAgent();
         $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         $this->assertSame('promoted', $this->engine->syncRank($agent));
         $this->assertNull($this->engine->syncRank($agent->fresh()));
@@ -246,6 +270,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         $key1 = $this->makeAgent('key');
         $key2 = $this->makeAgent('key');
@@ -268,6 +293,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         $children = [];
         for ($i = 0; $i < 4; $i++) {
@@ -297,6 +323,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         $children = [
             $this->makeAgent('top'),
@@ -326,6 +353,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         for ($i = 0; $i < 5; $i++) {
             $child = $this->makeAgent($i < 4 ? 'senior' : 'basic');
@@ -348,6 +376,7 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent();
         $this->tree->attachAgent($agent, null);
         $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         $children = [
             $this->makeAgent('supervisor'),
@@ -378,6 +407,7 @@ class MlmRankEngineTest extends TestCase
         $parent = $this->makeAgent('key');
         $this->tree->attachAgent($parent, null);
         $this->giveActivePoints($parent, 24);
+        $this->makeRegisteredClients($parent, 12);
 
         $children = [];
         for ($i = 0; $i < 2; $i++) {
@@ -399,12 +429,20 @@ class MlmRankEngineTest extends TestCase
     {
         $agent = $this->makeAgent('basic');
         $this->giveActivePoints($agent, 24);
+        $this->makeRegisteredClients($agent, 12);
 
         $next = $this->engine->nextRankRequirements($agent);
 
         $this->assertSame('key', $next['rank']);
         $pointsItem = collect($next['items'])->firstWhere('label', 'Punti attivi');
         $this->assertTrue($pointsItem['met']);
+
+        // Dal 2026-07-22 la checklist include anche il minimo di clienti
+        // registrati (Key = 12): l'agente ne ha 13 (12 + quello del ledger).
+        $clientsItem = collect($next['items'])->firstWhere('label', 'Clienti registrati');
+        $this->assertNotNull($clientsItem);
+        $this->assertSame(12, $clientsItem['required']);
+        $this->assertTrue($clientsItem['met']);
     }
 
     public function test_next_rank_requirements_is_null_at_max_rank(): void
@@ -412,5 +450,79 @@ class MlmRankEngineTest extends TestCase
         $agent = $this->makeAgent('manager');
 
         $this->assertNull($this->engine->nextRankRequirements($agent));
+    }
+
+    // ── Requisito "clienti registrati" (2026-07-22) ─────────────────────────
+
+    public function test_basic_requires_six_registered_clients(): void
+    {
+        // 12 punti attivi ma solo 5 clienti registrati:
+        // Basic richiede minimo 6 clienti (decisione 22/07).
+        $agent = $this->makeAgent();
+        $this->makeRegisteredClients($agent, 5);
+        MlmPointLedgerEntry::create([
+            'agent_user_id'  => $agent->id,
+            'client_user_id' => User::where('mlm_client_agent_id', $agent->id)->first()->id,
+            'source_type'    => 'registration',
+            'points'         => 12,
+            'valid_from'     => now()->subDay()->toDateString(),
+            'valid_until'    => now()->addMonth()->toDateString(),
+        ]);
+
+        $evaluation = $this->engine->evaluate($agent);
+        $this->assertSame(5, $evaluation['clients_count']);
+        $this->assertFalse($evaluation['satisfied']['basic']);
+        $this->assertSame('start', $evaluation['eligible_rank']);
+
+        // Il sesto cliente sblocca Basic.
+        $this->makeRegisteredClients($agent, 1);
+        $evaluation = $this->engine->evaluate($agent);
+        $this->assertSame(6, $evaluation['clients_count']);
+        $this->assertSame('basic', $evaluation['eligible_rank']);
+    }
+
+    public function test_clients_count_ignores_clients_promoted_to_agent(): void
+    {
+        // Un ex cliente diventato agente non e' piu' un cliente registrato.
+        $agent = $this->makeAgent();
+        $this->makeRegisteredClients($agent, 6);
+
+        User::where('mlm_client_agent_id', $agent->id)->first()
+            ->forceFill(['mlm_role' => 'agente'])->save();
+
+        $this->assertSame(5, $this->engine->evaluate($agent)['clients_count']);
+    }
+
+    public function test_agent_below_the_minimum_clients_is_demoted(): void
+    {
+        // Basic con i punti ancora attivi ma un solo cliente registrato:
+        // retrocessione normale (confermata da Laura il 22/07).
+        $agent = $this->makeAgent('basic');
+        $this->giveActivePoints($agent, 12);
+        // NB: giveActivePoints crea 1 solo cliente -> clients_count = 1 < 6.
+
+        $result = $this->engine->syncRank($agent);
+
+        $this->assertSame('demoted', $result);
+        $this->assertSame('start', $agent->fresh()->mlm_rank);
+    }
+
+    public function test_granted_clients_count_counts_toward_requirements(): void
+    {
+        // La metrica "clienti registrati" e' regalabile come le altre
+        // (scelta di Laura del 22/07): 12 punti + 6 clienti omaggio = Basic.
+        $agent = $this->makeAgent();
+        $this->giveActivePoints($agent, 12);
+
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $agent->id,
+            'metric' => 'clients_count',
+            'amount' => 6,
+            'granted_by_admin_id' => null,
+        ]);
+
+        $evaluation = $this->engine->evaluate($agent);
+        $this->assertSame(7, $evaluation['clients_count']); // 1 reale + 6 omaggio
+        $this->assertSame('basic', $evaluation['eligible_rank']);
     }
 }

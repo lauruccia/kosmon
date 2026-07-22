@@ -56,6 +56,8 @@ I punti **non si ripetono**: una riga ledger per evento, attiva per la sua durat
 ### 4.2 Qualifiche agente
 
 Ordine di grado, dal più basso al più alto: **Start → Basic → Key → Senior → Top → SuperVisor → Manager**.
+
+**AGGIORNATO IL 2026-07-22 — requisito "clienti registrati"**: a ogni grado si aggiunge un numero minimo di **clienti diretti registrati** (conto aperto, anche senza ricariche; chi diventa agente non conta più): Basic **6**, Key **12**, Senior **24**, Top/SuperVisor/Manager **sempre almeno 24**. Colonna `min_clients` in `mlm_rank_requirements`, editabile da admin come gli altri requisiti; vale la retrocessione standard (chi scende sotto il minimo perde il grado al ricalcolo) e la metrica è regalabile come omaggio (`clients_count` in `mlm_metric_grants`).
 (Le slide elencano graficamente "Top" prima di "Senior", ma l'ordine corretto è quello sopra: è l'unico coerente con gli importi bonus crescenti — 60 < 110 < 150 < 180 < 200 — verificati al §6.4. Lo confermo nel dettaglio al §7.2.)
 
 **Aggiornato il 2026-07-13** (rilettura integrale delle 3 pptx, confermato da Laura): i requisiti seguono il testo LETTERALE delle slide — Senior = 3 Basic + 2 Key su 2 colonne, Top = 4 Basic + 3 colonne da 300 punti. La versione precedente di questa tabella li aveva scambiati insieme all'ordine dei nomi, ma le slide riepilogative ("Qualifiche", identiche nelle 3 presentazioni) sono internamente coerenti: il numero di Basic al 1° livello cresce in modo monotono col grado (2/3/4/5/6).

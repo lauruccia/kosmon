@@ -29,6 +29,7 @@ class MlmSettingsController extends Controller
 
     private const REQUIREMENT_FIELDS = [
         'min_points',
+        'min_clients',
         'min_level1_basic',
         'min_branches_with_key',
         'min_branches_with_senior',

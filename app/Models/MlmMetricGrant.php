@@ -45,6 +45,7 @@ class MlmMetricGrant extends Model
         'branches_with_top' => 'Colonne con Top+',
         'branches_with_supervisor' => 'Colonne con SuperVisor+',
         'branches_300pt' => 'Colonne da 300 punti',
+        'clients_count' => 'Clienti registrati',
     ];
 
     public static function metricLabel(string $metric): string

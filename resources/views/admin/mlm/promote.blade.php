@@ -40,6 +40,13 @@
         @endif
     </div>
     <div class="card card-pad">
+        <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Clienti registrati (di cui omaggio)</span>
+        <strong style="font-size:22px;">{{ $evaluation['clients_count'] }}</strong>
+        @if($agent->mlmGrantedMetric('clients_count') != 0)
+            <span style="color:var(--ink-muted);font-size:12px;"> ({{ sprintf('%+d', $agent->mlmGrantedMetric('clients_count')) }} omaggio)</span>
+        @endif
+    </div>
+    <div class="card card-pad">
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Qualifica raggiungibile ora</span>
         <strong style="font-size:22px;">{{ ucfirst($evaluation['eligible_rank']) }}</strong>
     </div>

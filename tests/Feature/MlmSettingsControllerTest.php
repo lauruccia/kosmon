@@ -53,7 +53,7 @@ class MlmSettingsControllerTest extends TestCase
     private function requirementsPayload(array $overrides = []): array
     {
         $base = [
-            'min_points' => 0, 'min_level1_basic' => 0, 'min_branches_with_key' => 0,
+            'min_points' => 0, 'min_clients' => 0, 'min_level1_basic' => 0, 'min_branches_with_key' => 0,
             'min_branches_with_senior' => 0, 'min_branches_with_top' => 0,
             'min_branches_with_supervisor' => 0, 'min_branches_300pt' => 0,
         ];
@@ -242,6 +242,12 @@ class MlmSettingsControllerTest extends TestCase
             'valid_until' => now()->addMonth(),
         ]);
 
+        // Requisito clienti registrati di Basic (22/07): 6 in totale
+        // (il cliente del ledger sopra + questi 5).
+        for ($i = 0; $i < 5; $i++) {
+            $this->makeClientFor($agent);
+        }
+
         $response = $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.recalculate'));
 
         $response->assertRedirect(route('admin.mlm.settings.edit'));
@@ -341,6 +347,40 @@ class MlmSettingsControllerTest extends TestCase
             'points_validity_override_minutes' => null,
             'requirements' => $this->requirementsPayload(),
         ] + $rules)->assertSessionHasErrors('registration_points');
+    }
+
+    public function test_admin_can_change_the_minimum_clients_per_rank(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $payload = $this->requirementsPayload(['basic' => ['min_points' => 12, 'min_clients' => 3]]);
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(3, MlmRankRequirement::where('rank', 'basic')->value('min_clients'));
+
+        // E il motore lo usa subito: 12 punti + 3 clienti = Basic con la
+        // soglia abbassata (col default 6 non lo sarebbe).
+        $agent = $this->makeAgent();
+        \App\Models\MlmPointLedgerEntry::create([
+            'agent_user_id' => $agent->id,
+            'client_user_id' => $this->makeClientFor($agent)->id,
+            'source_type' => 'registration',
+            'points' => 12,
+            'valid_from' => now()->subDay(),
+            'valid_until' => now()->addMonth(),
+        ]);
+        $this->makeClientFor($agent);
+
+        // Con 2 clienti la soglia (3) non e' ancora raggiunta...
+        $this->assertFalse(app(\App\Services\MlmRankEngine::class)->evaluate($agent)['satisfied']['basic']);
+
+        // ...col terzo si'.
+        $this->makeClientFor($agent);
+        $this->assertTrue(app(\App\Services\MlmRankEngine::class)->evaluate($agent)['satisfied']['basic']);
     }
 
     private function makeClientFor(User $agent): User

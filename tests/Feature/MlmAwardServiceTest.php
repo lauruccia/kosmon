@@ -79,10 +79,29 @@ class MlmAwardServiceTest extends TestCase
         ]);
     }
 
+
+    /** Crea N clienti diretti registrati (requisito "min_clients" dal 2026-07-22). */
+    private function makeRegisteredClients(User $agent, int $count): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            User::create([
+                'name'                => 'Cliente ' . Str::random(6),
+                'email'                => 'cliente-' . Str::random(10) . '@test.test',
+                'password'             => 'secret123',
+                'account_holder_type'  => 'private',
+                'company_id'           => null,
+                'is_active'            => true,
+                'mlm_role'             => 'cliente',
+                'mlm_client_agent_id'  => $agent->id,
+            ]);
+        }
+    }
+
     public function test_direct_bonuses_are_cumulative_across_thresholds(): void
     {
         $agent = $this->makeAgent();
         $this->givePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         $granted = $this->awards->grantDirectPointBonuses($agent);
 
@@ -150,6 +169,7 @@ class MlmAwardServiceTest extends TestCase
         $agent = $this->makeAgent('basic');
         $this->tree->attachAgent($agent, null);
         $this->givePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         foreach (['key', 'key', 'basic'] as $childRank) {
             $child = $this->makeAgent($childRank);
@@ -177,6 +197,7 @@ class MlmAwardServiceTest extends TestCase
         $agent = $this->makeAgent('basic');
         $this->tree->attachAgent($agent, null);
         $this->givePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         foreach (['key', 'key', 'basic'] as $childRank) {
             $child = $this->makeAgent($childRank);
@@ -215,6 +236,7 @@ class MlmAwardServiceTest extends TestCase
     {
         $agent = $this->makeAgent();
         $this->givePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         // Simula un premio senior gia' ricevuto in passato.
         $this->awards->grantRankAward($agent, 'senior');
@@ -254,6 +276,7 @@ class MlmAwardServiceTest extends TestCase
         $agent = $this->makeAgent('senior');
         $this->tree->attachAgent($agent, null);
         $this->givePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
 
         foreach (['key', 'key', 'basic'] as $childRank) {
             $child = $this->makeAgent($childRank);
@@ -282,6 +305,7 @@ class MlmAwardServiceTest extends TestCase
 
         $agent = $this->makeAgent();
         $this->givePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
 
         $this->assertSame('promoted', $this->engine->syncRank($agent));
 

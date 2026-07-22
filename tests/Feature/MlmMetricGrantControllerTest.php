@@ -108,6 +108,24 @@ class MlmMetricGrantControllerTest extends TestCase
         ]);
     }
 
+
+    /** Crea N clienti diretti registrati (requisito "min_clients" dal 2026-07-22). */
+    private function makeRegisteredClients(User $agent, int $count): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            User::create([
+                'name'                => 'Cliente ' . Str::random(6),
+                'email'                => 'cliente-' . Str::random(10) . '@test.test',
+                'password'             => 'secret123',
+                'account_holder_type'  => 'private',
+                'company_id'           => null,
+                'is_active'            => true,
+                'mlm_role'             => 'cliente',
+                'mlm_client_agent_id'  => $agent->id,
+            ]);
+        }
+    }
+
     public function test_store_requires_backoffice_access(): void
     {
         $user = $this->makeRegularUser();
@@ -141,6 +159,7 @@ class MlmMetricGrantControllerTest extends TestCase
         $admin = $this->makeAdmin();
         $agent = $this->makeAgent();
 
+        $this->makeRegisteredClients($agent, 6); // requisito clienti di Basic (22/07)
         $this->assertSame(0, $agent->mlmActivePoints());
 
         // 12 punti omaggio: soddisfa la soglia default di Basic (12) e TUTTE
@@ -177,6 +196,7 @@ class MlmMetricGrantControllerTest extends TestCase
         $admin = $this->makeAdmin();
         $agent = $this->makeAgent();
         $this->giveActivePoints($agent, 24); // soglia punti di Key (default 24)
+        $this->makeRegisteredClients($agent, 12); // requisito clienti di Key (22/07)
 
         // Con 24 punti reali ma 0 Basic al 1° livello l'agente soddisfa gia'
         // "basic" (che non richiede Basic in downline) ma non ancora "key"
@@ -200,6 +220,8 @@ class MlmMetricGrantControllerTest extends TestCase
         $agentA = $this->makeAgent();
         $agentB = $this->makeAgent();
         $agentC = $this->makeAgent(); // non selezionato: non deve ricevere nulla
+        $this->makeRegisteredClients($agentA, 6);
+        $this->makeRegisteredClients($agentB, 6);
 
         $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
             'agent_ids' => [$agentA->id, $agentB->id],
@@ -255,6 +277,7 @@ class MlmMetricGrantControllerTest extends TestCase
     {
         $admin = $this->makeAdmin();
         $agent = $this->makeAgent();
+        $this->makeRegisteredClients($agent, 6);
 
         $this->actingAsWithSession($admin)->post(route('admin.mlm.metric-grants.store'), [
             'agent_ids' => [$agent->id],
@@ -368,6 +391,7 @@ class MlmMetricGrantControllerTest extends TestCase
         $admin = $this->makeAdmin();
         $agent = $this->makeAgent();
         $this->giveActivePoints($agent, 48); // soglia punti di Senior/Top/SuperVisor (default 48)
+        $this->makeRegisteredClients($agent, 24); // requisito clienti di Senior+ (22/07)
 
         // Con i punti a posto ma nessuna colonna reale con un Key+, l'agente
         // non arriva oltre "basic" finche' non regaliamo anche le colonne.
