@@ -282,8 +282,51 @@ class MlmRankEngine
         }
 
         $nextRank = self::ORDER[$currentLevel];
+
+        return [
+            'rank' => $nextRank,
+            'items' => $this->requirementChecklist($agent, $nextRank, $this->evaluate($agent)),
+        ];
+    }
+
+    /**
+     * Checklist per MANTENERE la qualifica attuale (2026-07-22, richiesta di
+     * Laura dopo l'introduzione del requisito clienti): restituisce i
+     * requisiti del grado ATTUALE quando l'agente non li soddisfa piu' —
+     * cioe' quando al prossimo ricalcolo verrebbe retrocesso. NULL se il
+     * grado e' "start" (niente da mantenere) o se i requisiti sono ancora
+     * tutti soddisfatti. Stesso formato voci di nextRankRequirements(),
+     * cosi' le viste riusano lo stesso rendering.
+     */
+    public function currentRankRetention(User $agent): ?array
+    {
+        $rank = $agent->mlm_rank;
+
+        if (! in_array($rank, self::ORDER, true)) {
+            return null; // "start": nessun requisito da mantenere.
+        }
+
         $evaluation = $this->evaluate($agent);
-        $requirement = MlmRankRequirement::allByRank()->get($nextRank);
+
+        if (! empty($evaluation['satisfied'][$rank])) {
+            return null; // Requisiti ancora a posto: nessun rischio retrocessione.
+        }
+
+        return [
+            'rank' => $rank,
+            'items' => $this->requirementChecklist($agent, $rank, $evaluation),
+        ];
+    }
+
+    /**
+     * Voci della checklist per un grado, date le metriche gia' valutate.
+     * Ogni voce: ['label', 'required', 'current', 'granted', 'met'].
+     *
+     * @return array<int, array{label:string, required:int, current:int|float, granted:int, met:bool}>
+     */
+    private function requirementChecklist(User $agent, string $rank, array $evaluation): array
+    {
+        $requirement = MlmRankRequirement::allByRank()->get($rank);
 
         $items = [];
         if ($requirement !== null) {
@@ -319,10 +362,7 @@ class MlmRankEngine
             }
         }
 
-        return [
-            'rank' => $nextRank,
-            'items' => $items,
-        ];
+        return $items;
     }
 
     /**

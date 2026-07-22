@@ -73,6 +73,29 @@
 </section>
 @endif
 
+@if($retention ?? null)
+<section class="card light-card" style="margin-bottom:14px;border-left:4px solid #dc2626;">
+    <div style="padding:14px 16px;">
+        <h3 style="margin:0 0 4px;font-size:15px;">⚠ A rischio retrocessione — per restare {{ ucfirst($retention['rank']) }}</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">L'agente non soddisfa più tutti i requisiti della sua qualifica attuale: al prossimo ricalcolo (notturno o "Ricalcola ora") verrà retrocesso, a meno che le voci in rosso non vengano coperte (clienti/punti reali o regali omaggio).</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            @foreach($retention['items'] as $item)
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:{{ $item['met'] ? 'rgba(26,122,74,0.08)' : 'rgba(220,38,38,0.06)' }};">
+                    <span style="font-weight:700;font-size:13px;color:{{ $item['met'] ? '#1a7a4a' : '#c9313e' }};">{{ $item['met'] ? '✓' : '✗' }}</span>
+                    <span style="font-size:12.5px;">{{ $item['label'] }}: {{ mlm_points_format($item['current']) }} / {{ $item['required'] }}</span>
+                    @php $itemGranted = $item['granted'] ?? 0; $itemReal = $item['current'] - $itemGranted; @endphp
+                    @if($itemGranted > 0 && $itemReal >= 0)
+                        <span style="font-size:11.5px;color:var(--ink-muted);">({{ mlm_points_format($itemReal) }} {{ $itemReal == 1 ? 'reale' : 'reali' }} + {{ $itemGranted }} omaggio)</span>
+                    @elseif($itemGranted < 0)
+                        <span style="font-size:11.5px;color:var(--ink-muted);">(incl. {{ $itemGranted }} omaggio)</span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+@endif
+
 <section class="card light-card" style="margin-bottom:14px;">
     <div style="padding:14px 16px 0;">
         <h3 style="margin:0 0 4px;font-size:15px;">Colonne / rami</h3>

@@ -64,6 +64,10 @@ class MlmController extends Controller
 
         $rankHistory = $user->mlmRankHistory()->orderByDesc('achieved_at')->get();
         $nextRank = $rankEngine->nextRankRequirements($user);
+        // Requisiti NON piu' soddisfatti del grado attuale (2026-07-22,
+        // richiesta di Laura dopo il requisito clienti): se valorizzato,
+        // l'agente verra' retrocesso al prossimo ricalcolo.
+        $retention = $rankEngine->currentRankRetention($user);
 
         $bonusPayouts = $user->mlmBonusPayouts()
             ->with('event.basiqUser:id,name,email')
@@ -98,6 +102,7 @@ class MlmController extends Controller
             'rankHistory' => $rankHistory,
             'evaluation' => $evaluation,
             'nextRank' => $nextRank,
+            'retention' => $retention,
             'bonusPayouts' => $bonusPayouts,
             'sponsor' => $tree->currentSponsor($user),
             'activeNav' => 'mlm',
@@ -120,6 +125,7 @@ class MlmController extends Controller
             'agent' => $user,
             'evaluation' => $rankEngine->evaluate($user),
             'nextRank' => $rankEngine->nextRankRequirements($user),
+            'retention' => $rankEngine->currentRankRetention($user),
             'activeNav' => 'mlm',
         ]);
     }

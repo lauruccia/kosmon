@@ -525,4 +525,44 @@ class MlmRankEngineTest extends TestCase
         $this->assertSame(7, $evaluation['clients_count']); // 1 reale + 6 omaggio
         $this->assertSame('basic', $evaluation['eligible_rank']);
     }
+
+    // ── Checklist "per mantenere la qualifica" (2026-07-22 sera) ────────────
+
+    public function test_current_rank_retention_is_null_when_requirements_are_still_met(): void
+    {
+        $agent = $this->makeAgent('basic');
+        $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
+
+        $this->assertNull($this->engine->currentRankRetention($agent));
+    }
+
+    public function test_current_rank_retention_lists_the_missing_requirements(): void
+    {
+        // Basic con punti a posto ma 1 solo cliente (ne servono 6): la
+        // checklist di mantenimento espone la voce clienti come non coperta.
+        $agent = $this->makeAgent('basic');
+        $this->giveActivePoints($agent, 12);
+
+        $retention = $this->engine->currentRankRetention($agent);
+
+        $this->assertNotNull($retention);
+        $this->assertSame('basic', $retention['rank']);
+
+        $clients = collect($retention['items'])->firstWhere('label', 'Clienti registrati');
+        $this->assertNotNull($clients);
+        $this->assertFalse($clients['met']);
+        $this->assertSame(6, $clients['required']);
+        $this->assertSame(1, $clients['current']);
+
+        $points = collect($retention['items'])->firstWhere('label', 'Punti attivi');
+        $this->assertTrue($points['met']);
+    }
+
+    public function test_current_rank_retention_is_null_for_start_agents(): void
+    {
+        $agent = $this->makeAgent(); // start: nessun requisito da mantenere
+
+        $this->assertNull($this->engine->currentRankRetention($agent));
+    }
 }

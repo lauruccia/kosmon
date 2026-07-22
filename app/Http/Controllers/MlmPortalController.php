@@ -60,6 +60,11 @@ class MlmPortalController extends Controller
         // nextRankRequirements), null quando l'agente e' gia' Manager.
         $nextRank = $rankEngine->nextRankRequirements($agent);
 
+        // Requisiti del grado ATTUALE non piu' soddisfatti (2026-07-22):
+        // l'agente vede cosa gli manca per MANTENERE la qualifica prima che
+        // il ricalcolo lo retroceda.
+        $retention = $rankEngine->currentRankRetention($agent);
+
         return view('portal.mlm.struttura', [
             'pageTitle'          => 'La mia struttura',
             'tree'               => $tree->subtree($agent),
@@ -70,6 +75,7 @@ class MlmPortalController extends Controller
             'grantedPoints'      => $grantedPoints,
             'grantedLevel1Basic' => $grantedLevel1Basic,
             'nextRank'           => $nextRank,
+            'retention'          => $retention,
             'activeNav'          => 'mlm-struttura',
         ]);
     }
