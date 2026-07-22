@@ -317,4 +317,47 @@ class MlmTreeServiceTest extends TestCase
         $this->assertSame(0, $tree['granted_points']);
         $this->assertSame(25, $tree['children'][0]['granted_points']);
     }
+
+    public function test_subtree_exposes_cumulative_branch_points_per_node(): void
+    {
+        // root(10) ── A(100) ── A1(50)
+        //        └─── B(nessun punto)
+        // branch_points: A1=50, A=150, B=0, root=160. Un punto SCADUTO su A
+        // non deve contare (stessa finestra di validita' di branchSummaries).
+        $root = $this->makeAgent('key');
+        $a = $this->makeAgent('basic');
+        $a1 = $this->makeAgent('start');
+        $b = $this->makeAgent('start');
+
+        $this->tree->attachAgent($root, null);
+        $this->tree->attachAgent($a, $root);
+        $this->tree->attachAgent($a1, $a);
+        $this->tree->attachAgent($b, $root);
+
+        $mkPoints = function (User $agent, float $points, bool $expired = false): void {
+            \App\Models\MlmPointLedgerEntry::create([
+                'agent_user_id' => $agent->id,
+                'client_user_id' => $this->makeClient($agent)->id,
+                'source_type'   => 'registration',
+                'points'        => $points,
+                'valid_from'    => now()->subMonths(2)->toDateString(),
+                'valid_until'   => $expired ? now()->subDay()->toDateString() : now()->addMonth()->toDateString(),
+            ]);
+        };
+
+        $mkPoints($root, 10);
+        $mkPoints($a, 100);
+        $mkPoints($a, 999, expired: true); // fuori finestra: ignorato
+        $mkPoints($a1, 50);
+
+        $tree = $this->tree->subtree($root);
+
+        $this->assertSame(160.0, (float) $tree['branch_points']);
+        $this->assertSame(10.0, (float) $tree['points'], 'points resta il valore del solo nodo');
+
+        $children = collect($tree['children'])->keyBy('id');
+        $this->assertSame(150.0, (float) $children[$a->id]['branch_points']);
+        $this->assertSame(0.0, (float) $children[$b->id]['branch_points']);
+        $this->assertSame(50.0, (float) $children[$a->id]['children'][0]['branch_points']);
+    }
 }

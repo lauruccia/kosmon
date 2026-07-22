@@ -88,6 +88,15 @@
 
 .mlm-node-points { font-size:10.5px; font-weight:600; color:var(--node-color, #64748b); }
 
+/* Badge "Ramo: X pt" sotto i figli diretti della radice visualizzata
+   (le colonne, 2026-07-22): distribuzione punti per ramo/colonna. */
+.mlm-branch-badge {
+    display:inline-flex; align-items:center; gap:4px; margin-top:6px;
+    padding:2px 10px; border-radius:999px; font-size:10.5px; font-weight:700;
+    background:var(--surface-soft,#f1f5f9); color:var(--ink-muted,#64748b);
+    border:1px solid var(--line,#e2e8f0); white-space:nowrap; cursor:help;
+}
+
 #mlmNodeModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1000; align-items:center; justify-content:center; padding:16px; }
 #mlmNodeModal .mlm-modal-card { background:#fff; border-radius:16px; max-width:420px; width:100%; padding:0; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,.25); }
 #mlmNodeModal .mlm-modal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line); }
@@ -166,7 +175,13 @@
         </div>
         <table>
             <thead><tr><th></th><th>Agenti</th><th>Clienti</th></tr></thead>
-            <tbody><tr><td style="font-weight:700;">Diretti</td><td id="mlmModalAgents">0</td><td id="mlmModalClients">0</td></tr></tbody>
+            <tbody>
+                <tr><td style="font-weight:700;">Diretti</td><td id="mlmModalAgents">0</td><td id="mlmModalClients">0</td></tr>
+                <tr>
+                    <td style="font-weight:700;" title="Punti attivi del ramo: questo agente + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti attivi.">Punti ramo</td>
+                    <td colspan="2" id="mlmModalBranchPoints">0</td>
+                </tr>
+            </tbody>
         </table>
         @if(($mode ?? 'portal') === 'admin')
         <div class="mlm-modal-actions">
@@ -212,6 +227,8 @@
             }
             document.getElementById('mlmModalAgents').textContent = node.dataset.agents || '0';
             document.getElementById('mlmModalClients').textContent = node.dataset.clients || '0';
+            var branchPtsEl = document.getElementById('mlmModalBranchPoints');
+            if (branchPtsEl) branchPtsEl.textContent = (node.dataset.branchPoints || node.dataset.points || '0') + ' pt';
             var avatar = document.getElementById('mlmModalAvatar');
             avatar.textContent = node.dataset.initials || '';
             avatar.style.background = node.dataset.color || '#0284c7';

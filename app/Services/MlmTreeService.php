@@ -169,7 +169,11 @@ class MlmTreeService
      * granted_points (netto dei punti omaggio admin attivi — la VISIBILITA'
      * è decisa dalla vista: admin sempre, portale solo sul proprio nodo,
      * vedi mlm-tree-node.blade.php), clients_count, agents_count (figli
-     * diretti), children[].
+     * diretti), branch_points (punti attivi CUMULATIVI del sotto-ramo:
+     * il nodo stesso + tutta la sua downline, stessa fonte ledger di
+     * branchSummaries() — 2026-07-22, richiesta di Laura: dall'albero si
+     * deve vedere come sono distribuiti i punti per ramo/colonna, es.
+     * verso il requisito "colonne da 300 punti"), children[].
      */
     public function subtree(User $root): array
     {
@@ -227,15 +231,24 @@ class MlmTreeService
             }
             usort($children, fn (array $a, array $b) => strcasecmp($a['name'], $b['name']));
 
+            $ownPoints = mlm_points_normalize((float) ($points[$id] ?? 0));
+
+            // Punti del sotto-ramo: i propri + la somma dei branch_points dei
+            // figli (che a loro volta includono gia' le rispettive downline).
+            $branchPoints = mlm_points_normalize(
+                $ownPoints + array_sum(array_column($children, 'branch_points'))
+            );
+
             return [
                 'id'            => $user->id,
                 'name'          => $user->name,
                 'rank'          => $user->mlm_rank ?: 'start',
-                'points'        => mlm_points_normalize((float) ($points[$id] ?? 0)),
+                'points'        => $ownPoints,
                 'basiq'         => $user->mlm_basiq_at !== null,
                 'granted_points' => (int) ($grantedPoints[$id] ?? 0),
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
                 'agents_count'  => count($children),
+                'branch_points' => $branchPoints,
                 'children'      => $children,
             ];
         };

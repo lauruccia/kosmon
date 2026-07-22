@@ -65,9 +65,15 @@ class MlmPortalController extends Controller
         // il ricalcolo lo retroceda.
         $retention = $rankEngine->currentRankRetention($agent);
 
+        // Riepilogo "Colonne / rami" anche lato agente (2026-07-22, richiesta
+        // di Laura): stessa fonte dell'admin (MlmTreeService::branchSummaries)
+        // con l'avanzamento verso le colonne da 300 punti calcolato in vista.
+        $branches = $tree->branchSummaries($agent);
+
         return view('portal.mlm.struttura', [
             'pageTitle'          => 'La mia struttura',
             'tree'               => $tree->subtree($agent),
+            'branches'           => $branches,
             'agent'              => $agent,
             'activePoints'       => $activePoints,
             'expiringPoints'     => $expiringPoints,

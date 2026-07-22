@@ -108,11 +108,18 @@
                 <th>Qualifica colonna</th>
                 <th>Agenti nel ramo</th>
                 <th>Punti attivi ramo</th>
+                <th title="Avanzamento della colonna verso i 300 punti attivi richiesti dal requisito 'colonne da 300 punti' (es. qualifica Top).">Verso i 300 pt</th>
                 <th>Distribuzione rank</th>
             </tr>
         </thead>
         <tbody>
             @forelse($branches as $branch)
+                @php
+                    // Soglia del requisito "colonne da 300 punti attivi"
+                    // (MlmRankEngine::evaluate, metrica branches_300pt).
+                    $branch300Missing = max(0, 300 - $branch['active_points']);
+                    $branch300Pct = min(100, round($branch['active_points'] / 300 * 100, 1));
+                @endphp
                 <tr>
                     <td>
                         <strong style="display:block;">{{ $branch['branch_root']->name }}</strong>
@@ -121,6 +128,18 @@
                     <td><span class="pill">{{ ucfirst($branch['branch_root']->mlm_rank) }}</span></td>
                     <td>{{ $branch['agent_count'] }}</td>
                     <td>{{ mlm_points_format($branch['active_points']) }}</td>
+                    <td>
+                        <div style="min-width:130px;max-width:170px;">
+                            <div style="height:6px;border-radius:999px;background:var(--surface-soft,#e2e8f0);overflow:hidden;">
+                                <div style="height:100%;width:{{ number_format($branch300Pct, 1, '.', '') }}%;background:{{ $branch300Missing <= 0 ? '#16a34a' : 'var(--primary,#0c4a86)' }};border-radius:999px;"></div>
+                            </div>
+                            @if($branch300Missing <= 0)
+                                <span style="display:block;margin-top:3px;font-size:11.5px;font-weight:700;color:#1a7a4a;">✓ 300 raggiunti</span>
+                            @else
+                                <span style="display:block;margin-top:3px;font-size:11.5px;color:var(--ink-muted);">{{ mlm_points_format($branch['active_points']) }} / 300 — ne mancano {{ mlm_points_format($branch300Missing) }}</span>
+                            @endif
+                        </div>
+                    </td>
                     <td style="font-size:12px;color:var(--ink-muted);">
                         @forelse($branch['rank_counts'] as $rank => $count)
                             {{ ucfirst($rank) }}: {{ $count }}@if(!$loop->last), @endif
@@ -130,7 +149,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="5" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun agente in downline.</td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun agente in downline.</td></tr>
             @endforelse
         </tbody>
     </table>

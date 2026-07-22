@@ -110,4 +110,54 @@
         @include('partials.mlm-tree', ['tree' => $tree, 'mode' => 'portal'])
     @endif
 </section>
+
+@if(($branches ?? collect())->isNotEmpty())
+<section class="card light-card" style="margin-top:14px;">
+    <div style="padding:14px 16px 0;">
+        <h3 style="margin:0 0 4px;font-size:15px;">Le tue colonne / rami</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">
+            Ogni colonna è il ramo che parte da un tuo invitato diretto di 1° livello. I punti del ramo sono la somma dei punti attivi di tutti gli agenti della colonna: le qualifiche più alte richiedono colonne da almeno 300 punti.
+        </p>
+    </div>
+    <table class="admin-table transactions-table">
+        <thead>
+            <tr>
+                <th>Colonna (1° livello)</th>
+                <th>Qualifica</th>
+                <th>Agenti nel ramo</th>
+                <th>Punti attivi ramo</th>
+                <th>Verso i 300 pt</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($branches as $branch)
+                @php
+                    // Soglia del requisito "colonne da 300 punti attivi"
+                    // (MlmRankEngine, metrica branches_300pt).
+                    $branch300Missing = max(0, 300 - $branch['active_points']);
+                    $branch300Pct = min(100, round($branch['active_points'] / 300 * 100, 1));
+                @endphp
+                <tr>
+                    <td><strong>{{ $branch['branch_root']->name }}</strong></td>
+                    <td><span class="pill">{{ ucfirst($branch['branch_root']->mlm_rank ?: 'start') }}</span></td>
+                    <td>{{ $branch['agent_count'] }}</td>
+                    <td>{{ mlm_points_format($branch['active_points']) }}</td>
+                    <td>
+                        <div style="min-width:130px;max-width:170px;">
+                            <div style="height:6px;border-radius:999px;background:var(--surface-soft,#e2e8f0);overflow:hidden;">
+                                <div style="height:100%;width:{{ number_format($branch300Pct, 1, '.', '') }}%;background:{{ $branch300Missing <= 0 ? '#16a34a' : 'var(--primary,#0c4a86)' }};border-radius:999px;"></div>
+                            </div>
+                            @if($branch300Missing <= 0)
+                                <span style="display:block;margin-top:3px;font-size:11.5px;font-weight:700;color:#1a7a4a;">✓ 300 raggiunti</span>
+                            @else
+                                <span style="display:block;margin-top:3px;font-size:11.5px;color:var(--ink-muted);">{{ mlm_points_format($branch['active_points']) }} / 300 — ne mancano {{ mlm_points_format($branch300Missing) }}</span>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</section>
+@endif
 @endsection

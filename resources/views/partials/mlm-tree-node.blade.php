@@ -1,5 +1,6 @@
-{{-- Nodo ricorsivo dell'albero MLM. Parametri: $node, $mode, $mlmRankMeta --}}
+{{-- Nodo ricorsivo dell'albero MLM. Parametri: $node, $mode, $mlmRankMeta, $depth (0 = radice visualizzata) --}}
 @php
+    $depth = $depth ?? 0;
     $meta = $mlmRankMeta[$node['rank']] ?? $mlmRankMeta['start'];
     $words = preg_split('/\s+/', trim($node['name']));
     $initials = count($words) >= 2
@@ -11,6 +12,12 @@
     // ispezionabile nell'HTML.
     $grantedVisible = ($node['granted_points'] ?? 0) !== 0
         && ((($mode ?? 'portal') === 'admin') || auth()->id() === $node['id']);
+    // Punti cumulativi del sotto-ramo (nodo + downline, vedi
+    // MlmTreeService::subtree). Sui figli DIRETTI della radice visualizzata
+    // (depth 1 = le "colonne") compare anche il badge sotto il riquadro:
+    // e' la distribuzione punti per ramo/colonna richiesta da Laura (22/07),
+    // utile per il requisito "colonne da 300 punti".
+    $branchPoints = $node['branch_points'] ?? $node['points'];
 @endphp
 <li>
     <a class="mlm-node" href="#" style="--node-color: {{ $meta['color'] }}; --node-tint1: {{ $meta['tint1'] }}; --node-tint2: {{ $meta['tint2'] }};"
@@ -19,6 +26,7 @@
        data-rank-label="{{ $meta['label'] }}"
        data-color="{{ $meta['color'] }}"
        data-points="{{ mlm_points_format($node['points']) }}"
+       data-branch-points="{{ mlm_points_format($branchPoints) }}"
        data-basiq="{{ !empty($node['basiq']) ? '1' : '' }}"
        @if($grantedVisible)
        data-granted="{{ sprintf('%+d', $node['granted_points']) }}"
@@ -35,10 +43,13 @@
             <span class="mlm-node-points">{{ $meta['label'] }} · {{ mlm_points_format($node['points']) }} pt</span>
         </span>
     </a>
+    @if($depth === 1)
+        <span class="mlm-branch-badge" title="Punti attivi totali di questa colonna: {{ $node['name'] }} + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti.">Ramo: {{ mlm_points_format($branchPoints) }} pt</span>
+    @endif
     @if(count($node['children']))
         <ul>
             @foreach($node['children'] as $child)
-                @include('partials.mlm-tree-node', ['node' => $child, 'mode' => $mode, 'mlmRankMeta' => $mlmRankMeta])
+                @include('partials.mlm-tree-node', ['node' => $child, 'mode' => $mode, 'mlmRankMeta' => $mlmRankMeta, 'depth' => $depth + 1])
             @endforeach
         </ul>
     @endif
