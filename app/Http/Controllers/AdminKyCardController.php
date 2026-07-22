@@ -187,6 +187,11 @@ class AdminKyCardController extends Controller
             'stripe_price_id'  => 'nullable|string|max:100',
             'sort_order'       => 'nullable|integer|min:0',
             'is_active'        => 'nullable|boolean',
+            // Punti MLM per l'agente diretto (2026-07-22): i tagli di
+            // ricarica sono le card reali. Campi presenti nel form solo con
+            // MLM attivo: se assenti si mantengono i valori esistenti.
+            'mlm_points'               => 'nullable|numeric|min:0|max:999999',
+            'mlm_points_duration_days' => 'nullable|integer|min:0|max:36500',
         ]);
 
         // Il form lavora sempre in "KY umani" (come per price_eur -> price_eur_cents):
@@ -206,6 +211,12 @@ class AdminKyCardController extends Controller
             'stripe_price_id' => $raw['stripe_price_id'] ?? null,
             'sort_order'      => (int) ($raw['sort_order'] ?? 0),
             'is_active'       => (bool) ($raw['is_active'] ?? true),
+            'mlm_points'      => isset($raw['mlm_points'])
+                ? round((float) $raw['mlm_points'], 2)
+                : (float) ($existing->mlm_points ?? 0),
+            'mlm_points_duration_days' => isset($raw['mlm_points_duration_days'])
+                ? (int) $raw['mlm_points_duration_days']
+                : (int) ($existing->mlm_points_duration_days ?? 0),
         ];
     }
 }

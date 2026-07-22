@@ -41,6 +41,9 @@
                         <span style="font-size:11px;background:#f0fdf4;color:#166534;padding:2px 7px;border-radius:20px;font-weight:600;">{{ number_format($card->price_eur, 2, ',', '.') }} €</span>
                         <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-weight:600;">{{ ky_format($card->ky_total) }} KY</span>
                         <span style="font-size:11px;background:{{ $card->bonus_type === 'percentage' ? '#ede9fe' : '#fef9c3' }};color:{{ $card->bonus_type === 'percentage' ? '#6d28d9' : '#854d0e' }};padding:2px 7px;border-radius:20px;font-weight:600;">{{ $card->bonus_label }}</span>
+                        @if(config('kmoney.mlm_enabled'))
+                            <span style="font-size:11px;background:#fff7ed;color:#9a3412;padding:2px 7px;border-radius:20px;font-weight:600;" title="Punti MLM per l'agente diretto e durata (giorni)">{{ mlm_points_format($card->mlm_points) }} pt / {{ $card->mlm_points_duration_days }} gg</span>
+                        @endif
                         @if(!$card->stripe_price_id)
                             <span style="font-size:11px;background:#fef2f2;color:#991b1b;padding:2px 7px;border-radius:20px;">Stripe non conf.</span>
                         @endif

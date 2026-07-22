@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
  * @property string $bonus_type
  * @property int $ky_base_amount
  * @property numeric $bonus_value
+ * @property float $mlm_points
+ * @property int $mlm_points_duration_days
  * @property bool $is_active
  * @property string|null $stripe_price_id
  * @property int $sort_order
@@ -50,12 +52,17 @@ class KyCard extends Model
     protected $fillable = [
         'uuid', 'name', 'description',
         'price_eur_cents', 'bonus_type', 'ky_base_amount', 'bonus_value',
+        'mlm_points', 'mlm_points_duration_days',
         'is_active', 'stripe_price_id', 'sort_order',
     ];
 
     protected $casts = [
         'is_active'   => 'boolean',
         'bonus_value' => 'decimal:2',
+        // Punti MLM maturati dall'agente diretto all'acquisto della card
+        // (2026-07-22): i tagli di ricarica sono le card reali.
+        'mlm_points'  => 'float',
+        'mlm_points_duration_days' => 'integer',
     ];
 
     protected static function booted(): void

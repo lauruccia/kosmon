@@ -66,17 +66,12 @@ class MlmSettingsControllerTest extends TestCase
         return $payload;
     }
 
-    /** Payload valido per la tabella "punti per evento" (2026-07-22): i valori del seed. */
+    /** Payload valido per i "punti per evento" (2026-07-22): la sola riga apertura conto (i punti ricarica vivono sulle KY Card). */
     private function pointRulesPayload(): array
     {
         return [
             'registration_points' => 1,
             'registration_duration_days' => 90,
-            'deposit_rules' => [
-                ['amount_eur' => 120, 'points' => 2, 'duration_days' => 30],
-                ['amount_eur' => 600, 'points' => 2, 'duration_days' => 180],
-                ['amount_eur' => 1200, 'points' => 2, 'duration_days' => 360],
-            ],
         ];
     }
 
@@ -267,42 +262,24 @@ class MlmSettingsControllerTest extends TestCase
         $response->assertSee('Apertura conto');
     }
 
-    public function test_admin_can_add_and_remove_deposit_tiers(): void
+    public function test_edit_page_lists_the_real_ky_cards_with_their_points(): void
     {
+        // I tagli di ricarica sono le KY Card reali (/admin/ky-cards):
+        // la pagina li mostra in sola lettura con punti e durata.
         $admin = $this->makeAdmin();
 
-        // Nuovo assetto: via il taglio 600, dentro un taglio 2.400 da 4 punti
-        // per 720 giorni; il taglio 120 passa a 3 punti / 60 giorni.
-        $rules = $this->pointRulesPayload();
-        $rules['deposit_rules'] = [
-            ['amount_eur' => 120, 'points' => 3, 'duration_days' => 60],
-            ['amount_eur' => 1200, 'points' => 2, 'duration_days' => 360],
-            ['amount_eur' => 2400, 'points' => 4, 'duration_days' => 720],
-        ];
+        \App\Models\KyCard::create([
+            'name' => 'Taglio Mille2', 'price_eur_cents' => 120_000,
+            'bonus_type' => 'fixed', 'ky_base_amount' => 120_000, 'bonus_value' => 0,
+            'mlm_points' => 2, 'mlm_points_duration_days' => 360,
+        ]);
 
-        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
-            'points_validity_override_minutes' => null,
-            'requirements' => $this->requirementsPayload(),
-        ] + $rules)->assertRedirect(route('admin.mlm.settings.edit'));
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.settings.edit'));
 
-        $tiers = \App\Models\MlmPointRule::where('event_type', 'deposit')
-            ->orderBy('deposit_amount_eur_cents')
-            ->get(['deposit_amount_eur_cents', 'points', 'duration_days']);
-
-        $this->assertSame(
-            [[12_000, 3.0, 60], [120_000, 2.0, 360], [240_000, 4.0, 720]],
-            $tiers->map(fn ($r) => [$r->deposit_amount_eur_cents, (float) $r->points, $r->duration_days])->all()
-        );
-
-        // Il servizio punti segue subito la nuova tabella: 600 EUR non e'
-        // piu' un taglio, ricade sul 120 (3 punti / 60 giorni).
-        $agent = $this->makeAgent();
-        $client = $this->makeClientFor($agent);
-        app(\App\Services\MlmPointsService::class)->awardDepositPoints($client, 60_000);
-
-        $entry = \App\Models\MlmPointLedgerEntry::where('agent_user_id', $agent->id)->sole();
-        $this->assertEqualsWithDelta(3.0, $entry->points, 0.001);
-        $this->assertTrue($entry->valid_until->isSameDay(now()->addDays(60)));
+        $response->assertOk();
+        $response->assertSee('Punti per evento');
+        $response->assertSee('Taglio Mille2');
+        $response->assertSee('1.200,00');
     }
 
     public function test_admin_can_update_the_registration_rule(): void
@@ -323,21 +300,9 @@ class MlmSettingsControllerTest extends TestCase
         $this->assertSame(15, $rule->duration_days);
     }
 
-    public function test_point_rules_validation_rejects_duplicate_tiers_and_missing_fields(): void
+    public function test_point_rules_validation_requires_the_registration_row(): void
     {
         $admin = $this->makeAdmin();
-
-        // Due righe con lo stesso taglio (120 EUR) -> distinct fallisce.
-        $rules = $this->pointRulesPayload();
-        $rules['deposit_rules'] = [
-            ['amount_eur' => 120, 'points' => 2, 'duration_days' => 30],
-            ['amount_eur' => 120, 'points' => 5, 'duration_days' => 90],
-        ];
-
-        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
-            'points_validity_override_minutes' => null,
-            'requirements' => $this->requirementsPayload(),
-        ] + $rules)->assertSessionHasErrors('deposit_rules.0.amount_eur');
 
         // Senza la riga registrazione il form e' invalido.
         $rules = $this->pointRulesPayload();

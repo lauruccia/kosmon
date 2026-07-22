@@ -70,6 +70,49 @@ class AdminKyCardControllerTest extends TestCase
         $this->assertDatabaseHas('ky_cards', ['name' => 'KY Card 100']);
     }
 
+    public function test_store_and_update_persist_the_mlm_point_fields(): void
+    {
+        // 2026-07-22: i tagli di ricarica sono le card reali — ogni card
+        // porta i punti MLM per l'agente diretto e la loro durata in giorni.
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.ky-cards.store'), [
+                'name'          => 'KY Card 1200',
+                'price_eur'     => '1200.00',
+                'bonus_type'    => 'fixed',
+                'ky_base_amount'=> 1200,
+                'bonus_value'   => 0,
+                'is_active'     => true,
+                'sort_order'    => 1,
+                'mlm_points'    => 2,
+                'mlm_points_duration_days' => 360,
+            ])
+            ->assertRedirect(route('admin.ky-cards.index'));
+
+        $card = KyCard::where('name', 'KY Card 1200')->firstOrFail();
+        $this->assertEqualsWithDelta(2.0, $card->mlm_points, 0.001);
+        $this->assertSame(360, $card->mlm_points_duration_days);
+
+        // Update senza i campi MLM (es. form con MLM disattivato):
+        // i valori esistenti NON vengono azzerati.
+        $this->actingAs($admin)
+            ->put(route('admin.ky-cards.update', $card), [
+                'name'          => 'KY Card 1200',
+                'price_eur'     => '1200.00',
+                'bonus_type'    => 'fixed',
+                'ky_base_amount'=> 1200,
+                'bonus_value'   => 0,
+                'is_active'     => true,
+                'sort_order'    => 1,
+            ])
+            ->assertRedirect(route('admin.ky-cards.index'));
+
+        $card->refresh();
+        $this->assertEqualsWithDelta(2.0, $card->mlm_points, 0.001);
+        $this->assertSame(360, $card->mlm_points_duration_days);
+    }
+
     public function test_admin_can_toggle_ky_card(): void
     {
         $admin = $this->makeAdmin();

@@ -18,10 +18,10 @@ use Illuminate\View\View;
 /**
  * Pannello admin per configurare i requisiti di qualifica agente (Basic..
  * Manager, tabella mlm_rank_requirements), la scadenza dei punti cliente
- * (SystemSetting::mlmSettings()) e — dal 2026-07-22 — la tabella "punti per
- * evento" (mlm_point_rules): quanti punti matura l'agente per apertura conto
- * e per ogni taglio di ricarica, e per quanti giorni restano attivi.
- * Introdotto il 2026-07-13 su richiesta di Laura.
+ * (SystemSetting::mlmSettings()) e — dal 2026-07-22 — i punti "apertura
+ * conto" (mlm_point_rules, riga registration). I punti delle ricariche si
+ * gestiscono invece sulle KY Card reali in /admin/ky-cards (qui vengono
+ * solo mostrati). Introdotto il 2026-07-13 su richiesta di Laura.
  */
 class MlmSettingsController extends Controller
 {
@@ -53,11 +53,11 @@ class MlmSettingsController extends Controller
         return view('admin.mlm.settings', [
             'pageTitle' => 'MLM — Impostazioni qualifiche',
             'requirements' => $requirements,
-            // Tabella "punti per evento" (2026-07-22): riga registrazione +
-            // una riga per ogni taglio di ricarica, ordinata per importo.
+            // Punti per evento (2026-07-22): riga registrazione editabile
+            // qui; i punti delle ricariche vivono sulle KY Card reali
+            // (/admin/ky-cards) e qui vengono solo mostrati.
             'registrationRule' => MlmPointRule::registrationRule(),
-            'depositRules' => MlmPointRule::where('event_type', MlmPointRule::EVENT_DEPOSIT)
-                ->orderBy('deposit_amount_eur_cents')->get(),
+            'kyCards' => \App\Models\KyCard::orderBy('sort_order')->orderBy('price_eur_cents')->get(),
             'ranks' => $this->configurableRanks(),
             'pointsValidityOverrideMinutes' => SystemSetting::mlmSettings()->mlm_points_validity_override_minutes,
             'knmMarginPercent' => SystemSetting::mlmSettings()->mlmKnmMarginPercent(),
@@ -79,16 +79,12 @@ class MlmSettingsController extends Controller
             // retro-compatibilita' (assente/vuoto = default 30, vedi
             // SystemSetting::mlmKnmMarginPercent()).
             'knm_margin_percent' => ['nullable', 'integer', 'min:1', 'max:100'],
-            // Tabella "punti per evento" (2026-07-22): apertura conto
-            // (points puo' essere 0 = evento disabilitato) + un taglio di
-            // ricarica per riga (importo in EUR, punti anche frazionari,
-            // durata in giorni; "1 mese = 30 giorni").
+            // Punti per evento (2026-07-22): qui si configura solo
+            // l'apertura conto (points puo' essere 0 = evento disabilitato).
+            // I punti delle ricariche si impostano sulle KY Card in
+            // /admin/ky-cards (durata in giorni; "1 mese = 30 giorni").
             'registration_points' => ['required', 'numeric', 'min:0', 'max:999999'],
             'registration_duration_days' => ['required', 'integer', 'min:1', 'max:36500'],
-            'deposit_rules' => ['array'],
-            'deposit_rules.*.amount_eur' => ['required', 'numeric', 'min:0.01', 'max:9999999', 'distinct'],
-            'deposit_rules.*.points' => ['required', 'numeric', 'min:0', 'max:999999'],
-            'deposit_rules.*.duration_days' => ['required', 'integer', 'min:1', 'max:36500'],
         ];
         foreach ($ranks as $rank) {
             foreach (self::REQUIREMENT_FIELDS as $field) {
@@ -105,35 +101,16 @@ class MlmSettingsController extends Controller
             );
         }
 
-        // ── Tabella "punti per evento": sync completo (2026-07-22) ──
-        // La riga registrazione viene sempre mantenuta (points=0 per
-        // disabilitarla); i tagli di ricarica vengono allineati al form:
-        // upsert dei tagli presenti, eliminazione di quelli rimossi.
+        // ── Punti per evento: riga apertura conto (2026-07-22) ──
+        // (points=0 = evento disabilitato). I punti delle ricariche NON si
+        // toccano qui: vivono sulle KY Card reali in /admin/ky-cards.
         MlmPointRule::updateOrCreate(
-            ['event_type' => MlmPointRule::EVENT_REGISTRATION, 'deposit_amount_eur_cents' => null],
+            ['event_type' => MlmPointRule::EVENT_REGISTRATION],
             [
                 'points' => round((float) $validated['registration_points'], 2),
                 'duration_days' => (int) $validated['registration_duration_days'],
             ]
         );
-
-        $submittedAmounts = [];
-        foreach ($validated['deposit_rules'] ?? [] as $row) {
-            $amountCents = (int) round((float) $row['amount_eur'] * 100);
-            $submittedAmounts[] = $amountCents;
-
-            MlmPointRule::updateOrCreate(
-                ['event_type' => MlmPointRule::EVENT_DEPOSIT, 'deposit_amount_eur_cents' => $amountCents],
-                [
-                    'points' => round((float) $row['points'], 2),
-                    'duration_days' => (int) $row['duration_days'],
-                ]
-            );
-        }
-
-        MlmPointRule::where('event_type', MlmPointRule::EVENT_DEPOSIT)
-            ->whereNotIn('deposit_amount_eur_cents', $submittedAmounts)
-            ->delete();
 
         $settings = SystemSetting::mlmSettings();
         $before = $settings->mlm_points_validity_override_minutes;
@@ -160,9 +137,8 @@ class MlmSettingsController extends Controller
                 'points_validity_override_minutes_after' => $after,
                 'knm_margin_percent_before' => $marginBefore,
                 'knm_margin_percent_after' => $marginAfter,
-                'point_rules' => MlmPointRule::orderByRaw('deposit_amount_eur_cents IS NOT NULL')
-                    ->orderBy('deposit_amount_eur_cents')
-                    ->get(['event_type', 'deposit_amount_eur_cents', 'points', 'duration_days'])
+                'point_rules' => MlmPointRule::orderBy('event_type')
+                    ->get(['event_type', 'points', 'duration_days'])
                     ->toArray(),
             ],
         ]);

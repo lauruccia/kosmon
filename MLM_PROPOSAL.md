@@ -40,16 +40,10 @@ Ho anche verificato la struttura attuale del progetto: esiste già un sistema di
 
 ### 4.1 Punti Cliente (PC) — da registrazioni e depositi
 
-**AGGIORNATO IL 2026-07-22** (decisione di Laura — sostituisce la regola "/12 + frazionari" del 2026-07-20): i punti **non vengono più spalmati su 12 mesi**. Ogni evento matura i suoi punti **subito** ("l'importo vale nel mese in cui viene maturato") e restano attivi per una durata in **giorni** (1 mese = 30 giorni). Quanti punti e per quanti giorni lo decide la tabella **`mlm_point_rules`**, editabile dall'admin in `/admin/mlm-impostazioni` (sezione "Punti per evento"): una riga per l'apertura conto e **una riga per ogni taglio di ricarica disponibile** (i tagli li imposta l'admin). A una ricarica si applica la riga col taglio più alto ≤ importo (es. con i tagli 120/600/1.200 €, una ricarica da 800 € usa la riga dei 600 €); sotto il taglio minimo la ricarica non genera nulla. Eliminare una riga disabilita l'evento.
+**AGGIORNATO IL 2026-07-22** (decisione di Laura — sostituisce la regola "/12 + frazionari" del 2026-07-20): i punti **non vengono più spalmati su 12 mesi**. Ogni evento matura i suoi punti **subito** ("l'importo vale nel mese in cui viene maturato") e restano attivi per una durata in **giorni** (1 mese = 30 giorni).
 
-Valori iniziali (seed della migration, decisi da Laura il 22/07):
-
-| Evento | Punti | Durata (giorni) |
-|---|---|---|
-| Apertura conto | 1 | 90 |
-| Ricarica 120 € | 2 | 30 |
-| Ricarica 600 € | 2 | 180 |
-| Ricarica 1.200 € | 2 | 360 |
+- **Apertura conto**: riga `registration` di `mlm_point_rules`, editabile in `/admin/mlm-impostazioni` (seed: 1 punto / 90 giorni; 0 punti = disabilitato).
+- **Ricariche**: i tagli sono le **KY Card reali** di `/admin/ky-cards` (osservazione di Laura del 22/07 pomeriggio — niente elenco separato che può andare fuori sincrono). Ogni card ha `mlm_points` e `mlm_points_duration_days`, editabili card per card; 0 punti = la card non genera punti. L'acquisto assegna i punti della card comprata; quando è noto solo l'importo (simulatore) si usa la card attiva col prezzo più alto ≤ importo. Nessuna card ≤ importo = la ricarica non genera nulla. Backfill iniziale per fascia di prezzo: ≥1.200 € → 2 pt / 360 gg; ≥600 € → 2 pt / 180 gg; ≥120 € → 2 pt / 30 gg; sotto → 0.
 
 I punti **non si ripetono**: una riga ledger per evento, attiva per la sua durata, poi scade. "Punti attivi" di un agente = somma (decimale, la colonna resta DECIMAL(8,2)) dei punti non ancora scaduti nel suo ledger personale. Le righe ledger emesse con le regole precedenti (scaglioni 1/12/24/36 mesi fino al 20/07, "/12 + frazionari" dal 20/07 al 22/07) restano valide così come sono: storico non ricalcolato.
 

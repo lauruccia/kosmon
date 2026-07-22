@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\MlmCommissionBaseLedgerEntry;
 use App\Models\MlmPointLedgerEntry;
+use App\Models\KyCard;
 use App\Models\MlmPointRule;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -20,16 +21,19 @@ use Illuminate\Support\Carbon;
  *  - I punti NON vengono piu' spalmati su 12 mesi: la ricarica matura i suoi
  *    punti NEL MOMENTO in cui avviene ("l'importo vale nel mese in cui viene
  *    maturato") e restano attivi per la durata in GIORNI configurata.
- *  - Quanti punti e per quanti giorni lo decide la tabella mlm_point_rules,
- *    editabile dall'admin in /admin/mlm-impostazioni: una riga per l'apertura
- *    conto (seed: 1 punto / 90 giorni) e una riga per ogni taglio di
- *    ricarica disponibile (seed: 120 EUR -> 2 pt / 30 gg, 600 EUR -> 2 pt /
- *    180 gg, 1.200 EUR -> 2 pt / 360 gg; "1 mese = 30 giorni").
- *  - A una ricarica si applica la riga col taglio piu' alto <= importo
- *    (un importo fuori taglio ricade sul taglio inferiore). Sotto il taglio
- *    minimo configurato la ricarica non genera ne' punti ne' base
- *    commissioni. Se l'admin elimina una riga, quell'evento smette di
- *    generare punti (evento disabilitato).
+ *  - L'apertura conto legge la riga 'registration' di mlm_point_rules
+ *    (editabile in /admin/mlm-impostazioni; seed: 1 punto / 90 giorni).
+ *  - Le RICARICHE leggono i punti dalla KY CARD acquistata (osservazione di
+ *    Laura del 22/07: i tagli di ricarica reali sono le card di
+ *    /admin/ky-cards, non un elenco separato). Ogni card ha mlm_points e
+ *    mlm_points_duration_days, editabili card per card; 0 punti = la card
+ *    non genera punti. Backfill iniziale per fascia di prezzo (>=1.200 EUR
+ *    -> 2 pt / 360 gg; >=600 -> 2 pt / 180 gg; >=120 -> 2 pt / 30 gg).
+ *  - Quando la card non e' nota (es. simulatore, che parte da un importo
+ *    libero) si usa la card ATTIVA con prezzo esatto oppure, in mancanza,
+ *    quella col prezzo piu' alto <= importo (vedi resolveCardForAmount()).
+ *    Nessuna card risolta = la ricarica non genera ne' punti ne' base
+ *    commissioni.
  *
  * BASE COMMISSIONI "UNA TANTUM" (stessa decisione): anche la base
  * commissionabile non e' piu' l'importo mensile deposito/12 per 12 mesi, ma
@@ -86,39 +90,57 @@ class MlmPointsService
     }
 
     /**
-     * Assegna i punti ricarica secondo la tabella mlm_point_rules: si applica
-     * la riga col taglio piu' alto <= importo (seed: 120 EUR -> 2 pt / 30 gg,
-     * 600 EUR -> 2 pt / 180 gg, 1.200 EUR -> 2 pt / 360 gg). Niente piu'
-     * spalmatura /12: i punti maturano subito, per la durata configurata.
-     * Non fa nulla se l'utente non e' un cliente MLM, non ha un agente
-     * risolto, o l'importo e' sotto il taglio minimo configurato.
+     * Assegna i punti ricarica secondo la KY CARD acquistata: mlm_points
+     * per mlm_points_duration_days giorni (niente piu' spalmatura /12: i
+     * punti maturano subito). Se la card non viene passata (es. simulatore,
+     * che parte da un importo libero) viene risolta dal prezzo con
+     * resolveCardForAmount(). Non fa nulla se l'utente non e' un cliente
+     * MLM, non ha un agente risolto, o nessuna card corrisponde all'importo.
      */
-    public function awardDepositPoints(User $client, int $depositEurCents, ?int $sourceTransferId = null): void
+    public function awardDepositPoints(User $client, int $depositEurCents, ?int $sourceTransferId = null, ?KyCard $card = null): void
     {
         if (! $client->isMlmClient() || ! $client->mlm_client_agent_id) {
             return;
         }
 
-        $rule = MlmPointRule::depositRuleFor($depositEurCents);
+        $card ??= $this->resolveCardForAmount($depositEurCents);
 
-        if (! $rule) {
+        if (! $card) {
             return;
         }
 
         $from = now();
 
-        if ($rule->points > 0) {
+        if ($card->mlm_points > 0 && $card->mlm_points_duration_days > 0) {
             $this->createLedgerEntry(
                 client: $client,
                 sourceType: 'deposit',
                 sourceTransferId: $sourceTransferId,
-                points: mlm_points_normalize($rule->points),
+                points: mlm_points_normalize($card->mlm_points),
                 validFrom: $from,
-                validUntil: $this->resolveValidUntil($from, $rule->duration_days),
+                validUntil: $this->resolveValidUntil($from, $card->mlm_points_duration_days),
             );
         }
 
         $this->createCommissionBaseEntry($client, $depositEurCents, $sourceTransferId);
+    }
+
+    /**
+     * Risolve la KY Card di una ricarica quando e' noto solo l'importo
+     * (simulatore): prima la card ATTIVA con prezzo esattamente uguale,
+     * altrimenti quella attiva col prezzo piu' alto <= importo (un importo
+     * fuori taglio ricade sul taglio inferiore). A parita' di prezzo vince
+     * il sort_order del catalogo. NULL se nessuna card attiva ha prezzo
+     * <= importo.
+     */
+    private function resolveCardForAmount(int $depositEurCents): ?KyCard
+    {
+        return KyCard::query()
+            ->where('is_active', true)
+            ->where('price_eur_cents', '<=', $depositEurCents)
+            ->orderByDesc('price_eur_cents')
+            ->orderBy('sort_order')
+            ->first();
     }
 
     /**

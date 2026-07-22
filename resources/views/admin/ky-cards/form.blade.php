@@ -103,6 +103,26 @@
                 </div>
             </div>
 
+            @if(config('kmoney.mlm_enabled'))
+            {{-- ── Punti MLM (2026-07-22: i tagli di ricarica sono le card reali) ── --}}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div>
+                    <label class="form-label" for="mlm_points">Punti MLM per l'agente</label>
+                    <input type="number" name="mlm_points" id="mlm_points"
+                           value="{{ old('mlm_points', $card?->mlm_points ?? 0) }}"
+                           placeholder="0" step="0.01" min="0" class="form-control">
+                    <span style="font-size:11.5px;color:var(--ink-muted);">Punti che matura l'agente diretto quando un suo cliente acquista questa card. 0 = nessun punto.</span>
+                </div>
+                <div>
+                    <label class="form-label" for="mlm_points_duration_days">Durata punti (giorni)</label>
+                    <input type="number" name="mlm_points_duration_days" id="mlm_points_duration_days"
+                           value="{{ old('mlm_points_duration_days', $card?->mlm_points_duration_days ?? 0) }}"
+                           placeholder="0" step="1" min="0" class="form-control">
+                    <span style="font-size:11.5px;color:var(--ink-muted);">Per quanti giorni i punti restano attivi (1 mese = 30 giorni).</span>
+                </div>
+            </div>
+            @endif
+
             {{-- ANTEPRIMA LIVE --}}
             <div id="preview-box" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#166534;margin-right:4px;">Anteprima:</span>

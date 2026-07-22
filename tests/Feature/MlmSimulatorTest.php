@@ -34,6 +34,16 @@ class MlmSimulatorTest extends TestCase
         parent::setUp();
         $this->tree = new MlmTreeService();
         $this->simulator = app(MlmSimulationService::class);
+
+        // I tagli di ricarica sono KY Card reali (2026-07-22): il simulatore
+        // risolve la card dal prezzo, quindi i test le seedano.
+        foreach ([[12_000, 2, 30], [60_000, 2, 180], [120_000, 2, 360]] as [$price, $points, $days]) {
+            \App\Models\KyCard::create([
+                'name' => 'Card ' . $price, 'price_eur_cents' => $price,
+                'bonus_type' => 'fixed', 'ky_base_amount' => $price, 'bonus_value' => 0,
+                'mlm_points' => $points, 'mlm_points_duration_days' => $days,
+            ]);
+        }
     }
 
     private function makeAdmin(): User

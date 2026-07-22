@@ -475,8 +475,14 @@ class MlmCommissionEngineTest extends TestCase
         $client = $this->makeClient($agent);
 
         // Ricarica REALE via MlmPointsService (margine 100% dal setUp:
-        // Prov K == importo pieno, attese leggibili).
-        app(\App\Services\MlmPointsService::class)->awardDepositPoints($client, 120_000);
+        // Prov K == importo pieno, attese leggibili). I tagli sono KY Card
+        // reali (22/07): serve una card per l'importo.
+        $card = \App\Models\KyCard::create([
+            'name' => 'Card 1200', 'price_eur_cents' => 120_000,
+            'bonus_type' => 'fixed', 'ky_base_amount' => 120_000, 'bonus_value' => 0,
+            'mlm_points' => 2, 'mlm_points_duration_days' => 360,
+        ]);
+        app(\App\Services\MlmPointsService::class)->awardDepositPoints($client, 120_000, null, $card);
 
         // Il run del mese CORRENTE non la vede (finestra = 1° del prossimo).
         $runNow = $this->engine->runForMonth(now()->startOfMonth());

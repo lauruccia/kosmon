@@ -36,9 +36,9 @@
             <h3 style="margin:0 0 6px;font-size:15px;">Punti per evento</h3>
             <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
                 Quanti punti matura l'agente diretto per ogni evento del suo cliente e per quanti <strong>giorni</strong> restano attivi (1 mese = 30 giorni).
-                I punti maturano subito, nel momento della ricarica — niente più spalmatura su 12 mesi.
-                Una riga per ogni <strong>taglio di ricarica</strong> disponibile: a una ricarica si applica il taglio più alto che non supera l'importo
-                (es. con i tagli 120/600/1.200 €, una ricarica da 800 € usa la riga dei 600 €). Sotto il taglio minimo la ricarica non genera punti.
+                I punti maturano subito, nel momento dell'evento — niente più spalmatura su 12 mesi.
+                I punti delle <strong>ricariche</strong> sono definiti sulle KY Card reali: si modificano card per card in
+                <a href="{{ route('admin.ky-cards.index') }}" style="font-weight:700;">Gestione KY Card</a>, qui sotto li vedi in sola lettura.
             </p>
         </div>
         <div style="overflow-x:auto;">
@@ -46,13 +46,12 @@
                 <thead>
                     <tr>
                         <th>Evento</th>
-                        <th>Ricarica (€)</th>
+                        <th>Taglio</th>
                         <th>Punti</th>
                         <th>Durata (giorni)</th>
-                        <th></th>
                     </tr>
                 </thead>
-                <tbody id="point-rules-body">
+                <tbody>
                     <tr>
                         <td><strong>Apertura conto</strong><br><span style="font-size:11px;color:var(--ink-muted);">0 punti = disabilitato</span></td>
                         <td style="color:var(--ink-muted);font-size:12px;">—</td>
@@ -66,54 +65,34 @@
                                 value="{{ old('registration_duration_days', $registrationRule?->duration_days ?? 90) }}"
                                 style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
                         </td>
-                        <td></td>
                     </tr>
-                    @foreach($depositRules as $i => $rule)
-                        <tr class="point-rule-row">
-                            <td><strong>Ricarica</strong></td>
+                    @forelse($kyCards as $card)
+                        <tr>
                             <td>
-                                <input type="number" min="0.01" step="0.01" name="deposit_rules[{{ $i }}][amount_eur]"
-                                    value="{{ old('deposit_rules.'.$i.'.amount_eur', number_format($rule->deposit_amount_eur_cents / 100, 2, '.', '')) }}"
-                                    style="width:110px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
+                                <strong>Ricarica — {{ $card->name }}</strong>
+                                @unless($card->is_active)
+                                    <span style="font-size:11px;color:var(--danger);font-weight:700;"> (disattivata)</span>
+                                @endunless
                             </td>
-                            <td>
-                                <input type="number" min="0" step="0.01" name="deposit_rules[{{ $i }}][points]"
-                                    value="{{ old('deposit_rules.'.$i.'.points', $rule->points) }}"
-                                    style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
-                            </td>
-                            <td>
-                                <input type="number" min="1" step="1" name="deposit_rules[{{ $i }}][duration_days]"
-                                    value="{{ old('deposit_rules.'.$i.'.duration_days', $rule->duration_days) }}"
-                                    style="width:90px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;">
-                            </td>
-                            <td><button type="button" class="btn btn-secondary" onclick="this.closest('tr').remove()" title="Rimuovi questo taglio">✕</button></td>
+                            <td>{{ number_format($card->price_eur_cents / 100, 2, ',', '.') }} €</td>
+                            <td>{{ mlm_points_format($card->mlm_points) }}</td>
+                            <td>{{ $card->mlm_points_duration_days }}</td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="4" style="color:var(--ink-muted);font-size:13px;">
+                                Nessuna KY Card configurata: finché non ne crei una in <a href="{{ route('admin.ky-cards.index') }}">Gestione KY Card</a>, le ricariche non generano punti.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
         <div style="padding:0 16px 14px;">
-            <button type="button" class="btn btn-secondary" onclick="addPointRuleRow()">+ Aggiungi taglio di ricarica</button>
             <p style="margin:10px 0 0;font-size:12px;color:var(--ink-muted);">
-                Rimuovere una riga elimina il taglio al salvataggio (le ricariche sotto il nuovo minimo non matureranno più punti). I punti già assegnati mantengono la loro scadenza originale.
+                Una ricarica assegna i punti della card acquistata. I punti già assegnati mantengono la loro scadenza originale anche se cambi i valori sulla card.
             </p>
         </div>
-        <script>
-            function addPointRuleRow() {
-                var body = document.getElementById('point-rules-body');
-                var idx = Date.now(); // indice univoco, non deve essere progressivo
-                var tr = document.createElement('tr');
-                tr.className = 'point-rule-row';
-                var inputStyle = 'border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;text-align:center;';
-                tr.innerHTML =
-                    '<td><strong>Ricarica</strong></td>' +
-                    '<td><input type="number" min="0.01" step="0.01" name="deposit_rules[' + idx + '][amount_eur]" style="width:110px;' + inputStyle + '"></td>' +
-                    '<td><input type="number" min="0" step="0.01" name="deposit_rules[' + idx + '][points]" value="2" style="width:90px;' + inputStyle + '"></td>' +
-                    '<td><input type="number" min="1" step="1" name="deposit_rules[' + idx + '][duration_days]" value="30" style="width:90px;' + inputStyle + '"></td>' +
-                    '<td><button type="button" class="btn btn-secondary" onclick="this.closest(\'tr\').remove()" title="Rimuovi questo taglio">✕</button></td>';
-                body.appendChild(tr);
-            }
-        </script>
     </section>
 
     {{-- ── Scadenza punti (override di test) ── --}}

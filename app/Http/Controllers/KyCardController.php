@@ -542,6 +542,7 @@ class KyCardController extends PortalController
                         $purchase->user,
                         (int) $purchase->price_eur_cents,
                         $purchase->transfer_id,
+                        $purchase->kyCard, // i punti sono definiti sulla card acquistata (22/07)
                     );
                 } catch (\Exception $mlmException) {
                     Log::error('MLM points award failed', ['purchase' => $purchase->uuid, 'error' => $mlmException->getMessage()]);
