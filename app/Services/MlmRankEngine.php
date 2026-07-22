@@ -119,8 +119,17 @@ class MlmRankEngine
         // e a branches_300pt) — un admin puo' cosi' far scattare qualsiasi
         // qualifica (fino a Manager) anche senza che la struttura sotto
         // esista ancora davvero. Sono contatori astratti: non creano nulla
-        // nell'albero vero, quindi non alterano ne' la vista Albero ne' i
-        // bonus di struttura (quelli restano legati solo alla downline reale).
+        // nell'albero vero (nessun nodo/agente fittizio) e non generano mai
+        // bonus di struttura (quelli restano legati solo alla downline
+        // reale). ECCEZIONE dal 2026-07-22 pomeriggio bis: i grant della
+        // metrica 'points' fatti ai singoli membri di un ramo SONO sommati
+        // ai punti reali del ramo nella vista Albero e nelle tabelle
+        // "Colonne / rami" (vedi MlmTreeService::branchSummaries()/
+        // subtree()), perche' contano per il requisito "colonne da 300
+        // punti" qui sotto (branches_300pt) — quindi devono essere visibili
+        // all'agente/admin come dato utile. Il grant astratto
+        // 'branches_300pt' invece resta un contatore puro, sommato solo qui
+        // e mai nell'albero.
         //
         // Dal 2026-07-15 il "regalo" puo' essere negativo (un admin puo'
         // correggere/togliere quanto assegnato): il totale combinato con il
@@ -138,7 +147,12 @@ class MlmRankEngine
             fn (array $b) => $this->rankLevel($b['branch_root']->mlm_rank) >= $this->rankLevel('basic')
         )->count() + $agent->mlmGrantedLevel1Basic());
 
-        $branches300pt = max(0, $branches->filter(fn (array $b) => $b['active_points'] >= 300)->count()
+        // Dal 2026-07-22 pomeriggio bis (richiesta di Laura): la soglia dei
+        // 300 punti per colonna conta i punti "omaggio" netti dei membri del
+        // ramo insieme a quelli reali (combined_points), non solo il ledger
+        // reale — coerente con la vista Albero/tabelle "Colonne / rami" che
+        // ora mostrano proprio quel totale combinato come "Punti ramo".
+        $branches300pt = max(0, $branches->filter(fn (array $b) => $b['combined_points'] >= 300)->count()
             + $agent->mlmGrantedMetric('branches_300pt'));
         $branchesWithKey = max(0, $this->countBranchesWithMinRank($branches, 'key')
             + $agent->mlmGrantedMetric('branches_with_key'));

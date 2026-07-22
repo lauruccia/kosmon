@@ -15,9 +15,13 @@
     // Punti cumulativi del sotto-ramo (nodo + downline, vedi
     // MlmTreeService::subtree). Sui figli DIRETTI della radice visualizzata
     // (depth 1 = le "colonne") compare anche il badge sotto il riquadro:
-    // e' la distribuzione punti per ramo/colonna richiesta da Laura (22/07),
-    // utile per il requisito "colonne da 300 punti".
+    // e' la distribuzione punti per ramo/colonna richiesta da Laura (22/07).
+    // Dal 22/07 pomeriggio bis include anche l'omaggio netto del ramo
+    // (branch_granted_points), perche' conta per il requisito "colonne da
+    // 300 punti" — mostrato scomposto (badge/popup) cosi' si capisce quanto
+    // e' lavoro reale e quanto regalo.
     $branchPoints = $node['branch_points'] ?? $node['points'];
+    $branchGranted = $node['branch_granted_points'] ?? 0;
 @endphp
 <li>
     <a class="mlm-node" href="#" style="--node-color: {{ $meta['color'] }}; --node-tint1: {{ $meta['tint1'] }}; --node-tint2: {{ $meta['tint2'] }};"
@@ -27,6 +31,9 @@
        data-color="{{ $meta['color'] }}"
        data-points="{{ mlm_points_format($node['points']) }}"
        data-branch-points="{{ mlm_points_format($branchPoints) }}"
+       @if($branchGranted !== 0)
+       data-branch-granted="{{ sprintf('%+d', $branchGranted) }}"
+       @endif
        data-basiq="{{ !empty($node['basiq']) ? '1' : '' }}"
        @if($grantedVisible)
        data-granted="{{ sprintf('%+d', $node['granted_points']) }}"
@@ -44,7 +51,7 @@
         </span>
     </a>
     @if($depth === 1)
-        <span class="mlm-branch-badge" title="Punti attivi totali di questa colonna: {{ $node['name'] }} + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti.">Ramo: {{ mlm_points_format($branchPoints) }} pt</span>
+        <span class="mlm-branch-badge" title="Punti totali di questa colonna (reali + omaggio): {{ $node['name'] }} + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti.">Ramo: {{ mlm_points_format($branchPoints) }} pt @if($branchGranted !== 0)<span class="mlm-branch-badge-granted">({{ sprintf('%+d', $branchGranted) }} omaggio)</span>@endif</span>
     @endif
     @if(count($node['children']))
         <ul>

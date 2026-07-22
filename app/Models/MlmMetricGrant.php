@@ -13,8 +13,15 @@ use Illuminate\Support\Str;
  * struttura). Non scadono mai: si sommano ai valori reali calcolati da
  * MlmRankEngine::evaluate() ed User::mlmActivePoints() finche' non vengono
  * revocati esplicitamente. Sono contatori astratti: NON creano agenti o nodi
- * veri nell'albero, quindi non compaiono nella vista Albero ne' generano
- * bonus di struttura (quelli restano legati solo alla downline reale).
+ * veri nell'albero e non generano mai bonus di struttura (quelli restano
+ * legati solo alla downline reale). ECCEZIONE dal 2026-07-22 pomeriggio bis:
+ * i grant della metrica 'points' (assegnati a un membro di un ramo) SONO
+ * sommati ai punti reali del ramo nella vista Albero e nelle tabelle
+ * "Colonne / rami" (vedi MlmTreeService::branchSummaries()/subtree()),
+ * perche' contano per il requisito "colonne da 300 punti" — l'agente deve
+ * poter vedere lo stesso totale che decide la qualifica. Le altre metriche
+ * (clients_count, level1_basic_count, branches_with_*, branches_300pt)
+ * restano contatori puri: mai mostrate nell'albero.
  *
  * @property int $id
  * @property string $uuid

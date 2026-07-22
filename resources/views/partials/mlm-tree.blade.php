@@ -96,6 +96,9 @@
     background:var(--surface-soft,#f1f5f9); color:var(--ink-muted,#64748b);
     border:1px solid var(--line,#e2e8f0); white-space:nowrap; cursor:help;
 }
+/* Scomposizione "(+N omaggio)" dentro il badge Ramo, quando il totale
+   include punti omaggio (2026-07-22 pomeriggio bis). */
+.mlm-branch-badge-granted { color:#b45309; font-weight:600; }
 
 #mlmNodeModal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1000; align-items:center; justify-content:center; padding:16px; }
 #mlmNodeModal .mlm-modal-card { background:#fff; border-radius:16px; max-width:420px; width:100%; padding:0; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,.25); }
@@ -178,7 +181,7 @@
             <tbody>
                 <tr><td style="font-weight:700;">Diretti</td><td id="mlmModalAgents">0</td><td id="mlmModalClients">0</td></tr>
                 <tr>
-                    <td style="font-weight:700;" title="Punti attivi del ramo: questo agente + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti attivi.">Punti ramo</td>
+                    <td style="font-weight:700;" title="Punti del ramo (reali + omaggio): questo agente + tutta la sua downline. Le qualifiche piu' alte richiedono colonne da 300 punti.">Punti ramo</td>
                     <td colspan="2" id="mlmModalBranchPoints">0</td>
                 </tr>
             </tbody>
@@ -228,7 +231,13 @@
             document.getElementById('mlmModalAgents').textContent = node.dataset.agents || '0';
             document.getElementById('mlmModalClients').textContent = node.dataset.clients || '0';
             var branchPtsEl = document.getElementById('mlmModalBranchPoints');
-            if (branchPtsEl) branchPtsEl.textContent = (node.dataset.branchPoints || node.dataset.points || '0') + ' pt';
+            if (branchPtsEl) {
+                var branchPtsText = (node.dataset.branchPoints || node.dataset.points || '0') + ' pt';
+                if (node.dataset.branchGranted) {
+                    branchPtsText += ' (di cui ' + node.dataset.branchGranted + ' omaggio)';
+                }
+                branchPtsEl.textContent = branchPtsText;
+            }
             var avatar = document.getElementById('mlmModalAvatar');
             avatar.textContent = node.dataset.initials || '';
             avatar.style.background = node.dataset.color || '#0284c7';

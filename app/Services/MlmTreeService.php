@@ -152,11 +152,31 @@ class MlmTreeService
                 ->whereDate('valid_until', '>=', now()->toDateString())
                 ->sum('points'));
 
+            // Punti "omaggio" netti (grant admin non revocati, metrica
+            // 'points') di TUTTI i membri del ramo, sommati (2026-07-22
+            // pomeriggio bis, richiesta di Laura): dal momento che contano
+            // per il requisito "colonne da 300 punti" (vedi
+            // MlmRankEngine::evaluate, branches_300pt), devono comparire nel
+            // numero che l'agente/admin usa per capire su quale ramo
+            // lavorare — altrimenti il "Punti ramo" mostrato non
+            // coinciderebbe con cio' che conta davvero per i 300.
+            $grantedPoints = (int) DB::table('mlm_metric_grants')
+                ->whereIn('agent_user_id', $descendantIds)
+                ->where('metric', 'points')
+                ->whereNull('revoked_at')
+                ->sum('amount');
+
+            // Totale che conta per la soglia dei 300: reali + omaggio, mai
+            // sotto zero (stessa convenzione di User::mlmActivePoints()).
+            $combinedPoints = max(0, mlm_points_normalize($activePoints + $grantedPoints));
+
             return [
-                'branch_root'   => $branchRoot,
-                'agent_count'   => $descendantIds->count(),
-                'rank_counts'   => $rankCounts,
-                'active_points' => $activePoints,
+                'branch_root'     => $branchRoot,
+                'agent_count'     => $descendantIds->count(),
+                'rank_counts'     => $rankCounts,
+                'active_points'   => $activePoints,
+                'granted_points'  => $grantedPoints,
+                'combined_points' => $combinedPoints,
             ];
         });
     }
@@ -166,14 +186,22 @@ class MlmTreeService
      * rendering dell'albero (portale "Struttura" e admin "Albero agenti").
      * Ogni nodo: id, name, rank, points (attivi oggi), basiq (bool,
      * mlm_basiq_at valorizzato — mostrato come spunta "BasiQ" nel popup),
-     * granted_points (netto dei punti omaggio admin attivi — la VISIBILITA'
-     * è decisa dalla vista: admin sempre, portale solo sul proprio nodo,
-     * vedi mlm-tree-node.blade.php), clients_count, agents_count (figli
-     * diretti), branch_points (punti attivi CUMULATIVI del sotto-ramo:
-     * il nodo stesso + tutta la sua downline, stessa fonte ledger di
-     * branchSummaries() — 2026-07-22, richiesta di Laura: dall'albero si
-     * deve vedere come sono distribuiti i punti per ramo/colonna, es.
-     * verso il requisito "colonne da 300 punti"), children[].
+     * granted_points (netto dei punti omaggio admin attivi SUL SOLO nodo —
+     * la VISIBILITA' è decisa dalla vista: admin sempre, portale solo sul
+     * proprio nodo, vedi mlm-tree-node.blade.php), clients_count,
+     * agents_count (figli diretti), branch_points (punti CUMULATIVI del
+     * sotto-ramo: il nodo stesso + tutta la sua downline — 2026-07-22,
+     * richiesta di Laura: dall'albero si deve vedere come sono distribuiti i
+     * punti per ramo/colonna, es. verso il requisito "colonne da 300
+     * punti"), branch_points_real (stessa cumulata ma SOLO ledger reale,
+     * senza omaggio) e branch_granted_points (cumulata del solo omaggio,
+     * puo' essere negativa per correzioni admin) — dal 2026-07-22
+     * pomeriggio bis branch_points INCLUDE l'omaggio, perche' l'omaggio
+     * conta per la soglia dei 300 (MlmRankEngine::evaluate,
+     * branches_300pt): senza includerlo il numero mostrato non
+     * coinciderebbe con cio' che conta davvero per la qualifica. Le altre
+     * due cumulate servono alle viste per mostrare la scomposizione "X
+     * reali + Y omaggio" invece di un unico numero opaco. children[].
      */
     public function subtree(User $root): array
     {
@@ -232,12 +260,28 @@ class MlmTreeService
             usort($children, fn (array $a, array $b) => strcasecmp($a['name'], $b['name']));
 
             $ownPoints = mlm_points_normalize((float) ($points[$id] ?? 0));
+            $ownGranted = (int) ($grantedPoints[$id] ?? 0);
 
-            // Punti del sotto-ramo: i propri + la somma dei branch_points dei
-            // figli (che a loro volta includono gia' le rispettive downline).
-            $branchPoints = mlm_points_normalize(
-                $ownPoints + array_sum(array_column($children, 'branch_points'))
+            // Punti REALI del sotto-ramo: i propri + la somma dei
+            // branch_points_real dei figli (che gia' includono le rispettive
+            // downline).
+            $branchPointsReal = mlm_points_normalize(
+                $ownPoints + array_sum(array_column($children, 'branch_points_real'))
             );
+
+            // Omaggio netto CUMULATIVO del sotto-ramo: i propri + quelli dei
+            // figli. Puo' essere negativo (correzioni admin), non viene
+            // clampato qui: e' un dato di trasparenza, non un conteggio.
+            $branchGrantedPoints = $ownGranted + array_sum(array_column($children, 'branch_granted_points'));
+
+            // Punti ramo mostrati/usati per la soglia dei 300 (2026-07-22
+            // pomeriggio bis, richiesta di Laura): reali + omaggio, perche'
+            // l'omaggio CONTA per il requisito "colonne da 300 punti" (vedi
+            // MlmRankEngine::evaluate, branches_300pt) — l'agente deve poter
+            // vedere lo stesso numero che decide la qualifica. Mai sotto
+            // zero, stessa convenzione di branchSummaries()/
+            // User::mlmActivePoints().
+            $branchPoints = max(0, mlm_points_normalize($branchPointsReal + $branchGrantedPoints));
 
             return [
                 'id'            => $user->id,
@@ -245,10 +289,12 @@ class MlmTreeService
                 'rank'          => $user->mlm_rank ?: 'start',
                 'points'        => $ownPoints,
                 'basiq'         => $user->mlm_basiq_at !== null,
-                'granted_points' => (int) ($grantedPoints[$id] ?? 0),
+                'granted_points' => $ownGranted,
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
                 'agents_count'  => count($children),
                 'branch_points' => $branchPoints,
+                'branch_points_real' => $branchPointsReal,
+                'branch_granted_points' => $branchGrantedPoints,
                 'children'      => $children,
             ];
         };

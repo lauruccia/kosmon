@@ -360,4 +360,97 @@ class MlmTreeServiceTest extends TestCase
         $this->assertSame(0.0, (float) $children[$b->id]['branch_points']);
         $this->assertSame(50.0, (float) $children[$a->id]['children'][0]['branch_points']);
     }
+
+    public function test_subtree_branch_points_include_granted_points_from_downline_members(): void
+    {
+        // root(10,0) ── A(100,+50) ── A1(50,0)
+        //          └─── B(0,+20)
+        // 2026-07-22 pomeriggio bis (richiesta di Laura): branch_points deve
+        // includere l'omaggio, perche' conta per la soglia dei 300 punti
+        // (MlmRankEngine::evaluate, branches_300pt). branch_points_real e
+        // branch_granted_points espongono la scomposizione per le viste.
+        $root = $this->makeAgent('key');
+        $a = $this->makeAgent('basic');
+        $a1 = $this->makeAgent('start');
+        $b = $this->makeAgent('start');
+
+        $this->tree->attachAgent($root, null);
+        $this->tree->attachAgent($a, $root);
+        $this->tree->attachAgent($a1, $a);
+        $this->tree->attachAgent($b, $root);
+
+        $mkPoints = function (User $agent, float $points): void {
+            \App\Models\MlmPointLedgerEntry::create([
+                'agent_user_id' => $agent->id,
+                'client_user_id' => $this->makeClient($agent)->id,
+                'source_type'   => 'registration',
+                'points'        => $points,
+                'valid_from'    => now()->subMonth()->toDateString(),
+                'valid_until'   => now()->addMonth()->toDateString(),
+            ]);
+        };
+
+        $mkPoints($root, 10);
+        $mkPoints($a, 100);
+        $mkPoints($a1, 50);
+
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $a->id, 'metric' => 'points',
+            'amount' => 50, 'granted_by_admin_id' => $root->id,
+        ]);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $b->id, 'metric' => 'points',
+            'amount' => 20, 'granted_by_admin_id' => $root->id,
+        ]);
+
+        $tree = $this->tree->subtree($root);
+        $children = collect($tree['children'])->keyBy('id');
+
+        // A: 100 reali (propri) + 50 reali di A1 = 150 reali; +50 omaggio (propri).
+        $this->assertSame(150.0, (float) $children[$a->id]['branch_points_real']);
+        $this->assertSame(50, $children[$a->id]['branch_granted_points']);
+        $this->assertSame(200.0, (float) $children[$a->id]['branch_points']);
+
+        // B: 0 reali, +20 omaggio.
+        $this->assertSame(0.0, (float) $children[$b->id]['branch_points_real']);
+        $this->assertSame(20, $children[$b->id]['branch_granted_points']);
+        $this->assertSame(20.0, (float) $children[$b->id]['branch_points']);
+
+        // root: 10 (propri, reali) + 150 (A reali) + 0 (B reali) = 160 reali;
+        // 0 + 50 (A) + 20 (B) = 70 omaggio cumulati; totale 230.
+        $this->assertSame(160.0, (float) $tree['branch_points_real']);
+        $this->assertSame(70, $tree['branch_granted_points']);
+        $this->assertSame(230.0, (float) $tree['branch_points']);
+    }
+
+    public function test_subtree_branch_points_never_go_below_zero_when_a_correction_outweighs_real_points(): void
+    {
+        // Un ramo con pochi punti reali e una correzione omaggio negativa
+        // superiore ad essi non deve mai mostrare un totale negativo (stessa
+        // convenzione di branchSummaries()/User::mlmActivePoints()).
+        $root = $this->makeAgent('key');
+        $child = $this->makeAgent('start');
+        $this->tree->attachAgent($root, null);
+        $this->tree->attachAgent($child, $root);
+
+        \App\Models\MlmPointLedgerEntry::create([
+            'agent_user_id' => $child->id,
+            'client_user_id' => $this->makeClient($child)->id,
+            'source_type'   => 'registration',
+            'points'        => 5,
+            'valid_from'    => now()->subMonth()->toDateString(),
+            'valid_until'   => now()->addMonth()->toDateString(),
+        ]);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $child->id, 'metric' => 'points',
+            'amount' => -20, 'granted_by_admin_id' => $root->id,
+        ]);
+
+        $tree = $this->tree->subtree($root);
+        $childNode = collect($tree['children'])->keyBy('id')[$child->id];
+
+        $this->assertSame(5.0, (float) $childNode['branch_points_real']);
+        $this->assertSame(-20, $childNode['branch_granted_points']);
+        $this->assertSame(0.0, (float) $childNode['branch_points'], 'Il totale clampato non scende mai sotto zero.');
+    }
 }

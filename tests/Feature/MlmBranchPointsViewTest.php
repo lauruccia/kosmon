@@ -180,4 +180,52 @@ class MlmBranchPointsViewTest extends TestCase
         // La radice espone il totale complessivo (0 propri + 320 + 150).
         $this->assertStringContainsString('data-branch-points="470"', $html);
     }
+
+    public function test_branch_points_and_300_threshold_include_granted_points(): void
+    {
+        // 2026-07-22 pomeriggio bis: una colonna con pochi punti reali ma
+        // omaggio sufficiente deve risultare "300 raggiunti" ovunque (admin,
+        // portale, popup albero), con la scomposizione "di cui X omaggio"
+        // visibile, perche' l'omaggio conta per il requisito vero.
+        $root = $this->makeUser(['mlm_rank' => 'key', 'name' => 'Radice Omaggio']);
+        $gifted = $this->makeUser(['mlm_rank' => 'basic', 'name' => 'Colonna Omaggio']);
+        $this->tree->attachAgent($root, null);
+        $this->tree->attachAgent($gifted, $root);
+
+        $this->givePoints($gifted, 1); // come nel caso reale: 1 pt reale.
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'points',
+            'amount' => 23, 'granted_by_admin_id' => null,
+        ]); // ancora insufficiente: 1 + 23 = 24, non 300 — verifica che NON scatti prima dei 300.
+
+        $admin = User::create([
+            'name' => 'Admin', 'email' => 'admin-' . Str::random(10) . '@test.test',
+            'password' => 'secret123', 'account_holder_type' => 'private',
+            'company_id' => null, 'is_active' => true, 'is_super_admin' => true,
+        ]);
+        $admin->forceFill(['email_verified_at' => now()])->save();
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.show', $root));
+        $response->assertOk()
+            ->assertSee('di cui +23 omaggio', false)
+            ->assertSee('ne mancano 276'); // 300 - 24
+
+        // Ora un secondo grant porta il totale combinato esattamente a 300.
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $gifted->id, 'metric' => 'points',
+            'amount' => 276, 'granted_by_admin_id' => null,
+        ]);
+
+        $response = $this->actingAsWithSession($admin)->get(route('admin.mlm.show', $root));
+        $response->assertOk()->assertSee('300 raggiunti');
+
+        // Popup albero: badge/branch_points includono l'omaggio (1 reale + 299 omaggio = 300).
+        $this->actingAs($root);
+        $html = view('partials.mlm-tree', [
+            'tree' => $this->tree->subtree($root),
+            'mode' => 'portal',
+        ])->render();
+        $this->assertStringContainsString('Ramo: 300 pt', $html);
+        $this->assertStringContainsString('data-branch-granted="+299"', $html);
+    }
 }

@@ -507,6 +507,65 @@ class MlmRankEngineTest extends TestCase
         $this->assertSame('start', $agent->fresh()->mlm_rank);
     }
 
+    public function test_branches_300pt_combines_real_branch_points_with_member_granted_points(): void
+    {
+        // 2026-07-22 pomeriggio bis (richiesta di Laura, dopo il caso "+23 pt
+        // omaggio ma Punti ramo 1"): l'omaggio ai membri di una colonna DEVE
+        // contare per la soglia dei 300, cosi' il numero mostrato in
+        // Albero/tabelle coincide con cio' che decide davvero la qualifica.
+        $agent = $this->makeAgent();
+        $this->tree->attachAgent($agent, null);
+        $this->giveActivePoints($agent, 48);
+        $this->makeRegisteredClients($agent, 24);
+
+        $children = [];
+        for ($i = 0; $i < 4; $i++) {
+            $child = $this->makeAgent('basic');
+            $this->tree->attachAgent($child, $agent);
+            $children[] = $child;
+        }
+
+        // Colonna 1: 300 punti reali (nessun omaggio) — gia' valida da sola.
+        $this->giveActivePoints($children[0], 300);
+        // Colonna 2: solo 250 punti reali, ma +50 omaggio al figlio la porta
+        // esattamente a 300 combinati.
+        $this->giveActivePoints($children[1], 250);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $children[1]->id,
+            'metric' => 'points',
+            'amount' => 50,
+            'granted_by_admin_id' => null,
+        ]);
+        // Colonna 3: 1 solo punto reale, come nel caso reale di Laura — NON
+        // deve bastare nemmeno con 23 di omaggio (24 << 300).
+        $this->giveActivePoints($children[2], 1);
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $children[2]->id,
+            'metric' => 'points',
+            'amount' => 23,
+            'granted_by_admin_id' => null,
+        ]);
+        // Colonna 4: 0 punti reali, 0 omaggio.
+
+        $evaluation = $this->engine->evaluate($agent);
+
+        $this->assertSame(2, $evaluation['branches_300pt'], 'Solo le colonne 1 e 2 raggiungono i 300 punti combinati.');
+        $this->assertFalse($evaluation['satisfied']['top'], 'Servono 3 colonne da 300, non 2.');
+
+        // Verifica diretta di branchSummaries(): la colonna 2 mostra il
+        // totale combinato E la scomposizione dell'omaggio.
+        $branches = $this->tree->branchSummaries($agent);
+        $branch2 = $branches->firstWhere('branch_root.id', $children[1]->id);
+        $this->assertSame(250, (int) $branch2['active_points']);
+        $this->assertSame(50, $branch2['granted_points']);
+        $this->assertSame(300, (int) $branch2['combined_points']);
+
+        $branch3 = $branches->firstWhere('branch_root.id', $children[2]->id);
+        $this->assertSame(1, (int) $branch3['active_points']);
+        $this->assertSame(23, $branch3['granted_points']);
+        $this->assertSame(24, (int) $branch3['combined_points']);
+    }
+
     public function test_granted_clients_count_counts_toward_requirements(): void
     {
         // La metrica "clienti registrati" e' regalabile come le altre
