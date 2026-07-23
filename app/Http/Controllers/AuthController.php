@@ -132,7 +132,10 @@ class AuthController extends Controller
                 'pending_balance' => 0,
             ]);
 
-            $defaultRoleSlug = $holderType === 'company' ? 'company-member' : 'private-member';
+            // Il titolare che registra l'azienda diventa subito company-manager
+            // (accesso pieno: shop/marketplace, gestione conti/utenti, annunci).
+            // I sottoconti/collaboratori creati in seguito restano company-member.
+            $defaultRoleSlug = $holderType === 'company' ? 'company-manager' : 'private-member';
             $defaultRole = Role::query()->where('slug', $defaultRoleSlug)->firstOrFail();
             $user->roles()->sync([$defaultRole->id]);
 

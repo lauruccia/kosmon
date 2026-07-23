@@ -218,6 +218,16 @@ class Company extends Model
         return self::PLAN_ORDER[$this->subscription_plan] ?? 99;
     }
 
+    /**
+     * Il piano Ecommerce è l'unico che sblocca la pubblicazione di prodotti
+     * nello shop del circuito (acquistare resta sempre possibile a chi ha
+     * i permessi marketplace, a prescindere dal piano).
+     */
+    public function hasEcommercePlan(): bool
+    {
+        return $this->subscription_plan === 'ecommerce';
+    }
+
     // ── Accettazione Kmoney (badge directory) ────────────────────────────────
 
     /**

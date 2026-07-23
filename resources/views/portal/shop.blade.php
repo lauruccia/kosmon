@@ -29,7 +29,11 @@
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             @if(auth()->user()->canAccessMarketplace())
-            <a class="cta" href="{{ route('portal.shop.create') }}" style="padding:10px 18px;font-size:14px;white-space:nowrap;">+ Pubblica prodotto</a>
+                @if(auth()->user()->company?->hasEcommercePlan())
+                    <a class="cta" href="{{ route('portal.shop.create') }}" style="padding:10px 18px;font-size:14px;white-space:nowrap;">+ Pubblica prodotto</a>
+                @else
+                    <span title="Per pubblicare prodotti serve il piano Ecommerce. Contatta l'amministrazione per attivarlo." style="padding:10px 18px;font-size:14px;white-space:nowrap;border:1.5px dashed #d1d9e0;border-radius:10px;color:#94a3b8;cursor:not-allowed;">+ Pubblica prodotto (piano Ecommerce richiesto)</span>
+                @endif
             @endif
             <a class="cta secondary" href="{{ route('portal.announcements') }}" style="padding:10px 18px;font-size:14px;white-space:nowrap;">Vai agli annunci</a>
         </div>

@@ -191,6 +191,11 @@ class ListingController extends Controller
             return redirect()->route('portal.shop')->with('portal_error', 'Non hai i permessi per pubblicare prodotti.');
         }
 
+        if (! $user->company?->hasEcommercePlan()) {
+            return redirect()->route('portal.shop')
+                ->with('portal_error', 'Per pubblicare prodotti nello shop del circuito serve il piano Ecommerce. Contatta l\'amministrazione per attivarlo.');
+        }
+
         if ($currentAccount->isAtCeiling()) {
             return redirect()->route('portal.shop')
                 ->with('portal_error', 'Il tuo conto ha raggiunto il tetto massimo: per ora puoi solo acquistare, non vendere. Spendi i tuoi KY nel circuito per sbloccare la vendita.');
@@ -215,6 +220,10 @@ class ListingController extends Controller
         $user = $request->user();
 
         if (! $user->canAccessMarketplace()) {
+            abort(403);
+        }
+
+        if (! $user->company?->hasEcommercePlan()) {
             abort(403);
         }
 
