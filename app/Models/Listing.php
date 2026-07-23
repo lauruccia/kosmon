@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -97,6 +98,7 @@ class Listing extends Model
         'category',
         'price_ky',
         'ky_percentage',
+        'stock_quantity',
         'images',
         'status',
         'featured',
@@ -112,6 +114,7 @@ class Listing extends Model
         'expires_at' => 'datetime',
         'price_ky'      => 'integer',
         'ky_percentage' => 'integer',
+        'stock_quantity' => 'integer',
         'views_count' => 'integer',
     ];
 
@@ -132,6 +135,15 @@ class Listing extends Model
     public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Ordini (transfer di tipo portal_marketplace_order) generati dall'acquisto
+     * di questo prodotto tramite il bottone "Acquista" dello shop.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Transfer::class, 'listing_id');
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────
@@ -217,6 +229,39 @@ class Listing extends Model
         }
         // Rimuovi anche la cartella se vuota
         Storage::disk('public')->deleteDirectory("listings/{$this->uuid}");
+    }
+
+    // ---- Stock/quantità -----------------------------------------------------
+
+    /**
+     * true se il prodotto ha una scorta limitata (stock_quantity valorizzato).
+     * NULL = stock illimitato (comportamento storico, nessun limite).
+     */
+    public function hasLimitedStock(): bool
+    {
+        return $this->stock_quantity !== null;
+    }
+
+    /**
+     * true se il prodotto può essere acquistato adesso (illimitato, o scorta > 0).
+     */
+    public function isInStock(): bool
+    {
+        return ! $this->hasLimitedStock() || $this->stock_quantity > 0;
+    }
+
+    /**
+     * Etichetta leggibile per la disponibilità, per le view.
+     */
+    public function getStockLabelAttribute(): string
+    {
+        if (! $this->hasLimitedStock()) {
+            return 'Disponibile';
+        }
+        if ($this->stock_quantity <= 0) {
+            return 'Esaurito';
+        }
+        return $this->stock_quantity === 1 ? 'Ultimo pezzo disponibile' : "{$this->stock_quantity} disponibili";
     }
 
     // ---- Mix KY/EUR --------------------------------------------------------

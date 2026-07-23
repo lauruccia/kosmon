@@ -445,6 +445,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::get('/shop/crea', [ListingController::class, 'create'])->name('portal.shop.create');
     Route::post('/shop', [ListingController::class, 'store'])->name('portal.shop.store');
     Route::get('/shop/{listing}', [ListingController::class, 'show'])->name('portal.shop.show');
+    Route::post('/shop/{listing}/acquista', [ListingController::class, 'buy'])->name('portal.shop.buy')->middleware('throttle:payments');
     Route::get('/shop/{listing}/modifica', [ListingController::class, 'edit'])->name('portal.shop.edit');
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');

@@ -161,6 +161,7 @@ class AdminController extends Controller
             'portal_payment'            => 'Pag. portale',
             'portal_payment_request'    => 'Pag. richiesta',
             'portal_collection_request' => 'Incasso richiesta',
+            'portal_marketplace_order'  => 'Ordine shop',
             'portal_refund'             => 'Rimborso',
             'admin_refund'              => 'Storno amm.',
             'portal_credit_note'        => 'Nota credito',

@@ -240,9 +240,25 @@
                     </select>
                 </div>
                 @endif
+                @if(($cityOptions ?? collect())->isNotEmpty())
+                <div class="field" style="max-width:180px;">
+                    <label for="city">Città</label>
+                    <select id="city" name="city">
+                        <option value="">Tutte le città</option>
+                        @foreach ($cityOptions as $city)
+                            <option value="{{ $city }}" @selected($filters['city'] === $city)>{{ $city }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+                <div class="field" style="max-width:200px;flex-direction:row;align-items:center;gap:8px;padding-top:18px;">
+                    <input type="checkbox" id="accepts_ky" name="accepts_ky" value="1" @checked($filters['accepts_ky'] ?? false)
+                        style="width:16px;height:16px;">
+                    <label for="accepts_ky" style="margin:0;font-size:13px;cursor:pointer;">Solo chi accetta Kmoney</label>
+                </div>
                 <div class="form-actions" style="margin:0;flex-wrap:nowrap;">
                     <button class="cta" type="submit">Cerca</button>
-                    @if($filters['q'] || $filters['sector'])
+                    @if($filters['q'] || $filters['sector'] || ($filters['city'] ?? '') || ($filters['accepts_ky'] ?? false))
                         <a href="{{ $directoryRoute }}" class="cta secondary">Reset</a>
                     @endif
                 </div>

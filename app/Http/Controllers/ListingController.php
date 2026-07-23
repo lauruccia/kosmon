@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\Listing;
+use App\Notifications\NewMarketplaceOrderNotification;
+use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -76,6 +79,105 @@ class ListingController extends Controller
                                     ->latest()->take(3)->get(),
             'activeNav'      => 'shop',
         ]);
+    }
+
+    // ── Portale: acquisto diretto di un prodotto ──────────────────────────────
+
+    /**
+     * Acquisto strutturato di un prodotto shop: crea un Transfer con
+     * kind=portal_marketplace_order collegato al listing (listing_id), scala lo
+     * stock se limitato, e notifica il venditore. Sostituisce il precedente
+     * link "Paga" che si limitava a precompilare il form di pagamento libero.
+     *
+     * NB: viene addebitata solo la quota KY del prezzo (ky_amount), non il
+     * prezzo totale: l'eventuale quota EUR resta saldata off-circuit tra le
+     * parti, come indicato nella scheda prodotto.
+     */
+    public function buy(Request $request, Listing $listing, TransferBookingService $bookingService): RedirectResponse
+    {
+        $user = $request->user();
+        $currentAccount = $this->resolveAccount($user);
+
+        if ($listing->status !== 'active' || $listing->is_expired) {
+            return redirect()->route('portal.shop')->with('portal_error', 'Questo prodotto non è più disponibile.');
+        }
+
+        if ($listing->company_id === $currentAccount->company_id) {
+            return back()->with('portal_error', 'Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
+        }
+
+        $validated = $request->validate([
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
+        ]);
+        $quantity = (int) ($validated['quantity'] ?? 1);
+
+        try {
+            $transfer = DB::transaction(function () use ($listing, $currentAccount, $user, $quantity, $bookingService, $request) {
+                // Lock della riga prodotto per verificare/scalare lo stock in modo atomico.
+                $lockedListing = Listing::query()->lockForUpdate()->findOrFail($listing->id);
+
+                if ($lockedListing->status !== 'active') {
+                    throw new \RuntimeException('Questo prodotto non è più disponibile.');
+                }
+
+                if ($lockedListing->hasLimitedStock() && $lockedListing->stock_quantity < $quantity) {
+                    throw new \RuntimeException(
+                        $lockedListing->stock_quantity <= 0
+                            ? 'Prodotto esaurito.'
+                            : "Disponibili solo {$lockedListing->stock_quantity} pezzi."
+                    );
+                }
+
+                $sellerAccount = $lockedListing->company->accounts()
+                    ->where('is_system_account', false)
+                    ->where('owner_type', 'company')
+                    ->whereNull('parent_account_id')
+                    ->firstOrFail();
+
+                $unitKyAmount = $lockedListing->ky_amount;
+                $totalAmount  = $unitKyAmount * $quantity;
+
+                $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '');
+
+                $transfer = $bookingService->book([
+                    'initiated_by'    => $user->id,
+                    'from_account_id' => $currentAccount->id,
+                    'to_account_id'   => $sellerAccount->id,
+                    'amount'          => $totalAmount,
+                    'kind'            => 'portal_marketplace_order',
+                    'description'     => $description,
+                    'listing_id'      => $lockedListing->id,
+                    'quantity'        => $quantity,
+                    'idempotency_key' => (string) Str::uuid(),
+                    'ip_address'      => $request->ip(),
+                ]);
+
+                if ($lockedListing->hasLimitedStock()) {
+                    $lockedListing->decrement('stock_quantity', $quantity);
+                }
+
+                return $transfer;
+            });
+        } catch (\RuntimeException $e) {
+            return back()->with('portal_error', $e->getMessage());
+        }
+
+        // La transazione è già committata a questo punto: notifica il venditore
+        // fuori dalla transazione, senza far fallire l'acquisto se la notifica ha problemi.
+        $sellerOwner = $listing->company->primaryBusinessAccount()?->ownerUser;
+        if ($sellerOwner) {
+            try {
+                $sellerOwner->notify(new NewMarketplaceOrderNotification($transfer, $listing->title, $quantity));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('marketplace_order.notify_failed', [
+                    'transfer_id' => $transfer->id,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return redirect()->route('portal.shop.show', $listing)
+            ->with('portal_success', 'Acquisto completato: ' . ky_format((int) $transfer->amount) . ' KY pagati a ' . $listing->company->name . '.');
     }
 
     // ── Portale: form creazione ───────────────────────────────────────────────
@@ -267,6 +369,8 @@ class ListingController extends Controller
             'category'       => ['required', Rule::in(array_keys(Listing::CATEGORIES))],
             'price_ky'       => ['required', 'integer', 'min:1', 'max:9999999'],
             'ky_percentage'  => ['required', 'integer', Rule::in(empty($allowedPercentages) ? Listing::KY_PERCENTAGES : $allowedPercentages)],
+            'stock_mode'     => ['required', Rule::in(['unlimited', 'limited'])],
+            'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999', 'required_if:stock_mode,limited'],
             'contact_info'   => ['nullable', 'string', 'max:200'],
             'delivery_note'  => ['nullable', 'string', 'max:120'],
             'expires_at'     => ['nullable', 'date', 'after:today'],
@@ -279,6 +383,13 @@ class ListingController extends Controller
         if ($requiredPercentage !== null) {
             $validated['ky_percentage'] = $requiredPercentage;
         }
+
+        // stock_mode e' solo un campo di UI: non e' una colonna di Listing.
+        // NULL = illimitato, altrimenti la quantita' dichiarata.
+        $validated['stock_quantity'] = $validated['stock_mode'] === 'limited'
+            ? (int) $validated['stock_quantity']
+            : null;
+        unset($validated['stock_mode']);
 
         return $validated;
     }

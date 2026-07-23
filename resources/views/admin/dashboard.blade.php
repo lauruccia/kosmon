@@ -614,6 +614,7 @@
                                         'trade_payment' => 'Pagamento commerciale',
                                         'admin_refund', 'portal_refund' => 'Storno',
                                         'kycard_topup' => 'Ricarica KYCard',
+                                        'portal_marketplace_order' => 'Ordine shop',
                                         default => $transfer->kind ? ucfirst(str_replace('_', ' ', $transfer->kind)) : 'Movimento',
                                     };
                                 @endphp

@@ -438,7 +438,7 @@ class TransferBookingService
                 throw new RuntimeException('Solo i movimenti contabilizzati possono essere rimborsati.');
             }
 
-            $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code'];
+            $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code', 'portal_marketplace_order'];
             if (! in_array($original->kind, $refundableKinds, true)) {
                 throw new RuntimeException('Questo tipo di movimento non è rimborsabile dal portale.');
             }
@@ -661,6 +661,8 @@ class TransferBookingService
                 'kind'            => $attributes['kind'] ?? 'trade_payment',
                 'idempotency_key' => $idempotencyKey,
                 'description'     => $attributes['description'] ?? null,
+                'listing_id'      => $attributes['listing_id'] ?? null,
+                'quantity'        => $attributes['quantity'] ?? null,
                 'booked_at'       => $bookedAt,
             ]);
             LedgerEntry::create([
@@ -764,6 +766,8 @@ class TransferBookingService
             'kind' => $attributes['kind'] ?? 'trade_payment',
             'idempotency_key' => $idempotencyKey,
             'description' => $attributes['description'] ?? null,
+            'listing_id' => $attributes['listing_id'] ?? null,
+            'quantity' => $attributes['quantity'] ?? null,
             'booked_at' => $bookedAt,
         ]);
 

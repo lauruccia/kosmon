@@ -97,23 +97,31 @@
     </div>
 
     {{-- Sidebar acquisto --}}
+    @php
+        $isOwnCompany = auth()->user()->company_id === $listing->company_id;
+        $inStock      = $listing->isInStock();
+        $canAfford    = $currentAccount->saldoDisponibile() >= $listing->ky_amount;
+    @endphp
     <div class="stack">
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
             <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;margin:16px 0 4px;">
                 {{ ky_format($listing->price_ky) }}
             </div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
                 <span style="font-size:14px;color:#64748b;">KY (KMoney)</span>
                 <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $listing->ky_badge_color }}">
                     {{ $listing->ky_badge_label }}
+                </span>
+                <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $inStock ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;' }}">
+                    {{ $listing->stock_label }}
                 </span>
             </div>
             @if($listing->ky_percentage < 100)
             <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0369a1;">
                 <strong>Pagamento misto:</strong>
-                {{ $listing->ky_amount }} KY pagati nel circuito
-                + {{ 100 - $listing->ky_percentage }}% ({{ number_format($listing->euro_amount, 2, ',', '.') }} KY equiv.) saldati in EUR direttamente col venditore.
+                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->ky_amount) }} KY nel circuito
+                (per unità); il restante {{ 100 - $listing->ky_percentage }}% ({{ number_format($listing->euro_amount, 2, ',', '.') }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
             </div>
             @endif
 
@@ -133,22 +141,37 @@
             </div>
 
             <div class="quick-actions" style="margin-top:20px;">
-                @if($currentAccount->saldoDisponibile() >= $listing->price_ky)
-                    <a class="cta"
-                       href="{{ route('portal.pay.form') }}?to_company_id={{ $listing->company_id }}&amount={{ $listing->price_ky }}&description={{ urlencode('Acquisto: ' . $listing->title) }}"
-                       style="width:100%;text-align:center;">
-                        Paga {{ ky_format($listing->price_ky) }} KY
-                    </a>
-                @else
+                @if($isOwnCompany)
+                    <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">È un prodotto pubblicato dalla tua azienda.</p>
+                @elseif(! $inStock)
+                    <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
+                        Prodotto esaurito
+                    </button>
+                @elseif(! $canAfford)
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
                         Saldo insufficiente
                     </button>
+                @else
+                    <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
+                        @csrf
+                        @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
+                        <label class="field-label" style="display:block;margin-bottom:4px;">Quantità</label>
+                        <input type="number" name="quantity" value="1" min="1" max="{{ $listing->stock_quantity }}"
+                            class="field-input" style="margin-bottom:10px;">
+                        @else
+                        <input type="hidden" name="quantity" value="1">
+                        @endif
+                        <button type="submit" class="cta" style="width:100%;text-align:center;"
+                            onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($listing->ky_amount) }} KY per unità dal tuo conto.')">
+                            Acquista — {{ ky_format($listing->ky_amount) }} KY{{ $listing->ky_percentage < 100 ? ' + quota EUR' : '' }}
+                        </button>
+                    </form>
                 @endif
             </div>
 
-            @if($currentAccount->saldoDisponibile() < $listing->price_ky)
+            @if(! $isOwnCompany && $inStock && ! $canAfford)
             <p style="font-size:12px;color:#94a3b8;margin-top:10px;text-align:center;">
-                Ti mancano {{ ky_format($listing->price_ky - $currentAccount->saldoDisponibile()) }} KY
+                Ti mancano {{ ky_format($listing->ky_amount - $currentAccount->saldoDisponibile()) }} KY
             </p>
             @endif
         </section>

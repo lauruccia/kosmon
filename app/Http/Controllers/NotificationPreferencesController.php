@@ -39,6 +39,7 @@ class NotificationPreferencesController extends Controller
     {
         return [
             'payment_received'        => ['label' => 'Pagamento ricevuto',                  'default' => ['database', 'mail']],
+            'marketplace_order_received' => ['label' => 'Ordine ricevuto nello shop',       'default' => ['database', 'mail']],
             'payment_sent'            => ['label' => 'Pagamento inviato (conferma)',         'default' => ['database']],
             'cashback_received'       => ['label' => 'Cashback accreditato',                'default' => ['database', 'mail']],
             'credit_limit'            => ['label' => 'Fido (richiesta/approvazione)',        'default' => ['database', 'mail']],

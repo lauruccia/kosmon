@@ -447,7 +447,21 @@ class CompanyController extends Controller
 
         $companies = $this->companyDirectoryQuery($filters)
             ->withCount(['users', 'listings', 'announcements'])
-            ->with(['accounts' => fn ($q) => $q->whereNull('parent_account_id')->where('status', 'active')->select('id', 'company_id', 'uuid')])
+            ->with(['accounts' => fn ($q) => $q->whereNull('parent_account_id')
+                ->where('is_system_account', false)
+                ->where('owner_type', 'company')
+                ->where('status', 'active')
+                ->select('id', 'company_id', 'uuid', 'available_balance', 'max_balance', 'status')])
+            // % Kmoney effettiva mostrata in colonna (vedi Company::computeEffectiveKyPercentage):
+            // migliore % (>=25) tra i prodotti attivi non scaduti, stesso calcolo del badge nella
+            // directory pubblica (vedi PortalController::buildCompanyDirectoryData).
+            ->withMax(['listings as best_listing_ky_pct' => function ($q): void {
+                $q->where('status', 'active')
+                  ->where(function ($scope): void {
+                      $scope->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                  })
+                  ->where('ky_percentage', '>=', 25);
+            }], 'ky_percentage')
             ->orderByRaw("CASE
                 WHEN subscription_plan = 'ecommerce'  THEN 0
                 WHEN subscription_plan = 'vetrina'    THEN 1

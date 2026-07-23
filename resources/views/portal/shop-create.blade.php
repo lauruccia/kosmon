@@ -103,6 +103,33 @@
                 </div>
             </div>
 
+            <div>
+                <label class="field-label">Disponibilità *</label>
+                @php
+                    $stockMode = old('stock_mode', $editingListing?->hasLimitedStock() ? 'limited' : 'unlimited');
+                @endphp
+                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                        <input type="radio" name="stock_mode" value="unlimited" {{ $stockMode === 'unlimited' ? 'checked' : '' }}
+                            onchange="document.getElementById('stock-quantity-field').style.display='none'">
+                        Illimitata (servizio o prodotto sempre disponibile)
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                        <input type="radio" name="stock_mode" value="limited" {{ $stockMode === 'limited' ? 'checked' : '' }}
+                            onchange="document.getElementById('stock-quantity-field').style.display='block'">
+                        Scorta limitata
+                    </label>
+                </div>
+                <div id="stock-quantity-field" style="margin-top:10px;{{ $stockMode === 'limited' ? '' : 'display:none;' }}">
+                    <input type="number" name="stock_quantity" min="0" max="999999"
+                        value="{{ old('stock_quantity', $editingListing?->stock_quantity) }}"
+                        placeholder="es. 20" class="field-input" style="max-width:160px;">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Il prodotto risulta "Esaurito" quando arriva a 0 e non è più acquistabile finché non lo aggiorni.
+                    </div>
+                </div>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div>
                     <label class="field-label">Nota consegna / erogazione</label>

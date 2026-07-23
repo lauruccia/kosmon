@@ -235,7 +235,7 @@ class PortalController extends Controller
         // le altre non hanno profilo visitabile e non sono utili agli utenti.
         $filters['status']     = 'active';
         $filters['kyc_status'] = 'approved';
-        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets] = $this->buildCompanyDirectoryData($filters);
+        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions] = $this->buildCompanyDirectoryData($filters);
 
         return view('portal.companies', [
             'pageTitle' => 'Aziende del circuito',
@@ -246,6 +246,7 @@ class PortalController extends Controller
             'filters' => $filters,
             'sectorOptions' => $sectorOptions,
             'sectorBuckets' => $sectorBuckets,
+            'cityOptions' => $cityOptions,
             'directoryRoute' => route('portal.companies'),
             'directoryMode' => 'portal',
             'activeNav' => 'aziende',
@@ -705,7 +706,7 @@ class PortalController extends Controller
             'trade_payment', 'portal_payment', 'portal_collection_request',
             'portal_installment', 'portal_netting', 'portal_refund',
             'portal_credit_note', 'portal_qr_payment',
-            'portal_cashback', 'portal_fee',
+            'portal_cashback', 'portal_fee', 'portal_marketplace_order',
         ];
         $validDirections = ['in', 'out'];
         $validStatuses   = ['booked', 'pending', 'cancelled'];
@@ -1275,7 +1276,7 @@ class PortalController extends Controller
 
         $isOutgoing = in_array($transfer->from_account_id, $accountIds, true);
 
-        $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code'];
+        $refundableKinds = ['portal_payment', 'portal_payment_request', 'portal_collection_request', 'trade_payment', 'nfc_card', 'code', 'portal_marketplace_order'];
         $isRefundable = $transfer->status === 'booked'
             && ! $isOutgoing
             && in_array($transfer->kind, $refundableKinds, true);
@@ -1661,6 +1662,8 @@ class PortalController extends Controller
         return [
             'q' => trim((string) $request->query('q', '')),
             'sector' => trim((string) $request->query('sector', '')),
+            'city' => trim((string) $request->query('city', '')),
+            'accepts_ky' => $request->boolean('accepts_ky'),
             'status' => in_array($status, ['active', 'suspended'], true) ? $status : '',
             'kyc_status' => in_array($kycStatus, ['approved', 'pending', 'rejected'], true) ? $kycStatus : '',
         ];
@@ -1677,6 +1680,14 @@ class PortalController extends Controller
             ->get();
 
         $sectorOptions = $sectorBuckets->pluck('sector')->values();
+
+        $cityOptions = Company::query()
+            ->selectRaw('city')
+            ->whereNotNull('city')
+            ->where('city', '!=', '')
+            ->distinct()
+            ->orderBy('city')
+            ->pluck('city');
 
         $companiesQuery = Company::query()
             ->withCount(['users', 'listings', 'announcements'])
@@ -1704,6 +1715,8 @@ class PortalController extends Controller
                 });
             })
             ->when($filters['sector'] !== '', fn ($query) => $query->where('sector', $filters['sector']))
+            ->when($filters['city'] !== '', fn ($query) => $query->where('city', $filters['city']))
+            ->when(! empty($filters['accepts_ky']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' >= 25'))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['kyc_status'] !== '', fn ($query) => $query->where('kyc_status', $filters['kyc_status']))
             ->orderByRaw("CASE
@@ -1749,7 +1762,7 @@ class PortalController extends Controller
             'listings'  => $directoryStatsCompanies->sum('listings_count'),
         ];
 
-        return [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets];
+        return [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions];
     }
 
     /**

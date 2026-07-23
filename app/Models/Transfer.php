@@ -85,6 +85,8 @@ class Transfer extends Model
         'idempotency_key',
         'reversed_transfer_id',
         'related_transfer_id',
+        'listing_id',
+        'quantity',
         'refunded_at',
         'admin_action',
         'description',
@@ -94,6 +96,7 @@ class Transfer extends Model
     protected $casts = [
         'booked_at' => 'datetime',
         'refunded_at' => 'datetime',
+        'quantity' => 'integer',
     ];
 
     /**
@@ -185,5 +188,13 @@ class Transfer extends Model
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class);
+    }
+
+    /**
+     * Prodotto shop acquistato (solo per kind = portal_marketplace_order).
+     */
+    public function listing(): BelongsTo
+    {
+        return $this->belongsTo(Listing::class);
     }
 }

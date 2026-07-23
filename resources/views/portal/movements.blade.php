@@ -283,6 +283,7 @@
                         <option value="portal_credit_note" {{ $filters['kind'] === 'portal_credit_note' ? 'selected' : '' }}>Nota credito</option>
                         <option value="portal_qr_payment" {{ $filters['kind'] === 'portal_qr_payment' ? 'selected' : '' }}>QR Payment</option>
                         <option value="portal_cashback" {{ $filters['kind'] === 'portal_cashback' ? 'selected' : '' }}>Cashback</option>
+                        <option value="portal_marketplace_order" {{ $filters['kind'] === 'portal_marketplace_order' ? 'selected' : '' }}>Ordine shop</option>
                         <optgroup label="— Operazioni admin —">
                             <option value="portal_fee" {{ $filters['kind'] === 'portal_fee' ? 'selected' : '' }}>Commissione</option>
                         </optgroup>

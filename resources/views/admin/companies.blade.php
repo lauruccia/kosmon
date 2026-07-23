@@ -273,6 +273,7 @@
                         <th>Stato</th>
                         <th>KYC</th>
                         <th>Settore</th>
+                        <th style="text-align:center;">% Kmoney</th>
                         <th style="text-align:center;">Prodotti</th>
                         <th style="text-align:center;">Annunci</th>
                         <th style="text-align:center;">Utenti</th>
@@ -334,6 +335,22 @@
                         </td>
 
                         <td style="color:#4a637d;font-size:13px;">{{ $company->sector ?? '—' }}</td>
+
+                        <td style="text-align:center;">
+                            @php
+                                $effectiveKyPct = $company->computeEffectiveKyPercentage(
+                                    $company->accounts->first(),
+                                    $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
+                                );
+                            @endphp
+                            @if($effectiveKyPct === null)
+                                <span style="color:#94a3b8;font-size:12px;">—</span>
+                            @else
+                                <span class="badge" style="{{ $effectiveKyPct === 100 ? 'background:linear-gradient(135deg,#fef9c3,#fde047);color:#854d0e;' : 'background:#dbeafe;color:#1e40af;' }}">
+                                    {{ $effectiveKyPct }}%
+                                </span>
+                            @endif
+                        </td>
 
                         <td class="cnt {{ $company->listings_count > 0 ? 'cnt-pos-green' : 'cnt-0' }}">
                             {{ $company->listings_count }}
