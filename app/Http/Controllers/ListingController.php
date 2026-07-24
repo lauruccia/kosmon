@@ -601,7 +601,16 @@ class ListingController extends Controller
             'title'          => ['required', 'string', 'max:160'],
             'description'    => ['required', 'string', 'max:2000'],
             'category'       => ['required', Rule::in(array_keys(Listing::CATEGORIES))],
-            'price_ky'       => ['required', 'integer', 'min:1', 'max:9999999'],
+            // Il venditore digita il prezzo in KY (es. "10" o "10,50"), non in
+            // centesimi: 'numeric' valida la stringa decimale così com'è
+            // digitata; la conversione in centesimi avviene subito sotto con
+            // ky_to_cents(), stessa convenzione di tutti gli altri form di
+            // importo del progetto (vedi CLAUDE.md "Importi sempre in
+            // centesimi"). PRIMA questo campo era validato come 'integer' e
+            // salvato COSÌ COM'ERA in price_ky: un prodotto a "5 KY" finiva
+            // salvato come 5 centesimi (0,05 KY) — bug segnalato da Laura il
+            // 24/07 ("ho caricato un prodotto a 5ky, i clienti lo vedono a 0,05").
+            'price_ky'       => ['required', 'numeric', 'min:0.01', 'max:99999.99'],
             'ky_percentage'  => ['required', 'integer', Rule::in(empty($allowedPercentages) ? Listing::KY_PERCENTAGES : $allowedPercentages)],
             'stock_mode'     => ['required', Rule::in(['unlimited', 'limited'])],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999', 'required_if:stock_mode,limited'],
@@ -612,6 +621,10 @@ class ListingController extends Controller
             'images'         => ['nullable', 'array', 'max:6'],
             'images.*'       => ['image', 'mimes:jpeg,png,webp', 'max:3072'], // 3 MB
         ]);
+
+        // Converte il prezzo digitato dall'utente (KY, es. "10,50") nei
+        // centesimi interi memorizzati in price_ky.
+        $validated['price_ky'] = ky_to_cents($validated['price_ky']);
 
         // Override di sicurezza lato server: se obbligatorio, forza 100%
         if ($requiredPercentage !== null) {

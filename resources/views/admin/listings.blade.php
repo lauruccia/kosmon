@@ -86,7 +86,9 @@
                     </td>
                     <td style="color:var(--ink-soft);">{{ $listing->company->name ?? '—' }}</td>
                     <td style="font-size:12px;color:var(--ink-soft);">{{ $listing->category_label }}</td>
-                    <td style="text-align:right;font-weight:700;">{{ number_format($listing->price_ky) }} KY</td>
+                    {{-- price_ky è in centesimi: number_format() lo mostrava grezzo (senza /100),
+                         500 centesimi (5,00 KY) appariva "500 KY" — stesso bug del 24/07, qui mai corretto. --}}
+                    <td style="text-align:right;font-weight:700;">{{ ky_format($listing->price_ky) }} KY</td>
                     <td>
                         <form method="POST" action="{{ route('admin.listings.status', $listing) }}" style="display:inline;">
                             @csrf

@@ -79,7 +79,9 @@ $csvParams = http_build_query(array_filter([
     </article>
     <article class="stat-card">
         <div class="eyebrow">Transazioni</div>
-        <div class="section-title" style="font-size:30px;">{{ ky_format($totals['bookedCount']) }}</div>
+        {{-- bookedCount è un conteggio (COUNT(*)), non un importo in centesimi:
+             passarlo per ky_format() lo divideva per 100 (74 transazioni -> "0,74"). --}}
+        <div class="section-title" style="font-size:30px;">{{ number_format($totals['bookedCount'], 0, ',', '.') }}</div>
     </article>
     <article class="stat-card">
         <div class="eyebrow">Volume totale</div>
@@ -146,7 +148,8 @@ $csvParams = http_build_query(array_filter([
                             {{ ky_format($company->volume) }}
                         </td>
                         <td style="text-align:right;color:var(--text-muted);">
-                            {{ ky_format($company->tx_count) }}
+                            {{-- tx_count è un conteggio (COUNT(*)), non centesimi: stesso bug di 'bookedCount' sopra. --}}
+                            {{ number_format($company->tx_count, 0, ',', '.') }}
                         </td>
                     </tr>
                 @empty

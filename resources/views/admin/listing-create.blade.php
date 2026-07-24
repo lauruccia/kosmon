@@ -56,7 +56,9 @@
                     </div>
                     <div class="field">
                         <label>Prezzo totale (KY) *</label>
-                        <input type="number" name="price_ky" min="1" max="9999999" value="{{ old('price_ky') }}" required placeholder="1000">
+                        {{-- price_ky è in centesimi: qui si digita il valore KY (es. "10.50"),
+                             convertito in centesimi da ListingController::validateListing(). --}}
+                        <input type="number" name="price_ky" min="0.01" max="99999.99" step="0.01" value="{{ old('price_ky') }}" required placeholder="es. 10.00">
                     </div>
                 </div>
 

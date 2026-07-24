@@ -72,7 +72,9 @@
                         <input type="hidden" name="ky_percentage" value="100">
                         <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#713f12;">
                             <strong>100% KY obbligatorio</strong> — il tuo saldo reale è
-                            <strong>{{ number_format((int) $currentAccount->available_balance, 0, ',', '.') }} KY</strong>
+                            {{-- available_balance è in centesimi: number_format() diretto lo mostrava
+                                 grezzo (senza /100), stesso bug ×100 del 24/07. --}}
+                            <strong>{{ ky_format($currentAccount->available_balance) }} KY</strong>
                             (negativo). Devi incassare KY per recuperare il saldo prima di poter offrire un mix EUR.<br>
                             <span style="font-size:12px;opacity:.8;">Nota: il saldo "Disponibile" che vedi in dashboard include l'eventuale fido/massimale concesso, ma il saldo reale del circuito è negativo.</span>
                         </div>

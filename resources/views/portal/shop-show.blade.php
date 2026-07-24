@@ -121,7 +121,9 @@
             <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0369a1;">
                 <strong>Pagamento misto:</strong>
                 Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->ky_amount) }} KY nel circuito
-                (per unità); il restante {{ 100 - $listing->ky_percentage }}% ({{ number_format($listing->euro_amount, 2, ',', '.') }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
+                {{-- euro_amount = price_ky - ky_amount, quindi anche questo è in centesimi:
+                     number_format() diretto lo mostrava grezzo (senza /100), stesso bug ×100. --}}
+                (per unità); il restante {{ 100 - $listing->ky_percentage }}% ({{ ky_format($listing->euro_amount) }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
             </div>
             @endif
 
