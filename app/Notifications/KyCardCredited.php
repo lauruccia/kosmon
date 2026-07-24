@@ -22,12 +22,12 @@ class KyCardCredited extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Ricarica KMoney completata — +' . number_format($this->purchase->ky_amount, 0, ',', '.') . ' KY')
+            ->subject('Ricarica KMoney completata — +' . ky_format($this->purchase->ky_amount) . ' KY')
             ->greeting('Ciao ' . $notifiable->name . '!')
             ->line('La tua ricarica KMoney è andata a buon fine.')
             ->line('**Card acquistata:** ' . ($this->purchase->kyCard->name ?? '—'))
             ->line('**Pagato:** € ' . number_format($this->purchase->price_eur, 2, ',', '.'))
-            ->line('**KY accreditati:** +' . number_format($this->purchase->ky_amount, 0, ',', '.') . ' KY')
+            ->line('**KY accreditati:** +' . ky_format($this->purchase->ky_amount) . ' KY')
             ->action('Vai al tuo conto', url('/'))
             ->line('I KY sono già disponibili sul tuo conto KMoney.');
     }
@@ -36,7 +36,7 @@ class KyCardCredited extends Notification implements ShouldQueue
     {
         return [
             'type'       => 'kycard_credited',
-            'title'      => '+' . number_format($this->purchase->ky_amount, 0, ',', '.') . ' KY accreditati',
+            'title'      => '+' . ky_format($this->purchase->ky_amount) . ' KY accreditati',
             'body'       => 'Ricarica KYCard "' . ($this->purchase->kyCard->name ?? '—') . '" completata.',
             'url'        => '/movimenti',
             'amount'     => $this->purchase->ky_amount,

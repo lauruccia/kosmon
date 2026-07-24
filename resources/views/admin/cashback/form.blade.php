@@ -55,9 +55,12 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px;margin-bottom:12px;">
                 <div>
                     <label class="form-label" style="margin-bottom:4px;">Soglia minima (KY) *</label>
+                    {{-- min_amount è in centesimi: ky_input() lo converte nel valore KY da
+                         mostrare/digitare qui. Prima il campo mostrava/salvava il centesimo
+                         grezzo come se fosse KY intero (bug ×100, come il prezzo shop). --}}
                     <input type="number" name="min_amount"
-                           value="{{ old('min_amount', $rule->min_amount ?? 0) }}"
-                           min="0" step="1" class="form-control" required>
+                           value="{{ old('min_amount', ky_input($rule->min_amount ?? 0)) }}"
+                           min="0" step="0.01" class="form-control" required>
                     <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">Min. per applicare la regola</div>
                 </div>
                 <div>
@@ -70,8 +73,8 @@
                 <div>
                     <label class="form-label" style="margin-bottom:4px;">Cap massimo (KY)</label>
                     <input type="number" name="max_cashback"
-                           value="{{ old('max_cashback', $rule->max_cashback ?? '') }}"
-                           min="1" step="1" placeholder="Vuoto = illimitato" class="form-control">
+                           value="{{ old('max_cashback', ky_input($rule->max_cashback ?? null)) }}"
+                           min="0.01" step="0.01" placeholder="Vuoto = illimitato" class="form-control">
                     <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">Limite per singola transazione</div>
                 </div>
             </div>

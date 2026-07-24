@@ -43,6 +43,10 @@ class CashbackRuleController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
+        // min_amount/max_cashback sono digitati in KY (numerico decimale) ma
+        // memorizzati in centesimi come tutti gli altri importi del progetto.
+        $data['min_amount']     = ky_to_cents($data['min_amount']);
+        $data['max_cashback']   = $data['max_cashback'] !== null ? ky_to_cents($data['max_cashback']) : null;
         $data['is_active']      = $request->boolean('is_active', true);
         $data['target_user_id'] = $data['target_type'] === 'specific_user' ? $data['target_user_id'] : null;
         $data['created_by']     = Auth::id();
@@ -70,6 +74,10 @@ class CashbackRuleController extends Controller implements HasMiddleware
     {
         $data = $request->validated();
 
+        // min_amount/max_cashback sono digitati in KY (numerico decimale) ma
+        // memorizzati in centesimi come tutti gli altri importi del progetto.
+        $data['min_amount']     = ky_to_cents($data['min_amount']);
+        $data['max_cashback']   = $data['max_cashback'] !== null ? ky_to_cents($data['max_cashback']) : null;
         $data['is_active']      = $request->boolean('is_active', false);
         $data['target_user_id'] = $data['target_type'] === 'specific_user' ? $data['target_user_id'] : null;
 
