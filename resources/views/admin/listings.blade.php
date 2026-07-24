@@ -92,7 +92,7 @@
                     <td>
                         <form method="POST" action="{{ route('admin.listings.status', $listing) }}" style="display:inline;">
                             @csrf
-                            <select name="status" onchange="this.form.submit()" class="listing-status-select status-{{ $listing->status }}">
+                            <select name="status" onchange="this.form.submit()" class="listing-status-select status-{{ $listing->status }}" data-no-search>
                                 @foreach($statuses as $s)
                                     <option value="{{ $s }}" @selected($listing->status === $s)>{{ ucfirst($s) }}</option>
                                 @endforeach
@@ -134,10 +134,15 @@
 </section>
 
 <style>
-    /* Reset dell'aspetto nativo del <select> (Chrome/Edge disegnano un outline
-       spesso e una barra colorata sotto al focus): con appearance:none
-       ripristiniamo solo la nostra freccia custom e un focus ring coerente
-       col design system, invece del contorno ciano/blu di sistema. */
+    /* NB: la causa reale del box "rotto" (bordo ciano spesso + barra blu sotto,
+       col cursore di testo dentro) NON era questo CSS: lo script globale in
+       layouts/portal.blade.php inizializza Tom Select su OGNI <select> della
+       pagina (tranne quelli con [data-no-search]), sostituendo l'elemento
+       nativo con un proprio markup (.ts-wrapper/.ts-control) che ignora del
+       tutto le classi custom qui sotto — trasformandolo in un campo di ricerca
+       testuale (da cui il cursore lampeggiante). Per uno stato a 4 valori fissi
+       la ricerca non serve: il <select> ha ora l'attributo data-no-search nella
+       view, così resta nativo e questo CSS si applica davvero. */
     .listing-status-select {
         appearance: none; -webkit-appearance: none; -moz-appearance: none;
         border-radius: 999px; padding: 5px 28px 5px 12px; font-size: 11px; font-weight: 700;

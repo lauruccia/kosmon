@@ -19,7 +19,7 @@
         </div>
         <div class="shop-toolbar-field" style="min-width:210px;">
             <label>Categoria</label>
-            <select name="category" class="km-select">
+            <select name="category" class="km-select" data-no-search>
                 <option value="">Tutte le categorie</option>
                 @foreach($categories as $slug => $label)
                     <option value="{{ $slug }}" @selected($selectedCategory === $slug)>{{ $label }}</option>
