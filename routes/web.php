@@ -799,6 +799,7 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::get('/admin/listings/crea', [ListingController::class, 'adminCreate'])->name('admin.listings.create')->middleware('backoffice');
     Route::post('/admin/listings', [ListingController::class, 'adminStore'])->name('admin.listings.store')->middleware('backoffice');
     Route::post('/admin/listings/{listing}/status', [ListingController::class, 'adminUpdateStatus'])->name('admin.listings.status')->middleware('backoffice');
+    Route::get('/admin/listings/ordini', [ListingController::class, 'adminOrders'])->name('admin.listings.orders')->middleware('backoffice');
 
     Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index')->middleware('backoffice');
     Route::post('/admin/announcements/{announcement}/status', [AnnouncementController::class, 'adminUpdateStatus'])->name('admin.announcements.status')->middleware('backoffice');

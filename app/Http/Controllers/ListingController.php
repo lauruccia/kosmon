@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\HandlesMovementFilters;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Listing;
+use App\Models\Transfer;
 use App\Notifications\NewMarketplaceOrderNotification;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +19,8 @@ use Illuminate\View\View;
 
 class ListingController extends Controller
 {
+    use HandlesMovementFilters;
+
     // ── Portale: lista pubblica ───────────────────────────────────────────────
 
     public function index(Request $request): View
@@ -349,10 +353,20 @@ class ListingController extends Controller
             ->orderByDesc('created_at')
             ->paginate(20)->withQueryString();
 
+        $stats = [
+            'total'     => (clone $this->baseListingStatsQuery())->count(),
+            'active'    => (clone $this->baseListingStatsQuery())->where('status', 'active')->count(),
+            'draft'     => (clone $this->baseListingStatsQuery())->where('status', 'draft')->count(),
+            'suspended' => (clone $this->baseListingStatsQuery())->where('status', 'suspended')->count(),
+        ];
+
         return view('admin.listings', [
             'pageTitle' => 'Moderazione shop',
             'listings'  => $listings,
             'statuses'  => Listing::STATUSES,
+            'stats'     => $stats,
+            'search'    => $q,
+            'statusFilter' => $status,
             'activeNav' => 'admin-listings',
         ]);
     }
@@ -421,7 +435,82 @@ class ListingController extends Controller
         return back()->with('portal_success', 'Stato prodotto aggiornato.');
     }
 
+    // ── Admin: elenco ordini shop (tutti i Transfer kind=portal_marketplace_order) ──
+
+    public function adminOrders(Request $request): View
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $q = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', '');
+
+        $relations = [
+            'listing',
+            'fromAccount.company',
+            'fromAccount.ownerUser',
+            'toAccount.company',
+            'toAccount.ownerUser',
+        ];
+
+        if ($this->supportsTransferRefunds()) {
+            $relations[] = 'reversalChildren';
+            $relations[] = 'reversedTransfer';
+        }
+
+        $baseQuery = Transfer::query()
+            ->where('kind', 'portal_marketplace_order')
+            ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
+                $scope->whereHas('listing', fn ($l) => $l->where('title', 'like', "%{$q}%"))
+                      ->orWhereHas('fromAccount.ownerUser', fn ($u) => $u->where('name', 'like', "%{$q}%"))
+                      ->orWhereHas('fromAccount.company', fn ($c) => $c->where('name', 'like', "%{$q}%"))
+                      ->orWhereHas('toAccount.company', fn ($c) => $c->where('name', 'like', "%{$q}%"));
+            }))
+            ->when($status !== '', fn ($query) => $query->where('status', $status));
+
+        // Nota: a differenza di movementTotals() (pensato per la vista generale
+        // movimenti), qui "stornato" va contato guardando i reversalChildren
+        // dell'ordine stesso: il Transfer di storno ha kind=admin_refund, quindi
+        // non compare mai dentro $baseQuery (filtrato su kind=portal_marketplace_order).
+        $orderTotals = [
+            'count'       => (clone $baseQuery)->count(),
+            'bookedCount' => (clone $baseQuery)->where('status', 'booked')->count(),
+            'volume'      => (clone $baseQuery)->where('status', 'booked')->sum('amount'),
+            'refunded'    => $this->supportsTransferRefunds()
+                ? (clone $baseQuery)->whereHas('reversalChildren')->count()
+                : 0,
+        ];
+
+        $orders = (clone $baseQuery)
+            ->with($relations)
+            ->latest('booked_at')
+            ->latest('id')
+            ->paginate(20)->withQueryString();
+
+        return view('admin.listing-orders', [
+            'pageTitle'              => 'Ordini shop',
+            'orders'                 => $orders,
+            'orderTotals'            => $orderTotals,
+            'search'                 => $q,
+            'statusFilter'           => $status,
+            'refundWindowDays'       => self::ORDER_REFUND_WINDOW_DAYS,
+            'supportsTransferRefunds' => $this->supportsTransferRefunds(),
+            'activeNav'              => 'admin-listing-orders',
+        ]);
+    }
+
     // ── Helpers privati ───────────────────────────────────────────────────────
+
+    /**
+     * Finestra (in giorni) entro cui uno storno resta disponibile da questa vista.
+     * Solo indicativa/di visualizzazione: l'enforcement reale è lato server in
+     * AdminController::refundTransfer() (REFUND_WINDOW_DAYS, stesso valore).
+     */
+    private const ORDER_REFUND_WINDOW_DAYS = 30;
+
+    private function baseListingStatsQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Listing::query();
+    }
 
     private function validateListing(Request $request, ?\App\Models\Account $account = null): array
     {
