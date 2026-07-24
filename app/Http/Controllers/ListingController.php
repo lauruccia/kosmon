@@ -346,7 +346,7 @@ class ListingController extends Controller
             'pageTitle' => 'Moderazione shop',
             'listings'  => $listings,
             'statuses'  => Listing::STATUSES,
-            'activeNav' => 'admin',
+            'activeNav' => 'admin-listings',
         ]);
     }
 

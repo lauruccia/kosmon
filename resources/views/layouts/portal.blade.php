@@ -1327,6 +1327,10 @@
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'companies' ? 'active' : '' }}" href="{{ route('admin.companies.index') }}"><span class="subnav-icon">DR</span><span>Directory</span></a>
                             </div>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-listings' ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
+                            <div class="sidebar-nav-group">
+                                <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listings' ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="subnav-icon">MD</span><span>Moderazione</span></a>
+                            </div>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="subnav-icon">ST</span><span>Storni</span></a>
