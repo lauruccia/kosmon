@@ -44,7 +44,7 @@
                 <select name="status">
                     <option value="">Tutti gli stati</option>
                     @foreach($statuses as $s)
-                        <option value="{{ $s }}" @selected($statusFilter === $s)>{{ ucfirst($s) }}</option>
+                        <option value="{{ $s }}" @selected($statusFilter === $s)>{{ \App\Models\Listing::statusLabel($s) }}</option>
                     @endforeach
                 </select>
             </div>
@@ -94,7 +94,7 @@
                             @csrf
                             <select name="status" onchange="this.form.submit()" class="listing-status-select status-{{ $listing->status }}" data-no-search>
                                 @foreach($statuses as $s)
-                                    <option value="{{ $s }}" @selected($listing->status === $s)>{{ ucfirst($s) }}</option>
+                                    <option value="{{ $s }}" @selected($listing->status === $s)>{{ \App\Models\Listing::statusLabel($s) }}</option>
                                 @endforeach
                             </select>
                         </form>

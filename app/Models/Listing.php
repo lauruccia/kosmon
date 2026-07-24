@@ -86,6 +86,22 @@ class Listing extends Model
 
     public const STATUSES = ['active', 'suspended', 'expired', 'draft'];
 
+    /** Etichette in italiano degli stati (l'interfaccia è sempre in italiano, mai i valori grezzi via ucfirst()). */
+    public const STATUS_LABELS = [
+        'active'    => 'Attivo',
+        'suspended' => 'Sospeso',
+        'expired'   => 'Scaduto',
+        'draft'     => 'Bozza',
+    ];
+
+    /**
+     * Etichetta italiana leggibile per uno stato (usare al posto di ucfirst($status)).
+     */
+    public static function statusLabel(string $status): string
+    {
+        return self::STATUS_LABELS[$status] ?? ucfirst($status);
+    }
+
     /** Valori consentiti per il mix KY/EUR */
     public const KY_PERCENTAGES = [0, 25, 50, 75, 100];
 
