@@ -87,7 +87,7 @@ class ImportFromOldDbSeeder extends Seeder
                         'vat_number'        => $this->nullIfEmpty($old->vat_number),
                         'fiscal_code'       => $this->nullIfEmpty($old->tax_code ?? null),
                         'status'            => $this->mapStatus($old->kv, $old->status),
-                        'subscription_plan' => $plan,
+                        'plan_id'           => $plan,
                         'kyc_status'        => $this->mapKycStatus($old->kv),
                         'currency_code'     => 'KY',
                         'approved_at'       => ($old->kv == 1) ? $old->updated_at : null,
@@ -245,17 +245,27 @@ class ImportFromOldDbSeeder extends Seeder
             : 'company';
     }
 
-    private function mapSubscriptionPlan(mixed $value): ?string
+    /** Vedi ImportOldData::mapSubscriptionPlan — stesso schema, restituisce plan_id. */
+    private function mapSubscriptionPlan(mixed $value): ?int
     {
-        $plan = strtolower(trim((string) $value));
+        $slug = strtolower(trim((string) $value));
 
-        return match ($plan) {
+        $slug = match ($slug) {
             'ecommerce' => 'ecommerce',
             'vetrina' => 'vetrina',
             'biglietto', 'biglietto da visita', 'business card' => 'biglietto',
             'anagrafica' => 'anagrafica',
             default => null,
         };
+
+        if ($slug === null) {
+            return null;
+        }
+
+        static $planIds = null;
+        $planIds ??= \App\Models\Plan::pluck('id', 'slug')->all();
+
+        return $planIds[$slug] ?? null;
     }
 
     private function mapLegacyLimits(object $old): array

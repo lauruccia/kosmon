@@ -104,6 +104,9 @@
             <p class="subtle product-desc">{{ Str::limit($listing->description, 90) }}</p>
             <div class="entity-meta">
                 <span class="chip">{{ $listing->company->name }}</span>
+                @if($listing->company->plan?->card_style === 'rich')
+                    <span class="chip" style="background:{{ $listing->company->plan->effective_badge_color }}1a;color:{{ $listing->company->plan->effective_badge_color }};border-color:{{ $listing->company->plan->effective_badge_color }};font-weight:700;">✦ {{ $listing->company->plan->name }}</span>
+                @endif
                 @if($listing->delivery_note)<span class="chip">{{ $listing->delivery_note }}</span>@endif
             </div>
             <div class="product-price-row">

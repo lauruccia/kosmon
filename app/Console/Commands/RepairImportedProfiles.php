@@ -121,13 +121,13 @@ class RepairImportedProfiles extends Command
 
                 if ($holderType === 'company' && $user->company) {
                     $user->company->forceFill([
-                        'subscription_plan' => $plan,
+                        'plan_id' => $plan,
                         'status' => $isActive ? 'active' : 'suspended',
                     ])->save();
                 }
 
                 if ($holderType === 'private' && $oldCompany) {
-                    $oldCompany->forceFill(['subscription_plan' => null])->save();
+                    $oldCompany->forceFill(['plan_id' => null])->save();
 
                     $hasUsers = User::where('company_id', $oldCompany->id)->exists();
                     $hasAccounts = Account::where('company_id', $oldCompany->id)->exists();
@@ -206,17 +206,27 @@ class RepairImportedProfiles extends Command
             : 'company';
     }
 
-    private function mapSubscriptionPlan(mixed $value): ?string
+    /** Vedi ImportOldData::mapSubscriptionPlan — stesso schema, restituisce plan_id. */
+    private function mapSubscriptionPlan(mixed $value): ?int
     {
-        $plan = strtolower(trim((string) $value));
+        $slug = strtolower(trim((string) $value));
 
-        return match ($plan) {
+        $slug = match ($slug) {
             'ecommerce' => 'ecommerce',
             'vetrina' => 'vetrina',
             'biglietto', 'biglietto da visita', 'business card' => 'biglietto',
             'anagrafica' => 'anagrafica',
             default => null,
         };
+
+        if ($slug === null) {
+            return null;
+        }
+
+        static $planIds = null;
+        $planIds ??= \App\Models\Plan::pluck('id', 'slug')->all();
+
+        return $planIds[$slug] ?? null;
     }
 
     private function mapLegacyLimits(array $old): array

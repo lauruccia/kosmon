@@ -169,8 +169,8 @@
                     <label for="plan">Piano</label>
                     <select id="plan" name="plan">
                         <option value="">Tutti i piani</option>
-                        @foreach(\App\Models\Company::SUBSCRIPTION_PLANS as $key => $label)
-                            <option value="{{ $key }}" @selected($filters['plan'] === $key)>{{ $label }}</option>
+                        @foreach($planOptions as $p)
+                            <option value="{{ $p->id }}" @selected($filters['plan'] === (string) $p->id)>{{ $p->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -245,8 +245,8 @@
             </select>
 
             <select name="plan" id="bulk-plan" class="bulk-select" style="display:none;">
-                @foreach(\App\Models\Company::SUBSCRIPTION_PLANS as $key => $label)
-                    <option value="{{ $key }}">{{ $label }}</option>
+                @foreach($planOptions as $p)
+                    <option value="{{ $p->id }}">{{ $p->name }}</option>
                 @endforeach
                 <option value="none">Nessun piano</option>
             </select>
@@ -302,9 +302,9 @@
                         </td>
 
                         <td>
-                            @if($company->subscription_plan)
-                                <span class="plan-badge plan-{{ $company->subscription_plan }}">
-                                    {{ $company->subscription_plan_label }}
+                            @if($company->plan)
+                                <span class="plan-badge" style="background:{{ $company->plan->effective_badge_color }}22;border-color:{{ $company->plan->effective_badge_color }};color:{{ $company->plan->effective_badge_color }};">
+                                    {{ $company->plan->name }}
                                 </span>
                             @else
                                 <span class="plan-badge plan-none">Nessuno</span>

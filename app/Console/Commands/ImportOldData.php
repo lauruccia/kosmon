@@ -246,7 +246,7 @@ class ImportOldData extends Command
                         'vat_number'        => $vatNumber,
                         'fiscal_code'       => $fiscalCode,
                         'status'            => $this->mapStatus($old['kv'], $old['status']),
-                        'subscription_plan' => $plan,
+                        'plan_id'           => $plan,
                         'kyc_status'        => $old['kv'] == 1 ? 'approved' : 'pending',
                         'currency_code'     => 'KY',
                         'approved_at'       => $old['kv'] == 1 ? $old['updated_at'] : null,
@@ -791,17 +791,32 @@ class ImportOldData extends Command
             : 'company';
     }
 
-    private function mapSubscriptionPlan(mixed $value): ?string
+    /**
+     * Restituisce il plan_id del piano dinamico (tabella plans) corrispondente
+     * allo slug legacy, o null se non riconosciuto/non trovato. Da quando i
+     * piani sono gestibili liberamente dall'admin (vedi Plan model), il
+     * risultato non e' piu' lo slug ma l'id da assegnare a companies.plan_id.
+     */
+    private function mapSubscriptionPlan(mixed $value): ?int
     {
-        $plan = strtolower(trim((string) $value));
+        $slug = strtolower(trim((string) $value));
 
-        return match ($plan) {
+        $slug = match ($slug) {
             'ecommerce' => 'ecommerce',
             'vetrina' => 'vetrina',
             'biglietto', 'biglietto da visita', 'business card' => 'biglietto',
             'anagrafica' => 'anagrafica',
             default => null,
         };
+
+        if ($slug === null) {
+            return null;
+        }
+
+        static $planIds = null;
+        $planIds ??= \App\Models\Plan::pluck('id', 'slug')->all();
+
+        return $planIds[$slug] ?? null;
     }
 
     /**

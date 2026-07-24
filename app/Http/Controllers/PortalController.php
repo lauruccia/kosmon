@@ -1692,6 +1692,7 @@ class PortalController extends Controller
         $companiesQuery = Company::query()
             ->withCount(['users', 'listings', 'announcements'])
             ->with([
+                'plan',
                 'users' => fn ($q) => $q->select(['id', 'company_id', 'account_holder_type']),
                 'accounts' => fn ($q) => $q->where('is_system_account', false)
                                            ->where('owner_type', 'company')
@@ -1719,12 +1720,10 @@ class PortalController extends Controller
             ->when(! empty($filters['accepts_ky']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' >= 25'))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['kyc_status'] !== '', fn ($query) => $query->where('kyc_status', $filters['kyc_status']))
-            ->orderByRaw("CASE
-                WHEN subscription_plan = 'ecommerce'  THEN 0
-                WHEN subscription_plan = 'vetrina'    THEN 1
-                WHEN subscription_plan = 'biglietto'  THEN 2
-                WHEN subscription_plan = 'anagrafica' THEN 3
-                ELSE 4 END")
+            // Ordina per piano (subquery su plans.display_order): funziona anche
+            // con piani creati liberamente dall'admin da /admin/piani, senza
+            // dover elencare gli slug storici in un CASE hardcoded.
+            ->orderByRaw('COALESCE((SELECT display_order FROM plans WHERE plans.id = companies.plan_id), 999) ASC')
             // Agevola la visibilita' di chi accetta la % Kmoney piu' alta:
             // a parita' di piano, ordina per % effettiva decrescente
             // (dichiarata nel profilo o migliore % dei prodotti attivi).

@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\NettingProposal;
 use App\Models\PaymentPlan;
+use App\Models\Plan;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Models\Webhook;
@@ -35,6 +36,7 @@ class CompanyController extends Controller
             'stats'        => $stats,
             'filters'      => $filters,
             'sectorOptions'=> $sectorOptions,
+            'planOptions'  => Plan::orderBy('display_order')->get(['id', 'name']),
             'activeNav'    => 'companies',
         ]);
     }
@@ -43,7 +45,7 @@ class CompanyController extends Controller
     {
         $this->authorizeBackoffice($request->user());
 
-        $company->load(['broker', 'accounts.creditLimits', 'users', 'kycDocuments']);
+        $company->load(['broker', 'accounts.creditLimits', 'users', 'kycDocuments', 'plan']);
 
         $brokerUsers = User::query()
             ->where(function ($q) {
@@ -86,6 +88,13 @@ class CompanyController extends Controller
             ->get()
             ->keyBy('provider');
 
+        // Storico pagamenti upgrade piano (Stripe/PayPal/bonifico/KY) dell'azienda.
+        $planPayments = \App\Models\PlanPayment::where('company_id', $company->id)
+            ->with(['fromPlan', 'toPlan'])
+            ->latest()
+            ->limit(10)
+            ->get();
+
         return view('admin.company-show', [
             'pageTitle'       => $company->name,
             'company'         => $company,
@@ -97,6 +106,8 @@ class CompanyController extends Controller
             'webhooks'        => $webhooks,
             'ecommercePairings' => $ecommercePairings,
             'paymentGateways' => $paymentGateways,
+            'planPayments'    => $planPayments,
+            'plans'           => Plan::orderBy('display_order')->get(),
             'activeNav'       => 'companies',
         ]);
     }
@@ -195,12 +206,14 @@ class CompanyController extends Controller
     {
         $this->authorizeBackoffice($request->user());
 
+        $validPlanIds = Plan::pluck('id')->all();
+
         $validated = $request->validate([
             'action'        => ['required', 'in:activate,deactivate,suspend,plan'],
             'scope'         => ['required', 'in:selected,all_filtered'],
             'company_ids'   => ['array'],
             'company_ids.*' => ['integer'],
-            'plan'          => ['nullable', 'in:ecommerce,vetrina,biglietto,anagrafica,none'],
+            'plan'          => ['nullable'],
         ]);
 
         $action = $validated['action'];
@@ -218,25 +231,29 @@ class CompanyController extends Controller
 
         // Per ogni azione: sottoinsieme rilevante, payload di update, evento audit e messaggi.
         if ($action === 'plan') {
-            $planValue = $validated['plan'] ?? null;
-            if ($planValue === null) {
+            $planRaw = $validated['plan'] ?? null;
+            if ($planRaw === null || $planRaw === '') {
                 return back()->with('portal_error', 'Seleziona un piano da applicare.');
             }
-            $planValue = $planValue === 'none' ? null : $planValue;
+            $planId = $planRaw === 'none' ? null : (int) $planRaw;
+            if ($planId !== null && ! in_array($planId, $validPlanIds, true)) {
+                return back()->with('portal_error', 'Piano non valido.');
+            }
+            $planName = $planId !== null ? Plan::find($planId)?->name : null;
 
-            $query->where(fn ($q) => $planValue === null
-                ? $q->whereNotNull('subscription_plan')
-                : $q->where('subscription_plan', '!=', $planValue)->orWhereNull('subscription_plan'));
+            $query->where(fn ($q) => $planId === null
+                ? $q->whereNotNull('plan_id')
+                : $q->where('plan_id', '!=', $planId)->orWhereNull('plan_id'));
 
-            $payload  = ['subscription_plan' => $planValue];
+            $payload  = ['plan_id' => $planId];
             $event    = 'admin.company.plan';
-            $auditCtx = ['bulk' => true, 'plan' => $planValue];
+            $auditCtx = ['bulk' => true, 'plan_id' => $planId];
             $emptyMsg = 'Nessuna azienda da aggiornare: avevano già questo piano.';
-            $doneMsg  = fn (int $n) => $planValue === null
+            $doneMsg  = fn (int $n) => $planId === null
                 ? ($n === 1 ? 'Piano rimosso da 1 azienda.' : "Piano rimosso da {$n} aziende.")
                 : ($n === 1
-                    ? '1 azienda aggiornata al piano ' . Company::SUBSCRIPTION_PLANS[$planValue] . '.'
-                    : "{$n} aziende aggiornate al piano " . Company::SUBSCRIPTION_PLANS[$planValue] . '.');
+                    ? '1 azienda aggiornata al piano ' . $planName . '.'
+                    : "{$n} aziende aggiornate al piano " . $planName . '.');
         } elseif ($action === 'activate') {
             $query->where(fn ($q) => $q->where('status', '!=', 'active')->orWhereNotNull('suspended_at'));
             $payload  = ['status' => 'active', 'suspended_at' => null, 'suspension_reason' => null];
@@ -308,7 +325,6 @@ class CompanyController extends Controller
         return back()->with('portal_success', 'Azienda ' . $company->name . ' disattivata.');
     }
 
-    /** POST /admin/companies/{company}/plan */
     /** POST /admin/companies/{company}/ky-percentage */
     public function updateKyPercentage(Request $request, Company $company): RedirectResponse
     {
@@ -334,22 +350,23 @@ class CompanyController extends Controller
             : 'Percentuale Kmoney di ' . $company->name . ' rimossa (non dichiarata).');
     }
 
+    /** POST /admin/companies/{company}/plan */
     public function updatePlan(Request $request, Company $company): RedirectResponse
     {
         $this->authorizeBackoffice($request->user());
 
         $validated = $request->validate([
-            'subscription_plan' => ['nullable', 'in:ecommerce,vetrina,biglietto,anagrafica'],
+            'plan_id' => ['nullable', 'integer', 'exists:plans,id'],
         ]);
 
-        $company->update(['subscription_plan' => $validated['subscription_plan'] ?: null]);
+        $company->update(['plan_id' => $validated['plan_id'] ?: null]);
 
         AuditLog::create([
             'actor_user_id'  => $request->user()->id,
             'event'         => 'admin.company.plan_updated',
             'auditable_type' => Company::class,
             'auditable_id'   => $company->id,
-            'context'        => ['plan' => $validated['subscription_plan']],
+            'context'        => ['plan_id' => $validated['plan_id'] ?? null],
         ]);
 
         return back()->with('portal_success', 'Piano abbonamento aggiornato.');
@@ -410,7 +427,7 @@ class CompanyController extends Controller
             'sector'     => trim((string) $request->query('sector', '')),
             'status'     => in_array($status, ['active', 'pending', 'suspended'], true) ? $status : '',
             'kyc_status' => in_array($kycStatus, ['approved', 'pending', 'under_review', 'rejected'], true) ? $kycStatus : '',
-            'plan'       => in_array($plan, ['ecommerce', 'vetrina', 'biglietto', 'anagrafica'], true) ? $plan : '',
+            'plan'       => ctype_digit($plan) ? $plan : '',
         ];
     }
 
@@ -439,7 +456,7 @@ class CompanyController extends Controller
             ->when($filters['status'] === 'pending', fn ($q) => $q->where('status', '!=', 'active')->whereNull('suspended_at'))
             ->when($filters['status'] === 'suspended', fn ($q) => $q->whereNotNull('suspended_at'))
             ->when($filters['kyc_status'] !== '', fn ($q) => $q->where('kyc_status', $filters['kyc_status']))
-            ->when($filters['plan'] !== '', fn ($q) => $q->where('subscription_plan', $filters['plan']));
+            ->when($filters['plan'] !== '', fn ($q) => $q->where('plan_id', (int) $filters['plan']));
     }
 
     private function buildAdminCompanyList(array $filters): array
@@ -453,6 +470,7 @@ class CompanyController extends Controller
             ->pluck('sector');
 
         $companies = $this->companyDirectoryQuery($filters)
+            ->with('plan')
             ->withCount(['users', 'listings', 'announcements'])
             ->with(['accounts' => fn ($q) => $q->whereNull('parent_account_id')
                 ->where('is_system_account', false)
@@ -469,12 +487,9 @@ class CompanyController extends Controller
                   })
                   ->where('ky_percentage', '>=', 25);
             }], 'ky_percentage')
-            ->orderByRaw("CASE
-                WHEN subscription_plan = 'ecommerce'  THEN 0
-                WHEN subscription_plan = 'vetrina'    THEN 1
-                WHEN subscription_plan = 'biglietto'  THEN 2
-                WHEN subscription_plan = 'anagrafica' THEN 3
-                ELSE 4 END")
+            // Ordina per piano (subquery su plans.display_order, cosi' funziona anche
+            // con piani creati liberamente dall'admin, senza CASE hardcoded).
+            ->orderByRaw('COALESCE((SELECT display_order FROM plans WHERE plans.id = companies.plan_id), 999) ASC')
             ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderBy('name')
             ->paginate(80)
@@ -484,7 +499,7 @@ class CompanyController extends Controller
             'total'    => Company::count(),
             'active'   => Company::where('status', 'active')->whereNull('suspended_at')->count(),
             'verified' => Company::where('kyc_status', 'approved')->count(),
-            'plans'    => Company::whereNotNull('subscription_plan')->count(),
+            'plans'    => Company::whereNotNull('plan_id')->count(),
         ];
 
         return [$companies, $stats, $sectorOptions];

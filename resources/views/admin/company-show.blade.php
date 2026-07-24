@@ -148,20 +148,10 @@
         <form method="POST" action="{{ route('admin.companies.plan', $company) }}"
               style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             @csrf
-            @php
-                $planColors = [
-                    'ecommerce'  => ['bg'=>'#faf5ff','border'=>'#d8b4fe','text'=>'#6b21a8'],
-                    'vetrina'    => ['bg'=>'#eff6ff','border'=>'#93c5fd','text'=>'#1d4ed8'],
-                    'biglietto'  => ['bg'=>'#ecfdf5','border'=>'#6ee7b7','text'=>'#065f46'],
-                    'anagrafica' => ['bg'=>'#f9fafb','border'=>'#d1d5db','text'=>'#374151'],
-                ];
-                $currentPlan = $company->subscription_plan;
-                $pc = $planColors[$currentPlan] ?? null;
-            @endphp
-            @if($pc)
+            @if($company->plan)
                 <span style="padding:5px 14px;border-radius:999px;font-size:12px;font-weight:700;
-                              background:{{ $pc['bg'] }};border:1.5px solid {{ $pc['border'] }};color:{{ $pc['text'] }};">
-                    {{ $company->subscription_plan_label }}
+                              background:{{ $company->plan->effective_badge_color }}22;border:1.5px solid {{ $company->plan->effective_badge_color }};color:{{ $company->plan->effective_badge_color }};">
+                    {{ $company->plan->name }}
                 </span>
             @else
                 <span style="padding:5px 14px;border-radius:999px;font-size:12px;font-weight:700;
@@ -169,12 +159,12 @@
                     Nessun piano
                 </span>
             @endif
-            <select name="subscription_plan"
+            <select name="plan_id"
                     style="padding:7px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;
                            background:#fff;color:var(--ink);flex:1;min-width:150px;">
                 <option value="">— Nessun piano —</option>
-                @foreach(\App\Models\Company::SUBSCRIPTION_PLANS as $key => $label)
-                    <option value="{{ $key }}" @selected($currentPlan === $key)>{{ $label }}</option>
+                @foreach($plans as $p)
+                    <option value="{{ $p->id }}" @selected($company->plan_id === $p->id)>{{ $p->name }} @if(!$p->is_active)(disattivo)@endif</option>
                 @endforeach
             </select>
             <button type="submit"
@@ -184,8 +174,25 @@
             </button>
         </form>
         <p style="margin:10px 0 0;font-size:11.5px;color:var(--ink-muted);">
-            Ecommerce › Vetrina › Biglietto › Anagrafica — ordine di visibilità in directory.
+            Ordine di visibilità in directory e caratteristiche di ogni piano gestibili da <a href="{{ route('admin.plans.index') }}">Piani di abbonamento</a>.
         </p>
+
+        @if($planPayments->isNotEmpty())
+        <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Storico pagamenti upgrade</div>
+            @foreach($planPayments as $pp)
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--line);">
+                <span>{{ $pp->fromPlan->name ?? '—' }} → {{ $pp->toPlan->name ?? '—' }} · {{ strtoupper($pp->payment_method) }}</span>
+                <span style="display:flex;gap:8px;align-items:center;">
+                    {{ number_format($pp->amount_cents / 100, 2, ',', '.') }} €
+                    <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ $pp->status === 'completed' ? '#dcfce7' : ($pp->status === 'failed' ? '#fee2e2' : '#fef3c7') }};color:{{ $pp->status === 'completed' ? '#166534' : ($pp->status === 'failed' ? '#991b1b' : '#92400e') }};">
+                        {{ $pp->status }}
+                    </span>
+                </span>
+            </div>
+            @endforeach
+        </div>
+        @endif
     </section>
 </div>
 

@@ -54,95 +54,83 @@
         .dir-grid, .dir-searchbar { grid-template-columns:1fr; }
     }
 
-    /* ── BASE CARD ── */
+    /* ── BASE CARD (comune a tutti i piani) ── */
     .dir-card {
         border-radius:16px;
         border:1px solid var(--line);
         background:#fff;
-        box-shadow:0 1px 4px rgba(0,0,0,.07);
+        box-shadow:0 1px 4px rgba(0,0,0,.06);
         overflow:hidden;
         display:flex; flex-direction:column;
-        transition:box-shadow .2s, transform .18s;
+        transition:box-shadow .2s, transform .18s, border-color .18s;
+        position:relative;
     }
     .dir-card:hover {
-        box-shadow:0 6px 20px rgba(0,0,0,.12);
-        transform:translateY(-2px);
+        box-shadow:0 10px 26px rgba(13,28,48,.13);
+        transform:translateY(-3px);
     }
 
-    /* ── RICH CARD cover ── */
-    .dir-card--rich .dir-cover {
-        height:150px;
-        position:relative;
-        overflow:hidden;
-    }
-    /* decorative circle inside cover */
-    .dir-cover-deco {
-        position:absolute;
-        top:-40px; right:-40px;
-        width:160px; height:160px;
-        border-radius:50%;
-        background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%);
-        pointer-events:none;
-    }
-    .dir-cover-deco2 {
-        position:absolute;
-        bottom:-20px; left:50%;
-        transform:translateX(-50%);
-        width:200px; height:80px;
-        background:linear-gradient(to bottom,transparent,rgba(0,0,0,.25));
-        pointer-events:none;
+    /* Accento superiore col colore del piano — l'unico elemento "premium"
+       che distingue Ecommerce/Vetrina, coerente con la grafica piatta
+       (logo inline, niente banner) richiesta per la directory. */
+    .dir-plan-accent { height:4px; width:100%; flex-shrink:0; }
+
+    .dir-plan-badge {
+        position:absolute; top:12px; right:12px; z-index:2;
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 9px; border-radius:999px;
+        font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+        color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18);
     }
 
-    /* avatar ring — sits between cover and body */
-    .dir-logo-ring {
-        position:relative; height:0; z-index:3;
-        /* no height so body flows normally */
+    /* ── Header: logo inline + nome (rich / compact) ── */
+    .dir-card-header {
+        display:flex; align-items:flex-start; gap:12px;
+        padding:18px 16px 12px;
     }
     .dir-logo {
-        position:absolute;
-        top:-28px; left:16px;
-        width:56px; height:56px;
-        border-radius:50%;
-        background:#fff;
-        border:3px solid #fff;
-        box-shadow:0 2px 10px rgba(0,0,0,.18);
+        flex-shrink:0; width:52px; height:52px; border-radius:14px;
+        background:linear-gradient(150deg,var(--dir-c1,#174d87),var(--dir-c2,#071d35));
         display:flex; align-items:center; justify-content:center;
-        font-size:22px; font-weight:900; color:#1a3a5c;
-        letter-spacing:-.02em;
+        font-size:19px; font-weight:900; color:#fff; letter-spacing:-.02em;
+        box-shadow:0 2px 8px rgba(0,0,0,.14);
+        overflow:hidden;
     }
+    .dir-logo img { width:100%; height:100%; object-fit:cover; }
+    .dir-card--compact .dir-logo { width:42px; height:42px; border-radius:11px; font-size:15px; }
 
-    /* body for rich */
-    .dir-card--rich .dir-body {
-        padding:36px 16px 14px;
-        flex:1;
-        display:flex; flex-direction:column; gap:10px;
-    }
     .dir-company-name {
-        font-size:16px; font-weight:800; color:var(--ink);
-        margin:0; line-height:1.25; word-break:break-word;
+        font-size:15.5px; font-weight:800; color:var(--ink);
+        margin:0; line-height:1.28; word-break:break-word;
     }
+    .dir-card--compact .dir-company-name { font-size:14px; }
     .dir-sector-label {
         font-size:11.5px; font-weight:600;
-        color:var(--ink-muted);
-        text-transform:uppercase; letter-spacing:.05em;
+        color:var(--ink-muted); margin-top:2px;
+    }
+    .dir-tagline {
+        font-size:11.5px; color:var(--ink-soft); margin-top:4px;
+        font-style:italic; line-height:1.4;
     }
 
-    /* Contact list */
-    .dir-contacts { display:flex; flex-direction:column; gap:5px; }
+    /* Contact list — icone coerenti con la card di riferimento (pin, tag, email, tel, globo) */
+    .dir-contacts { display:flex; flex-direction:column; gap:6px; padding:2px 16px 14px; flex:1; }
+    .dir-card--compact .dir-contacts { gap:5px; padding-bottom:10px; }
     .dir-contact {
         display:flex; align-items:center; gap:8px;
         font-size:12.5px; color:var(--ink-soft);
         overflow:hidden;
     }
-    .dir-contact svg { flex-shrink:0; opacity:.55; }
+    .dir-card--compact .dir-contact { font-size:11.5px; }
+    .dir-contact svg { flex-shrink:0; opacity:.5; color:var(--ink-muted); }
     .dir-contact a, .dir-contact span {
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
         text-decoration:none; color:inherit;
     }
     .dir-contact a:hover { color:var(--primary); text-decoration:underline; }
 
-    /* Activity pills */
-    .dir-pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; }
+    /* Activity pills (solo piani che vendono prodotti) */
+    .dir-pills { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; }
     .dir-pill {
         display:inline-flex; align-items:center; gap:4px;
         padding:3px 9px; border-radius:999px;
@@ -158,6 +146,7 @@
         padding:10px 14px;
         border-top:1px solid var(--line);
         display:flex; gap:7px;
+        margin-top:auto;
     }
     .dir-btn {
         flex:1; display:inline-flex; align-items:center; justify-content:center;
@@ -166,6 +155,7 @@
         transition:background .15s, border-color .15s;
         min-height:36px;
     }
+    .dir-card--compact .dir-btn { font-size:11.5px; min-height:32px; padding:6px 9px; }
     .dir-btn-primary { background:#0c4a86; color:#fff; border:1.5px solid #0c4a86; }
     .dir-btn-primary:hover { background:#0e3158; color:#fff; }
     .dir-btn-ghost {
@@ -301,12 +291,14 @@
                     $isInDebit    = $entry['is_in_debit'] ?? false;
                     $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
                     $effectiveKyPct = $entry['effective_ky_pct'] ?? null;
+                    $plan         = $company->plan;
+                    $cardStyle    = $plan?->card_style ?? 'simple';
 
-                    // Avatar letter
+                    // Avatar letter (usato come fallback quando manca il logo)
                     preg_match('/[A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF]/u', $company->name, $avatarMatch);
                     $avatarChar = strtoupper($avatarMatch[0] ?? '#');
 
-                    // Cover gradient palette per lettera
+                    // Cover gradient palette per lettera (usata come sfondo del logo quando manca l'immagine)
                     $palettes = [
                         'A'=>'#1a56a0,#0b2d5c','B'=>'#1a6b50,#0b3324','C'=>'#6b1a1a,#3c0a0a',
                         'D'=>'#1a4d6b,#0b2233','E'=>'#5a1a6b,#2e0b3a','F'=>'#6b4a1a,#3a2608',
@@ -319,7 +311,6 @@
                         'Y'=>'#1a506b,#0b2c3a','Z'=>'#6b501a,#3a2c0b',
                     ];
                     [$c1, $c2] = explode(',', $palettes[$avatarChar] ?? '#174d87,#071d35');
-                    $logoColor = $c1; // for logo letter color tint
 
                     // Sector icon
                     $sectorIconMap = [
@@ -349,13 +340,10 @@
                     foreach ($sectorIconMap as $k => $ico) {
                         if (str_contains($sectorLower, $k)) { $sectorIcon = $ico; break; }
                     }
-
-                    $isSimple = $company->subscription_plan === 'anagrafica';
-                    $cardClass = $isSimple ? 'dir-card--simple' : 'dir-card--rich';
                 @endphp
 
-                @if($isSimple)
-                {{-- ═══ SIMPLE CARD (anagrafica) ═══ --}}
+                @if($cardStyle === 'simple')
+                {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══ --}}
                 <article class="dir-card dir-card--simple">
                     <div class="dir-body">
                         <div class="dir-simple-top">
@@ -390,7 +378,6 @@
                         </div>
                     </div>
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
-                        {{-- Badge KY --}}
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
                                 <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% Kmoney</span>
@@ -419,91 +406,94 @@
                 </article>
 
                 @else
-                {{-- ═══ RICH CARD (ecommerce / vetrina / biglietto) ═══ --}}
-                <article class="dir-card dir-card--rich">
+                {{-- ═══ RICH / COMPACT CARD (piani con logo — es. Ecommerce, Vetrina, Biglietto) ═══
+                     Grafica piatta con logo inline (non su banner), coerente con lo stile
+                     "scheda contatti" richiesto: nome, settore/città, contatti con icone,
+                     badge del piano in alto a destra. ═══ --}}
+                <article class="dir-card dir-card--{{ $cardStyle }}">
+                    @if($plan)
+                        <div class="dir-plan-accent" style="background:{{ $plan->effective_badge_color }};"></div>
+                        <span class="dir-plan-badge" style="background:{{ $plan->effective_badge_color }};">{{ $plan->name }}</span>
+                    @endif
 
-                    {{-- Cover --}}
-                    <div class="dir-cover" style="{{ $company->banner_path ? 'background-image:url('.\Illuminate\Support\Facades\Storage::disk('public')->url($company->banner_path).');background-size:cover;background-position:center;' : 'background:linear-gradient(150deg,'.$c1.' 0%,'.$c2.' 100%);' }}">
-                        <div class="dir-cover-deco"></div>
-                        <div class="dir-cover-deco2"></div>
-                    </div>
-
-                    {{-- Logo ring --}}
-                    <div class="dir-logo-ring">
-                        <div class="dir-logo" style="{{ $company->logo_path ? 'padding:0;overflow:hidden;' : '' }}">
+                    <div class="dir-card-header">
+                        <div class="dir-logo" style="--dir-c1:{{ $c1 }};--dir-c2:{{ $c2 }};">
                             @if($company->logo_path)
-                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($company->logo_path) }}"
-                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="{{ $company->name }}">
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($company->logo_path) }}" alt="{{ $company->name }}">
                             @else
                                 {{ $avatarChar }}
                             @endif
                         </div>
-                    </div>
-
-                    {{-- Body --}}
-                    <div class="dir-body">
-                        <div>
+                        <div style="min-width:0;flex:1;">
                             <h3 class="dir-company-name">{{ $company->name }}</h3>
                             @if($company->sector || $company->city)
                                 <div class="dir-sector-label">
                                     {{ $company->sector }}{{ ($company->sector && $company->city) ? ' · ' : '' }}{{ $company->city }}
                                 </div>
                             @endif
-                            @if($company->tagline)
-                                <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;font-style:italic;line-height:1.4;">{{ Str::limit($company->tagline, 80) }}</div>
+                            @if($cardStyle === 'rich' && $company->tagline)
+                                <div class="dir-tagline">{{ Str::limit($company->tagline, 70) }}</div>
                             @endif
-                        </div>
-
-                        <div class="dir-contacts">
-                            @if($company->website)
-                            <div class="dir-contact">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                                <a href="{{ $company->website }}" target="_blank" rel="noopener">{{ preg_replace('#^https?://(www\.)?#', '', rtrim($company->website, '/')) }}</a>
-                            </div>
-                            @endif
-                            @if($company->email)
-                            <div class="dir-contact">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                <span>{{ $company->email }}</span>
-                            </div>
-                            @endif
-                            @if($company->phone)
-                            <div class="dir-contact">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
-                                <span>{{ $company->phone }}</span>
-                            </div>
-                            @endif
-                        </div>
-
-                        <div class="dir-pills">
-                            <span class="dir-pill {{ $listings > 0 ? 'active-shop' : '' }}">
-                                @if($listings > 0)<span class="dir-pill-dot"></span>@endif
-                                {{ $listings }} {{ $listings === 1 ? 'prodotto' : 'prodotti' }}
-                            </span>
-                            <span class="dir-pill {{ $anns > 0 ? 'active-ann' : '' }}">
-                                @if($anns > 0)<span class="dir-pill-dot"></span>@endif
-                                {{ $anns }} {{ $anns === 1 ? 'annuncio' : 'annunci' }}
-                            </span>
                         </div>
                     </div>
 
-                    {{-- Footer --}}
+                    <div class="dir-contacts">
+                        @if($company->website)
+                        <div class="dir-contact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <a href="{{ $company->website }}" target="_blank" rel="noopener">{{ preg_replace('#^https?://(www\.)?#', '', rtrim($company->website, '/')) }}</a>
+                        </div>
+                        @endif
+                        @if($company->email)
+                        <div class="dir-contact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            <span>{{ $company->email }}</span>
+                        </div>
+                        @endif
+                        @if($company->phone)
+                        <div class="dir-contact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
+                            <span>{{ $company->phone }}</span>
+                        </div>
+                        @endif
+                        @if($cardStyle === 'rich' && $company->sector)
+                        <div class="dir-contact">
+                            <span style="opacity:.6;">{{ $sectorIcon }}</span>
+                            <span>{{ $company->sector }}</span>
+                        </div>
+                        @endif
+                    </div>
+
+                    @if($cardStyle === 'rich' && ($plan?->can_sell_products || $anns > 0))
+                    <div class="dir-pills">
+                        @if($plan?->can_sell_products)
+                        <span class="dir-pill {{ $listings > 0 ? 'active-shop' : '' }}">
+                            @if($listings > 0)<span class="dir-pill-dot"></span>@endif
+                            {{ $listings }} {{ $listings === 1 ? 'prodotto' : 'prodotti' }}
+                        </span>
+                        @endif
+                        <span class="dir-pill {{ $anns > 0 ? 'active-ann' : '' }}">
+                            @if($anns > 0)<span class="dir-pill-dot"></span>@endif
+                            {{ $anns }} {{ $anns === 1 ? 'annuncio' : 'annunci' }}
+                        </span>
+                    </div>
+                    @endif
+
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
-                        {{-- Badge KY --}}
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100% Kmoney</span>
+                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100%</span>
                             @elseif($isAtCeiling)
-                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Al massimale</span>
+                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔</span>
                             @elseif($effectiveKyPct === 100)
-                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% Kmoney</span>
+                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100%</span>
                             @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
-                                <span class="ky-badge ky-badge--mix" title="Questa azienda accetta pagamenti in Kmoney fino al {{ $effectiveKyPct }}% del prezzo">✓ Kmoney {{ $effectiveKyPct }}%</span>
+                                <span class="ky-badge ky-badge--mix" title="Kmoney fino al {{ $effectiveKyPct }}%">✓ {{ $effectiveKyPct }}%</span>
                             @endif
                         @endif
                         @if($listings > 0)
                             <a href="{{ route('portal.shop') }}?company={{ $company->id }}"
-                               class="dir-btn dir-btn-ghost">🛍 Shop</a>
+                               class="dir-btn dir-btn-ghost">🛍</a>
                         @endif
                         <a href="{{ route('portal.companies.show', $company->slug) }}"
                            class="dir-btn dir-btn-ghost">Profilo</a>
@@ -512,8 +502,7 @@
                                class="dir-btn dir-btn-primary">💸 Paga</a>
                         @endif
                         @if(($directoryMode ?? '') === 'admin')
-                            <a href="{{ route('admin.companies.show', $company) }}"
-                               class="dir-btn dir-btn-ghost">⚙</a>
+                            <a href="{{ route('admin.companies.show', $company) }}" class="dir-btn dir-btn-ghost">⚙</a>
                         @endif
                     </div>
 

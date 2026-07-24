@@ -33,7 +33,7 @@ use Illuminate\Support\Str;
  * @property int|null $broker_user_id
  * @property \Illuminate\Support\Carbon|null $suspended_at
  * @property string|null $suspension_reason
- * @property string|null $subscription_plan
+ * @property int|null $plan_id
  * @property int|null $accepted_ky_percentage
  * @property string|null $tagline
  * @property string|null $city
@@ -43,6 +43,7 @@ use Illuminate\Support\Str;
  * @property string|null $logo_path
  * @property string|null $banner_path
  * @property string|null $payments_paused_at
+ * @property-read \App\Models\Plan|null $plan
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $accounts
  * @property-read int|null $accounts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Announcement> $announcements
@@ -55,6 +56,7 @@ use Illuminate\Support\Str;
  * @property-read string|null $logo_url
  * @property-read int $plan_order
  * @property-read string $subscription_plan_label
+ * @property-read string $plan_card_style
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\KycDocument> $kycDocuments
  * @property-read int|null $kyc_documents_count
  * @property-read \App\Models\User|null $kycReviewedBy
@@ -66,39 +68,6 @@ use Illuminate\Support\Str;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Company query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereApprovedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereBannerPath($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereBrokerUserId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCity($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereCurrencyCode($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereDescription($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereEmail($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereFacebookUrl($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereFiscalCode($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereInstagramUrl($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycNotes($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycReviewedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycReviewedBy($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereKycStatus($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereLinkedinUrl($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereLogoPath($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company wherePaymentsPausedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company wherePhone($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSector($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSettings($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSlug($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereStatus($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSubscriptionPlan($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSuspendedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereSuspensionReason($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereTagline($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUpdatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereUuid($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereVatNumber($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Company whereWebsite($value)
  * @mixin \Eloquent
  */
 class Company extends Model
@@ -110,22 +79,6 @@ class Company extends Model
         'under_review' => 'Documenti in revisione',
         'approved'     => 'Verificata',
         'rejected'     => 'Rifiutata',
-    ];
-
-    /** Piani in ordine decrescente di costo (indice = priorità di visualizzazione) */
-    public const SUBSCRIPTION_PLANS = [
-        'ecommerce' => 'Ecommerce',
-        'vetrina'   => 'Vetrina',
-        'biglietto' => 'Biglietto',
-        'anagrafica'=> 'Anagrafica',
-    ];
-
-    /** Peso per ordinamento: più basso = mostrato prima */
-    public const PLAN_ORDER = [
-        'ecommerce'  => 0,
-        'vetrina'    => 1,
-        'biglietto'  => 2,
-        'anagrafica' => 3,
     ];
 
     /** Percentuali Kmoney dichiarabili dall'azienda nel profilo (mix KY/EUR) */
@@ -144,7 +97,7 @@ class Company extends Model
         'vat_number',
         'fiscal_code',
         'status',
-        'subscription_plan',
+        'plan_id',
         'accepted_ky_percentage',
         'kyc_status',
         'kyc_notes',
@@ -208,24 +161,63 @@ class Company extends Model
         return $this->status === 'active' && ! $this->isSuspended();
     }
 
-    public function getSubscriptionPlanLabelAttribute(): string
+    public function plan(): BelongsTo
     {
-        return self::SUBSCRIPTION_PLANS[$this->subscription_plan] ?? '—';
+        return $this->belongsTo(Plan::class);
     }
 
+    public function planPayments(): HasMany
+    {
+        return $this->hasMany(PlanPayment::class);
+    }
+
+    public function getSubscriptionPlanLabelAttribute(): string
+    {
+        return $this->plan?->name ?? '—';
+    }
+
+    /** Peso per ordinamento directory: piu' basso = mostrato prima. */
     public function getPlanOrderAttribute(): int
     {
-        return self::PLAN_ORDER[$this->subscription_plan] ?? 99;
+        return $this->plan?->display_order ?? 99;
+    }
+
+    /** Stile card da usare nella directory (rich | compact | simple). */
+    public function getPlanCardStyleAttribute(): string
+    {
+        return $this->plan?->card_style ?? 'simple';
     }
 
     /**
-     * Il piano Ecommerce è l'unico che sblocca la pubblicazione di prodotti
-     * nello shop del circuito (acquistare resta sempre possibile a chi ha
-     * i permessi marketplace, a prescindere dal piano).
+     * Il piano deve avere la caratteristica "vendita prodotti" abilitata
+     * (di default solo il piano Ecommerce, ma l'admin puo' abilitarla su
+     * qualunque altro piano da /admin/piani).
      */
     public function hasEcommercePlan(): bool
     {
-        return $this->subscription_plan === 'ecommerce';
+        return (bool) ($this->plan?->can_sell_products ?? false);
+    }
+
+    /**
+     * Piani attivi a cui l'azienda puo' fare self-service upgrade pagando la
+     * differenza (solo piani con canone piu' alto di quello attuale: i
+     * downgrade restano gestiti dall'admin per evitare rimborsi automatici).
+     */
+    public function availableUpgrades(): \Illuminate\Support\Collection
+    {
+        $currentPrice = $this->plan?->price_cents ?? 0;
+
+        return Plan::query()
+            ->where('is_active', true)
+            ->where('price_cents', '>', $currentPrice)
+            ->orderBy('display_order')
+            ->get();
+    }
+
+    /** Differenza da pagare (centesimi) per passare al piano indicato. */
+    public function upgradePriceDifference(Plan $targetPlan): int
+    {
+        return max(0, $targetPlan->price_cents - ($this->plan?->price_cents ?? 0));
     }
 
     // ── Accettazione Kmoney (badge directory) ────────────────────────────────

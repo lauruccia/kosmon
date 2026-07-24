@@ -141,7 +141,12 @@
 
             <div class="metric">
                 <div class="metric-label">Venditore</div>
-                <div class="metric-value" style="font-size:16px;">{{ $listing->company->name }}</div>
+                <div class="metric-value" style="font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <a href="{{ route('portal.companies.show', $listing->company->slug) }}" style="color:inherit;text-decoration:none;">{{ $listing->company->name }}</a>
+                    @if($listing->company->plan)
+                        <span style="font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;color:#fff;background:{{ $listing->company->plan->effective_badge_color }};">{{ strtoupper($listing->company->plan->name) }}</span>
+                    @endif
+                </div>
             </div>
             @if($listing->contact_info)
             <div class="metric">

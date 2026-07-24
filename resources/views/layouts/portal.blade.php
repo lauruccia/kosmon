@@ -1547,6 +1547,11 @@
                                     <span class="nav-icon">🛒</span><span>Shop</span>
                                 </a>
                                 @endif
+                                @if((($currentUser??$authUser)?->canAccessMarketplace() || ($currentUser??$authUser)?->is_super_admin) && ($currentUser??$authUser)?->company_id)
+                                <a class="sidebar-link {{ $an === 'plan' ? 'active' : '' }}" href="{{ route('portal.plan.index') }}">
+                                    <span class="nav-icon">💎</span><span>Il mio piano</span>
+                                </a>
+                                @endif
                                 @if($mv('annunci') && ($currentUser??$authUser)?->canAccessAnnouncements())
                                 <a class="sidebar-link {{ $an === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}">
                                     <span class="nav-icon">📣</span><span>Annunci</span>

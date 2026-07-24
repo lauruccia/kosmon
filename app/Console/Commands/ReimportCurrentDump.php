@@ -219,7 +219,7 @@ class ReimportCurrentDump extends Command
 
             if ($user->company) {
                 $user->company->forceFill([
-                    'subscription_plan' => $holderType === 'company'
+                    'plan_id' => $holderType === 'company'
                         ? $this->mapSubscriptionPlan($userData['store_plan_purchase'] ?? null)
                         : null,
                     'status' => (int) ($userData['status'] ?? 1) === 1 ? 'active' : 'suspended',
@@ -519,17 +519,27 @@ class ReimportCurrentDump extends Command
             : 'company';
     }
 
-    private function mapSubscriptionPlan(mixed $value): ?string
+    /** Vedi ImportOldData::mapSubscriptionPlan — stesso schema, restituisce plan_id. */
+    private function mapSubscriptionPlan(mixed $value): ?int
     {
-        $plan = strtolower(trim((string) $value));
+        $slug = strtolower(trim((string) $value));
 
-        return match ($plan) {
+        $slug = match ($slug) {
             'ecommerce' => 'ecommerce',
             'vetrina' => 'vetrina',
             'biglietto', 'biglietto da visita', 'business card' => 'biglietto',
             'anagrafica' => 'anagrafica',
             default => null,
         };
+
+        if ($slug === null) {
+            return null;
+        }
+
+        static $planIds = null;
+        $planIds ??= \App\Models\Plan::pluck('id', 'slug')->all();
+
+        return $planIds[$slug] ?? null;
     }
 
     private function mapLegacyLimits(array $old): array

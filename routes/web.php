@@ -43,6 +43,8 @@ use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\StepUpController;
 use App\Http\Controllers\KyCardController;
 use App\Http\Controllers\AdminKyCardController;
+use App\Http\Controllers\AdminPlanController;
+use App\Http\Controllers\PlanSubscriptionController;
 use App\Http\Controllers\BalanceAlertController;
 use App\Http\Controllers\BeneficiaryController;
 use App\Http\Controllers\HomeController;
@@ -469,6 +471,17 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::post('/azienda/pagamenti/{provider}/attiva', [PaymentGatewayController::class, 'toggleActive'])->name('portal.payment-gateways.toggle');
     Route::delete('/azienda/pagamenti/{provider}', [PaymentGatewayController::class, 'destroy'])->name('portal.payment-gateways.destroy');
 
+    // Self-service upgrade piano abbonamento: l'azienda paga la differenza con
+    // Stripe/PayPal/bonifico o KY — vedi PlanSubscriptionController.
+    Route::get('/azienda/piano', [PlanSubscriptionController::class, 'index'])->name('portal.plan.index');
+    Route::get('/azienda/piano/{plan}/checkout', [PlanSubscriptionController::class, 'checkout'])->name('portal.plan.checkout');
+    Route::post('/azienda/piano/{plan}/stripe', [PlanSubscriptionController::class, 'stripeCheckout'])->name('portal.plan.stripe-checkout')->middleware('throttle:10,1');
+    Route::post('/azienda/piano/{plan}/paypal/create-order', [PlanSubscriptionController::class, 'paypalCreateOrder'])->name('portal.plan.paypal-create-order')->middleware('throttle:10,1');
+    Route::get('/azienda/piano/paypal/capture/{payment}', [PlanSubscriptionController::class, 'paypalCapture'])->name('portal.plan.paypal-capture');
+    Route::post('/azienda/piano/{plan}/bonifico', [PlanSubscriptionController::class, 'bankTransfer'])->name('portal.plan.bank-transfer');
+    Route::post('/azienda/piano/{plan}/ky', [PlanSubscriptionController::class, 'payWithKy'])->name('portal.plan.pay-ky')->middleware('throttle:10,1');
+    Route::get('/azienda/piano/esito/{payment}', [PlanSubscriptionController::class, 'success'])->name('portal.plan.success');
+
     Route::get('/movimenti', [PortalController::class, 'movements'])->name('portal.movements');
     Route::get('/movimenti/export-csv', [PortalController::class, 'exportMovementsCsv'])->name('portal.movements.export-csv');
     Route::get('/movimenti/{uuid}/ricevuta', [ReceiptController::class, 'download'])->name('portal.receipt.download');
@@ -688,6 +701,16 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::put('/admin/settori/{sector}', [AdminSectorController::class, 'update'])->name('admin.sectors.update')->middleware('backoffice');
     Route::patch('/admin/settori/{sector}/toggle', [AdminSectorController::class, 'toggle'])->name('admin.sectors.toggle')->middleware('backoffice');
     Route::delete('/admin/settori/{sector}', [AdminSectorController::class, 'destroy'])->name('admin.sectors.destroy')->middleware('backoffice');
+
+    // Admin piani di abbonamento (CRUD + revisione bonifici upgrade) — vedi AdminPlanController.
+    Route::get('/admin/piani', [AdminPlanController::class, 'index'])->name('admin.plans.index')->middleware('backoffice');
+    Route::post('/admin/piani', [AdminPlanController::class, 'store'])->name('admin.plans.store')->middleware('backoffice');
+    Route::put('/admin/piani/{plan}', [AdminPlanController::class, 'update'])->name('admin.plans.update')->middleware('backoffice');
+    Route::patch('/admin/piani/{plan}/toggle', [AdminPlanController::class, 'toggle'])->name('admin.plans.toggle')->middleware('backoffice');
+    Route::delete('/admin/piani/{plan}', [AdminPlanController::class, 'destroy'])->name('admin.plans.destroy')->middleware('backoffice');
+    Route::get('/admin/piani/bonifici', [AdminPlanController::class, 'pendingTransfers'])->name('admin.plans.pending-transfers')->middleware('backoffice');
+    Route::post('/admin/piani/bonifici/{payment}/confirm', [AdminPlanController::class, 'confirmBankTransfer'])->name('admin.plans.confirm-transfer')->middleware('backoffice');
+    Route::post('/admin/piani/bonifici/{payment}/reject', [AdminPlanController::class, 'rejectBankTransfer'])->name('admin.plans.reject-transfer')->middleware('backoffice');
 
     // Admin KYCard CRUD
     Route::get('/admin/ky-cards', [AdminKyCardController::class, 'index'])->name('admin.ky-cards.index')->middleware('backoffice');

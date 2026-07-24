@@ -38,7 +38,7 @@ class ListingController extends Controller
         $q = trim((string) $request->query('q', ''));
 
         $listingsQuery = Listing::query()
-            ->with('company')
+            ->with('company.plan')
             ->active()
             ->when($category !== '', fn ($query) => $query->inCategory($category))
             ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
@@ -50,7 +50,7 @@ class ListingController extends Controller
             ->orderByDesc('created_at');
 
         $listings = $listingsQuery->paginate(12)->withQueryString();
-        $featuredListings = Listing::query()->with('company')->active()->featured()->latest()->take(4)->get();
+        $featuredListings = Listing::query()->with('company.plan')->active()->featured()->latest()->take(4)->get();
 
         return view('portal.shop', [
             'pageTitle'       => 'Shop del circuito',
@@ -87,8 +87,8 @@ class ListingController extends Controller
             'pageTitle'      => $listing->title . ' — Shop KMoney',
             'currentAccount' => $currentAccount,
             'currentUser'    => $user,
-            'listing'        => $listing->load('company'),
-            'related'        => Listing::query()->with('company')->active()
+            'listing'        => $listing->load('company.plan'),
+            'related'        => Listing::query()->with('company.plan')->active()
                                     ->inCategory($listing->category)
                                     ->whereKeyNot($listing->id)
                                     ->latest()->take(3)->get(),

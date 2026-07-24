@@ -318,10 +318,20 @@ class KyCardController extends PortalController
 
         if ($event->type === 'checkout.session.completed') {
             $session  = $event->data->object;
+
             $purchase = KyCardPurchase::where('stripe_checkout_session_id', $session->id)->first();
             if ($purchase && $purchase->isPending()) {
                 $purchase->update(['stripe_payment_intent_id' => $session->payment_intent]);
                 $this->creditKy($purchase);
+            }
+
+            // Stesso endpoint webhook condiviso anche per gli upgrade piano
+            // (vedi PlanSubscriptionController::stripeCheckout) — un unico
+            // endpoint Stripe da configurare per tutto il circuito.
+            $planPayment = \App\Models\PlanPayment::where('stripe_checkout_session_id', $session->id)->first();
+            if ($planPayment && $planPayment->isPending()) {
+                $planPayment->update(['stripe_payment_intent_id' => $session->payment_intent]);
+                app(\App\Services\PlanUpgradeService::class)->completePayment($planPayment);
             }
         }
 

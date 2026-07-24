@@ -45,8 +45,10 @@ class TransactionFee extends Model
 
     public static function calculate(string $kind, int $amount): int
     {
-        // Il cashback non è mai soggetto a commissione (evita loop di fee su fee)
-        if ($kind === 'portal_cashback' || $kind === 'portal_fee') {
+        // Il cashback non è mai soggetto a commissione (evita loop di fee su fee).
+        // Anche il pagamento upgrade piano (portal_plan_upgrade) è escluso: è già
+        // di per sé un canone verso il circuito, non un pagamento commerciale.
+        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade'], true)) {
             return 0;
         }
 
@@ -84,6 +86,7 @@ class TransactionFee extends Model
             'portal_credit_note'     => 'Nota di credito',
             'api_payment'            => 'Pagamento API',
             'portal_cashback'        => 'Cashback (non soggetto a commissione — escluso automaticamente)',
+            'portal_plan_upgrade'    => 'Upgrade piano pagato in KY (non soggetto a commissione — escluso automaticamente)',
             '*'                      => 'Default (tutti i tipi non coperti)',
         ];
     }
