@@ -90,11 +90,15 @@ class AuthFlowTest extends TestCase
         $this->assertDatabaseHas('accounts', ['owner_type' => 'company', 'account_name' => 'Conto principale Riva Lab SRL']);
 
         $user = User::where('email', 'giulia.riva@example.test')->firstOrFail();
-        $this->assertTrue($user->roles()->where('slug', 'company-member')->exists());
+        // Dal 23/07 (eba46a4) il titolare che registra l'azienda diventa subito
+        // company-manager (accesso pieno: shop/marketplace, gestione conti/utenti,
+        // annunci). Il ruolo company-member resta riservato ai sottoconti/collaboratori
+        // creati in seguito (vedi SubAccountService).
+        $this->assertTrue($user->roles()->where('slug', 'company-manager')->exists());
         $this->assertTrue($user->hasPermission('payments.send'));
         $this->assertTrue($user->hasPermission('payments.receive'));
-        $this->assertFalse($user->hasPermission('announcements.publish'));
-        $this->assertFalse($user->hasPermission('marketplace.buy'));
+        $this->assertTrue($user->hasPermission('announcements.publish'));
+        $this->assertTrue($user->hasPermission('marketplace.buy'));
     }
 
     public function test_login_with_legacy_non_bcrypt_hash_shows_reset_message_instead_of_500(): void

@@ -96,11 +96,26 @@ class ListingAnnouncementControllerTest extends TestCase
 
     public function test_company_user_can_view_shop_create_form(): void
     {
-        [$user] = $this->makeCompanyUser();
+        [$user, $company] = $this->makeCompanyUser();
+        // Dal 23/07 (eba46a4) pubblicare prodotti richiede il piano Ecommerce
+        // (Company::hasEcommercePlan()), altrimenti ListingController::create
+        // reindirizza a portal.shop. makeCompanyUser() non imposta un piano di
+        // default, quindi va attivato esplicitamente per questo test.
+        $company->update(['subscription_plan' => 'ecommerce']);
 
         $this->actingAs($user)
             ->get(route('portal.shop.create'))
             ->assertOk();
+    }
+
+    public function test_company_user_without_ecommerce_plan_is_redirected_from_shop_create(): void
+    {
+        [$user] = $this->makeCompanyUser();
+
+        $this->actingAs($user)
+            ->get(route('portal.shop.create'))
+            ->assertRedirect(route('portal.shop'))
+            ->assertSessionHas('portal_error');
     }
 
     // ── Shop / Listing (admin) ────────────────────────────────────────────────
