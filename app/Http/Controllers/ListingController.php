@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Company;
 use App\Models\Listing;
 use App\Notifications\NewMarketplaceOrderNotification;
 use App\Services\TransferBookingService;
@@ -279,7 +280,13 @@ class ListingController extends Controller
         $user = $request->user();
         abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
 
-        $currentAccount = $this->resolveAccount($user);
+        // Un admin che modifica il prodotto di un'altra azienda non ha un conto
+        // proprio da usare per calcolare le percentuali KY consentite (spesso
+        // non ha nemmeno un'azienda associata): usiamo quello dell'azienda
+        // proprietaria del prodotto, stesso conto usato in adminStore().
+        $currentAccount = ($user->is_super_admin && $listing->company_id !== $user->company_id)
+            ? $listing->company->primaryBusinessAccount()
+            : $this->resolveAccount($user);
         $validated = $this->validateListing($request, $currentAccount);
 
         // Carica nuove immagini e le aggiunge a quelle esistenti
@@ -348,6 +355,58 @@ class ListingController extends Controller
             'statuses'  => Listing::STATUSES,
             'activeNav' => 'admin-listings',
         ]);
+    }
+
+    // ── Admin: form creazione prodotto per conto di un'azienda ─────────────────
+
+    public function adminCreate(Request $request): View
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $companies = Company::query()->orderBy('name')->get(['id', 'name']);
+
+        return view('admin.listing-create', [
+            'pageTitle'  => 'Nuovo prodotto per conto azienda',
+            'companies'  => $companies,
+            'categories' => Listing::CATEGORIES,
+            'activeNav'  => 'admin-listings',
+        ]);
+    }
+
+    // ── Admin: salva il prodotto assegnandolo all'azienda scelta ───────────────
+
+    public function adminStore(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+        ]);
+
+        $company = Company::findOrFail($request->input('company_id'));
+        $account = $company->primaryBusinessAccount();
+
+        if (! $account) {
+            return back()->withInput()->with('portal_error', 'Questa azienda non ha un conto business principale: impossibile assegnarle un prodotto.');
+        }
+
+        // Stesse regole KY dell'azienda selezionata (es. saldo negativo → solo
+        // 100% KY, saldo al tetto massimo → vendita bloccata): l'admin pubblica
+        // "per conto" dell'azienda, non bypassa le sue regole commerciali.
+        $validated = $this->validateListing($request, $account);
+
+        $uuid = (string) Str::uuid();
+        $imagePaths = $this->storeUploadedImages($request, $uuid);
+
+        Listing::create(array_merge($validated, [
+            'uuid'               => $uuid,
+            'company_id'         => $company->id,
+            'created_by_user_id' => $request->user()->id,
+            'status'             => 'active',
+            'images'             => $imagePaths,
+        ]));
+
+        return redirect()->route('admin.listings.index')->with('portal_success', 'Prodotto pubblicato per conto di ' . $company->name . '.');
     }
 
     // ── Admin: cambia stato ───────────────────────────────────────────────────

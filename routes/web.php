@@ -796,6 +796,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::post('/admin/kyc/{company}/request-docs', [KycController::class, 'requestMoreDocs'])->name('admin.kyc.request-docs')->middleware('backoffice');
 
     Route::get('/admin/listings', [ListingController::class, 'adminIndex'])->name('admin.listings.index')->middleware('backoffice');
+    Route::get('/admin/listings/crea', [ListingController::class, 'adminCreate'])->name('admin.listings.create')->middleware('backoffice');
+    Route::post('/admin/listings', [ListingController::class, 'adminStore'])->name('admin.listings.store')->middleware('backoffice');
     Route::post('/admin/listings/{listing}/status', [ListingController::class, 'adminUpdateStatus'])->name('admin.listings.status')->middleware('backoffice');
 
     Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index')->middleware('backoffice');

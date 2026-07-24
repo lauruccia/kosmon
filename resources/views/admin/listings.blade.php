@@ -8,10 +8,16 @@
     {{-- Header --}}
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900">Moderazione Shop</h1>
-        <a href="{{ route('portal.shop') }}"
-           class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            ← Vista portale
-        </a>
+        <div class="flex items-center gap-4">
+            <a href="{{ route('admin.listings.create') }}"
+               class="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">
+                + Nuovo prodotto per azienda
+            </a>
+            <a href="{{ route('portal.shop') }}"
+               class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                ← Vista portale
+            </a>
+        </div>
     </div>
 
     {{-- Flash --}}
