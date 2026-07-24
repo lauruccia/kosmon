@@ -20,10 +20,14 @@ class AnnouncementController extends Controller
 {
     // ── Portale: lista pubblica ───────────────────────────────────────────────
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
 
         $type   = $request->query('type', '');
         $sector = $request->query('sector', '');
@@ -74,6 +78,10 @@ class AnnouncementController extends Controller
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
 
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
         if ($announcement->status !== 'active') {
             return redirect()->route('portal.announcements')
                 ->with('portal_error', 'Questo annuncio non è più disponibile.');
@@ -118,6 +126,10 @@ class AnnouncementController extends Controller
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
 
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
         if (! $user->canAccessMarketplace()) {
             return redirect()->route('portal.announcements')
                 ->with('portal_error', 'Non hai i permessi per pubblicare annunci.');
@@ -157,9 +169,17 @@ class AnnouncementController extends Controller
     public function edit(Request $request, Announcement $announcement): View|RedirectResponse
     {
         $user = $request->user();
+        abort_unless($user->is_super_admin || $announcement->company_id === $user->company_id, 403);
+
         $currentAccount = $this->resolveAccount($user);
 
-        abort_unless($user->is_super_admin || $announcement->company_id === $user->company_id, 403);
+        // Un admin che modifica l'annuncio di un'altra azienda potrebbe non
+        // avere un conto proprio (stesso caso di ListingController::edit()) —
+        // $currentAccount qui serve solo al layout condiviso, non a calcoli di
+        // business: per i super admin non blocchiamo mai l'accesso al form.
+        if (! $user->is_super_admin && ($redirect = $this->redirectIfNoAccount($currentAccount, $user))) {
+            return $redirect;
+        }
 
         return view('portal.announcements-create', [
             'pageTitle'           => 'Modifica annuncio',
@@ -279,14 +299,31 @@ class AnnouncementController extends Controller
 
     // ── Helpers privati ───────────────────────────────────────────────────────
 
-    private function resolveAccount($user): Account
+    /**
+     * NB: torna null (non lancia più ModelNotFoundException) quando l'utente
+     * non ha nessun Account risolvibile — vedi redirectIfNoAccount(). Stesso
+     * bug/fix di ListingController::resolveAccount() (404 su /annunci per
+     * operatori di puro backoffice, riprodotto il 24/07).
+     */
+    private function resolveAccount($user): ?Account
     {
         if ($user->managed_account_id) {
-            return Account::query()->with(['company', 'ownerUser'])->findOrFail($user->managed_account_id);
+            return Account::query()->with(['company', 'ownerUser'])->find($user->managed_account_id);
         }
         if ($user->company_id) {
-            return Account::query()->with(['company'])->where('company_id', $user->company_id)->whereNull('parent_account_id')->firstOrFail();
+            return Account::query()->with(['company'])->where('company_id', $user->company_id)->whereNull('parent_account_id')->first();
         }
-        return Account::query()->with(['ownerUser'])->where('owner_user_id', $user->id)->whereNull('parent_account_id')->firstOrFail();
+        return Account::query()->with(['ownerUser'])->where('owner_user_id', $user->id)->whereNull('parent_account_id')->first();
+    }
+
+    private function redirectIfNoAccount(?Account $currentAccount, $user): ?RedirectResponse
+    {
+        if ($currentAccount !== null) {
+            return null;
+        }
+
+        return $user->canAccessBackoffice()
+            ? redirect()->route('admin.announcements.index')->with('portal_error', 'Il tuo profilo di backoffice non ha un conto associato al circuito: gestisci gli annunci da qui.')
+            : redirect()->route('portal.dashboard')->with('portal_error', 'Impossibile determinare il tuo conto.');
     }
 }

@@ -23,10 +23,14 @@ class ListingController extends Controller
 
     // ── Portale: lista pubblica ───────────────────────────────────────────────
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
 
         $category = $request->query('category', '');
         $q = trim((string) $request->query('q', ''));
@@ -66,6 +70,10 @@ class ListingController extends Controller
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
 
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
         if ($listing->status !== 'active') {
             return redirect()->route('portal.shop')->with('portal_error', 'Questo prodotto non è più disponibile.');
         }
@@ -102,6 +110,10 @@ class ListingController extends Controller
     {
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
 
         if ($listing->status !== 'active' || $listing->is_expired) {
             return redirect()->route('portal.shop')->with('portal_error', 'Questo prodotto non è più disponibile.');
@@ -192,6 +204,10 @@ class ListingController extends Controller
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
 
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
         if (! $user->canAccessMarketplace()) {
             return redirect()->route('portal.shop')->with('portal_error', 'Non hai i permessi per pubblicare prodotti.');
         }
@@ -234,6 +250,10 @@ class ListingController extends Controller
 
         $currentAccount = $this->resolveAccount($user);
 
+        if (! $currentAccount) {
+            abort(403);
+        }
+
         if ($currentAccount->isAtCeiling()) {
             return redirect()->route('portal.shop')
                 ->with('portal_error', 'Il tuo conto ha raggiunto il tetto massimo: puoi solo acquistare.');
@@ -261,9 +281,21 @@ class ListingController extends Controller
     public function edit(Request $request, Listing $listing): View|RedirectResponse
     {
         $user = $request->user();
-        $currentAccount = $this->resolveAccount($user);
-
         abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+
+        // Stesso ragionamento di update(): un admin che apre il form di modifica
+        // del prodotto di un'altra azienda non ha un conto proprio da usare per
+        // calcolare le percentuali KY consentite (spesso non ha nemmeno
+        // un'azienda associata, causa del 404 riprodotto il 24/07 su
+        // /shop/{id}/modifica) — usiamo quello dell'azienda proprietaria del
+        // prodotto, stesso conto usato in update()/adminStore().
+        $currentAccount = ($user->is_super_admin && $listing->company_id !== $user->company_id)
+            ? $listing->company->primaryBusinessAccount()
+            : $this->resolveAccount($user);
+
+        if (! $user->is_super_admin && ($redirect = $this->redirectIfNoAccount($currentAccount, $user))) {
+            return $redirect;
+        }
 
         return view('portal.shop-create', [
             'pageTitle'            => 'Modifica prodotto',
@@ -271,8 +303,8 @@ class ListingController extends Controller
             'currentUser'          => $user,
             'categories'           => Listing::CATEGORIES,
             'editingListing'       => $listing,
-            'allowedKyPercentages' => $currentAccount->allowedKyPercentages(),
-            'requiredKyPercentage' => $currentAccount->requiredKyPercentage(),
+            'allowedKyPercentages' => $currentAccount?->allowedKyPercentages() ?? Listing::KY_PERCENTAGES,
+            'requiredKyPercentage' => $currentAccount?->requiredKyPercentage(),
             'activeNav'            => 'shop',
         ]);
     }
@@ -572,14 +604,42 @@ class ListingController extends Controller
         return $paths;
     }
 
-    private function resolveAccount($user): Account
+    /**
+     * NB: torna null (non lancia più ModelNotFoundException) quando l'utente
+     * non ha nessun Account risolvibile — vedi redirectIfNoAccount().
+     */
+    private function resolveAccount($user): ?Account
     {
         if ($user->managed_account_id) {
-            return Account::query()->with(['company', 'ownerUser'])->findOrFail($user->managed_account_id);
+            return Account::query()->with(['company', 'ownerUser'])->find($user->managed_account_id);
         }
         if ($user->company_id) {
-            return Account::query()->with(['company'])->where('company_id', $user->company_id)->whereNull('parent_account_id')->firstOrFail();
+            return Account::query()->with(['company'])->where('company_id', $user->company_id)->whereNull('parent_account_id')->first();
         }
-        return Account::query()->with(['ownerUser'])->where('owner_user_id', $user->id)->whereNull('parent_account_id')->firstOrFail();
+        return Account::query()->with(['ownerUser'])->where('owner_user_id', $user->id)->whereNull('parent_account_id')->first();
+    }
+
+    /**
+     * Le pagine shop rivolte al cliente richiedono un Account risolvibile
+     * (personale, aziendale o gestito). Un operatore di puro backoffice
+     * (staff senza azienda/conto proprio, es. profilo "Sala controllo") non
+     * ne ha uno: prima resolveAccount() andava in 404 (ModelNotFoundException
+     * da firstOrFail/findOrFail) invece di gestire il caso — bug riprodotto
+     * il 24/07 su /shop, /shop/crea, /shop/{id}, /shop/{id}/modifica.
+     *
+     * Guardiamo solo se l'account esiste davvero (non canAccessBackoffice()):
+     * un profilo Privato con is_super_admin ma con un conto proprio (com'è
+     * il caso reale in produzione) deve continuare a vedere lo shop cliente
+     * normalmente, non essere rimandato al backoffice.
+     */
+    private function redirectIfNoAccount(?Account $currentAccount, $user): ?RedirectResponse
+    {
+        if ($currentAccount !== null) {
+            return null;
+        }
+
+        return $user->canAccessBackoffice()
+            ? redirect()->route('admin.listings.index')->with('portal_error', 'Il tuo profilo di backoffice non ha un conto associato al circuito: gestisci lo shop da qui.')
+            : redirect()->route('portal.dashboard')->with('portal_error', 'Impossibile determinare il tuo conto.');
     }
 }
