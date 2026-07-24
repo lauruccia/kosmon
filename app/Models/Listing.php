@@ -298,15 +298,23 @@ class Listing extends Model
     }
 
     /**
-     * Classe CSS Tailwind del badge mix (per le card shop).
+     * CSS inline (background/color) del badge mix KY/EUR, per le view.
+     *
+     * NB: prima ritornava classi Tailwind (es. "bg-emerald-100 text-emerald-800")
+     * ma le view lo iniettavano dentro un attributo style="" — il browser
+     * scartava quella dichiarazione perché non è CSS valido, quindi il badge
+     * restava sempre bianco/neutro. Tailwind inoltre non avrebbe comunque
+     * generato quelle utility class, perché lo scanner (@source in app.css)
+     * copre solo resources/**\/*.blade.php e *.js, non i file PHP dei Model.
+     * Ritornando dichiarazioni CSS dirette il badge funziona in ogni caso.
      */
     public function getKyBadgeColorAttribute(): string
     {
         return match(true) {
-            $this->ky_percentage === 100 => 'bg-emerald-100 text-emerald-800',
-            $this->ky_percentage >= 50   => 'bg-blue-100 text-blue-800',
-            $this->ky_percentage > 0     => 'bg-amber-100 text-amber-800',
-            default                      => 'bg-gray-100 text-gray-700',
+            $this->ky_percentage === 100 => 'background:#d1fae5;color:#065f46;',
+            $this->ky_percentage >= 50   => 'background:#dbeafe;color:#1e40af;',
+            $this->ky_percentage > 0     => 'background:#fef3c7;color:#92400e;',
+            default                      => 'background:#f1f5f9;color:#475569;',
         };
     }
 

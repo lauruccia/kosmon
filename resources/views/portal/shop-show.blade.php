@@ -2,10 +2,13 @@
 
 @section('content')
 <div style="margin-bottom:16px;">
-    <a href="{{ route('portal.shop') }}" style="color:#64748b;text-decoration:none;font-size:14px;">← Torna allo shop</a>
+    <a href="{{ route('portal.shop') }}" class="shop-back-link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Torna allo shop
+    </a>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
+<div class="product-detail-grid" style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
 
     {{-- Colonna principale --}}
     <div class="stack">
@@ -40,6 +43,11 @@
                         1 / {{ count($urls) }}
                     </div>
                     @endif
+                    @if(! $listing->isInStock())
+                    <div style="position:absolute;top:12px;left:12px;background:rgba(159,18,57,.92);color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 12px;border-radius:999px;">
+                        Esaurito
+                    </div>
+                    @endif
                 </div>
                 {{-- Thumbnail strip --}}
                 @if(count($urls) > 1)
@@ -53,6 +61,10 @@
                     @endforeach
                 </div>
                 @endif
+            </div>
+            @else
+            <div style="margin-top:20px;border-radius:12px;background:linear-gradient(150deg,#f8fafc,#fff);border:1px solid #f1f5f9;display:flex;align-items:center;justify-content:center;height:220px;color:#94a3b8;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             @endif
 
@@ -102,7 +114,7 @@
         $inStock      = $listing->isInStock();
         $canAfford    = $currentAccount->saldoDisponibile() >= $listing->ky_amount;
     @endphp
-    <div class="stack">
+    <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
             <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;margin:16px 0 4px;">
@@ -157,9 +169,10 @@
                     <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
                         @csrf
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
-                        <label class="field-label" style="display:block;margin-bottom:4px;">Quantità</label>
-                        <input type="number" name="quantity" value="1" min="1" max="{{ $listing->stock_quantity }}"
-                            class="field-input" style="margin-bottom:10px;">
+                        <div class="qty-field">
+                            <label>Quantità</label>
+                            <input type="number" name="quantity" value="1" min="1" max="{{ $listing->stock_quantity }}">
+                        </div>
                         @else
                         <input type="hidden" name="quantity" value="1">
                         @endif
@@ -248,4 +261,34 @@
 })();
 </script>
 @endif
+
+<style>
+    .shop-back-link {
+        display: inline-flex; align-items: center; gap: 6px;
+        color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 600;
+        transition: color .15s;
+    }
+    .shop-back-link:hover { color: var(--primary); }
+
+    /* Campo quantità nel box acquisto (card scura .account-hero):
+       non esisteva CSS per .field-label/.field-input, l'input era
+       completamente privo di stile. */
+    .qty-field { margin-bottom: 12px; }
+    .qty-field label {
+        display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700;
+        color: rgba(255,255,255,.75); text-transform: uppercase; letter-spacing: .06em;
+    }
+    .qty-field input {
+        width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
+        border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
+        background: rgba(255,255,255,.95); color: #0d1c30;
+        outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    .qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
+    @media (max-width: 900px) {
+        .product-detail-grid { grid-template-columns: 1fr !important; }
+        .product-detail-grid > div:last-child { position: static !important; }
+    }
+</style>
 @endsection

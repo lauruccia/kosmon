@@ -134,15 +134,29 @@
 </section>
 
 <style>
+    /* Reset dell'aspetto nativo del <select> (Chrome/Edge disegnano un outline
+       spesso e una barra colorata sotto al focus): con appearance:none
+       ripristiniamo solo la nostra freccia custom e un focus ring coerente
+       col design system, invece del contorno ciano/blu di sistema. */
     .listing-status-select {
-        border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700;
-        border: 1px solid var(--line); background: var(--surface-soft); color: var(--ink-soft);
+        appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        border-radius: 999px; padding: 5px 28px 5px 12px; font-size: 11px; font-weight: 700;
+        font-family: inherit; line-height: 1.4;
+        border: 1.5px solid var(--line); background-color: var(--surface-soft); color: var(--ink-soft);
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%234a637d' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat; background-position: right 10px center; background-size: 10px 6px;
+        outline: none; box-shadow: none;
         cursor: pointer;
+        transition: border-color .15s, box-shadow .15s;
     }
-    .listing-status-select.status-active { background: var(--success-soft); color: var(--success); border-color: rgba(6,95,70,.18); }
-    .listing-status-select.status-suspended { background: var(--danger-soft); color: var(--danger); border-color: rgba(159,18,57,.18); }
-    .listing-status-select.status-draft { background: var(--warning-soft); color: var(--warning); border-color: rgba(120,53,15,.15); }
-    .listing-status-select.status-expired { background: var(--surface-soft); color: var(--ink-soft); border-color: var(--line); }
+    .listing-status-select:hover { border-color: var(--line-strong); }
+    .listing-status-select:focus, .listing-status-select:focus-visible {
+        border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    .listing-status-select.status-active { background-color: var(--success-soft); color: var(--success); border-color: rgba(6,95,70,.18); }
+    .listing-status-select.status-suspended { background-color: var(--danger-soft); color: var(--danger); border-color: rgba(159,18,57,.18); }
+    .listing-status-select.status-draft { background-color: var(--warning-soft); color: var(--warning); border-color: rgba(120,53,15,.15); }
+    .listing-status-select.status-expired { background-color: var(--surface-soft); color: var(--ink-soft); border-color: var(--line); }
 </style>
 
 @endsection
