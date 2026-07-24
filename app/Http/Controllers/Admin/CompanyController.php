@@ -80,6 +80,12 @@ class CompanyController extends Controller
             ->limit(20)
             ->get();
 
+        // Metodi di pagamento EUR (Stripe/PayPal/Bonifico) configurabili
+        // dall'admin per conto dell'azienda — vedi Admin\CompanyPaymentGatewayController.
+        $paymentGateways = \App\Models\PaymentGateway::where('company_id', $company->id)
+            ->get()
+            ->keyBy('provider');
+
         return view('admin.company-show', [
             'pageTitle'       => $company->name,
             'company'         => $company,
@@ -90,6 +96,7 @@ class CompanyController extends Controller
             'apiTokens'       => $apiTokens,
             'webhooks'        => $webhooks,
             'ecommercePairings' => $ecommercePairings,
+            'paymentGateways' => $paymentGateways,
             'activeNav'       => 'companies',
         ]);
     }

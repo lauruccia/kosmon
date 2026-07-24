@@ -31,6 +31,9 @@ use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\PaymentRequestController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\ListingController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentGatewayController;
+use App\Http\Controllers\Admin\CompanyPaymentGatewayController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\NettingController;
@@ -451,6 +454,21 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');
     Route::delete('/shop/{listing}/immagini', [ListingController::class, 'destroyImage'])->name('portal.shop.image.destroy');
 
+    // Pagamento EUR (quota non-KY) di un ordine shop — vedi PaymentController.
+    Route::get('/shop/ordini/{payment}', [PaymentController::class, 'show'])->name('portal.shop.orders.pay');
+    Route::post('/shop/ordini/{payment}/stripe', [PaymentController::class, 'initiateStripe'])->name('portal.shop.orders.pay.stripe')->middleware('throttle:payments');
+    Route::get('/shop/ordini/{payment}/stripe/ritorno', [PaymentController::class, 'stripeReturn'])->name('portal.shop.orders.pay.stripe.return');
+    Route::post('/shop/ordini/{payment}/paypal', [PaymentController::class, 'initiatePaypal'])->name('portal.shop.orders.pay.paypal')->middleware('throttle:payments');
+    Route::get('/shop/ordini/{payment}/paypal/ritorno', [PaymentController::class, 'paypalReturn'])->name('portal.shop.orders.pay.paypal.return');
+    Route::post('/shop/ordini/{payment}/bonifico', [PaymentController::class, 'initiateBankTransfer'])->name('portal.shop.orders.pay.bank');
+    Route::post('/shop/ordini/{payment}/conferma-bonifico', [PaymentController::class, 'confirmBankTransfer'])->name('portal.shop.orders.confirm-bank');
+
+    // Metodi di pagamento EUR configurati dall'azienda (self-service) — vedi PaymentGatewayController.
+    Route::get('/azienda/pagamenti', [PaymentGatewayController::class, 'index'])->name('portal.payment-gateways.index');
+    Route::post('/azienda/pagamenti/{provider}', [PaymentGatewayController::class, 'update'])->name('portal.payment-gateways.update');
+    Route::post('/azienda/pagamenti/{provider}/attiva', [PaymentGatewayController::class, 'toggleActive'])->name('portal.payment-gateways.toggle');
+    Route::delete('/azienda/pagamenti/{provider}', [PaymentGatewayController::class, 'destroy'])->name('portal.payment-gateways.destroy');
+
     Route::get('/movimenti', [PortalController::class, 'movements'])->name('portal.movements');
     Route::get('/movimenti/export-csv', [PortalController::class, 'exportMovementsCsv'])->name('portal.movements.export-csv');
     Route::get('/movimenti/{uuid}/ricevuta', [ReceiptController::class, 'download'])->name('portal.receipt.download');
@@ -736,6 +754,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::delete('/admin/companies/{company}/ecommerce/webhooks/{webhook}', [CompanyEcommerceController::class, 'deleteWebhook'])->name('admin.companies.ecommerce.webhook.delete')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ecommerce/pairings/{pairing}/approve', [CompanyEcommerceController::class, 'approvePairing'])->name('admin.companies.ecommerce.pairing.approve')->middleware('backoffice');
     Route::post('/admin/companies/{company}/ecommerce/pairings/{pairing}/reject', [CompanyEcommerceController::class, 'rejectPairing'])->name('admin.companies.ecommerce.pairing.reject')->middleware('backoffice');
+
+    // Metodi di pagamento EUR configurati dall'admin per conto dell'azienda — vedi Admin\CompanyPaymentGatewayController.
+    Route::post('/admin/companies/{company}/pagamenti/{provider}', [CompanyPaymentGatewayController::class, 'update'])->name('admin.companies.payment-gateways.update')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/pagamenti/{provider}/attiva', [CompanyPaymentGatewayController::class, 'toggleActive'])->name('admin.companies.payment-gateways.toggle')->middleware('backoffice');
+    Route::delete('/admin/companies/{company}/pagamenti/{provider}', [CompanyPaymentGatewayController::class, 'destroy'])->name('admin.companies.payment-gateways.destroy')->middleware('backoffice');
     Route::get('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'confirmCompany'])->name('admin.companies.purge-test')->middleware('backoffice');
     Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');

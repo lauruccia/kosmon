@@ -809,6 +809,27 @@
             </form>
         </section>
 
+        {{-- ── Metodi di pagamento EUR (Stripe/PayPal/Bonifico) ──────────────── --}}
+        <section class="card card-pad">
+            <div class="eyebrow" style="margin-bottom:8px;">💠 Metodi di pagamento EUR</div>
+            <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;line-height:1.6;">
+                Per i prodotti shop con quota EUR (percentuale KY inferiore al 100%), l'acquirente paga quella quota
+                direttamente su uno di questi metodi — <strong>sul conto proprio di {{ $company->name }}</strong>, mai su un conto Kosmopay.
+                Configurali qui per conto dell'azienda se non può farlo autonomamente da <code style="font-size:11px;">/azienda/pagamenti</code>.
+            </p>
+            @foreach(\App\Models\PaymentGateway::PROVIDERS as $pgProvider => $pgProviderLabel)
+                @include('partials.payment-gateway-provider-card', [
+                    'provider'      => $pgProvider,
+                    'providerLabel' => $pgProviderLabel,
+                    'fieldSpecs'    => \App\Models\PaymentGateway::CREDENTIAL_FIELDS[$pgProvider],
+                    'gateway'       => ($paymentGateways ?? collect())->get($pgProvider),
+                    'updateUrl'     => route('admin.companies.payment-gateways.update', [$company, $pgProvider]),
+                    'toggleUrl'     => route('admin.companies.payment-gateways.toggle', [$company, $pgProvider]),
+                    'destroyUrl'    => route('admin.companies.payment-gateways.destroy', [$company, $pgProvider]),
+                ])
+            @endforeach
+        </section>
+
         {{-- ── Sospensione account ─────────────────────────────────────────── --}}
         <section class="card card-pad" style="border: 1.5px solid {{ $company->isSuspended() ? '#fca5a5' : 'var(--border)' }};">
             <div class="eyebrow" style="margin-bottom:12px;color:{{ $company->isSuspended() ? '#dc2626' : 'inherit' }};">

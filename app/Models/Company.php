@@ -327,6 +327,21 @@ class Company extends Model
         return $this->hasMany(Announcement::class);
     }
 
+    /**
+     * Metodi di pagamento EUR configurati da questa azienda (stripe/paypal/
+     * bank_transfer) per incassare la quota EUR dei prodotti shop con mix
+     * KY/EUR — vedi PaymentGateway.
+     */
+    public function paymentGateways(): HasMany
+    {
+        return $this->hasMany(PaymentGateway::class);
+    }
+
+    public function activePaymentGateways(): HasMany
+    {
+        return $this->paymentGateways()->active();
+    }
+
     public function kycDocuments(): HasMany
     {
         return $this->hasMany(KycDocument::class)->latest();

@@ -197,4 +197,14 @@ class Transfer extends Model
     {
         return $this->belongsTo(Listing::class);
     }
+
+    /**
+     * Pagamento EUR (quota non-KY) collegato a questo ordine shop, se il
+     * prodotto aveva un mix KY/EUR < 100% KY. Solo per
+     * kind = portal_marketplace_order — vedi MarketplaceOrderPayment.
+     */
+    public function marketplaceOrderPayment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(MarketplaceOrderPayment::class);
+    }
 }

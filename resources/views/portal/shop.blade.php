@@ -35,6 +35,9 @@
                     <span title="Per pubblicare prodotti serve il piano Ecommerce. Contatta l'amministrazione per attivarlo." style="padding:10px 18px;font-size:14px;white-space:nowrap;border:1.5px dashed #d1d9e0;border-radius:10px;color:#94a3b8;cursor:not-allowed;">+ Pubblica prodotto (piano Ecommerce richiesto)</span>
                 @endif
             @endif
+            @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
+                <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}" style="padding:10px 18px;font-size:14px;white-space:nowrap;">Metodi di pagamento EUR</a>
+            @endif
             <a class="cta secondary" href="{{ route('portal.announcements') }}" style="padding:10px 18px;font-size:14px;white-space:nowrap;">Vai agli annunci</a>
         </div>
     </form>

@@ -77,6 +77,7 @@
                     <th>Azienda venditrice</th>
                     <th style="text-align:right;">Importo</th>
                     <th>Stato</th>
+                    <th>Pagamento EUR</th>
                     <th style="text-align:center;">Azioni</th>
                 </tr>
             </thead>
@@ -130,6 +131,31 @@
                         <span class="chip {{ $statoChip }}" style="font-size:11px;padding:2px 7px;">{{ $statoLabel }}</span>
                         @if($isAlreadyRefunded)
                             <div style="font-size:11px;color:#e07e00;margin-top:3px;" title="Storno {{ $order->reversalChildren->first()->reference }}">↩ stornato</div>
+                        @endif
+                    </td>
+                    <td style="white-space:nowrap;">
+                        @php $eurPayment = $order->marketplaceOrderPayment; @endphp
+                        @if(! $eurPayment)
+                            <span style="font-size:11px;color:var(--ink-muted);">— (100% KY)</span>
+                        @else
+                            @php
+                                $eurChip = match($eurPayment->status) {
+                                    'paid' => 'success',
+                                    'awaiting_confirmation' => 'pink',
+                                    'failed', 'cancelled' => 'pink',
+                                    default => '',
+                                };
+                            @endphp
+                            <span class="chip {{ $eurChip }}" style="font-size:11px;padding:2px 7px;">
+                                {{ number_format($eurPayment->amount / 100, 2, ',', '.') }} € — {{ $eurPayment->status_label }}
+                            </span>
+                            @if($eurPayment->provider === 'bank_transfer' && ! $eurPayment->isPaid())
+                                <form method="POST" action="{{ route('portal.shop.orders.confirm-bank', $eurPayment) }}" style="margin-top:4px;"
+                                      onsubmit="return confirm('Confermi la ricezione di questo bonifico?');">
+                                    @csrf
+                                    <button type="submit" class="cta secondary" style="font-size:10.5px;padding:2px 8px;">Conferma bonifico</button>
+                                </form>
+                            @endif
                         @endif
                     </td>
                     <td style="text-align:center;white-space:nowrap;">

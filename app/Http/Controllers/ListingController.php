@@ -6,6 +6,8 @@ use App\Http\Controllers\Concerns\HandlesMovementFilters;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Listing;
+use App\Models\MarketplaceOrderPayment;
+use App\Models\PaymentGateway;
 use App\Models\Transfer;
 use App\Notifications\NewMarketplaceOrderNotification;
 use App\Services\TransferBookingService;
@@ -102,9 +104,14 @@ class ListingController extends Controller
      * stock se limitato, e notifica il venditore. Sostituisce il precedente
      * link "Paga" che si limitava a precompilare il form di pagamento libero.
      *
-     * NB: viene addebitata solo la quota KY del prezzo (ky_amount), non il
-     * prezzo totale: l'eventuale quota EUR resta saldata off-circuit tra le
-     * parti, come indicato nella scheda prodotto.
+     * Viene sempre addebitata la quota KY del prezzo (ky_amount) tramite il
+     * circuito. Se il prodotto ha anche una quota EUR (ky_percentage < 100),
+     * viene creato un MarketplaceOrderPayment collegato al Transfer e
+     * l'acquirente viene mandato a scegliere il metodo di pagamento EUR tra
+     * quelli configurati dall'azienda venditrice (Stripe/PayPal/Bonifico —
+     * vedi PaymentGateway). Se il venditore non ha nessun metodo attivo
+     * configurato, l'acquisto viene bloccato PRIMA di addebitare i KY: non ha
+     * senso completare la parte KY se poi non c'è modo di pagare la parte EUR.
      */
     public function buy(Request $request, Listing $listing, TransferBookingService $bookingService): RedirectResponse
     {
@@ -128,8 +135,24 @@ class ListingController extends Controller
         ]);
         $quantity = (int) ($validated['quantity'] ?? 1);
 
+        // Se il prodotto ha una quota EUR, il venditore deve avere almeno un
+        // metodo di pagamento attivo e configurato: controllo PRIMA di
+        // addebitare i KY, per non lasciare l'acquirente con un ordine KY
+        // pagato ma senza modo di saldare la quota EUR.
+        if ($listing->ky_percentage < 100) {
+            $hasUsableGateway = PaymentGateway::query()
+                ->where('company_id', $listing->company_id)
+                ->active()
+                ->get()
+                ->contains(fn (PaymentGateway $g) => $g->is_configured);
+
+            if (! $hasUsableGateway) {
+                return back()->with('portal_error', 'Questo venditore non ha ancora configurato un metodo di pagamento per la quota in euro: riprova più tardi o contattalo direttamente.');
+            }
+        }
+
         try {
-            $transfer = DB::transaction(function () use ($listing, $currentAccount, $user, $quantity, $bookingService, $request) {
+            $result = DB::transaction(function () use ($listing, $currentAccount, $user, $quantity, $bookingService, $request) {
                 // Lock della riga prodotto per verificare/scalare lo stock in modo atomico.
                 $lockedListing = Listing::query()->lockForUpdate()->findOrFail($listing->id);
 
@@ -154,6 +177,9 @@ class ListingController extends Controller
                 $unitKyAmount = $lockedListing->ky_amount;
                 $totalAmount  = $unitKyAmount * $quantity;
 
+                $unitEuroAmount = $lockedListing->euro_amount;
+                $totalEuroAmount = $unitEuroAmount * $quantity;
+
                 $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '');
 
                 $transfer = $bookingService->book([
@@ -173,11 +199,24 @@ class ListingController extends Controller
                     $lockedListing->decrement('stock_quantity', $quantity);
                 }
 
-                return $transfer;
+                $payment = null;
+                if ($totalEuroAmount > 0) {
+                    $payment = MarketplaceOrderPayment::create([
+                        'transfer_id' => $transfer->id,
+                        'listing_id'  => $lockedListing->id,
+                        'company_id'  => $lockedListing->company_id,
+                        'amount'      => $totalEuroAmount,
+                        'status'      => MarketplaceOrderPayment::STATUS_PENDING,
+                    ]);
+                }
+
+                return [$transfer, $payment];
             });
         } catch (\RuntimeException $e) {
             return back()->with('portal_error', $e->getMessage());
         }
+
+        [$transfer, $payment] = $result;
 
         // La transazione è già committata a questo punto: notifica il venditore
         // fuori dalla transazione, senza far fallire l'acquisto se la notifica ha problemi.
@@ -191,6 +230,11 @@ class ListingController extends Controller
                     'error'       => $e->getMessage(),
                 ]);
             }
+        }
+
+        if ($payment) {
+            return redirect()->route('portal.shop.orders.pay', $payment)
+                ->with('portal_success', ky_format((int) $transfer->amount) . ' KY pagati a ' . $listing->company->name . '. Ora completa il pagamento della quota rimanente in euro.');
         }
 
         return redirect()->route('portal.shop.show', $listing)
@@ -482,6 +526,7 @@ class ListingController extends Controller
             'fromAccount.ownerUser',
             'toAccount.company',
             'toAccount.ownerUser',
+            'marketplaceOrderPayment',
         ];
 
         if ($this->supportsTransferRefunds()) {
