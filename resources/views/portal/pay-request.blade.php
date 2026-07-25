@@ -2,6 +2,16 @@
 
 @section('content')
 
+@auth
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">
+    <span>Stai pagando come <strong>{{ auth()->user()->name }}</strong> ({{ auth()->user()->email }})</span>
+    <form method="POST" action="{{ route('portal.pay-request.switch-user', $pr->token) }}" style="display:inline;margin:0;">
+        @csrf
+        <button type="submit" style="background:none;border:none;padding:0;margin:0;color:var(--primary);text-decoration:underline;cursor:pointer;font:inherit;">Non sei tu?</button>
+    </form>
+</div>
+@endauth
+
 @if(session('portal_error'))
     <div class="alert alert-error" style="margin-bottom:24px;">{{ session('portal_error') }}</div>
 @endif
@@ -112,6 +122,8 @@
                             Il tuo saldo disponibile ({{ ky_format($fromAccount->saldoDisponibile()) }} KY) non copre l'importo richiesto.
                         </div>
                     </div>
+                    <a href="{{ route('portal.ky-cards.index') }}" target="_blank" rel="noopener" class="cta" style="width:100%;justify-content:center;margin-bottom:10px;">Ricarica ora</a>
+                    <a href="{{ route('portal.pay-request.show', $pr->token) }}" class="cta secondary" style="width:100%;justify-content:center;margin-bottom:10px;">Ho ricaricato, riprova</a>
                     <a href="{{ route('portal.dashboard') }}" class="cta secondary" style="width:100%;justify-content:center;">Torna al conto</a>
                 @endif
             </section>

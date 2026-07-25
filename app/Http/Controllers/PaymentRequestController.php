@@ -12,6 +12,7 @@ use App\Services\WebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Events\PaymentRequestUpdated;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -61,6 +62,30 @@ class PaymentRequestController extends Controller
             'fromAccount' => $fromAccount,
             'activeNav'   => 'conto',
         ]);
+    }
+
+    /**
+     * POST /pay/{token}/cambia-utente
+     *
+     * "Non sei tu?" (stile PayPal, discreto): l'utente loggato non e' chi
+     * deve pagare questa richiesta. Esce dall'account corrente e lo manda al
+     * login; al prossimo accesso riuscito AuthController::login() lo riporta
+     * automaticamente qui tramite il normale meccanismo "intended URL" di
+     * Laravel (redirect()->intended(), gia' usato per ogni altro login) -
+     * nessuna modifica necessaria al flusso di login stesso.
+     */
+    public function switchUser(Request $request, string $token): RedirectResponse
+    {
+        PaymentRequest::where('token', $token)->firstOrFail();
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        // Impostato DOPO invalidate(): invalidate() svuota la sessione, quindi
+        // qualsiasi valore scritto prima andrebbe perso.
+        $request->session()->put('url.intended', route('portal.pay-request.show', $token));
+
+        return redirect()->route('login');
     }
 
     /** Esegue il pagamento. */

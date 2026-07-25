@@ -629,6 +629,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // Pagamento da QR (lato pagatore)
     Route::get('/pay/{token}', [PaymentRequestController::class, 'show'])->name('portal.pay-request.show');
     Route::post('/pay/{token}', [PaymentRequestController::class, 'pay'])->name('portal.pay-request.pay')->middleware('throttle:payments');
+    Route::post('/pay/{token}/cambia-utente', [PaymentRequestController::class, 'switchUser'])->name('portal.pay-request.switch-user');
 
     // Estratto conto PDF
     Route::get('/estratto-conto', [StatementController::class, 'show'])->name('portal.statement');

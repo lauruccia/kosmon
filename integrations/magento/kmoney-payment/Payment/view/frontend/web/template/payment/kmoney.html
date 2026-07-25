@@ -25,7 +25,8 @@
                         data-bind="
                             click: placeOrder,
                             attr: {title: $t('Continue to KMoney')},
-                            css: {disabled: !isPlaceOrderActionAllowed()}
+                            css: {disabled: !isPlaceOrderActionAllowed()},
+                            enable: isPlaceOrderActionAllowed()
                         "
                         disabled>
                     <span data-bind="i18n: 'Continue to KMoney'"></span>
