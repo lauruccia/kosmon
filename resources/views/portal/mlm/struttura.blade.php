@@ -17,7 +17,7 @@
 <div class="card card-pad" style="margin-bottom:14px;">
     <h3 style="margin:0 0 4px;font-size:15px;">Registrati come mio cliente</h3>
     <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">
-        Un agente non può essere anche cliente dello stesso conto, ma puoi aprire un secondo conto — con un'email diversa (va bene anche lo stesso numero di telefono) — per usare KMoney come cliente. Usa il link qui sotto per registrarlo: verrà collegato automaticamente a te come tuo agente di riferimento.
+        Un agente non può essere anche cliente dello stesso conto, ma puoi aprire un secondo conto — con un'email diversa (va bene anche lo stesso numero di telefono) — per usare KMoney come cliente. Registrati con il link qui sotto: chi lo usa per registrarsi diventa un tuo cliente, e tu resti il suo agente di riferimento.
     </p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
         <input type="text" readonly value="{{ $selfClientRegisterUrl }}" id="self-client-register-url" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--surface);" onclick="this.select();">
