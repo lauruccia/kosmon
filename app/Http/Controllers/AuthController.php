@@ -153,6 +153,20 @@ class AuthController extends Controller
             \App\Notifications\Concerns\NotifiesAdmins::notifyAdminsOfMlmAgentRequest($user);
         }
 
+        // Bonus segnalazione "amico" (punto 3, 27/07): erogato subito se chi
+        // si registra come PRIVATO è stato invitato da qualcuno. Indipendente
+        // da MLM (resta attivo anche a mlm_enabled=false). Per le aziende il
+        // bonus "attività" scatta invece all'approvazione KYC (vedi
+        // KycController::approve()), e per chi diventa agente il bonus
+        // "agente" scatta alla firma del contratto di nomina (vedi
+        // MlmAgentContractController::sign()) — non cumulativo con questo.
+        if ($holderType === 'private') {
+            app(\App\Services\ReferralBonusService::class)->awardTier(
+                $user,
+                \App\Services\ReferralBonusService::TIER_AMICO,
+            );
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
 

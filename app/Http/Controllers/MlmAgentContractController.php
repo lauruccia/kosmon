@@ -133,6 +133,17 @@ class MlmAgentContractController extends Controller
 
         $user->notify(new MlmAgentActivatedNotification());
 
+        // Bonus segnalazione "agente" (punto 3, 27/07): erogato al
+        // segnalante di $user solo ora che è ufficialmente agente (contratto
+        // firmato). Non cumulativo: se $user aveva già fatto scattare il
+        // bonus "amico" alla registrazione (si era registrato come privato),
+        // il segnalante riceve solo la differenza fino a questo livello —
+        // vedi ReferralBonusService.
+        app(\App\Services\ReferralBonusService::class)->awardTier(
+            $user,
+            \App\Services\ReferralBonusService::TIER_AGENTE,
+        );
+
         return redirect()->route('portal.mlm.struttura')
             ->with('success', 'Contratto firmato: sei ufficialmente un agente KNM! Benvenuto nel programma.');
     }

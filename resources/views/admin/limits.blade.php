@@ -97,6 +97,32 @@
                         <small style="color:var(--text-muted);">Importo sotto cui non viene richiesto il PIN di pagamento. Es. 10 = sotto 10,00 KY nessun PIN. Lasciare vuoto per disabilitare completamente il PIN per tutti gli utenti.</small>
                     </div>
                 </div>
+
+                <div class="section-head" style="margin-top:18px;">
+                    <div><span class="eyebrow">Segnalazioni</span><h3 class="section-title" style="font-size:15px;">Bonus KY per segnalazione</h3></div>
+                    <span class="pill warn">0 = livello disabilitato</span>
+                </div>
+                <div class="notice" style="margin-bottom:14px;">
+                    Bonus KY erogato al segnalante quando l'amico/agente/attività invitato completa il livello corrispondente. Non cumulativi: se lo stesso invitato passa da "amico" ad "agente", il segnalante incassa solo la differenza fino al nuovo livello.
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+                    <div class="field">
+                        <label>Amico (KY)</label>
+                        <input type="number" min="0" step="0.01" name="referral_bonus_amico_amount" value="{{ old('referral_bonus_amico_amount', ky_input($referralBonusAmounts['amico'])) }}">
+                        <small style="color:var(--text-muted);">Erogato subito alla registrazione dell'invitato come privato.</small>
+                    </div>
+                    <div class="field">
+                        <label>Agente (KY)</label>
+                        <input type="number" min="0" step="0.01" name="referral_bonus_agente_amount" value="{{ old('referral_bonus_agente_amount', ky_input($referralBonusAmounts['agente'])) }}">
+                        <small style="color:var(--text-muted);">Erogato quando l'invitato firma il contratto di nomina ad agente KNM.</small>
+                    </div>
+                    <div class="field">
+                        <label>Attività (KY)</label>
+                        <input type="number" min="0" step="0.01" name="referral_bonus_attivita_amount" value="{{ old('referral_bonus_attivita_amount', ky_input($referralBonusAmounts['attivita'])) }}">
+                        <small style="color:var(--text-muted);">Erogato quando l'azienda dell'invitato ottiene il KYC approvato.</small>
+                    </div>
+                </div>
+
                 <div class="form-actions" style="justify-content:flex-start;margin-top:6px;">
                     <button type="submit" class="cta">Salva default</button>
                 </div>

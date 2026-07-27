@@ -32,6 +32,9 @@ use Illuminate\Support\Facades\Storage;
  * @property int|null $payment_confirm_totp_threshold
  * @property int|null $payment_pin_threshold
  * @property int $welcome_bonus_amount
+ * @property int $referral_bonus_amico_amount
+ * @property int $referral_bonus_agente_amount
+ * @property int $referral_bonus_attivita_amount
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SystemSetting query()
@@ -85,6 +88,9 @@ class SystemSetting extends Model
         'payment_confirm_totp_threshold',
         'payment_pin_threshold',
         'welcome_bonus_amount',
+        'referral_bonus_amico_amount',
+        'referral_bonus_agente_amount',
+        'referral_bonus_attivita_amount',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -365,6 +371,9 @@ HTML;
                 'payment_confirm_totp_threshold'    => null,
                 'payment_pin_threshold'             => null,
                 'welcome_bonus_amount'              => 0, // centesimi; 0 = disabilitato
+                'referral_bonus_amico_amount'       => 1000,  // 10,00 KY
+                'referral_bonus_agente_amount'      => 5000,  // 50,00 KY
+                'referral_bonus_attivita_amount'    => 10000, // 100,00 KY
             ]
         );
     }
@@ -379,6 +388,20 @@ HTML;
             'per_movement_limit'             => $this->default_per_movement_limit,
             'payment_confirm_totp_threshold' => $this->payment_confirm_totp_threshold,
             'payment_pin_threshold'          => $this->payment_pin_threshold,
+        ];
+    }
+
+    /**
+     * Importi bonus segnalazione (punto 3 del 27/07) in centesimi KY, per
+     * livello. Usato da ReferralBonusService e dal form admin dei default.
+     * 0 = livello disabilitato (nessun bonus erogato per quel tipo).
+     */
+    public function referralBonusAmounts(): array
+    {
+        return [
+            'amico'     => (int) ($this->referral_bonus_amico_amount ?? 0),
+            'agente'    => (int) ($this->referral_bonus_agente_amount ?? 0),
+            'attivita'  => (int) ($this->referral_bonus_attivita_amount ?? 0),
         ];
     }
 }

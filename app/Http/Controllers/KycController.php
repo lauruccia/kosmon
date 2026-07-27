@@ -208,6 +208,13 @@ class KycController extends Controller
         // Se non configurato o zero, nessun bonus viene erogato.
         $this->maybeErogateWelcomeBonus($company, $request->user());
 
+        // ── Bonus segnalazione "attività" (punto 3, 27/07) ────────────────
+        // Se chi ha registrato questa azienda era stato invitato da
+        // qualcuno, il segnalante riceve il bonus di livello "attività" ora
+        // che il KYC è approvato — stesso momento del bonus di benvenuto,
+        // ma va al SEGNALANTE, non all'azienda.
+        $this->maybeErogateReferralBonus($company, $request->user());
+
         return redirect()->route('admin.kyc.index')
             ->with('portal_success', "KYC approvato per {$company->name}.");
     }
@@ -352,5 +359,30 @@ class KycController extends Controller
             // Non bloccare l'approvazione KYC se il bonus fallisce
             \Log::warning('Welcome bonus failed for company ' . $company->id . ': ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Eroga il bonus segnalazione "attività" (punto 3, 27/07) al segnalante
+     * dell'utente che ha registrato questa azienda (il primo/più vecchio
+     * utente collegato alla company, cioè il registrante originale — vedi
+     * AuthController::register(), dove referred_by_user_id viene scritto
+     * SOLO sull'utente che compila il form di registrazione, non su
+     * eventuali collaboratori aggiunti in seguito). Non blocca mai
+     * l'approvazione KYC: ReferralBonusService::awardTier() inghiottisce e
+     * logga i propri errori internamente.
+     */
+    private function maybeErogateReferralBonus(Company $company, \App\Models\User $adminUser): void
+    {
+        $registrant = $company->users()->oldest('id')->first();
+
+        if (! $registrant) {
+            return;
+        }
+
+        app(\App\Services\ReferralBonusService::class)->awardTier(
+            $registrant,
+            \App\Services\ReferralBonusService::TIER_ATTIVITA,
+            $adminUser,
+        );
     }
 }

@@ -53,6 +53,8 @@ use Illuminate\Notifications\Notifiable;
  * @property string|null $avatar_path
  * @property string|null $referral_code
  * @property int|null $referred_by_user_id
+ * @property int $referral_bonus_paid_amount
+ * @property string|null $referral_bonus_tier
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $assignedAccounts
  * @property-read int|null $assigned_accounts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuditLog> $auditLogs
@@ -163,6 +165,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'payment_pin_hash',
         'referral_code',
         'referred_by_user_id',
+        'referral_bonus_paid_amount',
+        'referral_bonus_tier',
         'mlm_role',
         'mlm_rank',
         'mlm_rank_updated_at',

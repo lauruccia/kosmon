@@ -42,6 +42,7 @@ class NotificationPreferencesController extends Controller
             'marketplace_order_received' => ['label' => 'Ordine ricevuto nello shop',       'default' => ['database', 'mail']],
             'payment_sent'            => ['label' => 'Pagamento inviato (conferma)',         'default' => ['database']],
             'cashback_received'       => ['label' => 'Cashback accreditato',                'default' => ['database', 'mail']],
+            'referral_bonus_received' => ['label' => 'Bonus segnalazione accreditato',       'default' => ['database', 'mail']],
             'credit_limit'            => ['label' => 'Fido (richiesta/approvazione)',        'default' => ['database', 'mail']],
             'installment_paid'        => ['label' => 'Rata piano rateale eseguita',         'default' => ['database', 'mail']],
             'installment_failed'      => ['label' => 'Rata piano rateale fallita',          'default' => ['database', 'mail']],

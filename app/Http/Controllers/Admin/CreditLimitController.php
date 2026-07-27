@@ -96,9 +96,12 @@ class CreditLimitController extends Controller
     {
         $this->authorizeBackoffice($request->user());
 
+        $settingsDefaults = SystemSetting::userLimitDefaults();
+
         return view('admin.limits', [
             'pageTitle' => 'Limiti di default',
-            'defaultTransferLimits' => SystemSetting::userLimitDefaults()->defaultsMap(),
+            'defaultTransferLimits' => $settingsDefaults->defaultsMap(),
+            'referralBonusAmounts' => $settingsDefaults->referralBonusAmounts(),
             'usersWithOverridesCount' => User::query()
                 ->where('transfer_limits_use_defaults', false)
                 ->orWhereNotNull('circuit_capacity_limit')
@@ -120,6 +123,8 @@ class CreditLimitController extends Controller
             'default_daily_transaction_limit', 'default_monthly_transaction_limit',
             'default_per_movement_limit', 'payment_confirm_totp_threshold',
             'payment_pin_threshold',
+            'referral_bonus_amico_amount', 'referral_bonus_agente_amount',
+            'referral_bonus_attivita_amount',
         ];
         foreach ($defaultLimitFields as $field) {
             if ($request->filled($field)) {
@@ -135,6 +140,12 @@ class CreditLimitController extends Controller
             'default_per_movement_limit'        => ['nullable', 'numeric', 'min:0'],
             'payment_confirm_totp_threshold'    => ['nullable', 'numeric', 'min:0'],
             'payment_pin_threshold'             => ['nullable', 'numeric', 'min:0'],
+            // Bonus segnalazione (punto 3, 27/07): sempre un numero esplicito,
+            // mai vuoto — 0 = livello disabilitato (stessa convenzione di
+            // welcome_bonus_amount), non "nessun limite" come gli altri campi.
+            'referral_bonus_amico_amount'       => ['required', 'numeric', 'min:0'],
+            'referral_bonus_agente_amount'      => ['required', 'numeric', 'min:0'],
+            'referral_bonus_attivita_amount'    => ['required', 'numeric', 'min:0'],
         ]);
 
         // Separa i campi threshold (non sono limiti utente, vanno salvati direttamente)
