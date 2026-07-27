@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -78,5 +79,50 @@ class GeocodingService
 
             return null;
         }
+    }
+
+    /**
+     * Ricalcola latitude/longitude/geocoded_at di una Company se address o
+     * city sono stati modificati (isDirty) ma non ancora salvati — va
+     * chiamato DOPO fill() e PRIMA di save(). Usato sia dal profilo
+     * self-service dell'azienda sia dal form admin equivalente, per non
+     * duplicare la stessa logica nei due controller.
+     *
+     * Ritorna un messaggio di avviso (indirizzo non trovato) da accodare al
+     * messaggio di successo del form, oppure null se non c'e' nulla da
+     * segnalare (nessuna modifica, indirizzo vuoto, o geocoding riuscito).
+     */
+    public function syncCompanyCoordinates(Company $company): ?string
+    {
+        if (! $company->isDirty('address') && ! $company->isDirty('city')) {
+            return null;
+        }
+
+        $fullAddress = trim(trim((string) $company->address) . ', ' . trim((string) $company->city), ', ');
+
+        if ($fullAddress === '') {
+            $company->latitude = null;
+            $company->longitude = null;
+            $company->geocoded_at = null;
+
+            return null;
+        }
+
+        $coords = $this->geocode($fullAddress);
+
+        if ($coords === null) {
+            $company->latitude = null;
+            $company->longitude = null;
+            $company->geocoded_at = null;
+
+            return 'L\'indirizzo non è stato trovato sulla mappa: verifica che sia scritto correttamente '
+                . '(es. "Via Roma 10" con città "Milano").';
+        }
+
+        $company->latitude = $coords['lat'];
+        $company->longitude = $coords['lng'];
+        $company->geocoded_at = now();
+
+        return null;
     }
 }

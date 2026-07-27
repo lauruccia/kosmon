@@ -353,35 +353,14 @@ class PortalController extends Controller
         // Geocoding: se indirizzo o città sono cambiati, ricalcoliamo lat/lng
         // (usate per il pin sulla mappa in /aziende). Fallimento non bloccante:
         // se Nominatim non trova l'indirizzo il profilo si salva comunque,
-        // semplicemente senza coordinate (nessun pin in mappa).
-        $geocodeWarning = '';
-        if ($company->isDirty('address') || $company->isDirty('city')) {
-            $fullAddress = trim(trim((string) $company->address) . ', ' . trim((string) $company->city), ', ');
-
-            if ($fullAddress === '') {
-                $company->latitude = null;
-                $company->longitude = null;
-                $company->geocoded_at = null;
-            } else {
-                $coords = app(GeocodingService::class)->geocode($fullAddress);
-                if ($coords !== null) {
-                    $company->latitude = $coords['lat'];
-                    $company->longitude = $coords['lng'];
-                    $company->geocoded_at = now();
-                } else {
-                    $company->latitude = null;
-                    $company->longitude = null;
-                    $company->geocoded_at = null;
-                    $geocodeWarning = ' L\'indirizzo è stato salvato ma non è stato trovato sulla mappa: '
-                        . 'verifica che sia scritto correttamente (es. "Via Roma 10" con città "Milano").';
-                }
-            }
-        }
+        // semplicemente senza coordinate (nessun pin in mappa). Logica
+        // condivisa con Admin\CompanyController::updateAddress().
+        $geocodeWarning = app(GeocodingService::class)->syncCompanyCoordinates($company);
 
         $company->save();
 
         return redirect()->route('portal.profile.edit')
-            ->with('success', 'Profilo aggiornato con successo.' . $geocodeWarning);
+            ->with('success', 'Profilo aggiornato con successo.' . ($geocodeWarning ? ' ' . $geocodeWarning : ''));
     }
 
     public function editPersonalProfile(Request $request): View|RedirectResponse

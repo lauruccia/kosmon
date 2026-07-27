@@ -286,6 +286,53 @@
             </div>
         </section>
 
+        {{-- Indirizzo per la mappa directory --}}
+        <section class="card light-card card-pad">
+            <div class="eyebrow" style="margin-bottom:10px;">Indirizzo (mappa directory)</div>
+            <p style="font-size:11.5px;color:var(--text-muted);margin:0 0 12px;line-height:1.5;">
+                Città e indirizzo usati per posizionare l'azienda come pin nella vista Mappa di
+                <a href="{{ route('portal.companies') }}" target="_blank" rel="noopener">/aziende</a>.
+                Normalmente li inserisce l'azienda dal proprio profilo — usa questo form solo se devi
+                impostarli tu per conto loro.
+            </p>
+
+            <form method="POST" action="{{ route('admin.companies.address', $company) }}">
+                @csrf
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text);">
+                        Città / zona
+                    </label>
+                    <input type="text" name="city" value="{{ old('city', $company->city) }}" maxlength="100"
+                        placeholder="es. Milano"
+                        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                    @error('city')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text);">
+                        Indirizzo
+                    </label>
+                    <input type="text" name="address" value="{{ old('address', $company->address) }}" maxlength="255"
+                        placeholder="es. Via Roma 10"
+                        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                    @error('address')<span class="field-error">{{ $message }}</span>@enderror
+                </div>
+
+                @if($company->address && $company->hasCoordinates())
+                    <div style="margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#dcfce7;border:1px solid #bbf7d0;color:#15803d;font-size:11.5px;font-weight:700;">
+                        ✓ Posizionato sulla mappa
+                    </div>
+                @elseif($company->address)
+                    <div style="margin-bottom:12px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:11.5px;font-weight:700;">
+                        ⚠ Indirizzo non trovato sulla mappa
+                    </div>
+                @endif
+
+                <button type="submit" class="cta" style="width:100%;justify-content:center;">
+                    Salva indirizzo
+                </button>
+            </form>
+        </section>
+
         {{-- Link NFC statico esercente --}}
         @if($staticNfcUrl)
         <section class="card light-card card-pad">

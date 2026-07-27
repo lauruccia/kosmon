@@ -13,6 +13,7 @@ use App\Models\Plan;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Models\Webhook;
+use App\Services\GeocodingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -126,6 +127,47 @@ class CompanyController extends Controller
             $validated['broker_user_id']
                 ? 'Broker assegnato correttamente a ' . $company->name . '.'
                 : 'Broker rimosso da ' . $company->name . '.'
+        );
+    }
+
+    /**
+     * POST /admin/companies/{company}/address
+     *
+     * Normalmente città/indirizzo li inserisce l'azienda dal proprio profilo
+     * (portal.profile.update), ma alcune aziende non lo fanno mai da sole:
+     * l'admin deve poterli impostare per loro conto, altrimenti restano
+     * escluse dalla vista Mappa della directory /aziende. Stessa logica di
+     * geocoding del form self-service (vedi GeocodingService::syncCompanyCoordinates).
+     */
+    public function updateAddress(Request $request, Company $company): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'city'    => ['nullable', 'string', 'max:100'],
+            'address' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $company->fill($validated);
+
+        $geocodeWarning = app(GeocodingService::class)->syncCompanyCoordinates($company);
+
+        $company->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.company.address_updated',
+            'auditable_type' => Company::class,
+            'auditable_id'   => $company->id,
+            'context'        => [
+                'city'      => $company->city,
+                'address'   => $company->address,
+                'geocoded'  => $company->hasCoordinates(),
+            ],
+        ]);
+
+        return back()->with('portal_success',
+            'Indirizzo di ' . $company->name . ' aggiornato.' . ($geocodeWarning ? ' ' . $geocodeWarning : '')
         );
     }
 
