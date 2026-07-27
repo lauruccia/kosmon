@@ -37,6 +37,7 @@ class UserController extends Controller
         $selectedStatus     = (string) $request->query('status', '');
         $selectedHolderType = (string) $request->query('account_holder_type', '');
         $selectedBalanceFilter = (string) $request->query('balance_filter', '');
+        $selectedReferredBy = $request->integer('referred_by') ?: null;
         $sortField          = (string) $request->query('sort', '');
         $sortDir            = $request->query('dir', 'asc') === 'desc' ? 'desc' : 'asc';
         $perPage            = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true)
@@ -84,6 +85,12 @@ class UserController extends Controller
 
         if (in_array($selectedHolderType, ['company', 'private'], true)) {
             $this->applyUserHolderTypeFilter($usersQuery, $selectedHolderType);
+        }
+
+        $referredByUser = null;
+        if ($selectedReferredBy) {
+            $referredByUser = User::find($selectedReferredBy);
+            $usersQuery->where('referred_by_user_id', $selectedReferredBy);
         }
 
         // ── Balance filter ─────────────────────────────────────────────────────
@@ -145,6 +152,8 @@ class UserController extends Controller
             'selectedStatus'        => in_array($selectedStatus, ['active', 'inactive'], true) ? $selectedStatus : null,
             'selectedHolderType'    => in_array($selectedHolderType, ['company', 'private'], true) ? $selectedHolderType : null,
             'selectedBalanceFilter' => in_array($selectedBalanceFilter, $validBalanceFilters, true) ? $selectedBalanceFilter : '',
+            'selectedReferredBy'    => $selectedReferredBy,
+            'referredByUser'        => $referredByUser,
             'sortField'             => in_array($sortField, $allowedSorts, true) ? $sortField : '',
             'sortDir'               => $sortDir,
             'perPage'               => $perPage,
@@ -165,7 +174,11 @@ class UserController extends Controller
             'ownedAccounts.parentAccount',
             'ownedAccounts.company',
             'roles.permissions',
+            'referredBy:id,name,email,company_id',
+            'referredBy.company:id,name',
         ]);
+
+        $referredUsersCount = $user->referrals()->count();
 
         $accounts = $this->accountsForUser($user);
         $accountIds = $accounts->pluck('id')->all();
@@ -223,6 +236,7 @@ class UserController extends Controller
             ],
             'activeSessions' => $activeSessions,
             'loginLogs'      => $loginLogs,
+            'referredUsersCount' => $referredUsersCount,
             'activeNav' => 'users',
         ]);
     }

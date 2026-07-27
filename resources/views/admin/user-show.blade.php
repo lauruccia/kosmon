@@ -154,6 +154,23 @@
                 <div><div class="eyebrow">Tipologia</div><strong>{{ $userRecord->account_holder_type }}</strong></div>
                 <div><div class="eyebrow">Azienda</div><strong>{{ $userRecord->company?->name ?? 'Nessuna azienda' }}</strong></div>
                 <div><div class="eyebrow">Creato il</div><strong>{{ $userRecord->created_at?->format('d/m/Y H:i') ?? 'N/D' }}</strong></div>
+                <div>
+                    <div class="eyebrow">Segnalato da</div>
+                    @if ($userRecord->referredBy)
+                        <strong><a href="{{ route('admin.users.show', $userRecord->referredBy) }}">{{ $userRecord->referredBy->name }}</a></strong>
+                        <div class="table-muted" style="font-size:11px;">{{ $userRecord->referredBy->company?->name ?? 'Privato' }}</div>
+                    @else
+                        <strong>Nessuna segnalazione</strong>
+                    @endif
+                </div>
+                <div>
+                    <div class="eyebrow">Utenti segnalati</div>
+                    @if ($referredUsersCount > 0)
+                        <strong><a href="{{ route('admin.users.index', ['referred_by' => $userRecord->id]) }}">🎁 {{ $referredUsersCount }} {{ $referredUsersCount === 1 ? 'utente' : 'utenti' }} →</a></strong>
+                    @else
+                        <strong>Nessuno finora</strong>
+                    @endif
+                </div>
             </div>
 
             <div class="table-tags" style="margin-top:18px;">

@@ -164,6 +164,7 @@
                 'status'              => $selectedStatus ?? null,
                 'account_holder_type' => $selectedHolderType ?: null,
                 'balance_filter'      => $selectedBalanceFilter ?: null,
+                'referred_by'         => $selectedReferredBy ?: null,
                 'sort'                => $sortField ?: null,
                 'dir'                 => ($sortDir !== 'asc') ? $sortDir : null,
                 'per_page'            => ($perPage !== 25) ? $perPage : null,
@@ -201,6 +202,9 @@
 
             {{-- Barra filtri compatta (una riga) --}}
             <form method="get" action="{{ route('admin.users.index') }}" class="users-filter-bar">
+                @if($selectedReferredBy)
+                    <input type="hidden" name="referred_by" value="{{ $selectedReferredBy }}">
+                @endif
 
                 <div class="ufb-field">
                     <span class="ufb-label">Cerca</span>
@@ -271,13 +275,19 @@
             </form>
 
             {{-- Chip filtri attivi (solo se presente almeno uno) --}}
-            @if($search || $selectedRoleId || $selectedStatus || $selectedHolderType || $selectedBalanceFilter || $sortField)
+            @if($search || $selectedRoleId || $selectedStatus || $selectedHolderType || $selectedBalanceFilter || $selectedReferredBy || $sortField)
                 <div class="users-directory-meta">
                     @if($search)         <span class="chip">{{ $search }}</span> @endif
                     @if($selectedHolderType) <span class="chip">{{ $selectedHolderType === 'company' ? 'Aziende' : 'Privati' }}</span> @endif
                     @if($selectedBalanceFilter) <span class="chip">{{ $balanceTabs[$selectedBalanceFilter] }}</span> @endif
                     @if($selectedRoleId) <span class="chip">{{ $roles->firstWhere('id', $selectedRoleId)?->name }}</span> @endif
                     @if($selectedStatus) <span class="chip">{{ $selectedStatus === 'active' ? 'Attivi' : 'Disattivi' }}</span> @endif
+                    @if($selectedReferredBy)
+                        <span class="chip" style="display:inline-flex;align-items:center;gap:6px;">
+                            🎁 Segnalati da: {{ $referredByUser?->name ?? ('utente #' . $selectedReferredBy) }}
+                            <a href="{{ route('admin.users.index', collect($allParams)->except('referred_by')->all()) }}" title="Rimuovi filtro" style="color:inherit;text-decoration:none;font-weight:800;">✕</a>
+                        </span>
+                    @endif
                     @if($sortField)      <span class="chip">{{ $sortField }} {{ $sortDir === 'desc' ? '↓' : '↑' }}</span> @endif
                 </div>
             @endif
