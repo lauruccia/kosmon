@@ -4,11 +4,6 @@
 <style>
     /* ── Layout ── */
     .dir-main { display:grid; gap:20px; }
-    .dir-searchbar {
-        display:grid;
-        grid-template-columns:minmax(0,1.4fr) 200px auto;
-        gap:12px; align-items:end;
-    }
 
     /* ── Top bar (search + stats) ── */
     .dir-topbar {
@@ -19,8 +14,14 @@
         flex-wrap:wrap;
     }
     .dir-topbar form { flex:1; min-width:280px; }
+    /* Nota: prima questa regola era duplicata (una volta come grid, una come
+       flex) e quella "flex + nowrap" vinceva sempre, rendendo inutile il
+       grid-template-columns:1fr impostato sotto per il mobile — risultato:
+       su schermi stretti i campi restavano forzati su un'unica riga e si
+       sovrapponevano. Ora c'è una sola regola (flex, con wrap libero) e il
+       mobile la porta esplicitamente in colonna qui sotto. */
     .dir-searchbar {
-        display:flex; gap:10px; align-items:flex-end; flex-wrap:nowrap;
+        display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;
     }
     .dir-searchbar .field { margin:0; flex:1; min-width:0; }
     .dir-searchbar .field label { font-size:11px; }
@@ -51,7 +52,14 @@
     @media(max-width:1480px){ .dir-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media(max-width:1100px){ .dir-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media(max-width:680px){
-        .dir-grid, .dir-searchbar { grid-template-columns:1fr; }
+        .dir-grid { grid-template-columns:1fr; }
+        .dir-searchbar { flex-direction:column; align-items:stretch; }
+        /* !important necessario: i campi hanno max-width inline (180px/200px)
+           per il layout desktop a riga singola, che altrimenti vincerebbe
+           comunque sulla regola esterna e li terrebbe stretti a colonna. */
+        .dir-searchbar .field { max-width:none !important; width:100%; }
+        .dir-searchbar .form-actions { width:100%; }
+        .dir-searchbar .form-actions .cta { flex:1; }
     }
 
     /* ── BASE CARD (comune a tutti i piani) ── */
@@ -393,7 +401,12 @@
                     $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
                     $effectiveKyPct = $entry['effective_ky_pct'] ?? null;
                     $plan         = $company->plan;
-                    $cardStyle    = $plan?->card_style ?? 'simple';
+                    // Piani a pagamento disattivati per la directory (27/07):
+                    // tutte le schede usano lo stile "semplice" a prescindere
+                    // dal piano dell'azienda. Per riattivare le schede
+                    // ricche/badge di piano in futuro, basta ripristinare
+                    // "$cardStyle = $plan?->card_style ?? 'simple';".
+                    $cardStyle    = 'simple';
 
                     // Avatar letter (usato come fallback quando manca il logo)
                     preg_match('/[A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF]/u', $company->name, $avatarMatch);

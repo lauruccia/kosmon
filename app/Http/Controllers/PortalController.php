@@ -1732,15 +1732,13 @@ class PortalController extends Controller
             ->when($filters['city'] !== '', fn ($query) => $query->where('city', $filters['city']))
             ->when(! empty($filters['accepts_ky']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' >= 25'))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
-            ->when($filters['kyc_status'] !== '', fn ($query) => $query->where('kyc_status', $filters['kyc_status']))
-            // Ordina per piano (subquery su plans.display_order): funziona anche
-            // con piani creati liberamente dall'admin da /admin/piani, senza
-            // dover elencare gli slug storici in un CASE hardcoded.
-            ->orderByRaw('COALESCE((SELECT display_order FROM plans WHERE plans.id = companies.plan_id), 999) ASC')
-            // Agevola la visibilita' di chi accetta la % Kmoney piu' alta:
-            // a parita' di piano, ordina per % effettiva decrescente
-            // (dichiarata nel profilo o migliore % dei prodotti attivi).
-            ->orderByRaw($this->directoryKyPercentageOrderSql() . ' DESC');
+            ->when($filters['kyc_status'] !== '', fn ($query) => $query->where('kyc_status', $filters['kyc_status']));
+            // Piani a pagamento disattivati per la directory (27/07): niente
+            // piu' priorita' per piano/% Kmoney in cima alla lista, l'ordine
+            // e' ora puramente casuale (vedi RANDOM()/RAND() sotto), diverso
+            // ad ogni ricarica come richiesto. Per riattivare la priorita' in
+            // futuro, reintrodurre qui le due orderByRaw su display_order e
+            // directoryKyPercentageOrderSql() rimosse in questa modifica.
 
         $directoryStatsCompanies = (clone $companiesQuery)->get();
         $randomExpression = DB::getDriverName() === 'sqlite' ? 'RANDOM()' : 'RAND()';
