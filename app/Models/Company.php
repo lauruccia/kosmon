@@ -37,6 +37,10 @@ use Illuminate\Support\Str;
  * @property int|null $accepted_ky_percentage
  * @property string|null $tagline
  * @property string|null $city
+ * @property string|null $address
+ * @property numeric|null $latitude
+ * @property numeric|null $longitude
+ * @property \Illuminate\Support\Carbon|null $geocoded_at
  * @property string|null $linkedin_url
  * @property string|null $instagram_url
  * @property string|null $facebook_url
@@ -111,6 +115,10 @@ class Company extends Model
         'suspension_reason',
         'tagline',
         'city',
+        'address',
+        'latitude',
+        'longitude',
+        'geocoded_at',
         'linkedin_url',
         'instagram_url',
         'facebook_url',
@@ -124,6 +132,9 @@ class Company extends Model
         'approved_at'    => 'datetime',
         'kyc_reviewed_at'=> 'datetime',
         'suspended_at'   => 'datetime',
+        'latitude'       => 'decimal:7',
+        'longitude'      => 'decimal:7',
+        'geocoded_at'    => 'datetime',
     ];
 
     /**
@@ -159,6 +170,15 @@ class Company extends Model
     public function isActive(): bool
     {
         return $this->status === 'active' && ! $this->isSuspended();
+    }
+
+    /**
+     * Ha coordinate geografiche valide (indirizzo geocodificato con successo)
+     * e puo' quindi comparire come pin sulla mappa della directory.
+     */
+    public function hasCoordinates(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
     }
 
     public function plan(): BelongsTo

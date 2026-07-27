@@ -54,10 +54,13 @@ class ContentSecurityPolicy
         // Nessun referrer verso siti terzi (protegge URL interni nei log di terze parti)
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-        // Disabilita API browser non necessarie (geolocalizzazione, microfono, camera)
+        // Disabilita API browser non necessarie. geolocation=(self) e' abilitata
+        // solo per il nostro stesso origin: usata dalla pagina /aziende (bottone
+        // "Vicino a te" nella vista mappa della directory) — mai da iframe/origin
+        // terzi. Microfono, camera e payment restano bloccati/limitati come prima.
         $response->headers->set(
             'Permissions-Policy',
-            'geolocation=(), microphone=(), camera=(), payment=(self)'
+            'geolocation=(self), microphone=(), camera=(), payment=(self)'
         );
 
         return $response;

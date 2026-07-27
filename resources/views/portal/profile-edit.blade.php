@@ -262,6 +262,28 @@
                     </div>
 
                     <div class="field" style="margin-top:14px;">
+                        <label for="address">Indirizzo <span style="font-weight:400;color:var(--ink-muted)">(via e numero civico, opzionale)</span></label>
+                        <input type="text" id="address" name="address"
+                               value="{{ old('address', $company->address) }}"
+                               placeholder="es. Via Roma 10"
+                               maxlength="255">
+                        <p style="font-size:11.5px;color:var(--ink-muted);margin:6px 0 0;line-height:1.5;">
+                            Insieme alla città viene usato per posizionarti sulla mappa nella pagina
+                            <a href="{{ route('portal.companies') }}" target="_blank" rel="noopener">Aziende del circuito</a>.
+                        </p>
+                        @if($company->address && $company->hasCoordinates())
+                            <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#dcfce7;border:1px solid #bbf7d0;color:#15803d;font-size:11.5px;font-weight:700;">
+                                ✓ Posizionato sulla mappa
+                            </div>
+                        @elseif($company->address)
+                            <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:11.5px;font-weight:700;">
+                                ⚠ Indirizzo non trovato sulla mappa — verifica che sia scritto correttamente
+                            </div>
+                        @endif
+                        @error('address')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="field" style="margin-top:14px;">
                         <label for="tagline">Tagline <span style="font-weight:400;color:var(--ink-muted)">(max 160 caratteri)</span></label>
                         <input type="text" id="tagline" name="tagline"
                                value="{{ old('tagline', $company->tagline) }}"

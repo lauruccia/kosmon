@@ -206,9 +206,109 @@
         border:1px solid var(--line); background:var(--surface);
         border-radius:var(--radius); box-shadow:var(--shadow-xs);
     }
+
+    /* ── Tabs Lista/Mappa + Vicino a te ── */
+    .dir-tabs-row {
+        display:flex; align-items:center; justify-content:space-between;
+        gap:12px; flex-wrap:wrap;
+    }
+    .dir-tabs {
+        display:inline-flex; padding:4px; gap:4px;
+        background:var(--surface-soft); border:1px solid var(--line);
+        border-radius:999px;
+    }
+    .dir-tab {
+        appearance:none; border:none; background:transparent; cursor:pointer;
+        padding:8px 16px; border-radius:999px;
+        font-size:12.5px; font-weight:700; color:var(--ink-muted);
+        transition:background .15s, color .15s;
+    }
+    .dir-tab.is-active { background:#0c4a86; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18); }
+    .dir-locate-btn {
+        appearance:none; cursor:pointer;
+        display:inline-flex; align-items:center; gap:6px;
+        padding:8px 14px; border-radius:999px;
+        font-size:12.5px; font-weight:700;
+        background:#fff; color:#0c4a86; border:1.5px solid #c7d9ef;
+        transition:background .15s, border-color .15s;
+    }
+    .dir-locate-btn:hover { background:#f0f6ff; border-color:#94b4d8; }
+    .dir-locate-btn.is-active { background:#0c4a86; color:#fff; border-color:#0c4a86; }
+    .dir-locate-status { font-size:11.5px; color:var(--ink-muted); }
+    .dir-locate-status.is-error { color:#b91c1c; }
+
+    .dir-view--hidden { display:none; }
+
+    /* ── Distanza (badge stile Monetica, es. "4,7 km") ── */
+    .dir-distance-badge {
+        position:absolute; top:12px; left:12px; z-index:2;
+        display:none; align-items:center; gap:3px;
+        padding:3px 9px; border-radius:999px;
+        font-size:10.5px; font-weight:800;
+        background:#0c4a86; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18);
+    }
+
+    /* ── Vista mappa ── */
+    .dir-map-layout {
+        display:grid; grid-template-columns:340px minmax(0,1fr);
+        gap:16px; height:74vh; min-height:480px;
+    }
+    @media(max-width:900px) {
+        .dir-map-layout { grid-template-columns:1fr; height:auto; }
+    }
+    .dir-map-sidebar {
+        background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+        box-shadow:var(--shadow-xs); overflow-y:auto;
+    }
+    @media(max-width:900px) { .dir-map-sidebar { max-height:60vh; order:2; } }
+    .dir-map {
+        border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow-xs);
+        overflow:hidden; min-height:340px;
+    }
+    @media(max-width:900px) { .dir-map { height:46vh; order:1; } }
+
+    .dir-map-sidebar-item {
+        display:flex; align-items:center; gap:10px;
+        padding:12px 14px; border-bottom:1px solid var(--line);
+        cursor:pointer; transition:background .12s;
+    }
+    .dir-map-sidebar-item:hover, .dir-map-sidebar-item.is-active { background:var(--surface-soft); }
+    .dir-map-sidebar-logo {
+        flex-shrink:0; width:38px; height:38px; border-radius:10px;
+        background:linear-gradient(150deg,#174d87,#071d35);
+        display:flex; align-items:center; justify-content:center;
+        font-size:14px; font-weight:900; color:#fff; overflow:hidden;
+    }
+    .dir-map-sidebar-logo img { width:100%; height:100%; object-fit:cover; }
+    .dir-map-sidebar-name { font-size:13px; font-weight:700; color:var(--ink); line-height:1.3; }
+    .dir-map-sidebar-meta { font-size:11px; color:var(--ink-muted); margin-top:2px; }
+    .dir-map-sidebar-distance { font-size:11px; font-weight:800; color:#0c4a86; margin-left:auto; padding-left:8px; white-space:nowrap; }
+
+    .dir-map-popup { font-size:12.5px; min-width:180px; }
+    .dir-map-popup strong { display:block; font-size:13.5px; margin-bottom:2px; }
+    .dir-map-popup-meta { color:#64748b; margin-bottom:6px; }
+    .dir-map-popup-actions { display:flex; gap:6px; margin-top:8px; }
+    .dir-map-popup-btn {
+        flex:1; text-align:center; text-decoration:none;
+        padding:6px 8px; border-radius:7px; font-size:11px; font-weight:700;
+    }
+    .dir-map-popup-btn--primary { background:#0c4a86; color:#fff; }
+    .dir-map-popup-btn--ghost { background:#f0f6ff; color:#0c4a86; border:1px solid #c7d9ef; }
 </style>
 
 <div class="dir-main">
+
+    {{-- Tabs Lista/Mappa + Vicino a te --}}
+    <div class="dir-tabs-row">
+        <div class="dir-tabs" role="tablist">
+            <button type="button" id="dir-tab-list" class="dir-tab is-active">📋 Lista</button>
+            <button type="button" id="dir-tab-map" class="dir-tab">🗺️ Mappa</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="dir-locate-btn" class="dir-locate-btn">📍 Vicino a te</button>
+            <span id="dir-locate-status" class="dir-locate-status"></span>
+        </div>
+    </div>
 
     {{-- Topbar: filtri + stats sulla stessa riga --}}
     <div class="dir-topbar">
@@ -273,7 +373,8 @@
         </div>
     </div>
 
-    {{-- Grid --}}
+    {{-- Vista Lista (griglia esistente) --}}
+    <div id="view-list" class="dir-view">
     @if ($companies->count() === 0)
         <div class="empty-state">
             <strong>Nessuna azienda trovata.</strong>
@@ -344,7 +445,9 @@
 
                 @if($cardStyle === 'simple')
                 {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══ --}}
-                <article class="dir-card dir-card--simple">
+                <article class="dir-card dir-card--simple"
+                    @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
+                    <span class="dir-distance-badge"></span>
                     <div class="dir-body">
                         <div class="dir-simple-top">
                             <div style="min-width:0">
@@ -410,7 +513,9 @@
                      Grafica piatta con logo inline (non su banner), coerente con lo stile
                      "scheda contatti" richiesto: nome, settore/città, contatti con icone,
                      badge del piano in alto a destra. ═══ --}}
-                <article class="dir-card dir-card--{{ $cardStyle }}">
+                <article class="dir-card dir-card--{{ $cardStyle }}"
+                    @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
+                    <span class="dir-distance-badge"></span>
                     @if($plan)
                         <div class="dir-plan-accent" style="background:{{ $plan->effective_badge_color }};"></div>
                         <span class="dir-plan-badge" style="background:{{ $plan->effective_badge_color }};">{{ $plan->name }}</span>
@@ -516,6 +621,260 @@
             {{ $companies->links() }}
         </div>
     @endif
+    </div>
+
+    {{-- Vista Mappa: pin + sidebar (stile "punti convenzionati"), dati non
+         paginati/randomizzati (a differenza della Lista sopra) --}}
+    <div id="view-map" class="dir-view dir-view--hidden">
+        @if($mapCompanies->isEmpty())
+            <div class="empty-state">
+                <strong>Nessuna azienda geolocalizzata al momento.</strong>
+                <p>Le aziende che aggiungono un indirizzo nel proprio profilo compariranno qui come pin sulla mappa.</p>
+            </div>
+        @else
+            <div class="dir-map-layout">
+                <div class="dir-map-sidebar" id="map-sidebar">
+                    <div id="map-sidebar-list">
+                        @foreach($mapCompanies as $mc)
+                            <div class="dir-map-sidebar-item" data-id="{{ $mc['id'] }}" data-lat="{{ $mc['lat'] }}" data-lng="{{ $mc['lng'] }}">
+                                <div class="dir-map-sidebar-logo">
+                                    @if($mc['logo_url'])
+                                        <img src="{{ $mc['logo_url'] }}" alt="{{ $mc['name'] }}">
+                                    @else
+                                        {{ strtoupper(mb_substr($mc['name'], 0, 1)) }}
+                                    @endif
+                                </div>
+                                <div style="min-width:0;flex:1;">
+                                    <div class="dir-map-sidebar-name">{{ $mc['name'] }}</div>
+                                    <div class="dir-map-sidebar-meta">{{ collect([$mc['sector'], $mc['city']])->filter()->implode(' · ') }}</div>
+                                </div>
+                                <div class="dir-map-sidebar-distance"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="dir-map" id="directory-map"></div>
+            </div>
+        @endif
+        {{-- Js::from() esegue l'escaping sicuro per l'inserimento in una pagina HTML
+             (es. neutralizza eventuali "</script>" nel nome di un'azienda) --}}
+        <script type="application/json" id="dir-map-data">{{ \Illuminate\Support\Js::from($mapCompanies) }}</script>
+    </div>
 
 </div>
+
+@push('head')
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+@endpush
+
+@push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+(function () {
+    var companiesData = [];
+    try {
+        var dataEl = document.getElementById('dir-map-data');
+        companiesData = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
+    } catch (e) {
+        companiesData = [];
+    }
+
+    var map = null;
+    var markersLayer = null;
+    var markersById = {};
+    var userMarker = null;
+    var userPos = null;
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function kyBadgeHtml(c) {
+        if (c.is_in_debit) {
+            return '<span class="ky-badge ky-badge--debit">⚡ 100% Kmoney</span>';
+        }
+        if (c.is_at_ceiling) {
+            return '<span class="ky-badge ky-badge--ceil">⛔ Al massimale</span>';
+        }
+        if (c.effective_ky_pct === 100) {
+            return '<span class="ky-badge ky-badge--gold">★ 100% Kmoney</span>';
+        }
+        if (c.effective_ky_pct !== null && c.effective_ky_pct > 0) {
+            return '<span class="ky-badge ky-badge--mix">✓ Kmoney ' + c.effective_ky_pct + '%</span>';
+        }
+        return '';
+    }
+
+    function popupHtml(c) {
+        var meta = [c.sector, c.city].filter(Boolean).join(' · ');
+        var html = '<div class="dir-map-popup">';
+        html += '<strong>' + escapeHtml(c.name) + '</strong>';
+        if (meta) { html += '<div class="dir-map-popup-meta">' + escapeHtml(meta) + '</div>'; }
+        html += kyBadgeHtml(c);
+        html += '<div class="dir-map-popup-actions">';
+        html += '<a href="' + c.profile_url + '" class="dir-map-popup-btn dir-map-popup-btn--ghost">Profilo</a>';
+        if (c.pay_url) {
+            html += '<a href="' + c.pay_url + '" class="dir-map-popup-btn dir-map-popup-btn--primary">💸 Paga</a>';
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    function initMap() {
+        if (map || typeof L === 'undefined' || companiesData.length === 0) {
+            return;
+        }
+
+        map = L.map('directory-map');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+        }).addTo(map);
+
+        markersLayer = (typeof L.markerClusterGroup === 'function') ? L.markerClusterGroup() : L.layerGroup();
+
+        companiesData.forEach(function (c) {
+            var marker = L.marker([c.lat, c.lng]).bindPopup(popupHtml(c));
+            markersById[c.id] = marker;
+            markersLayer.addLayer(marker);
+        });
+
+        map.addLayer(markersLayer);
+
+        var bounds = L.latLngBounds(companiesData.map(function (c) { return [c.lat, c.lng]; }));
+        map.fitBounds(bounds.pad(0.15));
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+        var R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLng = (lng2 - lng1) * Math.PI / 180;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+            * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function formatKm(km) {
+        return (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km';
+    }
+
+    function applyDistances() {
+        if (!userPos) { return; }
+
+        var list = document.getElementById('map-sidebar-list');
+        if (list) {
+            Array.prototype.forEach.call(list.querySelectorAll('.dir-map-sidebar-item'), function (el) {
+                var lat = parseFloat(el.dataset.lat);
+                var lng = parseFloat(el.dataset.lng);
+                var km = haversineKm(userPos.lat, userPos.lng, lat, lng);
+                var badge = el.querySelector('.dir-map-sidebar-distance');
+                if (badge) { badge.textContent = formatKm(km); }
+                el.dataset.distanceKm = km;
+            });
+            var items = Array.prototype.slice.call(list.children);
+            items.sort(function (a, b) { return parseFloat(a.dataset.distanceKm) - parseFloat(b.dataset.distanceKm); });
+            items.forEach(function (el) { list.appendChild(el); });
+        }
+
+        // Badge distanza anche sulle card della vista Lista (senza riordino:
+        // la lista resta paginata/randomizzata lato server).
+        Array.prototype.forEach.call(document.querySelectorAll('#view-list .dir-card[data-lat]'), function (el) {
+            var lat = parseFloat(el.dataset.lat);
+            var lng = parseFloat(el.dataset.lng);
+            if (isNaN(lat) || isNaN(lng)) { return; }
+            var km = haversineKm(userPos.lat, userPos.lng, lat, lng);
+            var badge = el.querySelector('.dir-distance-badge');
+            if (badge) {
+                badge.textContent = '📍 ' + formatKm(km);
+                badge.style.display = 'inline-flex';
+            }
+        });
+
+        if (map) {
+            if (userMarker) { map.removeLayer(userMarker); }
+            userMarker = L.circleMarker([userPos.lat, userPos.lng], {
+                radius: 8, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1
+            }).bindPopup('La tua posizione').addTo(map);
+        }
+    }
+
+    function locateMe() {
+        var status = document.getElementById('dir-locate-status');
+        var btn = document.getElementById('dir-locate-btn');
+
+        if (!('geolocation' in navigator)) {
+            if (status) { status.textContent = 'Geolocalizzazione non supportata da questo browser.'; status.classList.add('is-error'); }
+            return;
+        }
+
+        if (btn) { btn.classList.add('is-active'); btn.textContent = '📍 Localizzazione…'; }
+        if (status) { status.textContent = ''; status.classList.remove('is-error'); }
+
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (btn) { btn.textContent = '📍 Vicino a te ✓'; }
+            applyDistances();
+        }, function () {
+            if (btn) { btn.classList.remove('is-active'); btn.textContent = '📍 Vicino a te'; }
+            if (status) { status.textContent = 'Non è stato possibile ottenere la tua posizione.'; status.classList.add('is-error'); }
+        }, { timeout: 8000, maximumAge: 300000 });
+    }
+
+    function showView(view) {
+        var listEl = document.getElementById('view-list');
+        var mapEl = document.getElementById('view-map');
+        var tabList = document.getElementById('dir-tab-list');
+        var tabMap = document.getElementById('dir-tab-map');
+        if (!listEl || !mapEl || !tabList || !tabMap) { return; }
+
+        if (view === 'map') {
+            listEl.classList.add('dir-view--hidden');
+            mapEl.classList.remove('dir-view--hidden');
+            tabList.classList.remove('is-active');
+            tabMap.classList.add('is-active');
+            initMap();
+            setTimeout(function () { if (map) { map.invalidateSize(); } }, 60);
+        } else {
+            mapEl.classList.add('dir-view--hidden');
+            listEl.classList.remove('dir-view--hidden');
+            tabMap.classList.remove('is-active');
+            tabList.classList.add('is-active');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var tabList = document.getElementById('dir-tab-list');
+        var tabMap = document.getElementById('dir-tab-map');
+        var locateBtn = document.getElementById('dir-locate-btn');
+        var sidebarList = document.getElementById('map-sidebar-list');
+
+        if (tabList) { tabList.addEventListener('click', function () { showView('list'); }); }
+        if (tabMap) { tabMap.addEventListener('click', function () { showView('map'); }); }
+        if (locateBtn) { locateBtn.addEventListener('click', locateMe); }
+
+        if (sidebarList) {
+            sidebarList.addEventListener('click', function (e) {
+                var item = e.target.closest('.dir-map-sidebar-item');
+                if (!item || !map) { return; }
+                var marker = markersById[item.dataset.id];
+                if (marker) {
+                    map.setView(marker.getLatLng(), 16);
+                    marker.openPopup();
+                }
+                Array.prototype.forEach.call(document.querySelectorAll('.dir-map-sidebar-item.is-active'), function (el) {
+                    el.classList.remove('is-active');
+                });
+                item.classList.add('is-active');
+            });
+        }
+    });
+})();
+</script>
+@endpush
 @endsection

@@ -23,6 +23,7 @@ use App\Notifications\PaymentRequestRejectedNotification;
 use App\Models\KyCardPurchase;
 use App\Models\TextPaymentRequest;
 use App\Notifications\PaymentRequestedNotification;
+use App\Services\GeocodingService;
 use App\Services\TransferBookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -236,7 +237,7 @@ class PortalController extends Controller
         // le altre non hanno profilo visitabile e non sono utili agli utenti.
         $filters['status']     = 'active';
         $filters['kyc_status'] = 'approved';
-        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions] = $this->buildCompanyDirectoryData($filters);
+        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions, $mapCompanies] = $this->buildCompanyDirectoryData($filters);
 
         return view('portal.companies', [
             'pageTitle' => 'Aziende del circuito',
@@ -248,6 +249,7 @@ class PortalController extends Controller
             'sectorOptions' => $sectorOptions,
             'sectorBuckets' => $sectorBuckets,
             'cityOptions' => $cityOptions,
+            'mapCompanies' => $mapCompanies,
             'directoryRoute' => route('portal.companies'),
             'directoryMode' => 'portal',
             'activeNav' => 'aziende',
@@ -296,6 +298,7 @@ class PortalController extends Controller
             'tagline'       => ['nullable', 'string', 'max:160'],
             'description'   => ['nullable', 'string', 'max:2000'],
             'city'          => ['nullable', 'string', 'max:100'],
+            'address'       => ['nullable', 'string', 'max:255'],
             'website'       => ['nullable', 'url', 'max:255'],
             'phone'         => ['nullable', 'string', 'max:30'],
             'email'         => ['nullable', 'email', 'max:255'],
@@ -345,10 +348,40 @@ class PortalController extends Controller
         // Remove helper fields before fill
         unset($validated['logo'], $validated['banner'], $validated['remove_logo'], $validated['remove_banner']);
 
-        $company->fill($validated)->save();
+        $company->fill($validated);
+
+        // Geocoding: se indirizzo o città sono cambiati, ricalcoliamo lat/lng
+        // (usate per il pin sulla mappa in /aziende). Fallimento non bloccante:
+        // se Nominatim non trova l'indirizzo il profilo si salva comunque,
+        // semplicemente senza coordinate (nessun pin in mappa).
+        $geocodeWarning = '';
+        if ($company->isDirty('address') || $company->isDirty('city')) {
+            $fullAddress = trim(trim((string) $company->address) . ', ' . trim((string) $company->city), ', ');
+
+            if ($fullAddress === '') {
+                $company->latitude = null;
+                $company->longitude = null;
+                $company->geocoded_at = null;
+            } else {
+                $coords = app(GeocodingService::class)->geocode($fullAddress);
+                if ($coords !== null) {
+                    $company->latitude = $coords['lat'];
+                    $company->longitude = $coords['lng'];
+                    $company->geocoded_at = now();
+                } else {
+                    $company->latitude = null;
+                    $company->longitude = null;
+                    $company->geocoded_at = null;
+                    $geocodeWarning = ' L\'indirizzo è stato salvato ma non è stato trovato sulla mappa: '
+                        . 'verifica che sia scritto correttamente (es. "Via Roma 10" con città "Milano").';
+                }
+            }
+        }
+
+        $company->save();
 
         return redirect()->route('portal.profile.edit')
-            ->with('success', 'Profilo aggiornato con successo.');
+            ->with('success', 'Profilo aggiornato con successo.' . $geocodeWarning);
     }
 
     public function editPersonalProfile(Request $request): View|RedirectResponse
@@ -1762,7 +1795,46 @@ class PortalController extends Controller
             'listings'  => $directoryStatsCompanies->sum('listings_count'),
         ];
 
-        return [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions];
+        // Dataset per la vista mappa: a differenza della lista NON è paginato
+        // né in ordine casuale (i pin devono restare stabili e coprire tutte
+        // le aziende geolocalizzate che rispettano i filtri correnti), quindi
+        // riusiamo la collection già caricata per le statistiche sopra invece
+        // di interrogare di nuovo il DB. Cap a 500 pin per tenere leggero il
+        // payload della pagina anche quando il circuito cresce.
+        $mapCompanies = $directoryStatsCompanies
+            ->filter(fn (Company $company) => $company->hasCoordinates())
+            ->take(500)
+            ->map(function (Company $company) {
+                $bizAccount = $company->accounts->first();
+                $effectiveKyPct = $company->computeEffectiveKyPercentage(
+                    $bizAccount,
+                    $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
+                );
+                $isAtCeiling = $bizAccount ? $bizAccount->isAtCeiling() : false;
+
+                return [
+                    'id'               => $company->id,
+                    'name'             => $company->name,
+                    'slug'             => $company->slug,
+                    'sector'           => $company->sector,
+                    'city'             => $company->city,
+                    'address'          => $company->address,
+                    'lat'              => (float) $company->latitude,
+                    'lng'              => (float) $company->longitude,
+                    'logo_url'         => $company->logo_url,
+                    'listings_count'   => (int) $company->listings_count,
+                    'effective_ky_pct' => $effectiveKyPct,
+                    'is_in_debit'      => $bizAccount ? $bizAccount->isInDebit() : false,
+                    'is_at_ceiling'    => $isAtCeiling,
+                    'profile_url'      => route('portal.companies.show', $company->slug),
+                    'pay_url'          => ($bizAccount && ! $isAtCeiling)
+                        ? route('portal.invia', ['to' => $bizAccount->id])
+                        : null,
+                ];
+            })
+            ->values();
+
+        return [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions, $mapCompanies];
     }
 
     /**
