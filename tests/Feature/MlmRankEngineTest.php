@@ -507,6 +507,86 @@ class MlmRankEngineTest extends TestCase
         $this->assertSame('start', $agent->fresh()->mlm_rank);
     }
 
+    // ── Requisito "punti da ricariche" (2026-07-27, punto 4) ─────────────────
+
+    /** Crea punti attivi con source_type = 'deposit' (requisito "min_deposit_points" dal 2026-07-27). */
+    private function giveActiveDepositPoints(User $agent, int $points): void
+    {
+        $client = User::create([
+            'name'                => 'Cliente ' . Str::random(6),
+            'email'                => 'cliente-' . Str::random(10) . '@test.test',
+            'password'             => 'secret123',
+            'account_holder_type'  => 'private',
+            'company_id'           => null,
+            'is_active'            => true,
+            'mlm_role'             => 'cliente',
+            'mlm_client_agent_id'  => $agent->id,
+        ]);
+
+        MlmPointLedgerEntry::create([
+            'agent_user_id'  => $agent->id,
+            'client_user_id' => $client->id,
+            'source_type'    => 'deposit',
+            'points'         => $points,
+            'valid_from'     => now()->subDay()->toDateString(),
+            'valid_until'    => now()->addMonth()->toDateString(),
+        ]);
+    }
+
+    public function test_deposit_points_requirement_is_disabled_by_default(): void
+    {
+        // Seed di default (migration 2026_07_27_120000): min_deposit_points = 0
+        // per tutti i gradi finche' l'admin non imposta esplicitamente una
+        // soglia — 12 punti attivi (tutti da "registration", 0 da ricariche)
+        // devono comunque bastare per Basic finche' il requisito resta a 0.
+        $agent = $this->makeAgent();
+        $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
+
+        $evaluation = $this->engine->evaluate($agent);
+
+        $this->assertSame(0, $evaluation['deposit_points']);
+        $this->assertTrue($evaluation['satisfied']['basic']);
+    }
+
+    public function test_basic_requires_min_deposit_points_once_admin_sets_a_threshold(): void
+    {
+        \App\Models\MlmRankRequirement::where('rank', 'basic')->update(['min_deposit_points' => 6]);
+
+        $agent = $this->makeAgent();
+        // 12 punti attivi e 6 clienti (soddisfa min_points/min_clients), ma
+        // TUTTI da "registration": 0 punti da ricariche, sotto la soglia di 6
+        // appena impostata dall'admin.
+        $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
+
+        $evaluation = $this->engine->evaluate($agent);
+        $this->assertSame(0, $evaluation['deposit_points']);
+        $this->assertFalse($evaluation['satisfied']['basic']);
+        $this->assertSame('start', $evaluation['eligible_rank']);
+
+        // Con almeno 6 punti da ricariche, il requisito e' soddisfatto.
+        $this->giveActiveDepositPoints($agent, 6);
+        $evaluation = $this->engine->evaluate($agent);
+        $this->assertSame(6, $evaluation['deposit_points']);
+        $this->assertTrue($evaluation['satisfied']['basic']);
+    }
+
+    public function test_agent_below_the_minimum_deposit_points_is_demoted(): void
+    {
+        \App\Models\MlmRankRequirement::where('rank', 'basic')->update(['min_deposit_points' => 6]);
+
+        $agent = $this->makeAgent('basic');
+        $this->giveActivePoints($agent, 12);
+        $this->makeRegisteredClients($agent, 6);
+        // NB: nessun punto da ricariche -> deposit_points = 0 < 6.
+
+        $result = $this->engine->syncRank($agent);
+
+        $this->assertSame('demoted', $result);
+        $this->assertSame('start', $agent->fresh()->mlm_rank);
+    }
+
     public function test_branches_300pt_combines_real_branch_points_with_member_granted_points(): void
     {
         // 2026-07-22 pomeriggio bis (richiesta di Laura, dopo il caso "+23 pt

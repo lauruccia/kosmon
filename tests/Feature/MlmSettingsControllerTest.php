@@ -53,7 +53,7 @@ class MlmSettingsControllerTest extends TestCase
     private function requirementsPayload(array $overrides = []): array
     {
         $base = [
-            'min_points' => 0, 'min_clients' => 0, 'min_level1_basic' => 0, 'min_branches_with_key' => 0,
+            'min_points' => 0, 'min_clients' => 0, 'min_deposit_points' => 0, 'min_level1_basic' => 0, 'min_branches_with_key' => 0,
             'min_branches_with_senior' => 0, 'min_branches_with_top' => 0,
             'min_branches_with_supervisor' => 0, 'min_branches_300pt' => 0,
         ];
@@ -345,6 +345,47 @@ class MlmSettingsControllerTest extends TestCase
 
         // ...col terzo si'.
         $this->makeClientFor($agent);
+        $this->assertTrue(app(\App\Services\MlmRankEngine::class)->evaluate($agent)['satisfied']['basic']);
+    }
+
+    public function test_admin_can_change_the_minimum_deposit_points_per_rank(): void
+    {
+        // 2026-07-27, punto 4: verifica che il nuovo campo min_deposit_points
+        // faccia il giro completo form -> DB -> motore, stesso pattern del
+        // test analogo per min_clients (317).
+        $admin = $this->makeAdmin();
+
+        $payload = $this->requirementsPayload(['basic' => ['min_points' => 12, 'min_clients' => 0, 'min_deposit_points' => 5]]);
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(5, MlmRankRequirement::where('rank', 'basic')->value('min_deposit_points'));
+
+        $agent = $this->makeAgent();
+        \App\Models\MlmPointLedgerEntry::create([
+            'agent_user_id' => $agent->id,
+            'client_user_id' => $this->makeClientFor($agent)->id,
+            'source_type' => 'registration',
+            'points' => 12,
+            'valid_from' => now()->subDay(),
+            'valid_until' => now()->addMonth(),
+        ]);
+
+        // 12 punti attivi ma nessuno da ricariche: la nuova soglia (5) blocca Basic.
+        $this->assertFalse(app(\App\Services\MlmRankEngine::class)->evaluate($agent)['satisfied']['basic']);
+
+        // Con 5 punti da ricariche, la soglia e' soddisfatta.
+        \App\Models\MlmPointLedgerEntry::create([
+            'agent_user_id' => $agent->id,
+            'client_user_id' => $this->makeClientFor($agent)->id,
+            'source_type' => 'deposit',
+            'points' => 5,
+            'valid_from' => now()->subDay(),
+            'valid_until' => now()->addMonth(),
+        ]);
         $this->assertTrue(app(\App\Services\MlmRankEngine::class)->evaluate($agent)['satisfied']['basic']);
     }
 

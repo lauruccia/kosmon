@@ -266,6 +266,56 @@ class MlmTreeServiceTest extends TestCase
         $this->tree->moveAgent($client, $sponsor);
     }
 
+    public function test_reassign_client_updates_the_agent_reference(): void
+    {
+        $oldAgent = $this->makeAgent();
+        $newAgent = $this->makeAgent();
+        $client = $this->makeClient($oldAgent);
+
+        $this->tree->reassignClient($client, $newAgent);
+
+        $this->assertSame($newAgent->id, $client->fresh()->mlm_client_agent_id);
+    }
+
+    public function test_reassign_client_to_null_leaves_the_client_unattached(): void
+    {
+        $oldAgent = $this->makeAgent();
+        $client = $this->makeClient($oldAgent);
+
+        $this->tree->reassignClient($client, null);
+
+        $this->assertNull($client->fresh()->mlm_client_agent_id);
+    }
+
+    public function test_reassign_client_is_a_noop_when_the_agent_is_unchanged(): void
+    {
+        $agent = $this->makeAgent();
+        $client = $this->makeClient($agent);
+
+        $this->tree->reassignClient($client, $agent);
+
+        $this->assertSame($agent->id, $client->fresh()->mlm_client_agent_id);
+        $this->assertCount(0, \App\Models\AuditLog::where('event', 'mlm.client_reassigned')->get());
+    }
+
+    public function test_reassign_client_rejects_a_non_client(): void
+    {
+        $agent = $this->makeAgent();
+        $newAgent = $this->makeAgent();
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->tree->reassignClient($agent, $newAgent);
+    }
+
+    public function test_reassign_client_rejects_a_non_agent_target(): void
+    {
+        $client = $this->makeClient();
+        $anotherClient = $this->makeClient();
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->tree->reassignClient($client, $anotherClient);
+    }
+
     public function test_subtree_exposes_the_basiq_flag_per_node(): void
     {
         $sponsor = $this->makeAgent('key');

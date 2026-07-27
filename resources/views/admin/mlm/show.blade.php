@@ -293,6 +293,7 @@
             <tr>
                 <th>Cliente</th>
                 <th>Registrato il</th>
+                <th>Azioni</th>
             </tr>
         </thead>
         <tbody>
@@ -303,9 +304,10 @@
                         <span style="color:var(--ink-muted);font-size:12px;">{{ $client->email }}</span>
                     </td>
                     <td>{{ $client->created_at?->format('d/m/Y') }}</td>
+                    <td><a href="{{ route('admin.mlm.clients.reassign-form', $client) }}" style="color:var(--primary);font-size:12.5px;font-weight:600;text-decoration:none;">Riassegna</a></td>
                 </tr>
             @empty
-                <tr><td colspan="2" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun cliente diretto.</td></tr>
+                <tr><td colspan="3" style="text-align:center;color:var(--ink-muted);padding:24px;">Nessun cliente diretto.</td></tr>
             @endforelse
         </tbody>
     </table>

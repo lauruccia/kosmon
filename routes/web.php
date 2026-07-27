@@ -898,6 +898,10 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::get('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'moveForm'])->name('admin.mlm.tree.move-form')->middleware('backoffice');
         Route::post('/admin/mlm-albero/{user}/sposta', [MlmController::class, 'move'])->name('admin.mlm.tree.move')->middleware('backoffice');
 
+        // Riassegnazione clienti a un altro agente (2026-07-27, punto 2, richiesta di Laura).
+        Route::get('/admin/mlm/clienti/{user}/riassegna', [MlmController::class, 'reassignClientForm'])->name('admin.mlm.clients.reassign-form')->middleware('backoffice');
+        Route::post('/admin/mlm/clienti/{user}/riassegna', [MlmController::class, 'reassignClient'])->name('admin.mlm.clients.reassign')->middleware('backoffice');
+
         // Impostazioni MLM (requisiti qualifiche + scadenza punti) — per test rapidi, vedi MlmSettingsController.
         Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
         Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');

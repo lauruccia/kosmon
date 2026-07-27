@@ -514,4 +514,51 @@ class MlmTreeService
             ]);
         });
     }
+
+    /**
+     * Riassegna un CLIENTE a un altro agente (2026-07-27, richiesta di
+     * Laura, punto 2). A differenza di moveAgent() (che sposta un intero
+     * sottoalbero nella closure table), il cliente non fa parte dell'albero
+     * MLM: e' un semplice riferimento (mlm_client_agent_id) al suo agente
+     * "risolto". Riassegnare e' quindi solo un aggiornamento diretto di
+     * quel campo — nessuna riga di mlm_agent_closure viene toccata.
+     *
+     * Come per moveAgent(), l'operazione e' puramente strutturale e vale
+     * solo per il futuro: punti, commissioni e bonus gia' generati restano
+     * storici e collegati all'agente che li ha maturati al momento (stessa
+     * filosofia documentata per moveAgent()/moveAgentCore()).
+     *
+     * $newAgent = null rimuove l'attribuzione (il cliente resta "non
+     * attribuito", come un cliente appena registrato senza referral).
+     */
+    public function reassignClient(User $client, ?User $newAgent, ?User $actor = null): void
+    {
+        abort_unless($client->isMlmClient(), 422, 'Solo un cliente puo\' essere riassegnato a un agente.');
+
+        if ($newAgent) {
+            abort_unless($newAgent->isMlmAgent(), 422, 'Il nuovo agente di riferimento deve essere un agente MLM.');
+        }
+
+        $oldAgentId = $client->mlm_client_agent_id;
+        $newAgentId = $newAgent?->id;
+
+        if ($oldAgentId === $newAgentId) {
+            return; // Nessun cambiamento: stesso agente attuale.
+        }
+
+        DB::transaction(function () use ($client, $newAgentId, $oldAgentId, $actor): void {
+            $client->forceFill(['mlm_client_agent_id' => $newAgentId])->save();
+
+            AuditLog::create([
+                'actor_user_id'   => $actor?->id,
+                'event'           => 'mlm.client_reassigned',
+                'auditable_type'  => User::class,
+                'auditable_id'    => $client->id,
+                'context'         => [
+                    'old_agent_id' => $oldAgentId,
+                    'new_agent_id' => $newAgentId,
+                ],
+            ]);
+        });
+    }
 }

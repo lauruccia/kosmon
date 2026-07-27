@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
  * @property string $rank
  * @property int $min_points
  * @property int $min_clients
+ * @property int $min_deposit_points
  * @property int $min_level1_basic
  * @property int $min_branches_with_key
  * @property int $min_branches_with_senior
@@ -32,6 +33,7 @@ class MlmRankRequirement extends Model
         'rank',
         'min_points',
         'min_clients',
+        'min_deposit_points',
         'min_level1_basic',
         'min_branches_with_key',
         'min_branches_with_senior',

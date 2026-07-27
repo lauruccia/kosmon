@@ -285,4 +285,77 @@ class MlmController extends Controller
         return redirect()->route('admin.mlm.tree', $user)
             ->with('portal_success', $user->name . ' e\' stato spostato nell\'albero MLM.');
     }
+
+    /**
+     * GET /admin/mlm/clienti/{user}/riassegna
+     * Form di ricerca del nuovo agente di riferimento per un CLIENTE
+     * (2026-07-27, richiesta di Laura, punto 2). A differenza dello
+     * spostamento di un agente (move/moveForm), qui non esiste rischio di
+     * cicli: il cliente non fa parte dell'albero MLM, quindi tutti gli
+     * agenti attivi sono candidati validi.
+     */
+    public function reassignClientForm(Request $request, User $user, MlmTreeService $treeService): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        abort_unless($user->isMlmClient(), 404);
+
+        $search = trim((string) $request->query('q', ''));
+
+        $candidates = User::query()
+            ->where('mlm_role', 'agente')
+            ->when($search, fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
+            ->orderBy('name')
+            ->paginate(20)->withQueryString();
+
+        return view('admin.mlm.reassign-client', [
+            'pageTitle'    => 'Riassegna ' . $user->name,
+            'client'       => $user,
+            'currentAgent' => $user->mlmClientAgent,
+            'candidates'   => $candidates,
+            'search'       => $search,
+            'activeNav'    => 'mlm',
+        ]);
+    }
+
+    /**
+     * POST /admin/mlm/clienti/{user}/riassegna
+     * Esegue la riassegnazione del cliente al nuovo agente scelto (o lo
+     * rende "non attribuito" se new_agent_id e' vuoto). Vedi
+     * MlmTreeService::reassignClient() — operazione puramente strutturale,
+     * non tocca punti/commissioni/bonus gia' generati.
+     */
+    public function reassignClient(Request $request, User $user, MlmTreeService $treeService): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        abort_unless($user->isMlmClient(), 404);
+
+        $validated = $request->validate([
+            'new_agent_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        $newAgent = ! empty($validated['new_agent_id'])
+            ? User::findOrFail($validated['new_agent_id'])
+            : null;
+
+        $treeService->reassignClient($user, $newAgent, $request->user());
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.mlm.client_reassigned',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'context'        => ['new_agent_id' => $newAgent?->id],
+        ]);
+
+        $redirectTo = $newAgent
+            ? route('admin.mlm.show', $newAgent)
+            : route('admin.mlm.index');
+
+        return redirect($redirectTo)
+            ->with('portal_success', $user->name . ' e\' stato riassegnato' . ($newAgent ? ' a ' . $newAgent->name . '.' : ': ora non e\' attribuito a nessun agente.'));
+    }
 }

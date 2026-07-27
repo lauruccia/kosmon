@@ -70,11 +70,24 @@ class MlmPortalController extends Controller
         // con l'avanzamento verso le colonne da 300 punti calcolato in vista.
         $branches = $tree->branchSummaries($agent);
 
+        // Link "diventa cliente di te stesso" (2026-07-27, richiesta di
+        // Laura, punto 1): l'agente non puo' essere contemporaneamente
+        // cliente del proprio account, ma puo' registrare un secondo
+        // account (email diversa, stesso telefono ammesso) come proprio
+        // cliente. Il meccanismo esiste gia' in AuthController::register()
+        // + MlmTreeService::resolveAgentForNewClient() (se il referrer e'
+        // un agente, il nuovo utente diventa client di QUELL'agente): qui
+        // generiamo solo il link referral dell'agente, esattamente come
+        // ReferralController::index(), cosi' l'agente puo' condividerlo con
+        // se stesso per creare il proprio conto cliente.
+        $selfClientRegisterUrl = $agent->referralUrl();
+
         return view('portal.mlm.struttura', [
             'pageTitle'          => 'La mia struttura',
             'tree'               => $tree->subtree($agent),
             'branches'           => $branches,
             'agent'              => $agent,
+            'selfClientRegisterUrl' => $selfClientRegisterUrl,
             'activePoints'       => $activePoints,
             'expiringPoints'     => $expiringPoints,
             'rankAtRisk'         => $rankAtRisk,

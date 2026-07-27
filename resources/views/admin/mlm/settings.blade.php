@@ -158,6 +158,7 @@
                 Ogni grado è un requisito indipendente (non una progressione stretta): il sistema valuta tutte le righe e assegna il grado più alto soddisfatto.
                 Lascia a 0 le colonne non richieste per un grado (es. "Colonne Key" non serve per Basic).
                 "Clienti registrati" = clienti diretti con conto aperto (anche senza ricariche); come gli altri requisiti, chi scende sotto il minimo viene retrocesso al ricalcolo.
+                "Punti da ricariche" = sottoinsieme dei punti attivi generato SPECIFICAMENTE da ricariche (non conta l'apertura conto): un modo per richiedere che parte dei punti del grado derivi da ricariche reali, non solo dal totale punti.
             </p>
         </div>
         <div style="overflow-x:auto;">
@@ -167,6 +168,7 @@
                         <th>Grado</th>
                         <th>Punti attivi</th>
                         <th>Clienti registrati</th>
+                        <th>Punti da ricariche</th>
                         <th>Basic al 1° liv.</th>
                         <th>Colonne Key+</th>
                         <th>Colonne Senior+</th>
@@ -180,7 +182,7 @@
                         @php($req = $requirements->get($rank))
                         <tr>
                             <td><strong>{{ ucfirst($rank) }}</strong></td>
-                            @foreach(['min_points','min_clients','min_level1_basic','min_branches_with_key','min_branches_with_senior','min_branches_with_top','min_branches_with_supervisor','min_branches_300pt'] as $field)
+                            @foreach(['min_points','min_clients','min_deposit_points','min_level1_basic','min_branches_with_key','min_branches_with_senior','min_branches_with_top','min_branches_with_supervisor','min_branches_300pt'] as $field)
                                 <td>
                                     <input type="number" min="0" step="1"
                                         name="requirements[{{ $rank }}][{{ $field }}]"
