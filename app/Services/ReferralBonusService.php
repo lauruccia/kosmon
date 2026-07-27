@@ -40,6 +40,11 @@ use Illuminate\Support\Facades\Log;
  * livello più alto raggiunto — mai la somma dei livelli. Lo stato è tracciato
  * su users.referral_bonus_paid_amount/referral_bonus_tier del SEGNALATO (non
  * del segnalante): "quanto ho già fatto guadagnare a chi mi ha segnalato".
+ *
+ * L'incentivo è riservato ai segnalanti privati "normali": niente bonus se
+ * chi segnala è un'azienda o è già un agente KNM (vedi referrerIsEligible()).
+ * Questo NON cambia i tre livelli sopra, che restano dedotti da cosa fa
+ * l'INVITATO — riguarda solo l'idoneità di chi riceve il bonus.
  */
 class ReferralBonusService
 {
@@ -96,6 +101,10 @@ class ReferralBonusService
             $referrer = $locked->referredBy;
             if (! $referrer) {
                 return; // nessuna segnalazione dietro questo utente
+            }
+
+            if (! $this->referrerIsEligible($referrer)) {
+                return; // il bonus spetta solo ai segnalanti privati (no aziende, no agenti)
             }
 
             $alreadyPaid = (int) ($locked->referral_bonus_paid_amount ?? 0);
@@ -181,6 +190,18 @@ class ReferralBonusService
                 'referral_bonus_tier'        => $tier,
             ])->save();
         });
+    }
+
+    /**
+     * L'incentivo 10/50/100 spetta SOLO ai segnalanti privati "normali":
+     * niente bonus se il segnalante è un'azienda (account_holder_type =
+     * 'company') o un agente KNM (mlm_role = 'agente', vedi User::isMlmAgent()).
+     * Riguarda esclusivamente CHI segnala, non il livello raggiunto
+     * dall'invitato (quello resta amico/agente/attivita come sempre).
+     */
+    private function referrerIsEligible(User $referrer): bool
+    {
+        return $referrer->account_holder_type === 'private' && ! $referrer->isMlmAgent();
     }
 
     private function descriptionFor(string $tier, User $referredUser): string

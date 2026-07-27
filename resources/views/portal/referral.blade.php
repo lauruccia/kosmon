@@ -2,7 +2,7 @@
 
 @section('content')
 <style>
-.ref-grid { display:grid; gap:20px; max-width:700px; }
+.ref-grid { display:grid; gap:20px; width:100%; }
 
 .ref-hero {
     padding:28px; background:var(--grad-hero);

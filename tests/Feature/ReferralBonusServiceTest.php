@@ -246,6 +246,85 @@ class ReferralBonusServiceTest extends TestCase
         $this->assertSame(1, Transfer::where('idempotency_key', "referral_bonus_{$invited->id}_amico")->count());
     }
 
+    // ── Idoneità del segnalante: solo privati "normali" ──────────────────────
+
+    public function test_no_bonus_when_referrer_is_a_company(): void
+    {
+        $company = Company::create([
+            'name'          => 'Azienda Segnalante',
+            'slug'          => 'azienda-segnalante-' . Str::random(4),
+            'email'         => 'azienda-segnalante@test.test',
+            'status'        => 'active',
+            'kyc_status'    => 'approved',
+            'currency_code' => 'KY',
+        ]);
+
+        $referrer = User::create([
+            'company_id'          => $company->id,
+            'account_holder_type' => 'company',
+            'name'                => 'Titolare Azienda Segnalante',
+            'email'               => 'titolare-segnalante-' . Str::random(6) . '@test.test',
+            'password'            => 'secret123',
+            'is_active'           => true,
+        ]);
+        $referrer->forceFill(['email_verified_at' => now()])->save();
+
+        Account::create([
+            'company_id'        => $company->id,
+            'owner_user_id'     => $referrer->id,
+            'owner_type'        => 'company',
+            'type'              => 'primary',
+            'account_name'      => 'Conto Azienda Segnalante',
+            'currency_code'     => 'KY',
+            'status'            => 'active',
+            'available_balance' => 0,
+        ]);
+
+        $this->makeSuperAdmin();
+
+        $invited = User::create([
+            'name'                => 'Invitato da Azienda',
+            'email'               => 'invitatoazienda@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'is_active'           => true,
+            'referred_by_user_id' => $referrer->id,
+        ]);
+        $invited->forceFill(['email_verified_at' => now()])->save();
+
+        app(ReferralBonusService::class)->awardTierOrFail($invited, ReferralBonusService::TIER_AMICO);
+
+        $this->assertSame(0, $this->referrerBalance($referrer)); // nessun bonus: il segnalante è un'azienda
+        $this->assertSame(0, Transfer::where('idempotency_key', "referral_bonus_{$invited->id}_amico")->count());
+
+        $invited->refresh();
+        $this->assertSame(0, $invited->referral_bonus_paid_amount);
+        $this->assertNull($invited->referral_bonus_tier);
+    }
+
+    public function test_no_bonus_when_referrer_is_an_mlm_agent(): void
+    {
+        $referrer = $this->makeReferrer();
+        $referrer->forceFill(['mlm_role' => 'agente'])->save();
+
+        $this->makeSuperAdmin();
+
+        $invited = User::create([
+            'name'                => 'Invitato da Agente',
+            'email'               => 'invitatoagente@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'is_active'           => true,
+            'referred_by_user_id' => $referrer->id,
+        ]);
+        $invited->forceFill(['email_verified_at' => now()])->save();
+
+        app(ReferralBonusService::class)->awardTierOrFail($invited, ReferralBonusService::TIER_AMICO);
+
+        $this->assertSame(0, $this->referrerBalance($referrer)); // nessun bonus: il segnalante è già un agente KNM
+        $this->assertSame(0, Transfer::where('idempotency_key', "referral_bonus_{$invited->id}_amico")->count());
+    }
+
     public function test_no_bonus_when_amount_disabled(): void
     {
         $referrer = $this->makeReferrer();

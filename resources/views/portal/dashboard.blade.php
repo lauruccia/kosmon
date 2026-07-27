@@ -845,7 +845,7 @@
 {{-- ══════════════════════════════════════════════════
      BANNER PROGRAMMA SEGNALAZIONI
 ══════════════════════════════════════════════════ --}}
-@if(($referralBonusAmounts['amico'] ?? 0) > 0 || ($referralBonusAmounts['agente'] ?? 0) > 0 || ($referralBonusAmounts['attivita'] ?? 0) > 0)
+@if($currentUser->account_holder_type === 'private' && ! $currentUser->isMlmAgent() && (($referralBonusAmounts['amico'] ?? 0) > 0 || ($referralBonusAmounts['agente'] ?? 0) > 0 || ($referralBonusAmounts['attivita'] ?? 0) > 0))
 <div class="card" style="padding:0;overflow:hidden;border-radius:var(--radius);margin-bottom:18px;background:linear-gradient(120deg,#0f52c4,#0369a1);position:relative;">
     <div style="position:absolute;inset:0;background:radial-gradient(600px 160px at 85% 0%, rgba(255,255,255,.10), transparent 70%);pointer-events:none;"></div>
     <div style="position:relative;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px;">
