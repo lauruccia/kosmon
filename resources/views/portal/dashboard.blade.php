@@ -843,6 +843,53 @@
 @endif
 
 {{-- ══════════════════════════════════════════════════
+     BANNER PROGRAMMA SEGNALAZIONI
+══════════════════════════════════════════════════ --}}
+@if(($referralBonusAmounts['amico'] ?? 0) > 0 || ($referralBonusAmounts['agente'] ?? 0) > 0 || ($referralBonusAmounts['attivita'] ?? 0) > 0)
+<div class="card" style="padding:0;overflow:hidden;border-radius:var(--radius);margin-bottom:18px;background:linear-gradient(120deg,#0f52c4,#0369a1);position:relative;">
+    <div style="position:absolute;inset:0;background:radial-gradient(600px 160px at 85% 0%, rgba(255,255,255,.10), transparent 70%);pointer-events:none;"></div>
+    <div style="position:relative;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px;">
+        <div style="min-width:240px;flex:1 1 320px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:rgba(255,255,255,.18);border-radius:8px;font-size:14px;">🎁</span>
+                <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.8);">Programma segnalazioni</span>
+            </div>
+            <div style="font-size:17px;font-weight:800;color:#fff;line-height:1.35;margin-bottom:4px;">
+                Fai crescere il circuito, guadagna KY
+            </div>
+            <div style="font-size:13px;color:rgba(255,255,255,.85);max-width:520px;line-height:1.5;">
+                Segnala un amico, un agente o un&rsquo;attività: ogni volta che entrano nel circuito KMoney, ricevi un bonus in KY direttamente sul tuo conto — senza alcun costo.
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;">
+                @if(($referralBonusAmounts['amico'] ?? 0) > 0)
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;font-size:12px;color:#fff;">
+                    <strong>+{{ ky_format($referralBonusAmounts['amico']) }} KY</strong>&nbsp;per ogni amico
+                </span>
+                @endif
+                @if(($referralBonusAmounts['agente'] ?? 0) > 0)
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;font-size:12px;color:#fff;">
+                    <strong>+{{ ky_format($referralBonusAmounts['agente']) }} KY</strong>&nbsp;per ogni agente
+                </span>
+                @endif
+                @if(($referralBonusAmounts['attivita'] ?? 0) > 0)
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;font-size:12px;color:#fff;">
+                    <strong>+{{ ky_format($referralBonusAmounts['attivita']) }} KY</strong>&nbsp;per ogni attività
+                </span>
+                @endif
+            </div>
+        </div>
+
+        <div style="flex-shrink:0;">
+            <a href="{{ route('portal.referral') }}" class="cta" style="background:#fff;color:#0f52c4;white-space:nowrap;border:none;box-shadow:0 4px 14px rgba(0,0,0,.12);">
+                Invita ora →
+            </a>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ══════════════════════════════════════════════════
      GRIGLIA PRINCIPALE
 ══════════════════════════════════════════════════ --}}
 <div class="dashboard-bank-grid dashboard-bank-grid--home">

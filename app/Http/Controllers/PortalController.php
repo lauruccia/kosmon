@@ -216,6 +216,7 @@ class PortalController extends Controller
             'remainingToday'     => $remainingToday,
             'spentThisMonth'     => $spentThisMonth,
             'remainingThisMonth' => $remainingThisMonth,
+            'referralBonusAmounts' => app(\App\Services\ReferralBonusService::class)->tierAmounts(),
             'pageTitle' => 'Conto KMoney',
             'activeNav' => 'conto',
         ]);
