@@ -2,24 +2,34 @@
  * KMoney payment method renderer.
  *
  * This method never collects card/bank data in Magento. Once the order is
- * placed, afterPlaceOrder() points Magento's own "redirect on success"
- * action at our "redirect" controller instead of navigating directly - see
- * the note on afterPlaceOrder() below for why. That controller creates the
- * KMoney payment request server-to-server and 302s the customer to the
- * KMoney hosted checkout page (pay_url), where they log in with their own
- * KMoney credentials and confirm the amount.
+ * placed, afterPlaceOrder() sends the browser to our own "redirect"
+ * controller, which creates the KMoney payment request server-to-server and
+ * 302s the customer to the KMoney hosted checkout page (pay_url), where they
+ * log in with their own KMoney credentials and confirm the amount.
+ *
+ * NOTE on redirectAfterPlaceOrder: Magento's core payment component
+ * (Magento_Checkout/js/view/payment/default) always calls
+ * afterPlaceOrder() first and then, if redirectAfterPlaceOrder is left at
+ * its default of true, ALSO calls redirect-on-success's execute(), which
+ * does its own window.location.replace() to the default order-success page.
+ * That second, competing replace() call is what caused the "order created,
+ * customer never reaches KMoney" bug: it fires right after ours and wins.
+ * Setting redirectAfterPlaceOrder: false below tells core to skip its own
+ * redirect entirely and just let ours run - no race, and no dependency on
+ * the exact internal API of redirect-on-success (which this store's theme
+ * may customize).
  */
 define([
     'jquery',
     'Magento_Checkout/js/view/payment/default',
-    'Magento_Checkout/js/action/redirect-on-success',
     'mage/url'
-], function ($, Component, redirectOnSuccessAction, url) {
+], function ($, Component, url) {
     'use strict';
 
     return Component.extend({
         defaults: {
-            template: 'Kmoney_Payment/payment/kmoney'
+            template: 'Kmoney_Payment/payment/kmoney',
+            redirectAfterPlaceOrder: false
         },
 
         getCode: function () {
@@ -37,20 +47,12 @@ define([
         /**
          * Called by Magento_Checkout/js/view/payment/default after a
          * successful "Place Order" call. The order now exists (status
-         * "pending").
-         *
-         * IMPORTANT: do not window.location.replace() here directly. Right
-         * after afterPlaceOrder() runs, Magento's core checkout flow always
-         * also calls redirect-on-success's execute(), which itself does its
-         * own window.location.replace() to the default order-success page.
-         * Two competing replace() calls race, and the default one (fired
-         * second) wins - the customer ends up on the plain Magento order
-         * confirmation page, order created but never paid. Instead, tell
-         * redirect-on-success to use our URL: Magento's own flow then
-         * performs the single real navigation, with no race.
+         * "pending"); redirect the browser to our controller, which will in
+         * turn redirect to KMoney. Safe to do directly here now that core's
+         * own automatic redirect is disabled above.
          */
         afterPlaceOrder: function () {
-            redirectOnSuccessAction.setRedirectUrl(url.build('kmoney/redirect/index'));
+            window.location.replace(url.build('kmoney/redirect/index'));
         }
     });
 });
