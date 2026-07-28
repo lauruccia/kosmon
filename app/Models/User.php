@@ -165,6 +165,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'payment_pin_hash',
         'referral_code',
         'referred_by_user_id',
+        'mlm_agent_code',
         'referral_bonus_paid_amount',
         'referral_bonus_tier',
         'mlm_role',
@@ -584,6 +585,31 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $this->referral_code;
+    }
+
+    /**
+     * Restituisce il "Codice agente" (punto 5, 28/07/2026), generandolo se
+     * non esiste ancora. Formato: 'K' + 5 cifre numeriche casuali (es.
+     * K04821). A differenza di referralCode(), UNA VOLTA ASSEGNATO NON VIENE
+     * MAI PIU' RIGENERATO (immutabile per decisione esplicita di Laura):
+     * questo metodo, se il codice è già presente, lo restituisce così com'è
+     * senza toccarlo. Chiamato da MlmAgentContractController::sign() nel
+     * momento esatto in cui mlm_role diventa 'agente', quindi copre sia il
+     * percorso di richiesta/approvazione classico sia quello in cui è un
+     * altro agente a registrare il nuovo agente (vedi
+     * MlmPortalController::registraAgenteStore()).
+     */
+    public function agentCode(): string
+    {
+        if (! $this->mlm_agent_code) {
+            do {
+                $code = 'K' . str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+            } while (self::where('mlm_agent_code', $code)->exists());
+
+            $this->forceFill(['mlm_agent_code' => $code])->save();
+        }
+
+        return $this->mlm_agent_code;
     }
 
     /** URL di registrazione con codice referral pre-compilato. */

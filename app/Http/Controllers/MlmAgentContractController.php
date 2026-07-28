@@ -123,6 +123,14 @@ class MlmAgentContractController extends Controller
 
         $mlmTree->attachAgent($user, $sponsor);
 
+        // Codice agente (punto 5, 28/07/2026): assegnato qui, nel momento
+        // esatto in cui mlm_role diventa 'agente' — vale sia per chi arriva
+        // dalla richiesta/approvazione classica sia per chi è stato
+        // registrato direttamente da un altro agente (vedi
+        // MlmPortalController::registraAgenteStore()). Immutabile una volta
+        // assegnato, vedi User::agentCode().
+        $user->agentCode();
+
         AuditLog::create([
             'actor_user_id'  => $user->id,
             'event'          => 'mlm.agent_contract.signed',

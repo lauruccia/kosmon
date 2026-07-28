@@ -662,6 +662,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
         Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
         Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
 
+        // MLM (KNM) — un agente registra un nuovo agente sotto di sé (2026-07-28,
+        // punto 3/6: sostituisce per questo percorso la vecchia casella "voglio
+        // diventare agente" nella registrazione pubblica generale).
+        Route::get('/mlm/registra-agente', [MlmPortalController::class, 'registraAgente'])->name('portal.mlm.agent-create.show');
+        Route::post('/mlm/registra-agente', [MlmPortalController::class, 'registraAgenteStore'])->name('portal.mlm.agent-create.store');
+
         // MLM (KNM) — richiesta di diventare agente + firma contratto di nomina
         Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
         Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');

@@ -37,6 +37,14 @@
     </form>
 </div>
 
+<div class="card card-pad" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+        <h3 style="margin:0 0 4px;font-size:15px;">Vuoi nominare direttamente un nuovo agente?</h3>
+        <p style="margin:0;color:var(--ink-muted);font-size:13px;">Il link sopra è per invitare clienti. Per registrare un nuovo agente sotto di te, compila tu i suoi dati: riceverà subito le credenziali via email.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ route('portal.mlm.agent-create.show') }}" style="white-space:nowrap;">Registra un agente →</a>
+</div>
+
 <div class="card card-pad" style="margin-bottom:14px;padding-bottom:0;">
     <h3 style="margin:0 0 10px;font-size:15px;">Inviti email</h3>
 </div>

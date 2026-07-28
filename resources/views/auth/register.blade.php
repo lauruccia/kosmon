@@ -426,18 +426,16 @@
                 </div>
             </div>
 
-            {{-- Programma agenti (opzionale) --}}
-            @if(config('kmoney.mlm_enabled'))
-            <div class="field-group" style="margin-bottom:28px;">
-                <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:16px 18px; border:1.5px solid var(--line); border-radius:14px; background:var(--glass);">
-                    <input type="checkbox" name="become_agent" value="1" style="margin-top:3px; width:18px; height:18px; accent-color: var(--green); flex-shrink:0;" {{ old('become_agent') ? 'checked' : '' }}>
-                    <span>
-                        <span style="display:block; font-weight:700; font-size:14px; margin-bottom:4px;">Voglio diventare agente KNM</span>
-                        <span style="display:block; font-size:12px; color:var(--muted); line-height:1.6;">Invieremo la tua richiesta al nostro team: una volta approvata dovrai firmare il contratto di nomina ad agente per iniziare a invitare clienti e altri agenti, maturare punti, salire di qualifica e guadagnare commissioni e bonus. Lasciando la casella vuota ti registri come semplice cliente (potrai comunque richiederlo in seguito dal tuo profilo).</span>
-                    </span>
-                </label>
-            </div>
-            @endif
+            {{-- 2026-07-28 (punto 1, richiesta di Laura): rimossa la casella
+                 "Voglio diventare agente KNM" dalla registrazione pubblica
+                 generale. Da ora l'unico modo per diventare agente è essere
+                 registrati da un agente esistente (vedi
+                 portal.mlm.agent-create.show) oppure, per chi è già cliente,
+                 il percorso classico di richiesta dal profilo
+                 (portal.mlm.agent-request.show, invariato). Il backend
+                 (AuthController::register) continua a gestire in modo
+                 difensivo un eventuale campo become_agent in arrivo (resta
+                 sempre false non essendo più presente in questo form). --}}
 
             {{-- Codice referral (nascosto, pre-compilato se presente nell'URL) --}}
             @if(request('ref'))

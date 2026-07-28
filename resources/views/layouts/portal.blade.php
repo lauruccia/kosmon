@@ -1615,6 +1615,9 @@
                                 <a class="sidebar-link {{ $an === 'mlm-invitati' ? 'active' : '' }}" href="{{ route('portal.mlm.invitati') }}">
                                     <span class="nav-icon">&#9993;</span><span>I miei inviti</span>
                                 </a>
+                                <a class="sidebar-link {{ $an === 'mlm-registra-agente' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-create.show') }}">
+                                    <span class="nav-icon">&#128100;</span><span>Registra agente</span>
+                                </a>
                                 <a class="sidebar-link {{ $an === 'mlm-prelievi' ? 'active' : '' }}" href="{{ route('portal.mlm.prelievi') }}">
                                     <span class="nav-icon">&euro;</span><span>Prelievi</span>
                                 </a>

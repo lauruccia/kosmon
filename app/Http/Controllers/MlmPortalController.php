@@ -3,15 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Mail\MlmInvitationMail;
+use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\KyCardPurchase;
 use App\Models\MlmInvitation;
+use App\Models\Role;
 use App\Models\User;
+use App\Notifications\MlmAgentCreatedByReferrerNotification;
 use App\Services\MlmPayoutService;
 use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
@@ -97,6 +103,105 @@ class MlmPortalController extends Controller
             'retention'          => $retention,
             'activeNav'          => 'mlm-struttura',
         ]);
+    }
+
+    /**
+     * GET /portale/mlm/registra-agente — form dedicato con cui l'agente
+     * referente registra un nuovo agente sotto di sé (2026-07-28, "gli
+     * agenti sotto li registra l'agente referente"). Sostituisce, per chi
+     * arriva tramite un agente, il vecchio percorso "spunta la casella in
+     * registrazione": quella casella è stata rimossa dalla registrazione
+     * pubblica generale (vedi auth/register.blade.php) proprio perché
+     * l'unico modo per diventare agente oggi è essere registrati da un
+     * agente esistente (questo form) oppure — per chi è già cliente —
+     * dal percorso classico richiesta/approvazione admin, invariato.
+     */
+    public function registraAgente(Request $request): View
+    {
+        $this->agentOrAbort($request);
+
+        return view('portal.mlm.registra-agente', [
+            'pageTitle' => 'Registra un nuovo agente',
+            'activeNav' => 'mlm-registra-agente',
+        ]);
+    }
+
+    /** POST /portale/mlm/registra-agente */
+    public function registraAgenteStore(Request $request): RedirectResponse
+    {
+        $agent = $this->agentOrAbort($request);
+
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'phone' => ['nullable', 'string', 'max:30'],
+        ], [], ['name' => 'nome e cognome', 'email' => 'email', 'phone' => 'telefono']);
+
+        $email = mb_strtolower(trim($validated['email']));
+        $temporaryPassword = Str::password(14);
+
+        $newAgent = DB::transaction(function () use ($validated, $email, $agent, $temporaryPassword) {
+            $defaultRole = Role::query()->where('slug', 'private-member')->firstOrFail();
+
+            // Creato come 'cliente' con richiesta MLM già "approvata": stesso
+            // stato in cui si trova chi ha fatto la richiesta classica ed è
+            // stato approvato dall'admin (vedi Admin\MlmAgentRequestController
+            // ::approve()/promote()) — nessuna coda di revisione admin per
+            // questo percorso, perché è l'agente referente stesso a
+            // "vouch-are" per il nuovo agente. mlm_role diventa 'agente' solo
+            // alla firma del contratto (MlmAgentContractController::sign()),
+            // invariato per TUTTI i percorsi.
+            $user = User::create([
+                'account_holder_type'        => 'private',
+                'name'                       => $validated['name'],
+                'email'                      => $email,
+                'email_verified_at'          => now(),
+                'phone'                      => $validated['phone'] ?? null,
+                'password'                   => $temporaryPassword,
+                'role'                       => 'registered-private',
+                'is_active'                  => true,
+                'is_super_admin'             => false,
+                'referred_by_user_id'        => $agent->id,
+                'mlm_role'                   => 'cliente',
+                'mlm_client_agent_id'        => null,
+                'mlm_agent_request_status'   => 'approved',
+                'mlm_agent_requested_at'     => now(),
+                'mlm_agent_reviewed_at'      => now(),
+                'mlm_agent_reviewed_by'      => $agent->id,
+            ]);
+
+            Account::create([
+                'owner_user_id'          => $user->id,
+                'owner_type'             => 'private',
+                'type'                   => 'primary',
+                'account_name'           => 'Conto personale ' . $user->name,
+                'currency_code'          => 'KY',
+                'status'                 => 'active',
+                'allow_negative_balance' => false,
+                'available_balance'      => 0,
+                'pending_balance'        => 0,
+            ]);
+
+            $defaultRoleModel = $defaultRole;
+            $user->roles()->sync([$defaultRoleModel->id]);
+
+            return $user;
+        });
+
+        AuditLog::create([
+            'actor_user_id'  => $agent->id,
+            'event'          => 'mlm.agent_created_by_referrer',
+            'auditable_type' => User::class,
+            'auditable_id'   => $newAgent->id,
+            'context'        => ['referrer_agent_id' => $agent->id],
+        ]);
+
+        $newAgent->notify(new MlmAgentCreatedByReferrerNotification($temporaryPassword, $agent));
+
+        return redirect()->route('portal.mlm.struttura')->with(
+            'success',
+            "Nuovo agente registrato: {$newAgent->name}. Ha ricevuto un'email con le credenziali di primo accesso; diventerà agente attivo dopo aver firmato il contratto di nomina."
+        );
     }
 
     /** GET /portale/mlm/clienti — clienti collegati con acquisti KYCard. */
