@@ -27,19 +27,28 @@
     .dir-searchbar .field label { font-size:11px; }
     .dir-searchbar .form-actions { margin:0; flex-shrink:0; }
 
-    /* ── Stats ── */
-    .dir-stats {
-        display:flex; gap:20px; flex-wrap:wrap; flex-shrink:0;
-        padding-left:16px;
-        border-left:1px solid var(--line);
+    /* Campo ricerca con lente inline (stile pill, coerente col resto dell'app) */
+    .dir-search-input-wrap { position:relative; }
+    .dir-search-input-wrap svg {
+        position:absolute; left:13px; top:50%; transform:translateY(-50%);
+        opacity:.45; pointer-events:none;
     }
-    .dir-stat { display:flex; flex-direction:column; }
-    .dir-stat-val { font-size:18px; font-weight:800; color:var(--ink); letter-spacing:-.02em; }
-    .dir-stat-lbl { font-size:10px; font-weight:600; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.07em; }
-    .dir-stat + .dir-stat { padding-left:20px; border-left:1px solid var(--line); }
+    .dir-search-input-wrap input { padding-left:36px !important; border-radius:999px !important; }
+    .dir-searchbar select { border-radius:999px !important; }
+
+    /* ── Stats: chip colorate invece del semplice testo separato da bordi ── */
+    .dir-stats { display:flex; gap:8px; flex-wrap:wrap; flex-shrink:0; }
+    .dir-stat {
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        padding:6px 16px; min-width:76px;
+        border-radius:var(--radius-sm); background:var(--surface-soft); border:1px solid var(--line);
+    }
+    .dir-stat-val { font-size:18px; font-weight:800; color:var(--primary); letter-spacing:-.02em; }
+    .dir-stat-lbl { font-size:9.5px; font-weight:700; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em; margin-top:1px; }
     @media(max-width:700px){
         .dir-topbar { flex-direction:column; align-items:stretch; }
-        .dir-stats { border-left:none; padding-left:0; border-top:1px solid var(--line); padding-top:12px; }
+        .dir-stats { justify-content:space-between; }
+        .dir-stat { flex:1; }
     }
 
     /* ── Grid ── */
@@ -64,18 +73,19 @@
 
     /* ── BASE CARD (comune a tutti i piani) ── */
     .dir-card {
-        border-radius:16px;
+        border-radius:var(--radius);
         border:1px solid var(--line);
-        background:#fff;
-        box-shadow:0 1px 4px rgba(0,0,0,.06);
+        background:var(--surface);
+        box-shadow:var(--shadow-xs);
         overflow:hidden;
         display:flex; flex-direction:column;
         transition:box-shadow .2s, transform .18s, border-color .18s;
         position:relative;
     }
     .dir-card:hover {
-        box-shadow:0 10px 26px rgba(13,28,48,.13);
+        box-shadow:var(--shadow-lg);
         transform:translateY(-3px);
+        border-color:var(--line-strong);
     }
 
     /* Accento superiore col colore del piano — l'unico elemento "premium"
@@ -164,13 +174,13 @@
         min-height:36px;
     }
     .dir-card--compact .dir-btn { font-size:11.5px; min-height:32px; padding:6px 9px; }
-    .dir-btn-primary { background:#0c4a86; color:#fff; border:1.5px solid #0c4a86; }
-    .dir-btn-primary:hover { background:#0e3158; color:#fff; }
+    .dir-btn-primary { background:var(--primary); color:#fff; border:1.5px solid var(--primary); }
+    .dir-btn-primary:hover { background:var(--primary-strong); color:#fff; }
     .dir-btn-ghost {
-        background:#fff; color:#0c4a86;
-        border:1.5px solid #c7d9ef; flex:0 0 auto; padding:8px 13px;
+        background:var(--surface); color:var(--primary);
+        border:1.5px solid var(--line-strong); flex:0 0 auto; padding:8px 13px;
     }
-    .dir-btn-ghost:hover { background:#f0f6ff; border-color:#94b4d8; }
+    .dir-btn-ghost:hover { background:var(--primary-light); border-color:var(--primary); }
 
     /* ── SIMPLE CARD (anagrafica) ── */
     .dir-card--simple .dir-body {
@@ -185,14 +195,20 @@
         margin:0; line-height:1.3; word-break:break-word;
     }
     .dir-simple-sector { font-size:11px; font-weight:600; color:var(--ink-muted); margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+    /* Icona categoria colorata con lo stesso gradiente usato per l'iniziale
+       del logo (per-azienda, tramite --dir-c1/--dir-c2): da riquadro grigio
+       piatto a un accento cromatico che rende le card riconoscibili a colpo
+       d'occhio, senza reintrodurre badge/loghi legati ai piani. */
     .dir-cat-icon {
-        flex-shrink:0; width:34px; height:34px;
-        border-radius:9px; background:var(--surface-soft); border:1px solid var(--line);
+        flex-shrink:0; width:38px; height:38px;
+        border-radius:11px;
+        background:linear-gradient(150deg,var(--dir-c1,#174d87),var(--dir-c2,#071d35));
         display:flex; align-items:center; justify-content:center;
-        font-size:17px;
+        font-size:18px;
+        box-shadow:0 2px 8px rgba(13,28,48,.16);
     }
     .dir-card--simple .dir-contact { font-size:12px; }
-    .dir-card--simple .dir-footer { padding:8px 14px; border-top:1px solid var(--line); }
+    .dir-card--simple .dir-footer { padding:8px 14px; border-top:1px solid var(--line); background:var(--surface-soft); }
     .dir-card--simple .dir-btn-primary { font-size:12px; min-height:32px; }
 
     /* ── Badge KY percentuale ── */
@@ -202,10 +218,10 @@
         padding:2px 8px; border-radius:99px;
         white-space:nowrap; flex-shrink:0;
     }
-    .ky-badge--full  { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
-    .ky-badge--mix   { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
-    .ky-badge--debit { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
-    .ky-badge--ceil  { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+    .ky-badge--full  { background:var(--success-soft); color:var(--success); border:1px solid var(--success); }
+    .ky-badge--mix   { background:var(--teal-soft); color:var(--teal-strong); border:1px solid var(--teal); }
+    .ky-badge--debit { background:var(--warning-soft); color:var(--warning); border:1px solid var(--warning); }
+    .ky-badge--ceil  { background:var(--surface-soft); color:var(--ink-muted); border:1px solid var(--line); }
     .ky-badge--gold  { background:linear-gradient(135deg,#fef9c3,#fde047); color:#854d0e; border:1px solid #eab308; box-shadow:0 1px 6px rgba(234,179,8,.35); font-weight:800; }
 
     /* ── Pagination ── */
@@ -231,21 +247,28 @@
         font-size:12.5px; font-weight:700; color:var(--ink-muted);
         transition:background .15s, color .15s;
     }
-    .dir-tab.is-active { background:#0c4a86; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18); }
+    .dir-tab.is-active { background:var(--primary); color:#fff; box-shadow:var(--shadow-xs); }
     .dir-locate-btn {
         appearance:none; cursor:pointer;
         display:inline-flex; align-items:center; gap:6px;
         padding:8px 14px; border-radius:999px;
         font-size:12.5px; font-weight:700;
-        background:#fff; color:#0c4a86; border:1.5px solid #c7d9ef;
+        background:var(--surface); color:var(--primary); border:1.5px solid var(--line-strong);
         transition:background .15s, border-color .15s;
     }
-    .dir-locate-btn:hover { background:#f0f6ff; border-color:#94b4d8; }
-    .dir-locate-btn.is-active { background:#0c4a86; color:#fff; border-color:#0c4a86; }
+    .dir-locate-btn:hover { background:var(--primary-light); border-color:var(--primary); }
+    .dir-locate-btn.is-active { background:var(--primary); color:#fff; border-color:var(--primary); }
     .dir-locate-status { font-size:11.5px; color:var(--ink-muted); }
-    .dir-locate-status.is-error { color:#b91c1c; }
+    .dir-locate-status.is-error { color:var(--danger); }
 
+    /* Piccola dissolvenza quando si passa da Lista a Mappa e viceversa,
+       cosi' il cambio vista si sente meno "a scatto". */
+    .dir-view { animation:dirFadeIn .22s ease; }
     .dir-view--hidden { display:none; }
+    @keyframes dirFadeIn {
+        from { opacity:0; transform:translateY(4px); }
+        to   { opacity:1; transform:translateY(0); }
+    }
 
     /* ── Distanza (badge stile Monetica, es. "4,7 km") ── */
     .dir-distance-badge {
@@ -253,7 +276,7 @@
         display:none; align-items:center; gap:3px;
         padding:3px 9px; border-radius:999px;
         font-size:10.5px; font-weight:800;
-        background:#0c4a86; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.18);
+        background:var(--primary); color:#fff; box-shadow:var(--shadow-xs);
     }
 
     /* ── Vista mappa ── */
@@ -283,14 +306,14 @@
     .dir-map-sidebar-item:hover, .dir-map-sidebar-item.is-active { background:var(--surface-soft); }
     .dir-map-sidebar-logo {
         flex-shrink:0; width:38px; height:38px; border-radius:10px;
-        background:linear-gradient(150deg,#174d87,#071d35);
+        background:linear-gradient(150deg,var(--primary),var(--navy-deep));
         display:flex; align-items:center; justify-content:center;
         font-size:14px; font-weight:900; color:#fff; overflow:hidden;
     }
     .dir-map-sidebar-logo img { width:100%; height:100%; object-fit:cover; }
     .dir-map-sidebar-name { font-size:13px; font-weight:700; color:var(--ink); line-height:1.3; }
     .dir-map-sidebar-meta { font-size:11px; color:var(--ink-muted); margin-top:2px; }
-    .dir-map-sidebar-distance { font-size:11px; font-weight:800; color:#0c4a86; margin-left:auto; padding-left:8px; white-space:nowrap; }
+    .dir-map-sidebar-distance { font-size:11px; font-weight:800; color:var(--primary); margin-left:auto; padding-left:8px; white-space:nowrap; }
 
     .dir-map-popup { font-size:12.5px; min-width:180px; }
     .dir-map-popup strong { display:block; font-size:13.5px; margin-bottom:2px; }
@@ -302,6 +325,10 @@
     }
     .dir-map-popup-btn--primary { background:#0c4a86; color:#fff; }
     .dir-map-popup-btn--ghost { background:#f0f6ff; color:#0c4a86; border:1px solid #c7d9ef; }
+    /* Nota: qui i colori restano fissi (non var(--primary) ecc.) di proposito:
+       il popup Leaflet appoggia sempre su tile OpenStreetMap chiari, quindi
+       deve restare leggibile allo stesso modo sia in light che in dark mode
+       dell'app, indipendentemente dal tema attivo. */
 </style>
 
 <div class="dir-main">
@@ -324,8 +351,11 @@
             <div class="dir-searchbar">
                 <div class="field">
                     <label for="q">Cerca azienda</label>
-                    <input id="q" name="q" type="text" value="{{ $filters['q'] }}"
-                           placeholder="Nome, settore, email…">
+                    <div class="dir-search-input-wrap">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input id="q" name="q" type="text" value="{{ $filters['q'] }}"
+                               placeholder="Nome, settore, email…">
+                    </div>
                 </div>
                 @if($sectorOptions->isNotEmpty())
                 <div class="field" style="max-width:180px;">
@@ -384,7 +414,8 @@
     {{-- Vista Lista (griglia esistente) --}}
     <div id="view-list" class="dir-view">
     @if ($companies->count() === 0)
-        <div class="empty-state">
+        <div class="empty-state" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 24px;">
+            <span style="font-size:30px;opacity:.55;">🔍</span>
             <strong>Nessuna azienda trovata.</strong>
             <p>Prova a cambiare i filtri di ricerca.</p>
         </div>
@@ -459,6 +490,7 @@
                 @if($cardStyle === 'simple')
                 {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══ --}}
                 <article class="dir-card dir-card--simple"
+                    style="--dir-c1:{{ $c1 }};--dir-c2:{{ $c2 }};"
                     @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
                     <span class="dir-distance-badge"></span>
                     <div class="dir-body">
@@ -640,7 +672,8 @@
          paginati/randomizzati (a differenza della Lista sopra) --}}
     <div id="view-map" class="dir-view dir-view--hidden">
         @if($mapCompanies->isEmpty())
-            <div class="empty-state">
+            <div class="empty-state" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:44px 24px;">
+                <span style="font-size:30px;opacity:.55;">🗺️</span>
                 <strong>Nessuna azienda geolocalizzata al momento.</strong>
                 <p>Le aziende che aggiungono un indirizzo nel proprio profilo compariranno qui come pin sulla mappa.</p>
             </div>
