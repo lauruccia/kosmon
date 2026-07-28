@@ -702,9 +702,14 @@
                 <div class="dir-map" id="directory-map"></div>
             </div>
         @endif
-        {{-- Js::from() esegue l'escaping sicuro per l'inserimento in una pagina HTML
-             (es. neutralizza eventuali "</script>" nel nome di un'azienda) --}}
-        <script type="application/json" id="dir-map-data">{{ \Illuminate\Support\Js::from($mapCompanies) }}</script>
+        {{-- IMPORTANTE: qui serve JSON puro (letto via JSON.parse(textContent) nello
+             script sotto), non l'espressione JS di Js::from() (che produce
+             "JSON.parse('...')" come stringa, non un array/oggetto — se usata qui
+             fa fallire il JSON.parse() a runtime e la mappa resta vuota senza
+             errori visibili, perché il try/catch lo assorbe silenziosamente).
+             JSON_HEX_TAG neutralizza eventuali "</script>" nel nome di un'azienda,
+             stessa protezione che dava Js::from() ma restando JSON valido. --}}
+        <script type="application/json" id="dir-map-data">{!! json_encode($mapCompanies, JSON_HEX_TAG) !!}</script>
     </div>
 
 </div>
