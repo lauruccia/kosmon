@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Notifications\ReferralBonusChargedToAgentNotification;
 use App\Notifications\ReferralBonusReceivedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,6 +46,27 @@ use Illuminate\Support\Facades\Log;
  * chi segnala è un'azienda o è già un agente KNM (vedi referrerIsEligible()).
  * Questo NON cambia i tre livelli sopra, che restano dedotti da cosa fa
  * l'INVITATO — riguarda solo l'idoneità di chi riceve il bonus.
+ *
+ * CHI PAGA IL BONUS (decisione Laura del 28/07/2026 — vedi fundingAccountFor()):
+ *   - TIER_AMICO (10 KY) e TIER_AGENTE (50 KY): pagati dall'AGENTE DI
+ *     RIFERIMENTO DEL CLIENTE segnalante ($referrer->mlmClientAgent, cioè
+ *     mlm_client_agent_id), NON dal conto madre — non è "moneta nuova", è
+ *     l'agente che gira al proprio cliente parte del proprio saldo/fido.
+ *     L'agente paga SEMPRE, anche in scoperto oltre il fido configurato
+ *     (l'initiator è un super admin, che in
+ *     TransferBookingService::assertTransferWithinLimits() bypassa ogni
+ *     controllo di fido/massimale/limite — stessa scelta esplicita di
+ *     Laura: "l'agente dovrebbe avere sempre possibilità di pagare"), e
+ *     riceve una notifica per ricaricare se necessario.
+ *   - TIER_ATTIVITA (100 KY, segnalazione di un'azienda): resta a carico
+ *     del conto madre/sistema come sempre, perché qui il bonus è
+ *     effettivamente moneta nuova creata dal circuito, non uno spostamento
+ *     tra un agente e un suo cliente.
+ *   - Fallback: se il segnalante non ha un agente di riferimento assegnato
+ *     (mlm_client_agent_id nullo — es. mlm disattivato, o si è registrato
+ *     senza invito a monte) il bonus amico/agente NON deve mai bloccarsi:
+ *     paga comunque il conto madre, stesso comportamento di prima di questa
+ *     modifica.
  */
 class ReferralBonusService
 {
@@ -123,36 +145,42 @@ class ReferralBonusService
                     ->where('status', 'active')
                     ->first();
 
-                $systemAccount = Account::systemAccount();
+                [$fundingAccount, $fundingAgent] = $this->fundingAccountFor($tier, $referrer);
 
-                if (! $referrerAccount || ! $systemAccount) {
+                if (! $referrerAccount || ! $fundingAccount) {
                     return;
                 }
 
                 // Initiator: l'admin che ha scatenato l'evento se presente E
                 // autorizzato (es. approvazione KYC), altrimenti un super
-                // admin qualsiasi. Il conto sistema (Cassa Circuito) ha
-                // owner_user_id/company_id sempre NULL (vedi migration
-                // seed_cassa_circuito_account) e User::canSendFromAccount()
-                // non prevede alcuna eccezione per is_system_account: SOLO
+                // admin qualsiasi. Serve SEMPRE un super admin come initiator
+                // qui, sia che si addebiti il conto sistema (Cassa Circuito,
+                // owner_user_id/company_id sempre NULL — vedi migration
+                // seed_cassa_circuito_account, User::canSendFromAccount() non
+                // prevede eccezioni per is_system_account) sia che si
+                // addebiti il conto dell'agente (che non ha mai dato il
+                // consenso esplicito al singolo addebito): SOLO
                 // is_super_admin bypassa il controllo di autorizzazione in
-                // TransferBookingService::assertAuthorizedInitiator() —
-                // stesso vincolo di Admin\EmissionController (emissione KY
-                // riservata al super admin). Il segnalante/segnalato NON
-                // possono mai essere usati come initiator qui.
+                // TransferBookingService::assertAuthorizedInitiator() E il
+                // controllo di fido/massimale in assertTransferWithinLimits()
+                // — quest'ultimo bypass è voluto anche per l'agente (Laura:
+                // "l'agente dovrebbe avere sempre possibilità di pagare" il
+                // bonus al proprio cliente, anche oltre il fido configurato).
+                // Il segnalante/segnalato NON possono mai essere usati come
+                // initiator qui.
                 $systemUser = ($actor && $actor->is_super_admin)
                     ? $actor
                     : User::where('is_super_admin', true)->where('is_active', true)->first();
 
                 if (! $systemUser) {
-                    Log::warning('ReferralBonusService: nessun super admin trovato per erogare il bonus dal conto sistema.');
+                    Log::warning('ReferralBonusService: nessun super admin trovato per erogare il bonus segnalazione.');
                     return;
                 }
 
                 $booking = app(TransferBookingService::class);
                 $transfer = $booking->book([
                     'initiated_by'    => $systemUser->id,
-                    'from_account_id' => $systemAccount->id,
+                    'from_account_id' => $fundingAccount->id,
                     'to_account_id'   => $referrerAccount->id,
                     'amount'          => $delta,
                     'description'     => $this->descriptionFor($tier, $locked),
@@ -166,11 +194,14 @@ class ReferralBonusService
                     'auditable_type' => User::class,
                     'auditable_id'   => $referrer->id,
                     'context'        => [
-                        'referred_user_id'  => $locked->id,
-                        'tier'              => $tier,
-                        'amount'            => $delta,
-                        'cumulative_amount' => $targetAmount,
-                        'account_id'        => $referrerAccount->id,
+                        'referred_user_id'   => $locked->id,
+                        'tier'               => $tier,
+                        'amount'             => $delta,
+                        'cumulative_amount'  => $targetAmount,
+                        'account_id'         => $referrerAccount->id,
+                        'funded_by'          => $fundingAgent ? 'agent' : 'system_account',
+                        'funding_account_id' => $fundingAccount->id,
+                        'funding_agent_id'   => $fundingAgent?->id,
                     ],
                 ]);
 
@@ -179,6 +210,22 @@ class ReferralBonusService
                 } catch (\Throwable $e) {
                     // La notifica non deve mai far fallire l'erogazione già avvenuta.
                     Log::warning("Notifica bonus segnalazione fallita per referrer {$referrer->id}: " . $e->getMessage());
+                }
+
+                if ($fundingAgent) {
+                    try {
+                        $fundingAgent->notify(new ReferralBonusChargedToAgentNotification(
+                            $transfer,
+                            $referrer,
+                            $locked,
+                            $tier,
+                            $delta,
+                            (int) $fundingAccount->fresh()->available_balance,
+                        ));
+                    } catch (\Throwable $e) {
+                        // Idem: l'addebito è già avvenuto, la notifica non deve farlo fallire.
+                        Log::warning("Notifica addebito bonus segnalazione fallita per agente {$fundingAgent->id}: " . $e->getMessage());
+                    }
                 }
             }
 
@@ -202,6 +249,44 @@ class ReferralBonusService
     private function referrerIsEligible(User $referrer): bool
     {
         return $referrer->account_holder_type === 'private' && ! $referrer->isMlmAgent();
+    }
+
+    /**
+     * Conto che finanzia il bonus per $tier, e l'agente da avvisare se è lui
+     * a pagare (null se paga il conto madre).
+     *
+     *   - TIER_ATTIVITA: sempre conto madre/sistema (moneta nuova creata dal
+     *     circuito per la segnalazione di un'azienda).
+     *   - TIER_AMICO / TIER_AGENTE: conto dell'agente di riferimento del
+     *     CLIENTE segnalante ($referrer->mlmClientAgent — mlm_client_agent_id),
+     *     con fallback sul conto madre se il segnalante non ha nessun agente
+     *     assegnato (mlm disattivato, registrazione senza invito a monte,
+     *     ecc.): il bonus non deve MAI restare bloccato per questo.
+     *
+     * @return array{0: ?Account, 1: ?User}
+     */
+    private function fundingAccountFor(string $tier, User $referrer): array
+    {
+        if ($tier === self::TIER_ATTIVITA) {
+            return [Account::systemAccount(), null];
+        }
+
+        $agent = $referrer->mlmClientAgent;
+
+        if ($agent) {
+            $agentAccount = Account::where('owner_user_id', $agent->id)
+                ->whereNull('parent_account_id')
+                ->where('status', 'active')
+                ->first();
+
+            if ($agentAccount) {
+                return [$agentAccount, $agent];
+            }
+        }
+
+        // Fallback: nessun agente di riferimento (o senza conto attivo) —
+        // paga il conto madre, come per il livello attività.
+        return [Account::systemAccount(), null];
     }
 
     private function descriptionFor(string $tier, User $referredUser): string
