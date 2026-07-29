@@ -81,6 +81,16 @@ class AdminController extends Controller
         \Illuminate\Support\Facades\Artisan::call('route:clear');
         \Illuminate\Support\Facades\Artisan::call('view:clear');
 
+        // Su hosting condiviso senza terminale/SSH, l'OPcache di PHP può restare
+        // "congelato" sulla vecchia versione delle classi PHP anche dopo un deploy
+        // che ha già sostituito i file su disco (visto il 29/07: dopo il deploy del
+        // nuovo Listing::DELIVERY_TYPE_*, la pagina admin dava "Undefined constant"
+        // finché non si è svuotata la cache). opcache_reset() è l'unico modo per
+        // invalidarla senza poter riavviare php-fpm a mano.
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+
         return back()->with('success', 'Cache svuotata con successo.');
     }
 
