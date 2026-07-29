@@ -27,6 +27,33 @@
     .dir-searchbar .field label { font-size:11px; }
     .dir-searchbar .form-actions { margin:0; flex-shrink:0; }
 
+    /* ── Filtro Kmoney (checkbox + % esatta/minima raggruppati, punto 7) ──
+       Prima erano tre campi ".field" separati sulla stessa riga: il checkbox,
+       allineato via padding-top per stare all'altezza degli altri controlli,
+       si spezzava su piu' righe e finiva visivamente scollegato dalla sua
+       label. Ora e' un unico riquadro autonomo che non dipende dal layout
+       interno di ".field" (definito altrove nell'app, non qui). */
+    .dir-ky-filter-group { flex:0 0 auto; min-width:0; }
+    .dir-ky-filter-box {
+        display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+        padding:9px 12px; border:1px solid var(--line); border-radius:10px;
+        background:var(--surface-soft);
+    }
+    .dir-ky-checkbox-label {
+        display:flex !important; align-items:center; gap:7px;
+        margin:0; font-size:12.5px; font-weight:700; color:var(--ink);
+        cursor:pointer; white-space:nowrap;
+    }
+    .dir-ky-checkbox-label input[type="checkbox"] {
+        width:16px; height:16px; margin:0; flex-shrink:0; accent-color:var(--primary);
+    }
+    .dir-ky-select-wrap { display:flex; align-items:center; gap:6px; }
+    .dir-ky-select-lbl { font-size:11.5px; color:var(--ink-muted); white-space:nowrap; }
+    .dir-ky-select-wrap select { padding:6px 10px !important; font-size:12.5px !important; min-width:82px; }
+    @media(max-width:700px){
+        .dir-ky-filter-box { width:100%; }
+    }
+
     /* Campo ricerca con lente inline (stile pill, coerente col resto dell'app) */
     .dir-search-input-wrap { position:relative; }
     .dir-search-input-wrap svg {
@@ -379,29 +406,35 @@
                     </select>
                 </div>
                 @endif
-                <div class="field" style="max-width:200px;flex-direction:row;align-items:center;gap:8px;padding-top:18px;">
-                    <input type="checkbox" id="accepts_ky" name="accepts_ky" value="1" @checked($filters['accepts_ky'] ?? false)
-                        style="width:16px;height:16px;">
-                    <label for="accepts_ky" style="margin:0;font-size:13px;cursor:pointer;">Solo chi accetta Kmoney</label>
-                </div>
-                {{-- Filtro % Kmoney (punto 7): affianca il checkbox sopra, non lo sostituisce. --}}
-                <div class="field" style="max-width:130px;">
-                    <label for="exact_ky_percentage">% Kmoney esatta</label>
-                    <select id="exact_ky_percentage" name="exact_ky_percentage">
-                        <option value="">Qualsiasi</option>
-                        @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
-                            <option value="{{ $pct }}" @selected((string) ($filters['exact_ky_percentage'] ?? '') === (string) $pct)>{{ $pct }}%</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="field" style="max-width:150px;">
-                    <label for="min_ky_percentage">% Kmoney minima</label>
-                    <select id="min_ky_percentage" name="min_ky_percentage">
-                        <option value="">Qualsiasi</option>
-                        @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
-                            <option value="{{ $pct }}" @selected((string) ($filters['min_ky_percentage'] ?? '') === (string) $pct)>almeno {{ $pct }}%</option>
-                        @endforeach
-                    </select>
+                {{-- Filtro Kmoney (punto 7): checkbox + % esatta/minima raggruppati in un
+                     unico riquadro, cosi' si leggono come un solo filtro invece di tre
+                     campi slegati sulla stessa riga. --}}
+                <div class="field dir-ky-filter-group">
+                    <label>Filtro Kmoney</label>
+                    <div class="dir-ky-filter-box">
+                        <label for="accepts_ky" class="dir-ky-checkbox-label">
+                            <input type="checkbox" id="accepts_ky" name="accepts_ky" value="1" @checked($filters['accepts_ky'] ?? false)>
+                            <span>Accetta Kmoney</span>
+                        </label>
+                        <div class="dir-ky-select-wrap">
+                            <span class="dir-ky-select-lbl">esatta</span>
+                            <select id="exact_ky_percentage" name="exact_ky_percentage">
+                                <option value="">Qualsiasi</option>
+                                @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
+                                    <option value="{{ $pct }}" @selected((string) ($filters['exact_ky_percentage'] ?? '') === (string) $pct)>{{ $pct }}%</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="dir-ky-select-wrap">
+                            <span class="dir-ky-select-lbl">min.</span>
+                            <select id="min_ky_percentage" name="min_ky_percentage">
+                                <option value="">Qualsiasi</option>
+                                @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
+                                    <option value="{{ $pct }}" @selected((string) ($filters['min_ky_percentage'] ?? '') === (string) $pct)>{{ $pct }}%+</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-actions" style="margin:0;flex-wrap:nowrap;">
                     <button class="cta" type="submit">Cerca</button>
