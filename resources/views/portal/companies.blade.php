@@ -67,19 +67,8 @@
     .dir-search-input-wrap input { padding-left:36px !important; border-radius:999px !important; }
     .dir-searchbar select { border-radius:999px !important; }
 
-    /* ── Stats: chip colorate invece del semplice testo separato da bordi ── */
-    .dir-stats { display:flex; gap:8px; flex-wrap:wrap; flex-shrink:0; }
-    .dir-stat {
-        display:flex; flex-direction:column; align-items:center; justify-content:center;
-        padding:6px 16px; min-width:76px;
-        border-radius:var(--radius-sm); background:var(--surface-soft); border:1px solid var(--line);
-    }
-    .dir-stat-val { font-size:18px; font-weight:800; color:var(--primary); letter-spacing:-.02em; }
-    .dir-stat-lbl { font-size:9.5px; font-weight:700; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em; margin-top:1px; }
     @media(max-width:700px){
         .dir-topbar { flex-direction:column; align-items:stretch; }
-        .dir-stats { justify-content:space-between; }
-        .dir-stat { flex:1; }
     }
 
     /* ── Grid ── */
@@ -448,23 +437,6 @@
                 </div>
             </div>
         </form>
-
-        <div class="dir-stats">
-            <div class="dir-stat">
-                <span class="dir-stat-val">{{ $directoryStats['companies'] }}</span>
-                <span class="dir-stat-lbl">{{ $directoryStats['companies'] === 1 ? 'Azienda' : 'Aziende' }} attive</span>
-            </div>
-            @if($directoryStats['sectors'] > 0)
-            <div class="dir-stat">
-                <span class="dir-stat-val">{{ $directoryStats['sectors'] }}</span>
-                <span class="dir-stat-lbl">Settori</span>
-            </div>
-            @endif
-            <div class="dir-stat">
-                <span class="dir-stat-val">{{ $directoryStats['listings'] }}</span>
-                <span class="dir-stat-lbl">Prodotti disponibili</span>
-            </div>
-        </div>
     </div>
 
     {{-- Blocchi rapidi (punto 10, 2026-07-29): "pagate di recente" ed
