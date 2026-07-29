@@ -173,6 +173,22 @@ class Company extends Model
     }
 
     /**
+     * Vero se l'azienda e' visibile/presente nella directory pubblica del
+     * circuito (portal/companies + scheda azienda). Incapsula la condizione
+     * usata finora duplicata in PortalController::companies()/showCompany();
+     * usata anche per il gate del pulsante "Pubblica prodotto" nello shop
+     * (2026-07-29: tutte le aziende in directory possono inserire prodotti,
+     * a prescindere dal piano).
+     *
+     * NB: non controlla suspended_at (bug noto, segnalato separatamente) —
+     * stessa definizione usata finora, per non cambiare comportamento qui.
+     */
+    public function isInDirectory(): bool
+    {
+        return $this->status === 'active' && $this->kyc_status === 'approved';
+    }
+
+    /**
      * Ha coordinate geografiche valide (indirizzo geocodificato con successo)
      * e puo' quindi comparire come pin sulla mappa della directory.
      */

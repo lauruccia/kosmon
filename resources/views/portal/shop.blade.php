@@ -26,16 +26,42 @@
                 @endforeach
             </select>
         </div>
+        {{-- Filtro % Kmoney (stesso pattern della directory aziende): esatta
+             e minima raggruppate in un unico riquadro allineato con gli
+             altri campi della toolbar. --}}
+        <div class="shop-toolbar-field shop-ky-filter-group">
+            <label>Filtro Kmoney</label>
+            <div class="shop-ky-filter-box">
+                <div class="shop-ky-select-wrap">
+                    <span class="shop-ky-select-lbl">esatta</span>
+                    <select name="exact_ky_percentage" class="km-select" data-no-search>
+                        <option value="">Qualsiasi</option>
+                        @foreach($kyPercentages as $pct)
+                            <option value="{{ $pct }}" @selected((string) ($exactKyPercentage ?? '') === (string) $pct)>{{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="shop-ky-select-wrap">
+                    <span class="shop-ky-select-lbl">min.</span>
+                    <select name="min_ky_percentage" class="km-select" data-no-search>
+                        <option value="">Qualsiasi</option>
+                        @foreach($kyPercentages as $pct)
+                            <option value="{{ $pct }}" @selected((string) ($minKyPercentage ?? '') === (string) $pct)>{{ $pct }}%+</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        </div>
         <button type="submit" class="cta">Filtra</button>
-        @if($searchQuery || $selectedCategory)
+        @if($searchQuery || $selectedCategory || $exactKyPercentage !== null || $minKyPercentage !== null)
             <a href="{{ route('portal.shop') }}" class="cta secondary">✕ Reset</a>
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             @if(auth()->user()->canAccessMarketplace())
-                @if(auth()->user()->company?->hasEcommercePlan())
+                @if(auth()->user()->company?->isInDirectory())
                     <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">+ Pubblica prodotto</a>
                 @else
-                    <span title="Per pubblicare prodotti serve il piano Ecommerce. Contatta l'amministrazione per attivarlo." class="cta disabled" style="white-space:nowrap;">+ Pubblica prodotto (piano Ecommerce richiesto)</span>
+                    <span title="Per pubblicare prodotti la tua azienda deve essere presente nella directory (attiva e con KYC approvato). Contatta l'amministrazione se pensi sia un errore." class="cta disabled" style="white-space:nowrap;">+ Pubblica prodotto (azienda non in directory)</span>
                 @endif
             @endif
             @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
@@ -175,6 +201,19 @@
         display: inline-flex; align-items: center; padding: 10px 18px; font-size: 14px;
         border: 1.5px dashed var(--line-strong); border-radius: 10px; color: var(--ink-muted); cursor: not-allowed;
     }
+
+    /* ── Filtro Kmoney (esatta/minima), stesso pattern della directory
+       aziende — riquadro compatto, sempre su una riga sola, altezza
+       coerente con gli altri campi della toolbar (niente disallineamenti). */
+    .shop-ky-filter-group { min-width: 0; }
+    .shop-ky-filter-box {
+        display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+        padding: 6px 10px; border: 1.5px solid var(--line-strong); border-radius: 10px;
+        background: var(--surface-soft); overflow-x: auto;
+    }
+    .shop-ky-select-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .shop-ky-select-lbl { font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
+    .shop-ky-select-wrap select.km-select { padding: 5px 24px 5px 8px !important; font-size: 12px !important; width: 78px; }
 
     /* ── Catalogo: griglia responsive stile ecommerce ── */
     .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }

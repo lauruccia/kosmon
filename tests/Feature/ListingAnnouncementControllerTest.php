@@ -96,25 +96,42 @@ class ListingAnnouncementControllerTest extends TestCase
 
     public function test_company_user_can_view_shop_create_form(): void
     {
-        [$user, $company] = $this->makeCompanyUser();
-        // Dal 23/07 (eba46a4) pubblicare prodotti richiede un piano con
-        // can_sell_products=true (Company::hasEcommercePlan()), altrimenti
-        // ListingController::create reindirizza a portal.shop. Dal 24/07 i
-        // piani sono dinamici (tabella plans, vedi Plan model) invece di un
-        // enum: makeCompanyUser() non imposta un piano di default, quindi va
-        // attivato esplicitamente per questo test.
-        $ecommercePlan = \App\Models\Plan::where('can_sell_products', true)->first()
-            ?? \App\Models\Plan::factory()->create(['can_sell_products' => true]);
-        $company->update(['plan_id' => $ecommercePlan->id]);
+        // Dal 29/07: pubblicare prodotti non richiede piu' il piano
+        // Ecommerce (Company::hasEcommercePlan()), ma la sola presenza in
+        // directory (status attivo + KYC approvato, Company::isInDirectory()) —
+        // makeCompanyUser() crea gia' l'azienda active/approved di default,
+        // quindi nessun piano da attivare esplicitamente.
+        [$user] = $this->makeCompanyUser();
 
         $this->actingAs($user)
             ->get(route('portal.shop.create'))
             ->assertOk();
     }
 
-    public function test_company_user_without_ecommerce_plan_is_redirected_from_shop_create(): void
+    public function test_company_user_without_ecommerce_plan_can_still_publish_when_in_directory(): void
     {
-        [$user] = $this->makeCompanyUser();
+        // Verifica esplicitamente che il vincolo sul piano Ecommerce sia
+        // stato rimosso (2026-07-29): un'azienda senza alcun piano
+        // (plan_id null) ma presente in directory deve poter pubblicare.
+        [$user, $company] = $this->makeCompanyUser();
+        $company->update(['plan_id' => null]);
+        $this->assertFalse($company->fresh()->hasEcommercePlan());
+
+        $this->actingAs($user)
+            ->get(route('portal.shop.create'))
+            ->assertOk();
+    }
+
+    public function test_company_user_not_in_directory_is_redirected_from_shop_create(): void
+    {
+        // Un'azienda non ancora approvata KYC (quindi non presente in
+        // directory) non puo' pubblicare prodotti, anche con un piano
+        // Ecommerce attivo.
+        [$user, $company] = $this->makeCompanyUser();
+        $company->update(['kyc_status' => 'pending']);
+        $ecommercePlan = \App\Models\Plan::where('can_sell_products', true)->first()
+            ?? \App\Models\Plan::factory()->create(['can_sell_products' => true]);
+        $company->update(['plan_id' => $ecommercePlan->id]);
 
         $this->actingAs($user)
             ->get(route('portal.shop.create'))

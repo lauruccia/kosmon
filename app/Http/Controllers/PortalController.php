@@ -493,7 +493,7 @@ class PortalController extends Controller
         abort_unless($currentUser->canViewCompaniesDirectory(), 403);
 
         // Solo aziende approvate e attive visibili nel circuito
-        abort_unless($company->status === 'active' && $company->kyc_status === 'approved', 404);
+        abort_unless($company->isInDirectory(), 404);
 
         $activeListings = $company->listings()
             ->where('status', 'active')

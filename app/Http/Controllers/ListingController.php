@@ -37,6 +37,16 @@ class ListingController extends Controller
         $category = $request->query('category', '');
         $q = trim((string) $request->query('q', ''));
 
+        // Filtro % Kmoney nello shop (stesso pattern gia' usato nella
+        // directory aziende, 2026-07-29): due modalita' indipendenti e
+        // opzionali, esatta e minima, entrambe su Listing::ky_percentage
+        // (colonna diretta, niente subquery: qui e' il prodotto stesso,
+        // non serve calcolare una percentuale "effettiva" come per Company).
+        $exactKyRaw = $request->query('exact_ky_percentage', '');
+        $minKyRaw   = $request->query('min_ky_percentage', '');
+        $exactKy = is_numeric($exactKyRaw) ? (int) $exactKyRaw : null;
+        $minKy   = is_numeric($minKyRaw) ? (int) $minKyRaw : null;
+
         $listingsQuery = Listing::query()
             ->with('company.plan')
             ->active()
@@ -46,6 +56,8 @@ class ListingController extends Controller
                       ->orWhere('description', 'like', "%{$q}%")
                       ->orWhereHas('company', fn ($c) => $c->where('name', 'like', "%{$q}%"));
             }))
+            ->when($exactKy !== null, fn ($query) => $query->where('ky_percentage', '=', $exactKy))
+            ->when($minKy !== null, fn ($query) => $query->where('ky_percentage', '>=', $minKy))
             ->orderByDesc('featured')
             ->orderByDesc('created_at');
 
@@ -61,6 +73,9 @@ class ListingController extends Controller
             'categories'      => Listing::CATEGORIES,
             'selectedCategory' => $category,
             'searchQuery'     => $q,
+            'kyPercentages'   => Listing::KY_PERCENTAGES,
+            'exactKyPercentage' => $exactKy,
+            'minKyPercentage'   => $minKy,
             'activeNav'       => 'shop',
         ]);
     }
@@ -256,9 +271,13 @@ class ListingController extends Controller
             return redirect()->route('portal.shop')->with('portal_error', 'Non hai i permessi per pubblicare prodotti.');
         }
 
-        if (! $user->company?->hasEcommercePlan()) {
+        // 2026-07-29: la pubblicazione prodotti non dipende piu' dal piano
+        // Ecommerce, ma dalla presenza in directory (status attivo + KYC
+        // approvato) — tutte le aziende in directory possono inserire i
+        // loro prodotti, vedi Company::isInDirectory().
+        if (! $user->company?->isInDirectory()) {
             return redirect()->route('portal.shop')
-                ->with('portal_error', 'Per pubblicare prodotti nello shop del circuito serve il piano Ecommerce. Contatta l\'amministrazione per attivarlo.');
+                ->with('portal_error', 'Per pubblicare prodotti nello shop del circuito la tua azienda deve essere presente nella directory (attiva e con KYC approvato). Contatta l\'amministrazione se pensi sia un errore.');
         }
 
         if ($currentAccount->isAtCeiling()) {
@@ -288,7 +307,7 @@ class ListingController extends Controller
             abort(403);
         }
 
-        if (! $user->company?->hasEcommercePlan()) {
+        if (! $user->company?->isInDirectory()) {
             abort(403);
         }
 
