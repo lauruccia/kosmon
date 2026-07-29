@@ -8,51 +8,55 @@
     /* ── Top bar (search + stats) ── */
     .dir-topbar {
         display:flex; align-items:center; gap:16px;
-        padding:14px 16px;
+        padding:12px 16px;
         background:var(--surface); border:1px solid var(--line);
         border-radius:var(--radius); box-shadow:var(--shadow-xs);
         flex-wrap:wrap;
     }
     .dir-topbar form { flex:1; min-width:280px; }
-    /* Nota: prima questa regola era duplicata (una volta come grid, una come
-       flex) e quella "flex + nowrap" vinceva sempre, rendendo inutile il
-       grid-template-columns:1fr impostato sotto per il mobile — risultato:
-       su schermi stretti i campi restavano forzati su un'unica riga e si
-       sovrapponevano. Ora c'è una sola regola (flex, con wrap libero) e il
-       mobile la porta esplicitamente in colonna qui sotto. */
+    /* Griglia invece di flex+wrap (2026-07-29): con campi di altezza diversa
+       (il riquadro "Filtro Kmoney" e' piu' alto di una singola select) il
+       flex con align-items:flex-end + wrap produceva righe disallineate e
+       grandi spazi vuoti. Con una griglia a colonne fisse ogni campo resta
+       nella propria cella, stessa riga, stessa base di allineamento — niente
+       piu' salti di riga imprevedibili. */
     .dir-searchbar {
-        display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;
+        display:grid;
+        grid-template-columns: minmax(200px,1.3fr) minmax(130px,0.85fr) minmax(130px,0.85fr) auto auto;
+        gap:8px 12px;
+        align-items:end;
     }
-    .dir-searchbar .field { margin:0; flex:1; min-width:0; }
+    .dir-searchbar .field { margin:0; min-width:0; }
     .dir-searchbar .field label { font-size:11px; }
     .dir-searchbar .form-actions { margin:0; flex-shrink:0; }
+    @media(max-width:1180px){
+        .dir-searchbar { grid-template-columns: 1fr 1fr; }
+    }
+    @media(max-width:700px){
+        .dir-searchbar { grid-template-columns: 1fr; }
+    }
 
     /* ── Filtro Kmoney (checkbox + % esatta/minima raggruppati, punto 7) ──
-       Prima erano tre campi ".field" separati sulla stessa riga: il checkbox,
-       allineato via padding-top per stare all'altezza degli altri controlli,
-       si spezzava su piu' righe e finiva visivamente scollegato dalla sua
-       label. Ora e' un unico riquadro autonomo che non dipende dal layout
-       interno di ".field" (definito altrove nell'app, non qui). */
-    .dir-ky-filter-group { flex:0 0 auto; min-width:0; }
+       Un unico riquadro compatto, SEMPRE su una riga sola (nowrap): prima si
+       spezzava su due righe (checkbox sopra, select sotto) e risultava piu'
+       alto degli altri campi, disallineando l'intera barra filtri. */
+    .dir-ky-filter-group { min-width:0; }
     .dir-ky-filter-box {
-        display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-        padding:9px 12px; border:1px solid var(--line); border-radius:10px;
-        background:var(--surface-soft);
+        display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+        padding:6px 10px; border:1px solid var(--line); border-radius:10px;
+        background:var(--surface-soft); overflow-x:auto;
     }
     .dir-ky-checkbox-label {
-        display:flex !important; align-items:center; gap:7px;
-        margin:0; font-size:12.5px; font-weight:700; color:var(--ink);
-        cursor:pointer; white-space:nowrap;
+        display:flex !important; align-items:center; gap:6px;
+        margin:0; font-size:12px; font-weight:700; color:var(--ink);
+        cursor:pointer; white-space:nowrap; flex-shrink:0;
     }
     .dir-ky-checkbox-label input[type="checkbox"] {
-        width:16px; height:16px; margin:0; flex-shrink:0; accent-color:var(--primary);
+        width:15px; height:15px; margin:0; flex-shrink:0; accent-color:var(--primary);
     }
-    .dir-ky-select-wrap { display:flex; align-items:center; gap:6px; }
-    .dir-ky-select-lbl { font-size:11.5px; color:var(--ink-muted); white-space:nowrap; }
-    .dir-ky-select-wrap select { padding:6px 10px !important; font-size:12.5px !important; min-width:82px; }
-    @media(max-width:700px){
-        .dir-ky-filter-box { width:100%; }
-    }
+    .dir-ky-select-wrap { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+    .dir-ky-select-lbl { font-size:11px; color:var(--ink-muted); white-space:nowrap; }
+    .dir-ky-select-wrap select { padding:5px 8px !important; font-size:12px !important; width:64px; }
 
     /* Campo ricerca con lente inline (stile pill, coerente col resto dell'app) */
     .dir-search-input-wrap { position:relative; }
