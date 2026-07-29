@@ -1350,6 +1350,12 @@
                                 </a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.payouts.index') }}"><span class="subnav-icon">EU</span><span>Liquidazioni</span></a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.earnings.index') }}"><span class="subnav-icon">RP</span><span>Report guadagni</span></a>
+                                <a class="sidebar-sublink" href="{{ route('admin.company-reports.index') }}"><span class="subnav-icon">SA</span><span>Segnalazioni aziende</span>
+                                    @php $pendingCompanyReports = \App\Models\CompanyReport::where('status', 'pending')->count(); @endphp
+                                    @if($pendingCompanyReports > 0)
+                                        <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $pendingCompanyReports }}</span>
+                                    @endif
+                                </a>
                             </div>
                             @endif
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
@@ -1529,7 +1535,8 @@
                         @endif
 
                         {{-- ── CIRCUITO ── --}}
-                        @php $showCircuito = ($mv('aziende')&&($currentUser??$authUser)?->canViewCompaniesDirectory())||($mv('shop')&&($currentUser??$authUser)?->canAccessMarketplace())||($mv('annunci')&&($currentUser??$authUser)?->canAccessAnnouncements())||$mv('invita'); @endphp
+                        {{-- "Segnala un'azienda" (29/07/2026): sempre visibile a tutti i clienti, anche se le altre voci del gruppo Circuito sono nascoste da menu-visibility. --}}
+                        @php $showCircuito = ($mv('aziende')&&($currentUser??$authUser)?->canViewCompaniesDirectory())||($mv('shop')&&($currentUser??$authUser)?->canAccessMarketplace())||($mv('annunci')&&($currentUser??$authUser)?->canAccessAnnouncements())||$mv('invita')||(($currentUser??$authUser)?->account_holder_type === 'private'); @endphp
                         @if($showCircuito)
                         <div class="nav-group" data-group="circuito">
                             <button class="nav-group-btn {{ $grpCircuito ? 'open' : '' }}" onclick="toggleGroup(this)">
@@ -1563,6 +1570,9 @@
                                     <span class="nav-icon">🎁</span><span>Invita un amico</span>
                                 </a>
                                 @endif
+                                <a class="sidebar-link {{ $an === 'company-reports' ? 'active' : '' }}" href="{{ route('portal.company-reports.index') }}">
+                                    <span class="nav-icon">&#127970;</span><span>Segnala un'azienda</span>
+                                </a>
                             </div>
                         </div>
                         @endif
@@ -1617,6 +1627,13 @@
                                 </a>
                                 <a class="sidebar-link {{ $an === 'mlm-clienti' ? 'active' : '' }}" href="{{ route('portal.mlm.clienti') }}">
                                     <span class="nav-icon">&#128101;</span><span>I miei clienti</span>
+                                </a>
+                                <a class="sidebar-link {{ $an === 'mlm-company-reports' ? 'active' : '' }}" href="{{ route('portal.mlm.company-reports.index') }}">
+                                    <span class="nav-icon">&#127970;</span><span>Segnalazioni aziende</span>
+                                    @php $pendingMyCompanyReports = \App\Models\CompanyReport::where('agent_user_id', ($currentUser??$authUser)?->id)->where('status', 'pending')->count(); @endphp
+                                    @if($pendingMyCompanyReports > 0)
+                                        <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $pendingMyCompanyReports }}</span>
+                                    @endif
                                 </a>
                                 <a class="sidebar-link {{ $an === 'mlm-invitati' ? 'active' : '' }}" href="{{ route('portal.mlm.invitati') }}">
                                     <span class="nav-icon">&#9993;</span><span>I miei inviti</span>

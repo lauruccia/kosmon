@@ -21,6 +21,7 @@ use App\Http\Controllers\ScheduledPaymentController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\MlmPaymentDetailController;
 use App\Http\Controllers\MlmPortalController;
+use App\Http\Controllers\CompanyReportController;
 use App\Http\Controllers\MlmAgentRequestController;
 use App\Http\Controllers\MlmAgentContractController;
 use App\Http\Controllers\DocsController;
@@ -71,6 +72,7 @@ use App\Http\Controllers\Admin\MlmSimulatorController;
 use App\Http\Controllers\Admin\MlmPayoutController;
 use App\Http\Controllers\Admin\MlmEarningsReportController;
 use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
+use App\Http\Controllers\Admin\CompanyReportController as AdminCompanyReportController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BrandingController;
@@ -427,6 +429,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     // Referral
     Route::get('/invita', [ReferralController::class, 'index'])->name('portal.referral');
 
+    // Segnalazione azienda (2026-07-29, richiesta di Laura): aperta a TUTTI i
+    // clienti, indipendentemente dal flag kmoney.mlm_enabled — vedi
+    // CompanyReportService::resolveAgentFor() per il fallback sulla radice di
+    // sistema quando il cliente non ha un agente assegnato.
+    Route::get('/segnala-azienda', [CompanyReportController::class, 'index'])->name('portal.company-reports.index');
+    Route::post('/segnala-azienda', [CompanyReportController::class, 'store'])->name('portal.company-reports.store');
+
     // Report merchant
     Route::get('/report-merchant', [MerchantReportController::class, 'index'])->name('portal.merchant-report');
     Route::get('/report-merchant/export-csv', [MerchantReportController::class, 'exportCsv'])->name('portal.merchant-report.csv');
@@ -662,6 +671,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
         Route::delete('/mlm/invitati/{invitation}', [MlmPortalController::class, 'invitatiDestroy'])->name('portal.mlm.invitati.destroy');
         Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
         Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
+
+        // Segnalazioni aziende ricevute dai propri clienti (2026-07-29, vedi
+        // CompanyReportService): l'agente conferma/rifiuta, l'admin resta solo
+        // in copia/visibilita' (vedi admin.company-reports.index).
+        Route::get('/mlm/segnalazioni-aziende', [MlmPortalController::class, 'companyReports'])->name('portal.mlm.company-reports.index');
+        Route::post('/mlm/segnalazioni-aziende/{companyReport}/contratto-firmato', [MlmPortalController::class, 'companyReportSign'])->name('portal.mlm.company-reports.sign');
+        Route::post('/mlm/segnalazioni-aziende/{companyReport}/rifiuta', [MlmPortalController::class, 'companyReportReject'])->name('portal.mlm.company-reports.reject');
 
         // MLM (KNM) — report guadagni dell'agente (2026-07-29): dettaglio riga
         // per riga di ogni commissione/bonus maturato, distinto dallo storico
@@ -905,6 +921,9 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
         // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
         Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
+        // Segnalazioni aziende (2026-07-29): l'admin vede TUTTE le segnalazioni
+        // di tutti gli agenti, sola visibilita'/copia (vedi CompanyReportService).
+        Route::get('/admin/segnalazioni-aziende', [AdminCompanyReportController::class, 'index'])->name('admin.company-reports.index')->middleware('backoffice');
         Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
         Route::get('/admin/mlm/{user}/promuovi', [MlmController::class, 'promoteForm'])->name('admin.mlm.promote-form')->middleware('backoffice');
         Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');

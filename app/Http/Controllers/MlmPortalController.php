@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Mail\MlmInvitationMail;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\CompanyReport;
 use App\Models\KyCardPurchase;
 use App\Models\MlmAgentClosure;
 use App\Models\MlmInvitation;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\MlmAgentCreatedByReferrerNotification;
+use App\Services\CompanyReportService;
 use App\Services\MlmPayoutService;
 use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
@@ -495,5 +497,70 @@ class MlmPortalController extends Controller
 
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+    /**
+     * GET /portale/mlm/segnalazioni-aziende — segnalazioni azienda
+     * (feature richiesta da Laura il 29/07/2026, vedi CompanyReportService)
+     * assegnate a questo agente: sezione pending (da valutare) + storico
+     * chiuse (contratto firmato / non riuscita).
+     */
+    public function companyReports(Request $request): View
+    {
+        $agent = $this->agentOrAbort($request);
+
+        $pending = CompanyReport::forAgent($agent->id)
+            ->pending()
+            ->with('reporter:id,name,email')
+            ->latest()
+            ->get();
+
+        $closed = CompanyReport::forAgent($agent->id)
+            ->whereIn('status', [CompanyReport::STATUS_CONTRACT_SIGNED, CompanyReport::STATUS_REJECTED])
+            ->with(['reporter:id,name,email', 'bonusTransfer'])
+            ->latest('actioned_at')
+            ->paginate(25);
+
+        return view('portal.mlm.company-reports', [
+            'pageTitle' => 'Segnalazioni aziende',
+            'activeNav' => 'mlm-company-reports',
+            'pending'   => $pending,
+            'closed'    => $closed,
+        ]);
+    }
+
+    /** POST /portale/mlm/segnalazioni-aziende/{companyReport}/contratto-firmato */
+    public function companyReportSign(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
+    {
+        $agent = $this->agentOrAbort($request);
+
+        abort_unless($companyReport->agent_user_id === $agent->id, 403);
+        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
+
+        $validated = $request->validate([
+            'agent_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $service->markContractSigned($companyReport, $agent, $validated['agent_notes'] ?? null);
+
+        return back()->with('status', 'Contratto firmato registrato: bonus accreditato al cliente segnalante.');
+    }
+
+    /** POST /portale/mlm/segnalazioni-aziende/{companyReport}/rifiuta */
+    public function companyReportReject(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
+    {
+        $agent = $this->agentOrAbort($request);
+
+        abort_unless($companyReport->agent_user_id === $agent->id, 403);
+        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
+
+        $validated = $request->validate([
+            'agent_notes' => ['required', 'string', 'max:1000'],
+        ], [
+            'agent_notes.required' => 'Inserisci una breve motivazione per il rifiuto.',
+        ]);
+
+        $service->markRejected($companyReport, $agent, $validated['agent_notes']);
+
+        return back()->with('status', 'Segnalazione chiusa come non riuscita.');
     }
 }

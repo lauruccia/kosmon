@@ -653,6 +653,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(self::class, 'mlm_client_agent_id');
     }
 
+    /** Segnalazioni azienda fatte da questo cliente (feature 29/07/2026, vedi CompanyReport). */
+    public function companyReports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CompanyReport::class, 'user_id');
+    }
+
+    /** Segnalazioni azienda assegnate a questo agente (feature 29/07/2026, vedi CompanyReport). */
+    public function assignedCompanyReports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CompanyReport::class, 'agent_user_id');
+    }
+
     public function mlmPointLedgerEntries(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\MlmPointLedgerEntry::class, 'agent_user_id');
