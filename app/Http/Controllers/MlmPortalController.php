@@ -126,6 +126,7 @@ class MlmPortalController extends Controller
         return view('portal.mlm.registra-agente', [
             'pageTitle'      => 'Registra un nuovo agente',
             'activeNav'      => 'mlm-registra-agente',
+            'agent'          => $agent,
             'sponsorOptions' => $this->sponsorOptionsFor($agent),
         ]);
     }
