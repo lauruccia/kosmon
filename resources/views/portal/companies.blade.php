@@ -660,7 +660,7 @@
                             @if($hasHiddenContact)
                             <div class="dir-contact-hint">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                <span>Contatti al passaggio del mouse o al click</span>
+                                <span>Mostra i contatti</span>
                             </div>
                             @endif
                         </div>
@@ -764,7 +764,7 @@
                         @if($hasHiddenContact)
                         <div class="dir-contact-hint">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <span>Contatti al passaggio del mouse o al click</span>
+                            <span>Mostra i contatti</span>
                         </div>
                         @endif
                         @if($cardStyle === 'rich' && $company->sector)
