@@ -1569,7 +1569,12 @@
                         {{-- ── STRUMENTI ── --}}
                         @php
                             $canDev = !$isDelegate && ($currentUser??$authUser)?->canAccessBackoffice();
-                            $showStrumenti = $mv('report-merchant')||($mv('webhooks')&&$canDev)||($mv('api-tokens')&&$canDev)||($mv('docs-api')&&$canDev)||($mv('operatore')&&(($currentUser??$authUser)?->hasRole('broker')||$isBackoffice))||$mv('help');
+                            // "|| config('kmoney.mlm_enabled')" (2026-07-29, punto 2): senza questo
+                            // il gruppo "Strumenti" — e quindi la voce "Lavora con noi"/gli strumenti
+                            // agente sotto — poteva restare completamente nascosto a un cliente che
+                            // avesse tutte le altre voci (report, webhook, help, ecc.) disattivate da
+                            // menu-visibility, impedendogli di trovare il percorso "diventa agente".
+                            $showStrumenti = $mv('report-merchant')||($mv('webhooks')&&$canDev)||($mv('api-tokens')&&$canDev)||($mv('docs-api')&&$canDev)||($mv('operatore')&&(($currentUser??$authUser)?->hasRole('broker')||$isBackoffice))||$mv('help')||config('kmoney.mlm_enabled');
                         @endphp
                         @if($showStrumenti)
                         <div class="nav-group" data-group="strumenti">
@@ -1625,8 +1630,13 @@
                                     <span class="nav-icon">KY</span><span>Dati bancari KNM</span>
                                 </a>
                                 @else
+                                {{-- "Lavora con noi" (punto 2, 2026-07-29, richiesta di Laura): visibile
+                                     solo a chi è già cliente registrato (questo blocco sidebar esiste solo
+                                     nel portale, quindi dopo login) e SOLO se non è già agente/in attesa di
+                                     firma contratto (vedi MlmAgentRequestController::show). Porta alla
+                                     spiegazione + richiesta di adesione come agente KNM. --}}
                                 <a class="sidebar-link {{ $an === 'mlm-agent-request' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-request.show') }}">
-                                    <span class="nav-icon">&#129309;</span><span>Diventa agente KNM</span>
+                                    <span class="nav-icon">&#128188;</span><span>Lavora con noi</span>
                                 </a>
                                 @endif
                                 @endif

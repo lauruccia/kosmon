@@ -13,13 +13,30 @@
 @endif
 
 <div class="card card-pad" style="margin-bottom:14px;max-width:640px;">
-    <h2 style="margin:0 0 4px;font-size:18px;">Diventa agente KNM</h2>
-    <p style="margin:0 0 16px;color:var(--ink-muted);font-size:13px;line-height:1.6;">
-        Come agente potrai invitare clienti e altri agenti, costruire la tua struttura, maturare punti,
-        salire di qualifica e guadagnare commissioni e bonus sulle vendite del tuo circuito.
-        La richiesta viene esaminata dal nostro team: se approvata, ti verrà chiesto di firmare
-        digitalmente il contratto di nomina ad agente prima di iniziare.
+    <span style="display:inline-block;margin-bottom:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);">Lavora con noi</span>
+    <h2 style="margin:0 0 10px;font-size:18px;">Diventa agente KNM</h2>
+    <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;line-height:1.6;">
+        Sei già cliente KMoney: da qui puoi candidarti per diventare anche agente KNM e iniziare
+        a guadagnare all'interno del circuito. Ecco cosa significa in pratica:
     </p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-soft);line-height:1.55;">
+            <span aria-hidden="true">🤝</span>
+            <span>Inviti nuovi clienti e altri agenti, costruendo la tua struttura all'interno del circuito KMoney.</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-soft);line-height:1.55;">
+            <span aria-hidden="true">📈</span>
+            <span>Maturi punti e sali di qualifica man mano che la tua struttura cresce e vende.</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-soft);line-height:1.55;">
+            <span aria-hidden="true">💶</span>
+            <span>Guadagni commissioni e bonus sulle vendite e le ricariche del tuo circuito.</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-soft);line-height:1.55;">
+            <span aria-hidden="true">📝</span>
+            <span>La richiesta viene esaminata dal nostro team: se approvata, firmi digitalmente (con OTP via email) il contratto di nomina ad agente prima di iniziare.</span>
+        </div>
+    </div>
 
     @if($user->hasPendingMlmAgentRequest())
         <div style="padding:14px 16px;border-radius:10px;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);color:#b45309;font-size:13px;font-weight:600;">

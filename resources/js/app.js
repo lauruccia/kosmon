@@ -39,3 +39,19 @@ function _applyPasswordToggle(input) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[type=password]').forEach(_applyPasswordToggle);
 });
+
+// ── Contatti nascosti (email/telefono) — rivelati al passaggio del mouse
+// (:hover via CSS) o al click (per touch/mobile, dove :hover non esiste).
+// Applica a qualunque elemento con classe "reveal-contact" in tutta l'app
+// (directory aziende, profilo azienda, ecc.): un solo handler delegato,
+// niente da ripetere nelle singole viste. Il primo click rivela soltanto
+// (non segue subito un eventuale link mailto:/tel:), il secondo click
+// prosegue normalmente.
+document.addEventListener('click', (e) => {
+    const el = e.target.closest('.reveal-contact');
+    if (!el) return;
+    if (!el.classList.contains('is-revealed')) {
+        e.preventDefault();
+        el.classList.add('is-revealed');
+    }
+});

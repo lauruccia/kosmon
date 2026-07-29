@@ -244,6 +244,35 @@
     .ky-badge--ceil  { background:var(--surface-soft); color:var(--ink-muted); border:1px solid var(--line); }
     .ky-badge--gold  { background:linear-gradient(135deg,#fef9c3,#fde047); color:#854d0e; border:1px solid #eab308; box-shadow:0 1px 6px rgba(234,179,8,.35); font-weight:800; }
 
+    /* Nel footer della card il badge KY diventa un "pulsante" a tutti gli
+       effetti — stessa larghezza (flex:1) e stessa altezza di Shop/Paga,
+       cosi' i 3 elementi si leggono come 3 pulsanti pari (punto 3, 2026-07-29).
+       Specificita' (2 classi) piu' alta della sola ".ky-badge" sopra, quindi
+       vince senza dover toccare le regole base (riusate altrove nel file). */
+    .dir-footer .ky-badge {
+        flex:1; justify-content:center;
+        min-height:36px; padding:8px 10px;
+        border-radius:9px; font-size:12px;
+    }
+    .dir-card--compact .dir-footer .ky-badge,
+    .dir-card--simple .dir-footer .ky-badge {
+        min-height:32px; padding:6px 9px; font-size:11.5px;
+    }
+    .dir-btn-shop-icon { flex-shrink:0; }
+
+    /* ── Contatti nascosti (punto 4, 2026-07-29): email/telefono offuscati
+       di default, rivelati al passaggio del mouse o al click (gestito da
+       resources/js/app.js, delega su ".reveal-contact"). Il blur resta un
+       filtro puramente visivo (il testo è comunque nel DOM). ── */
+    .reveal-contact { cursor:pointer; }
+    .reveal-contact .reveal-contact-value {
+        filter:blur(4px); transition:filter .15s ease; user-select:none;
+    }
+    .reveal-contact:hover .reveal-contact-value,
+    .reveal-contact.is-revealed .reveal-contact-value {
+        filter:none; user-select:text;
+    }
+
     /* ── Pagination ── */
     .dir-pagination {
         margin-top:4px; padding:14px 16px;
@@ -585,15 +614,15 @@
                             </div>
                             @endif
                             @if($company->email)
-                            <div class="dir-contact">
+                            <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare l'email">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                <span>{{ $company->email }}</span>
+                                <span class="reveal-contact-value">{{ $company->email }}</span>
                             </div>
                             @endif
                             @if($company->phone)
-                            <div class="dir-contact">
+                            <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare il telefono">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
-                                <span>{{ $company->phone }}</span>
+                                <span class="reveal-contact-value">{{ $company->phone }}</span>
                             </div>
                             @endif
                         </div>
@@ -601,17 +630,19 @@
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% Kmoney</span>
+                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% KY</span>
                             @elseif($isAtCeiling)
-                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Al massimale</span>
+                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Massimale</span>
                             @elseif($effectiveKyPct === 100)
-                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% Kmoney</span>
+                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% KY</span>
                             @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
-                                <span class="ky-badge ky-badge--mix" title="Questa azienda accetta pagamenti in Kmoney fino al {{ $effectiveKyPct }}% del prezzo">✓ Kmoney {{ $effectiveKyPct }}%</span>
+                                <span class="ky-badge ky-badge--mix" title="Questa azienda accetta pagamenti in Kmoney fino al {{ $effectiveKyPct }}% del prezzo">✓ {{ $effectiveKyPct }}% KY</span>
                             @endif
                         @endif
                         @if($listings > 0)
-                            <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="dir-btn dir-btn-ghost">🛍</a>
+                            <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="dir-btn dir-btn-ghost" title="Shop">
+                                <svg class="dir-btn-shop-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            </a>
                         @endif
                         @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
                             <a href="{{ route('portal.invia') }}?to={{ $bizAccount->id }}" class="dir-btn dir-btn-primary">💸 Paga</a>
@@ -668,15 +699,15 @@
                         </div>
                         @endif
                         @if($company->email)
-                        <div class="dir-contact">
+                        <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare l'email">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                            <span>{{ $company->email }}</span>
+                            <span class="reveal-contact-value">{{ $company->email }}</span>
                         </div>
                         @endif
                         @if($company->phone)
-                        <div class="dir-contact">
+                        <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare il telefono">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
-                            <span>{{ $company->phone }}</span>
+                            <span class="reveal-contact-value">{{ $company->phone }}</span>
                         </div>
                         @endif
                         @if($cardStyle === 'rich' && $company->sector)
@@ -705,18 +736,20 @@
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100%</span>
+                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100% KY</span>
                             @elseif($isAtCeiling)
-                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔</span>
+                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Massimale</span>
                             @elseif($effectiveKyPct === 100)
-                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100%</span>
+                                <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% KY</span>
                             @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
-                                <span class="ky-badge ky-badge--mix" title="Kmoney fino al {{ $effectiveKyPct }}%">✓ {{ $effectiveKyPct }}%</span>
+                                <span class="ky-badge ky-badge--mix" title="Kmoney fino al {{ $effectiveKyPct }}%">✓ {{ $effectiveKyPct }}% KY</span>
                             @endif
                         @endif
                         @if($listings > 0)
                             <a href="{{ route('portal.shop') }}?company={{ $company->id }}"
-                               class="dir-btn dir-btn-ghost">🛍</a>
+                               class="dir-btn dir-btn-ghost" title="Shop">
+                                <svg class="dir-btn-shop-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            </a>
                         @endif
                         <a href="{{ route('portal.companies.show', $company->slug) }}"
                            class="dir-btn dir-btn-ghost">Profilo</a>
@@ -835,16 +868,16 @@
 
     function kyBadgeHtml(c) {
         if (c.is_in_debit) {
-            return '<span class="ky-badge ky-badge--debit">⚡ 100% Kmoney</span>';
+            return '<span class="ky-badge ky-badge--debit">⚡ 100% KY</span>';
         }
         if (c.is_at_ceiling) {
-            return '<span class="ky-badge ky-badge--ceil">⛔ Al massimale</span>';
+            return '<span class="ky-badge ky-badge--ceil">⛔ Massimale</span>';
         }
         if (c.effective_ky_pct === 100) {
-            return '<span class="ky-badge ky-badge--gold">★ 100% Kmoney</span>';
+            return '<span class="ky-badge ky-badge--gold">★ 100% KY</span>';
         }
         if (c.effective_ky_pct !== null && c.effective_ky_pct > 0) {
-            return '<span class="ky-badge ky-badge--mix">✓ Kmoney ' + c.effective_ky_pct + '%</span>';
+            return '<span class="ky-badge ky-badge--mix">✓ ' + c.effective_ky_pct + '% KY</span>';
         }
         return '';
     }

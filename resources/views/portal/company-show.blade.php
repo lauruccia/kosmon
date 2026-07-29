@@ -73,6 +73,18 @@
     }
     .company-contact-item a { color:rgba(255,255,255,.9); text-decoration:underline; }
 
+    /* Contatti nascosti (punto 4, 2026-07-29): email/telefono offuscati di
+       default, rivelati al passaggio del mouse o al click (gestito da
+       resources/js/app.js, delega su ".reveal-contact"). */
+    .reveal-contact { cursor:pointer; }
+    .reveal-contact .reveal-contact-value {
+        filter:blur(4px); transition:filter .15s ease; user-select:none;
+    }
+    .reveal-contact:hover .reveal-contact-value,
+    .reveal-contact.is-revealed .reveal-contact-value {
+        filter:none; user-select:text;
+    }
+
     .company-stat-strip {
         display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px;
     }
@@ -216,7 +228,7 @@
             @if ($company->email)
                 <div class="company-contact-item">
                     <span class="company-contact-icon">ML</span>
-                    <a href="mailto:{{ $company->email }}">{{ $company->email }}</a>
+                    <a href="mailto:{{ $company->email }}" class="reveal-contact" title="Clic o passa il mouse per mostrare l'email"><span class="reveal-contact-value">{{ $company->email }}</span></a>
                 </div>
             @endif
             @if ($company->website)
@@ -226,9 +238,9 @@
                 </div>
             @endif
             @if ($company->phone)
-                <div class="company-contact-item">
+                <div class="company-contact-item reveal-contact" title="Clic o passa il mouse per mostrare il telefono">
                     <span class="company-contact-icon">TEL</span>
-                    <span>{{ $company->phone }}</span>
+                    <span class="reveal-contact-value">{{ $company->phone }}</span>
                 </div>
             @endif
             @if ($company->linkedin_url)
