@@ -42,6 +42,14 @@ Schedule::command('mlm:recalculate-points')
     ->when(fn () => config('kmoney.mlm_enabled'))
     ->appendOutputTo(storage_path('logs/mlm-points.log'));
 
+// NB (2026-07-29): questo orario (02:00) resta PRIMA di mlm:recalculate-points
+// (03:00) qui sopra, quindi sullo stesso giorno 1 l'ordine del cron da solo
+// non garantirebbe qualifiche aggiornate al momento del calcolo. Non e' un
+// problema: CalculateMlmCommissions ora chiama internamente
+// mlm:recalculate-points come primo passo, quindi il calcolo commissioni usa
+// sempre lo stato di fatto del giorno di calcolo indipendentemente
+// dall'orario effettivo del cron (utile anche perche' in produzione il cron
+// non e' sempre configurato, vedi i pulsanti admin "applica subito").
 Schedule::command('mlm:calculate-commissions')
     ->monthlyOn(1, '02:00')
     ->name('mlm-calculate-commissions')

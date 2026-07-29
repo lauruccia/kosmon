@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  * @property int $basiq_user_id
  * @property \Illuminate\Support\Carbon $triggered_at
  * @property array<int,mixed>|null $upline_chain_snapshot
+ * @property array<int,string>|null $upline_ranks_at_trigger Rank di ciascun upline (user_id => mlm_rank) fotografato al momento del rilevamento BasiQ (29/07/2026), usato da MlmBonusService::processEvent() invece del rank corrente al momento del calcolo settimanale.
  * @property string $status
  * @property \Illuminate\Support\Carbon|null $processed_at
  * @property-read User $basiqUser
@@ -27,14 +28,16 @@ class MlmBonusEvent extends Model
         'basiq_user_id',
         'triggered_at',
         'upline_chain_snapshot',
+        'upline_ranks_at_trigger',
         'status',
         'processed_at',
     ];
 
     protected $casts = [
-        'triggered_at'           => 'datetime',
-        'upline_chain_snapshot'  => 'array',
-        'processed_at'           => 'datetime',
+        'triggered_at'             => 'datetime',
+        'upline_chain_snapshot'    => 'array',
+        'upline_ranks_at_trigger'  => 'array',
+        'processed_at'             => 'datetime',
     ];
 
     protected static function booted(): void

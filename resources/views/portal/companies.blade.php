@@ -71,11 +71,17 @@
         .dir-topbar { flex-direction:column; align-items:stretch; }
     }
 
-    /* ── Grid ── */
+    /* ── Grid ──
+       align-items:stretch (invece di start, richiesta 29/07): tutte le card
+       della stessa riga riempiono la stessa altezza — quella della piu' alta
+       — cosi' restano allineate anche quando una scheda ha piu' righe di
+       testo (es. hint "Disponibili prodotti..."). La card è già un flex
+       column con .dir-footer{margin-top:auto}, quindi il footer si "attacca"
+       comunque in fondo su ogni scheda. */
     .dir-grid {
         display:grid;
         grid-template-columns:repeat(4, minmax(0,1fr));
-        gap:18px; align-items:start;
+        gap:18px; align-items:stretch;
     }
     @media(min-width:1680px){ .dir-grid { grid-template-columns:repeat(5,minmax(0,1fr)); } }
     @media(max-width:1480px){ .dir-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
@@ -266,12 +272,10 @@
        tranne il footer con i pulsanti) al passaggio del mouse o al click —
        il click e' gestito in resources/js/app.js (".dir-card-has-tooltip"),
        ignora i click sui link/pulsanti reali cosi' Paga/Shop/Profilo restano
-       cliccabili con un solo click. ── */
+       cliccabili con un solo click. Niente piu' hint testuale "Mostra i
+       contatti" (richiesta 29/07): il tooltip resta comunque attivabile con
+       hover/click su tutta la card, solo senza l'etichetta visibile. ── */
     .dir-card-info { position:relative; }
-    .dir-contact-hint {
-        font-size:11px; color:var(--ink-muted); font-style:italic;
-        display:flex; align-items:center; gap:5px; margin-top:2px;
-    }
     .dir-shop-pct-hint {
         display:flex; align-items:center; gap:6px;
         font-size:12px; font-weight:700; color:var(--teal-strong, var(--primary));
@@ -657,12 +661,6 @@
                                 <span>Disponibili prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
                             </div>
                             @endif
-                            @if($hasHiddenContact)
-                            <div class="dir-contact-hint">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                <span>Mostra i contatti</span>
-                            </div>
-                            @endif
                         </div>
 
                         @if($hasHiddenContact)
@@ -759,12 +757,6 @@
                         <div class="dir-shop-pct-hint">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                             <span>Disponibili prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
-                        </div>
-                        @endif
-                        @if($hasHiddenContact)
-                        <div class="dir-contact-hint">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <span>Mostra i contatti</span>
                         </div>
                         @endif
                         @if($cardStyle === 'rich' && $company->sector)

@@ -18,6 +18,10 @@ use Tests\TestCase;
  * speciale Key (paga solo dal 3° evento BasiQ nella sua downline) e
  * l'idempotenza dell'evento. Nel caso normale di gradi crescenti verso
  * l'alto la regola per posizione coincide con la vecchia telescopica.
+ * Copre anche (2026-07-29) lo snapshot del rank di ogni upline al momento
+ * del rilevamento BasiQ, usato dal calcolo settimanale al posto del rank
+ * corrente al momento dell'elaborazione — con fallback per gli eventi
+ * pre-esistenti senza snapshot.
  *
  * Vedi app/Services/MlmBonusService.php e MLM_PROPOSAL.md §6.
  */
@@ -291,5 +295,64 @@ class MlmBonusServiceTest extends TestCase
         $payout = MlmBonusPayout::where('beneficiary_user_id', $key->id)->first();
         $this->assertNotNull($payout, 'Il Key deve essere eleggibile al 3° evento, anche elaborato in batch settimanale.');
         $this->assertSame(6_000, (int) $payout->amount_eur_cents);
+    }
+
+    /**
+     * Decisione di Laura (2026-07-29): la cascata deve usare "le qualifiche
+     * del momento" in cui BasiQ e' scattato, non quelle correnti al momento
+     * in cui il job settimanale elabora l'evento. Qui un upline viene
+     * promosso da Key a Senior TRA il rilevamento (notte) e l'elaborazione
+     * (mercoledi'): il payout deve comunque riflettere il grado Key
+     * fotografato al rilevamento, non il Senior attuale.
+     */
+    public function test_cascade_uses_the_ancestor_rank_snapshotted_at_detection_not_the_rank_at_processing_time(): void
+    {
+        $key = $this->makeAgent('key');
+        $basiq = $this->makeAgent('basic');
+        $this->tree->attachAgent($key, null);
+        $this->tree->attachAgent($basiq, $key);
+        $this->preloadBasiqEvents($key, 2); // il Key e' eleggibile (3° evento con $basiq).
+
+        // Rilevamento notturno: fotografa il Key come "key".
+        $this->service->recordBasiqEvent($basiq);
+
+        // Nel frattempo (prima del mercoledi'), il Key viene promosso a Senior.
+        $key->forceFill(['mlm_rank' => 'senior'])->save();
+
+        // Elaborazione settimanale.
+        $this->service->processPendingEvents();
+
+        $payout = MlmBonusPayout::where('beneficiary_user_id', $key->id)->first();
+        $this->assertNotNull($payout);
+        $this->assertSame('key', $payout->rank_at_time, 'Deve usare il grado fotografato al rilevamento, non quello attuale (senior).');
+        $this->assertSame(6_000, (int) $payout->amount_eur_cents, 'Importo del grado Key (60), non quello di Senior (110).');
+    }
+
+    /**
+     * Retrocompatibilita': un evento 'pending' creato PRIMA di questa
+     * modifica (colonna upline_ranks_at_trigger assente/null) deve
+     * continuare a funzionare, ricadendo sul rank corrente dell'upline al
+     * momento dell'elaborazione (comportamento pre-29/07).
+     */
+    public function test_processing_falls_back_to_current_rank_when_no_snapshot_was_recorded(): void
+    {
+        $senior = $this->makeAgent('senior');
+        $basiq = $this->makeAgent('basic');
+        $this->tree->attachAgent($senior, null);
+        $this->tree->attachAgent($basiq, $senior);
+
+        // Evento creato senza upline_ranks_at_trigger, come un evento 'pending'
+        // gia' esistente in produzione prima della migration.
+        MlmBonusEvent::create([
+            'basiq_user_id' => $basiq->id,
+            'triggered_at' => now(),
+            'status' => 'pending',
+        ]);
+
+        $this->service->processPendingEvents();
+
+        $payout = MlmBonusPayout::where('beneficiary_user_id', $senior->id)->first();
+        $this->assertNotNull($payout);
+        $this->assertSame(11_000, (int) $payout->amount_eur_cents);
     }
 }

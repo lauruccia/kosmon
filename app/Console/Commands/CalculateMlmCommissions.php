@@ -12,6 +12,22 @@ use Illuminate\Support\Carbon;
  * Schedulato il 1° di ogni mese alle 02:00 (vedi routes/console.php e
  * MLM_PROPOSAL.md §5). Idempotente: rieseguirlo sullo stesso mese non
  * duplica le righe gia' create (MlmCommissionEngine::runForMonth).
+ *
+ * QUALIFICHE AGGIORNATE PRIMA DEL CALCOLO (decisione di Laura, 2026-07-29):
+ * "le commissioni vanno calcolate rispetto alla qualifica di fine mese, del
+ * giorno in cui viene calcolato — prima del calcolo vanno controllate le
+ * qualifiche". I punti attivi sono gia' sempre ricalcolati "al volo" dal
+ * ledger (User::mlmActivePoints), ma la QUALIFICA (colonna users.mlm_rank,
+ * usata da MlmCommissionEngine per il gating dei livelli indiretti estesi e
+ * per il conteggio dei Basic al 1° livello) e' salvata e aggiornata solo dal
+ * job notturno `mlm:recalculate-points`. Nello scheduler (routes/console.php)
+ * quel job gira alle 03:00, UN'ORA DOPO questo comando (02:00) lo stesso
+ * giorno 1 del mese: senza l'invocazione esplicita qui sotto, il calcolo
+ * userebbe ancora la qualifica fotografata la notte precedente (giorno
+ * 31, ore 03:00), non quella di fine mese. Chiamare `mlm:recalculate-points`
+ * subito prima rende il comando corretto indipendentemente dall'orario del
+ * cron (in produzione il cron non e' sempre configurato — vedi
+ * routes/console.php e i job lanciati a mano dai pulsanti admin).
  */
 class CalculateMlmCommissions extends Command
 {
@@ -26,6 +42,14 @@ class CalculateMlmCommissions extends Command
 
     public function handle(): int
     {
+        // Prima di calcolare, ricontrolla punti e qualifiche di tutti gli
+        // agenti: cosi' il calcolo commissioni usa sempre lo stato di fatto
+        // del giorno di calcolo, non quello (potenzialmente di un giorno
+        // prima) fotografato dall'ultima esecuzione notturna. Idempotente e
+        // gia' sicuro da rilanciare piu' volte (stesso comando usato dai
+        // pulsanti admin "applica subito").
+        $this->call('mlm:recalculate-points');
+
         $monthOption = $this->option('month');
 
         // Il mese di riferimento e' quello CORRENTE (non il precedente): il ledger

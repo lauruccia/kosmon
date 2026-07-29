@@ -1838,10 +1838,13 @@ class PortalController extends Controller
                 'is_private'          => $company->users->first()?->account_holder_type === 'private',
                 'biz_account'         => $bizAccount,
                 'allowed_ky_pct'      => $bizAccount ? $bizAccount->allowedKyPercentages() : [],
-                'effective_ky_pct'    => $company->computeEffectiveKyPercentage(
-                    $bizAccount,
-                    $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
-                ),
+                // Il badge del footer mostra SEMPRE la % dichiarata dall'azienda nel
+                // profilo (accepted_ky_percentage) — non viene piu' "alzata" dalla
+                // migliore % dei prodotti dello shop (richiesta 29/07): quella resta
+                // segnalata solo dall'hint "Disponibili prodotti al X% KY sullo shop"
+                // qui sotto. L'unica eccezione resta il conto sottozero (obbligo
+                // circuito, gestito comunque dentro computeEffectiveKyPercentage).
+                'effective_ky_pct'    => $company->computeEffectiveKyPercentage($bizAccount, null),
                 // Migliore % Kmoney tra i prodotti attivi dello shop, esposta cosi'
                 // com'e' (non ancora "schiacciata" nel max con accepted_ky_percentage
                 // come sopra) — serve alla card della directory per capire se vale la
@@ -1872,10 +1875,9 @@ class PortalController extends Controller
             ->take(500)
             ->map(function (Company $company) {
                 $bizAccount = $company->accounts->first();
-                $effectiveKyPct = $company->computeEffectiveKyPercentage(
-                    $bizAccount,
-                    $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
-                );
+                // Stesso criterio del badge in lista (vedi sopra): % del profilo,
+                // non quella "gonfiata" dallo shop.
+                $effectiveKyPct = $company->computeEffectiveKyPercentage($bizAccount, null);
                 $isAtCeiling = $bizAccount ? $bizAccount->isAtCeiling() : false;
 
                 return [

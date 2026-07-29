@@ -48,6 +48,19 @@ use Illuminate\Support\Facades\DB;
  * proposta (`CalculateWeeklyMlmBonuses`), mai implementato come comando
  * separato fino ad ora: prima veniva calcolato subito, la notte stessa in
  * cui l'agente diventava BasiQ.
+ *
+ * QUALIFICA USATA DALLA CASCATA (decisione di Laura, 2026-07-29): "BasiQ
+ * genera comunque il bonus, con le qualifiche del momento [in cui BasiQ
+ * scatta]". Anche se il CALCOLO/ACCREDITO resta settimanale (mercoledi'),
+ * l'importo di ciascun upline si basa sulla qualifica che quell'upline
+ * aveva nell'istante esatto in cui l'evento e' stato rilevato
+ * (recordBasiqEvent), NON su quella che ha nel momento in cui il job
+ * settimanale elabora materialmente l'evento (che puo' cadere giorni dopo e
+ * trovarlo gia' promosso/retrocesso). Per questo recordBasiqEvent()
+ * fotografa il rank di ogni upline in `upline_ranks_at_trigger` (colonna
+ * JSON), e processEvent() legge da li' invece che da $ancestor->mlm_rank —
+ * con fallback al rank corrente per eventuali eventi 'pending' pre-esistenti
+ * senza lo snapshot (creati prima di questa modifica).
  */
 class MlmBonusService
 {
@@ -70,13 +83,34 @@ class MlmBonusService
      * quello avviene in un secondo momento, in batch settimanale, tramite
      * processPendingEvents(). Chiamato dal job notturno di rilevamento
      * (`mlm:recalculate-points`).
+     *
+     * Fotografa anche il rank CORRENTE di ogni upline in
+     * `upline_ranks_at_trigger`: e' questo scatto, non il rank che l'upline
+     * avra' quando il job settimanale elaborera' l'evento, a determinare
+     * l'importo del bonus (vedi docblock di classe).
      */
     public function recordBasiqEvent(User $basiqAgent): MlmBonusEvent
     {
         return MlmBonusEvent::firstOrCreate(
             ['basiq_user_id' => $basiqAgent->id],
-            ['triggered_at' => now(), 'status' => 'pending']
+            [
+                'triggered_at' => now(),
+                'status' => 'pending',
+                'upline_ranks_at_trigger' => $this->snapshotUplineRanks($basiqAgent),
+            ]
         );
+    }
+
+    /** @return array<int,string> Mappa user_id upline => mlm_rank corrente, per recordBasiqEvent(). */
+    private function snapshotUplineRanks(User $basiqAgent): array
+    {
+        $snapshot = [];
+
+        foreach ($this->tree->orderedUpline($basiqAgent) as $ancestor) {
+            $snapshot[$ancestor->id] = $ancestor->mlm_rank;
+        }
+
+        return $snapshot;
     }
 
     /**
@@ -127,6 +161,14 @@ class MlmBonusService
 
             $upline = $this->tree->orderedUpline($basiqAgent);
 
+            // Rank di ciascun upline al momento del RILEVAMENTO (fotografato
+            // da recordBasiqEvent in upline_ranks_at_trigger), non quello
+            // corrente al momento di QUESTA elaborazione (che puo' cadere
+            // giorni dopo, il mercoledi'). Fallback al rank corrente per gli
+            // eventi 'pending' creati prima di questa modifica (senza
+            // snapshot in colonna).
+            $ranksAtTrigger = $event->upline_ranks_at_trigger ?? [];
+
             // Regola "per POSIZIONE" (2026-07-20, testo letterale della
             // slide): si risale la catena dal BasiQ verso la radice e ogni
             // bonus-eligibile percepisce il bonus della propria qualifica
@@ -142,7 +184,7 @@ class MlmBonusService
             $snapshot = [];
 
             foreach ($upline as $ancestor) {
-                $rank = $ancestor->mlm_rank;
+                $rank = $ranksAtTrigger[$ancestor->id] ?? $ancestor->mlm_rank;
                 if (! array_key_exists($rank, self::BONUS_AMOUNTS_EUR_CENTS)) {
                     continue;
                 }
