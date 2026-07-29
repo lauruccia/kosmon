@@ -284,4 +284,45 @@ class MlmPayoutServiceTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->service->requestWithdrawal($agent);
     }
+
+    public function test_request_withdrawal_fails_when_below_the_admin_threshold(): void
+    {
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_payout_threshold_eur_cents' => 5_000])->save();
+
+        $agent = $this->makeAgent();
+        $this->givePendingCommission($agent, 2_000);
+
+        $this->assertFalse($this->service->canRequestWithdrawal($agent));
+
+        $this->expectException(\RuntimeException::class);
+        $this->service->requestWithdrawal($agent);
+    }
+
+    public function test_request_withdrawal_succeeds_once_the_admin_threshold_is_reached(): void
+    {
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_payout_threshold_eur_cents' => 5_000])->save();
+
+        $agent = $this->makeAgent();
+        $this->givePendingCommission($agent, 3_000);
+        $this->givePendingBonus($agent, 2_000);
+
+        $this->assertTrue($this->service->canRequestWithdrawal($agent));
+
+        $payout = $this->service->requestWithdrawal($agent);
+
+        $this->assertSame(5_000, $payout->total_eur_cents);
+    }
+
+    public function test_zero_threshold_preserves_the_pre_existing_any_amount_behaviour(): void
+    {
+        $agent = $this->makeAgent();
+        $this->givePendingCommission($agent, 1);
+
+        $this->assertSame(0, $this->service->payoutThresholdCents());
+        $this->assertTrue($this->service->canRequestWithdrawal($agent));
+
+        $payout = $this->service->requestWithdrawal($agent);
+
+        $this->assertSame(1, $payout->total_eur_cents);
+    }
 }

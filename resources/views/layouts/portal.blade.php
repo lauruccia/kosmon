@@ -1349,6 +1349,7 @@
                                     @endif
                                 </a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.payouts.index') }}"><span class="subnav-icon">EU</span><span>Liquidazioni</span></a>
+                                <a class="sidebar-sublink" href="{{ route('admin.mlm.earnings.index') }}"><span class="subnav-icon">RP</span><span>Report guadagni</span></a>
                             </div>
                             @endif
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'audit' ? 'active' : '' }}" href="{{ route('admin.audit') }}"><span class="nav-icon">AL</span><span>Audit Log</span></a>
@@ -1622,6 +1623,9 @@
                                 </a>
                                 <a class="sidebar-link {{ $an === 'mlm-registra-agente' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-create.show') }}">
                                     <span class="nav-icon">&#128100;</span><span>Registra agente</span>
+                                </a>
+                                <a class="sidebar-link {{ $an === 'mlm-guadagni' ? 'active' : '' }}" href="{{ route('portal.mlm.earnings') }}">
+                                    <span class="nav-icon">&#128200;</span><span>I miei guadagni</span>
                                 </a>
                                 <a class="sidebar-link {{ $an === 'mlm-prelievi' ? 'active' : '' }}" href="{{ route('portal.mlm.prelievi') }}">
                                     <span class="nav-icon">&euro;</span><span>Prelievi</span>

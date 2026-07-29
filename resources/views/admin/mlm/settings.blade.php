@@ -150,6 +150,29 @@
         </div>
     </section>
 
+    {{-- ── Soglia minima prelievo self-service (2026-07-29) ── --}}
+    <section class="card card-pad" style="margin-bottom:14px;">
+        <h3 style="margin:0 0 6px;font-size:15px;">Soglia minima prelievo agenti</h3>
+        <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
+            Importo minimo di maturato (commissioni + bonus non ancora liquidati) che l'agente deve aver accumulato per poter richiedere un prelievo dal portale ("Prelievi").
+            Lascia a 0 per non applicare nessuna soglia (qualunque importo &gt; 0 è prelevabile, comportamento attuale).
+            Non riguarda le liquidazioni che generi manualmente da <a href="{{ route('admin.mlm.payouts.index') }}">Liquidazioni EUR</a>, che restano senza soglia.
+        </p>
+        <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+            <div>
+                <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Soglia (€)</label>
+                <input type="number" id="payout_threshold_eur" name="payout_threshold_eur" min="0" step="0.01"
+                    value="{{ old('payout_threshold_eur', ky_input($payoutThresholdEurCents)) }}"
+                    style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;background:var(--surface-soft);color:var(--ink);outline:none;width:160px;">
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:2px;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('payout_threshold_eur').value=0">Nessuna soglia</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('payout_threshold_eur').value=50">€ 50</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('payout_threshold_eur').value=100">€ 100</button>
+            </div>
+        </div>
+    </section>
+
     {{-- ── Requisiti per grado ── --}}
     <section class="card light-card" style="margin-bottom:14px;">
         <div style="padding:14px 16px 0;">

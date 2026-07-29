@@ -221,6 +221,32 @@ class MlmSettingsControllerTest extends TestCase
         ] + $this->pointRulesPayload())->assertSessionHasErrors('knm_margin_percent');
     }
 
+    public function test_admin_can_set_the_payout_threshold_and_it_shows_on_the_edit_page(): void
+    {
+        $admin = $this->makeAdmin();
+        $payload = $this->requirementsPayload();
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'payout_threshold_eur' => '50,00',
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(5_000, SystemSetting::mlmSettings()->fresh()->mlmPayoutThresholdEurCents());
+
+        $this->actingAsWithSession($admin)->get(route('admin.mlm.settings.edit'))
+            ->assertOk()
+            ->assertSee('50.00', false);
+
+        // Campo vuoto/assente = nessuna soglia (0), non un errore di validazione.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame(0, SystemSetting::mlmSettings()->fresh()->mlmPayoutThresholdEurCents());
+    }
+
     public function test_recalculate_now_runs_the_nightly_command_synchronously(): void
     {
         $admin = $this->makeAdmin();

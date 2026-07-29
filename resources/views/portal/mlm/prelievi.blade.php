@@ -23,6 +23,9 @@
         <div style="text-align:right;">
             <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:2px;">Maturato disponibile</span>
             <strong style="font-size:24px;">&euro; {{ number_format($availableCents / 100, 2, ',', '.') }}</strong>
+            @if($thresholdCents > 0)
+                <span style="display:block;font-size:11px;color:var(--ink-muted);margin-top:2px;">Soglia minima per il prelievo: &euro; {{ number_format($thresholdCents / 100, 2, ',', '.') }}</span>
+            @endif
         </div>
     </div>
 
@@ -36,6 +39,11 @@
         @elseif($availableCents <= 0)
             <button type="button" class="btn" disabled style="opacity:.55;cursor:not-allowed;">Effettua un prelievo</button>
             <span style="font-size:12px;color:var(--ink-muted);">Non hai ancora importi maturati da prelevare.</span>
+        @elseif($thresholdCents > 0 && $availableCents < $thresholdCents)
+            <button type="button" class="btn" disabled style="opacity:.55;cursor:not-allowed;">Effettua un prelievo</button>
+            <span style="font-size:12px;color:var(--ink-muted);">
+                Ti mancano &euro; {{ number_format(($thresholdCents - $availableCents) / 100, 2, ',', '.') }} per raggiungere la soglia minima di &euro; {{ number_format($thresholdCents / 100, 2, ',', '.') }}.
+            </span>
         @else
             <form method="POST" action="{{ route('portal.mlm.prelievi.store') }}"
                   onsubmit="return confirm('Richiedere il prelievo di &euro; {{ number_format($availableCents / 100, 2, ',', '.') }}? Verrà pagato con bonifico dopo l\'approvazione.');">

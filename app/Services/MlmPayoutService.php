@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\MlmBonusPayout;
 use App\Models\MlmCommission;
 use App\Models\MlmPayout;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -282,12 +283,42 @@ class MlmPayoutService
     }
 
     /**
+     * Soglia minima (EUR centesimi) impostata dall'admin sotto la quale il
+     * prelievo self-service dal portale agente e' bloccato (2026-07-29).
+     * 0 = nessuna soglia. Non si applica alle liquidazioni generate
+     * manualmente dall'admin (generateForMonth()).
+     */
+    public function payoutThresholdCents(): int
+    {
+        return SystemSetting::mlmSettings()->mlmPayoutThresholdEurCents();
+    }
+
+    /**
+     * L'agente ha maturato abbastanza (rispetto alla soglia impostata
+     * dall'admin) per poter richiedere un prelievo self-service ora?
+     */
+    public function canRequestWithdrawal(User $agent): bool
+    {
+        return $this->pendingWithdrawableCents($agent) >= $this->payoutThresholdCents()
+            && $this->pendingWithdrawableCents($agent) > 0;
+    }
+
+    /**
      * Richiesta di prelievo dal portale agente: aggancia TUTTO il maturato
      * libero (commissioni + bonus pending senza liquidazione) a una nuova
      * liquidazione 'pending' con requested_at valorizzato. L'admin la
      * approva e la paga con il flusso esistente (bonifico manuale).
      *
-     * @throws \RuntimeException se c'e' gia' una richiesta in corso o non c'e' nulla da prelevare
+     * Dal 2026-07-29: la richiesta e' consentita solo se il maturato ha
+     * raggiunto la soglia minima decisa dall'admin
+     * (SystemSetting::mlmSettings()->mlmPayoutThresholdEurCents(), 0 =
+     * nessuna soglia). Questo vincolo riguarda SOLO la richiesta
+     * self-service dell'agente: l'admin puo' comunque generare liquidazioni
+     * manualmente per qualunque importo da /admin/mlm-payouts
+     * (generateForMonth()), tipicamente a fine mese.
+     *
+     * @throws \RuntimeException se c'e' gia' una richiesta in corso, non c'e' nulla da
+     *                           prelevare, o il maturato e' sotto la soglia minima
      */
     public function requestWithdrawal(User $agent): MlmPayout
     {
@@ -320,6 +351,15 @@ class MlmPayoutService
 
             if ($total <= 0) {
                 throw new \RuntimeException('Non hai importi maturati da prelevare.');
+            }
+
+            $threshold = $this->payoutThresholdCents();
+            if ($threshold > 0 && $total < $threshold) {
+                throw new \RuntimeException(sprintf(
+                    'Hai maturato € %s, ma la soglia minima per richiedere un prelievo e\' € %s. Continua ad accumulare prima di richiederne uno nuovo.',
+                    number_format($total / 100, 2, ',', '.'),
+                    number_format($threshold / 100, 2, ',', '.')
+                ));
             }
 
             // Periodo coperto: dalla piu' vecchia riga agganciata a oggi.

@@ -100,6 +100,7 @@ class SystemSetting extends Model
         'mlm_points_validity_override_minutes',
         'mlm_knm_margin_percent',
         'mlm_root_agent_id',
+        'mlm_payout_threshold_eur_cents',
     ];
 
     protected function casts(): array
@@ -319,6 +320,7 @@ HTML;
                 'mlm_points_validity_override_minutes' => null,
                 'mlm_knm_margin_percent' => self::MLM_KNM_MARGIN_DEFAULT_PERCENT,
                 'mlm_root_agent_id' => null,
+                'mlm_payout_threshold_eur_cents' => 0,
             ]
         );
     }
@@ -347,6 +349,17 @@ HTML;
     public function mlmRootAgent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'mlm_root_agent_id');
+    }
+
+    /**
+     * Soglia minima di prelievo self-service dal portale agente (EUR
+     * centesimi, 2026-07-29). NULL sulle righe esistenti pre-migrazione =
+     * 0 = nessuna soglia (comportamento pre-esistente: prelevabile qualunque
+     * importo > 0). Vedi MlmPayoutService::requestWithdrawal().
+     */
+    public function mlmPayoutThresholdEurCents(): int
+    {
+        return max(0, (int) ($this->mlm_payout_threshold_eur_cents ?? 0));
     }
 
     public function logoUrl(): ?string

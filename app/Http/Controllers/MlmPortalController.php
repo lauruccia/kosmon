@@ -382,6 +382,8 @@ class MlmPortalController extends Controller
             'availableCents' => $payouts->pendingWithdrawableCents($agent),
             'hasOpenPayout'  => $payouts->hasOpenPayout($agent),
             'paymentDetail'  => $agent->mlmPaymentDetail,
+            // Soglia minima decisa dall'admin (2026-07-29): 0 = nessuna soglia.
+            'thresholdCents' => $payouts->payoutThresholdCents(),
             'activeNav'      => 'mlm-prelievi',
         ]);
     }
@@ -406,5 +408,92 @@ class MlmPortalController extends Controller
             'Richiesta di prelievo di € %s inviata: riceverai il bonifico dopo l\'approvazione dell\'amministrazione.',
             number_format($payout->total_eur_cents / 100, 2, ',', '.')
         ));
+    }
+
+    /**
+     * GET /portale/mlm/guadagni — report guadagni dell'agente (2026-07-29,
+     * richiesta di Laura: "ogni agente deve poter vedere i propri report").
+     * A differenza di "Prelievi" (storico delle liquidazioni per periodo),
+     * qui si vede il dettaglio riga per riga di ogni commissione/bonus
+     * maturato, con i totali maturato/pagato/da pagare.
+     */
+    public function guadagni(Request $request): View
+    {
+        $agent = $this->agentOrAbort($request);
+
+        $commissionsTotal = (int) $agent->mlmCommissions()->sum('amount_eur_cents');
+        $commissionsPaid = (int) $agent->mlmCommissions()->where('status', 'paid')->sum('amount_eur_cents');
+        $bonusTotal = (int) $agent->mlmBonusPayouts()->sum('amount_eur_cents');
+        $bonusPaid = (int) $agent->mlmBonusPayouts()->where('status', 'paid')->sum('amount_eur_cents');
+
+        $totals = [
+            'commissions_total_eur_cents' => $commissionsTotal,
+            'bonus_total_eur_cents' => $bonusTotal,
+            'total_earned_eur_cents' => $commissionsTotal + $bonusTotal,
+            'total_paid_eur_cents' => $commissionsPaid + $bonusPaid,
+        ];
+        $totals['total_outstanding_eur_cents'] = $totals['total_earned_eur_cents'] - $totals['total_paid_eur_cents'];
+
+        $commissions = $agent->mlmCommissions()
+            ->with(['sourceClient:id,name', 'run:id,period_month'])
+            ->latest()
+            ->paginate(20, ['*'], 'commissioni_page');
+
+        $bonuses = $agent->mlmBonusPayouts()
+            ->with('event.basiqUser:id,name')
+            ->latest()
+            ->paginate(20, ['*'], 'bonus_page');
+
+        return view('portal.mlm.guadagni', [
+            'pageTitle' => 'I miei guadagni',
+            'activeNav' => 'mlm-guadagni',
+            'totals' => $totals,
+            'commissions' => $commissions,
+            'bonuses' => $bonuses,
+        ]);
+    }
+
+    /** GET /portale/mlm/guadagni/esporta — CSV del proprio dettaglio guadagni. */
+    public function guadagniExport(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $agent = $this->agentOrAbort($request);
+
+        $filename = 'i_miei_guadagni_' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($agent): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Tipo', 'Data', 'Descrizione', 'Importo EUR', 'Stato']);
+
+            $agent->mlmCommissions()
+                ->with(['sourceClient:id,name', 'run:id,period_month'])
+                ->orderBy('created_at')
+                ->chunk(200, function ($chunk) use ($out): void {
+                    foreach ($chunk as $commission) {
+                        fputcsv($out, [
+                            'Commissione',
+                            $commission->run?->period_month?->format('m/Y'),
+                            trim(($commission->type ?? '') . ' — ' . ($commission->sourceClient->name ?? '')),
+                            number_format($commission->amount_eur_cents / 100, 2, ',', '.'),
+                            $commission->status,
+                        ]);
+                    }
+                });
+
+            $agent->mlmBonusPayouts()
+                ->orderBy('week_ending')
+                ->chunk(200, function ($chunk) use ($out): void {
+                    foreach ($chunk as $bonus) {
+                        fputcsv($out, [
+                            'Bonus',
+                            $bonus->week_ending?->format('d/m/Y'),
+                            $bonus->kind,
+                            number_format($bonus->amount_eur_cents / 100, 2, ',', '.'),
+                            $bonus->status,
+                        ]);
+                    }
+                });
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }

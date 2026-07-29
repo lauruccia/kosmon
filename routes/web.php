@@ -69,6 +69,7 @@ use App\Http\Controllers\Admin\MlmMetricGrantController;
 use App\Http\Controllers\Admin\MlmSettingsController;
 use App\Http\Controllers\Admin\MlmSimulatorController;
 use App\Http\Controllers\Admin\MlmPayoutController;
+use App\Http\Controllers\Admin\MlmEarningsReportController;
 use App\Http\Controllers\Admin\MlmAgentRequestController as AdminMlmAgentRequestController;
 use App\Http\Controllers\Admin\AccountController as AdminAccountController;
 use App\Http\Controllers\Admin\AuditController;
@@ -662,6 +663,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
         Route::get('/mlm/prelievi', [MlmPortalController::class, 'prelievi'])->name('portal.mlm.prelievi');
         Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
 
+        // MLM (KNM) — report guadagni dell'agente (2026-07-29): dettaglio riga
+        // per riga di ogni commissione/bonus maturato, distinto dallo storico
+        // liquidazioni di "Prelievi" sopra.
+        Route::get('/mlm/guadagni', [MlmPortalController::class, 'guadagni'])->name('portal.mlm.earnings');
+        Route::get('/mlm/guadagni/esporta', [MlmPortalController::class, 'guadagniExport'])->name('portal.mlm.earnings.export');
+
         // MLM (KNM) — un agente registra un nuovo agente sotto di sé (2026-07-28,
         // punto 3/6: sostituisce per questo percorso la vecchia casella "voglio
         // diventare agente" nella registrazione pubblica generale).
@@ -939,6 +946,14 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::post('/admin/mlm-payouts/{mlmPayout}/approva', [MlmPayoutController::class, 'approve'])->name('admin.mlm.payouts.approve')->middleware('backoffice');
         Route::post('/admin/mlm-payouts/{mlmPayout}/paga', [MlmPayoutController::class, 'markPaid'])->name('admin.mlm.payouts.mark-paid')->middleware('backoffice');
         Route::post('/admin/mlm-payouts/{mlmPayout}/rifiuta', [MlmPayoutController::class, 'reject'])->name('admin.mlm.payouts.reject')->middleware('backoffice');
+
+        // MLM (KNM) — report guadagni per l'admin (2026-07-29): riepilogo di
+        // tutti gli agenti + dettaglio per singolo agente, distinto dal
+        // FLUSSO di approvazione delle liquidazioni sopra (mlm-payouts).
+        Route::get('/admin/mlm-report', [MlmEarningsReportController::class, 'index'])->name('admin.mlm.earnings.index')->middleware('backoffice');
+        Route::get('/admin/mlm-report/esporta', [MlmEarningsReportController::class, 'exportCsv'])->name('admin.mlm.earnings.export')->middleware('backoffice');
+        Route::get('/admin/mlm-report/{user}', [MlmEarningsReportController::class, 'show'])->name('admin.mlm.earnings.show')->middleware('backoffice');
+        Route::get('/admin/mlm-report/{user}/esporta', [MlmEarningsReportController::class, 'exportAgentCsv'])->name('admin.mlm.earnings.show-export')->middleware('backoffice');
     });
 
     Route::post('/admin/menu-visibility',         [\App\Http\Controllers\Admin\AdminMenuVisibilityController::class, 'store'])  ->name('admin.menu-visibility.store')->middleware('backoffice');

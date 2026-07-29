@@ -62,6 +62,9 @@ class MlmSettingsController extends Controller
             'ranks' => $this->configurableRanks(),
             'pointsValidityOverrideMinutes' => SystemSetting::mlmSettings()->mlm_points_validity_override_minutes,
             'knmMarginPercent' => SystemSetting::mlmSettings()->mlmKnmMarginPercent(),
+            // Soglia minima di prelievo self-service (2026-07-29): in EUR
+            // centesimi nel DB, mostrata in EUR nel form (ky_input()/ky_to_cents()).
+            'payoutThresholdEurCents' => SystemSetting::mlmSettings()->mlmPayoutThresholdEurCents(),
             'currentRootAgent' => $treeService->systemRootAgent(),
             'activeNav' => 'mlm',
         ]);
@@ -72,6 +75,10 @@ class MlmSettingsController extends Controller
         $this->authorizeBackoffice($request->user());
 
         $ranks = $this->configurableRanks();
+
+        if ($request->filled('payout_threshold_eur')) {
+            $request->merge(['payout_threshold_eur' => str_replace(',', '.', (string) $request->input('payout_threshold_eur'))]);
+        }
 
         $rules = [
             'points_validity_override_minutes' => ['nullable', 'integer', 'min:1'],
@@ -86,6 +93,9 @@ class MlmSettingsController extends Controller
             // /admin/ky-cards (durata in giorni; "1 mese = 30 giorni").
             'registration_points' => ['required', 'numeric', 'min:0', 'max:999999'],
             'registration_duration_days' => ['required', 'integer', 'min:1', 'max:36500'],
+            // Soglia minima di prelievo self-service (2026-07-29), in EUR
+            // (convertita in centesimi qui sotto). 0/vuoto = nessuna soglia.
+            'payout_threshold_eur' => ['nullable', 'numeric', 'min:0', 'max:999999'],
         ];
         foreach ($ranks as $rank) {
             foreach (self::REQUIREMENT_FIELDS as $field) {
@@ -122,9 +132,15 @@ class MlmSettingsController extends Controller
             ? (int) $validated['knm_margin_percent']
             : SystemSetting::MLM_KNM_MARGIN_DEFAULT_PERCENT;
 
+        $thresholdBefore = $settings->mlmPayoutThresholdEurCents();
+        $thresholdAfter = isset($validated['payout_threshold_eur']) && $validated['payout_threshold_eur'] !== ''
+            ? ky_to_cents($validated['payout_threshold_eur'])
+            : 0;
+
         $settings->forceFill([
             'mlm_points_validity_override_minutes' => $after,
             'mlm_knm_margin_percent' => $marginAfter,
+            'mlm_payout_threshold_eur_cents' => $thresholdAfter,
         ])->save();
 
         AuditLog::create([
@@ -138,6 +154,8 @@ class MlmSettingsController extends Controller
                 'points_validity_override_minutes_after' => $after,
                 'knm_margin_percent_before' => $marginBefore,
                 'knm_margin_percent_after' => $marginAfter,
+                'payout_threshold_eur_cents_before' => $thresholdBefore,
+                'payout_threshold_eur_cents_after' => $thresholdAfter,
                 'point_rules' => MlmPointRule::orderBy('event_type')
                     ->get(['event_type', 'points', 'duration_days'])
                     ->toArray(),
