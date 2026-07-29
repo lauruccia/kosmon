@@ -7,6 +7,10 @@
         <div>
             <h2 style="margin:0 0 4px;font-size:18px;">{{ $agent->name }}</h2>
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">{{ $agent->email }} · Sponsor: {{ $sponsor?->name ?? '— (radice albero)' }}</p>
+            <p style="margin:6px 0 0;">
+                <span style="font-size:12px;color:var(--ink-muted);">Codice agente:</span>
+                <span class="pill" style="background:rgba(12,74,134,.1);color:#0c4a86;font-family:monospace;font-weight:700;letter-spacing:.5px;">{{ $agentCode }}</span>
+            </p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
             <a href="{{ route('admin.mlm.tree', $agent) }}" class="btn btn-secondary">Albero</a>

@@ -6,6 +6,7 @@ use App\Mail\MlmInvitationMail;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\KyCardPurchase;
+use App\Models\MlmAgentClosure;
 use App\Models\MlmInvitation;
 use App\Models\Role;
 use App\Models\User;
@@ -15,6 +16,7 @@ use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -93,6 +95,7 @@ class MlmPortalController extends Controller
             'tree'               => $tree->subtree($agent),
             'branches'           => $branches,
             'agent'              => $agent,
+            'agentCode'          => $agent->agentCode(),
             'selfClientRegisterUrl' => $selfClientRegisterUrl,
             'activePoints'       => $activePoints,
             'expiringPoints'     => $expiringPoints,
@@ -118,12 +121,33 @@ class MlmPortalController extends Controller
      */
     public function registraAgente(Request $request): View
     {
-        $this->agentOrAbort($request);
+        $agent = $this->agentOrAbort($request);
 
         return view('portal.mlm.registra-agente', [
-            'pageTitle' => 'Registra un nuovo agente',
-            'activeNav' => 'mlm-registra-agente',
+            'pageTitle'      => 'Registra un nuovo agente',
+            'activeNav'      => 'mlm-registra-agente',
+            'sponsorOptions' => $this->sponsorOptionsFor($agent),
         ]);
+    }
+
+    /**
+     * Agenti sotto cui l'agente $agent puo' registrare un nuovo agente:
+     * se stesso (default, primo livello sotto di lui) oppure qualunque
+     * agente della propria struttura, a qualsiasi profondita' (2026-07-29,
+     * richiesta di Laura: "chi lo registra potrebbe decidere di metterlo
+     * sotto un agente che lui stesso ha sotto"). Si appoggia alla stessa
+     * closure table dell'albero MLM: ogni riga con ancestor_id = $agent->id
+     * e' un discendente (o l'agente stesso, depth 0).
+     */
+    private function sponsorOptionsFor(User $agent): Collection
+    {
+        $ids = MlmAgentClosure::where('ancestor_id', $agent->id)->pluck('descendant_id');
+
+        return User::whereIn('id', $ids)
+            ->where('mlm_role', 'agente')
+            ->orderByRaw('id = ? desc', [$agent->id])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
     }
 
     /** POST /portale/mlm/registra-agente */
@@ -132,15 +156,29 @@ class MlmPortalController extends Controller
         $agent = $this->agentOrAbort($request);
 
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:30'],
-        ], [], ['name' => 'nome e cognome', 'email' => 'email', 'phone' => 'telefono']);
+            'name'      => ['required', 'string', 'max:120'],
+            'email'     => ['required', 'email', 'unique:users,email'],
+            'phone'     => ['nullable', 'string', 'max:30'],
+            'sponsor_id' => ['nullable', 'integer'],
+        ], [], ['name' => 'nome e cognome', 'email' => 'email', 'phone' => 'telefono', 'sponsor_id' => 'sponsor']);
+
+        // Lo sponsor sotto cui viene registrato il nuovo agente: di default
+        // l'agente referente stesso, ma puo' essere qualunque agente della
+        // sua struttura (mai un agente esterno — verificato contro la
+        // closure table, non ci si puo' semplicemente fidare dell'input).
+        $sponsor = $agent;
+        if (! empty($validated['sponsor_id']) && (int) $validated['sponsor_id'] !== $agent->id) {
+            $allowedIds = $this->sponsorOptionsFor($agent)->pluck('id');
+            if (! $allowedIds->contains((int) $validated['sponsor_id'])) {
+                return back()->withErrors(['sponsor_id' => 'Sponsor non valido: deve essere un agente della tua struttura.'])->withInput();
+            }
+            $sponsor = User::findOrFail((int) $validated['sponsor_id']);
+        }
 
         $email = mb_strtolower(trim($validated['email']));
         $temporaryPassword = Str::password(14);
 
-        $newAgent = DB::transaction(function () use ($validated, $email, $agent, $temporaryPassword) {
+        $newAgent = DB::transaction(function () use ($validated, $email, $agent, $sponsor, $temporaryPassword) {
             $defaultRole = Role::query()->where('slug', 'private-member')->firstOrFail();
 
             // Creato come 'cliente' con richiesta MLM già "approvata": stesso
@@ -151,6 +189,10 @@ class MlmPortalController extends Controller
             // "vouch-are" per il nuovo agente. mlm_role diventa 'agente' solo
             // alla firma del contratto (MlmAgentContractController::sign()),
             // invariato per TUTTI i percorsi.
+            // referred_by_user_id determina lo SPONSOR nell'albero MLM (letto
+            // da MlmAgentContractController::sign() via resolveAgentForNewClient()
+            // al momento della firma) — puo' differire dall'agente che ha
+            // materialmente compilato questo form (vedi $agent vs $sponsor).
             $user = User::create([
                 'account_holder_type'        => 'private',
                 'name'                       => $validated['name'],
@@ -161,7 +203,7 @@ class MlmPortalController extends Controller
                 'role'                       => 'registered-private',
                 'is_active'                  => true,
                 'is_super_admin'             => false,
-                'referred_by_user_id'        => $agent->id,
+                'referred_by_user_id'        => $sponsor->id,
                 'mlm_role'                   => 'cliente',
                 'mlm_client_agent_id'        => null,
                 'mlm_agent_request_status'   => 'approved',

@@ -66,12 +66,12 @@
     @endif
 
     {{-- Opzione 1: TOTP --}}
-    <a href="{{ route('portal.profile.edit') }}#2fa" class="btn btn-primary">
+    <a href="{{ route('portal.security') }}#totp-section" class="btn btn-primary">
         🔑 Configura codici TOTP (app autenticatore)
     </a>
 
     {{-- Opzione 2: Passkey --}}
-    <a href="{{ route('portal.profile.edit') }}#passkey" class="btn btn-outline">
+    <a href="{{ route('portal.security') }}#webauthn-section" class="btn btn-outline">
         🪪 Configura Passkey / impronta digitale
     </a>
 

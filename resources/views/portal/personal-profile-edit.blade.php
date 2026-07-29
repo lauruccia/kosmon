@@ -120,6 +120,12 @@
         <div class="alert alert-error" style="margin-bottom:20px;">Controlla i campi evidenziati.</div>
     @endif
 
+    @if($referredBy ?? null)
+        <div style="margin-bottom:20px;padding:12px 16px;border-radius:10px;background:var(--surface-soft,#f8fafc);border:1px solid var(--line);font-size:13px;color:var(--ink-soft);">
+            Sei stato invitato da <strong>{{ $referredBy->name }}</strong>.
+        </div>
+    @endif
+
     <div class="profile-edit-grid">
 
         {{-- COLONNA SINISTRA --}}

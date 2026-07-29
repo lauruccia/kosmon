@@ -18,7 +18,7 @@
     @endif
 
     {{-- Stato 2FA --}}
-    <section class="card card-pad" style="margin-bottom:20px;">
+    <section class="card card-pad" style="margin-bottom:20px;" id="totp-section">
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
             <div style="width:48px;height:48px;border-radius:12px;background:{{ $enabled ? 'var(--success-soft)' : 'var(--surface-soft)' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 @if($enabled)

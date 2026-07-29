@@ -75,6 +75,8 @@ class MlmController extends Controller
             ->take(20)
             ->get();
 
+        $agentCode = $user->agentCode();
+
         $clients = $user->mlmClients()
             ->select('id', 'name', 'email', 'created_at')
             ->orderByDesc('created_at')
@@ -95,6 +97,7 @@ class MlmController extends Controller
         return view('admin.mlm.show', [
             'pageTitle' => 'MLM — ' . $user->name,
             'agent' => $user,
+            'agentCode' => $agentCode,
             'branches' => $branches,
             'clients' => $clients,
             'pointLedger' => $pointLedger,

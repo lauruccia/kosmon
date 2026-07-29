@@ -384,9 +384,28 @@
                         style="width:16px;height:16px;">
                     <label for="accepts_ky" style="margin:0;font-size:13px;cursor:pointer;">Solo chi accetta Kmoney</label>
                 </div>
+                {{-- Filtro % Kmoney (punto 7): affianca il checkbox sopra, non lo sostituisce. --}}
+                <div class="field" style="max-width:130px;">
+                    <label for="exact_ky_percentage">% Kmoney esatta</label>
+                    <select id="exact_ky_percentage" name="exact_ky_percentage">
+                        <option value="">Qualsiasi</option>
+                        @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
+                            <option value="{{ $pct }}" @selected((string) ($filters['exact_ky_percentage'] ?? '') === (string) $pct)>{{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field" style="max-width:150px;">
+                    <label for="min_ky_percentage">% Kmoney minima</label>
+                    <select id="min_ky_percentage" name="min_ky_percentage">
+                        <option value="">Qualsiasi</option>
+                        @foreach(array_filter(\App\Models\Company::ACCEPTED_KY_PERCENTAGES) as $pct)
+                            <option value="{{ $pct }}" @selected((string) ($filters['min_ky_percentage'] ?? '') === (string) $pct)>almeno {{ $pct }}%</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="form-actions" style="margin:0;flex-wrap:nowrap;">
                     <button class="cta" type="submit">Cerca</button>
-                    @if($filters['q'] || $filters['sector'] || ($filters['city'] ?? '') || ($filters['accepts_ky'] ?? false))
+                    @if($filters['q'] || $filters['sector'] || ($filters['city'] ?? '') || ($filters['accepts_ky'] ?? false) || ($filters['exact_ky_percentage'] ?? null) || ($filters['min_ky_percentage'] ?? null))
                         <a href="{{ $directoryRoute }}" class="cta secondary">Reset</a>
                     @endif
                 </div>
@@ -410,6 +429,51 @@
             </div>
         </div>
     </div>
+
+    {{-- Blocchi rapidi (punto 10, 2026-07-29): "pagate di recente" ed
+         "ecommerce", solo lato portale e solo quando non c'e' nessun filtro
+         di ricerca attivo — sono scorciatoie in cima alla directory, non
+         un'ulteriore vista filtrata. --}}
+    @if(($directoryMode ?? '') === 'portal' && !$filters['q'] && !$filters['sector'] && !($filters['city'] ?? '') && !($filters['accepts_ky'] ?? false) && !($filters['exact_ky_percentage'] ?? null) && !($filters['min_ky_percentage'] ?? null))
+        @if(($recentlyPaidCompanies ?? collect())->isNotEmpty())
+        <div class="card card-pad" style="margin-bottom:2px;">
+            <h3 style="margin:0 0 10px;font-size:14px;">💸 Aziende a cui hai pagato di recente</h3>
+            <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">
+                @foreach($recentlyPaidCompanies as $rc)
+                    <a href="{{ route('portal.companies.show', $rc->slug) }}" style="flex-shrink:0;width:150px;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;">
+                        <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(150deg,var(--primary),var(--navy-deep));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;overflow:hidden;">
+                            @if($rc->logo_url)
+                                <img src="{{ $rc->logo_url }}" alt="{{ $rc->name }}" style="width:100%;height:100%;object-fit:cover;">
+                            @else
+                                {{ strtoupper(mb_substr($rc->name, 0, 1)) }}
+                            @endif
+                        </div>
+                        <span style="font-size:12px;font-weight:700;line-height:1.3;">{{ $rc->name }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
+        @if(($ecommerceCompanies ?? collect())->isNotEmpty())
+        <div class="card card-pad" style="margin-bottom:14px;">
+            <h3 style="margin:0 0 10px;font-size:14px;">🛍 Aziende con ecommerce</h3>
+            <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">
+                @foreach($ecommerceCompanies as $ec)
+                    <a href="{{ route('portal.companies.show', $ec->slug) }}" style="flex-shrink:0;width:150px;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;">
+                        <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(150deg,var(--primary),var(--navy-deep));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;overflow:hidden;">
+                            @if($ec->logo_url)
+                                <img src="{{ $ec->logo_url }}" alt="{{ $ec->name }}" style="width:100%;height:100%;object-fit:cover;">
+                            @else
+                                {{ strtoupper(mb_substr($ec->name, 0, 1)) }}
+                            @endif
+                        </div>
+                        <span style="font-size:12px;font-weight:700;line-height:1.3;">{{ $ec->name }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
+    @endif
 
     {{-- Vista Lista (griglia esistente) --}}
     <div id="view-list" class="dir-view">
@@ -680,6 +744,10 @@
         @else
             <div class="dir-map-layout">
                 <div class="dir-map-sidebar" id="map-sidebar">
+                    <div id="map-radius-bar" style="display:none;padding:10px 14px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--ink-muted);align-items:center;justify-content:space-between;gap:8px;">
+                        <span id="map-radius-info"></span>
+                        <button type="button" id="map-radius-toggle" style="border:none;background:none;color:var(--primary);font-weight:700;font-size:11.5px;cursor:pointer;white-space:nowrap;">Mostra tutte</button>
+                    </div>
                     <div id="map-sidebar-list">
                         @foreach($mapCompanies as $mc)
                             <div class="dir-map-sidebar-item" data-id="{{ $mc['id'] }}" data-lat="{{ $mc['lat'] }}" data-lng="{{ $mc['lng'] }}">
@@ -738,6 +806,17 @@
     var markersById = {};
     var userMarker = null;
     var userPos = null;
+
+    // "Vicino a te" di default sulla tab Mappa (punto 11, 2026-07-29,
+    // richiesta di Laura): raggio di default 50km, e se nessuna azienda
+    // rientra nel raggio si mostra comunque almeno la piu' vicina, cosi'
+    // la mappa non risulta mai vuota. L'utente puo' disattivare il filtro
+    // con "Mostra tutte". geoAttempted evita di ri-proporre il prompt del
+    // browser ogni volta che si torna sulla tab Mappa (anche se l'utente
+    // ha negato il permesso).
+    var RADIUS_KM = 50;
+    var geoAttempted = false;
+    var showAllOverride = false;
 
     function escapeHtml(str) {
         return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
@@ -819,6 +898,7 @@
         if (!userPos) { return; }
 
         var list = document.getElementById('map-sidebar-list');
+        var items = [];
         if (list) {
             Array.prototype.forEach.call(list.querySelectorAll('.dir-map-sidebar-item'), function (el) {
                 var lat = parseFloat(el.dataset.lat);
@@ -828,7 +908,7 @@
                 if (badge) { badge.textContent = formatKm(km); }
                 el.dataset.distanceKm = km;
             });
-            var items = Array.prototype.slice.call(list.children);
+            items = Array.prototype.slice.call(list.children);
             items.sort(function (a, b) { return parseFloat(a.dataset.distanceKm) - parseFloat(b.dataset.distanceKm); });
             items.forEach(function (el) { list.appendChild(el); });
         }
@@ -853,11 +933,69 @@
                 radius: 8, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1
             }).bindPopup('La tua posizione').addTo(map);
         }
+
+        applyRadiusFilter(items);
+    }
+
+    /**
+     * Filtra pin/sidebar entro RADIUS_KM dalla posizione dell'utente (punto
+     * 11). Se nessuna azienda rientra nel raggio, mostra comunque almeno la
+     * piu' vicina (fallback "almeno 1 azienda visibile", come deciso da
+     * Laura) invece di lasciare mappa e sidebar vuote. showAllOverride
+     * disattiva completamente il filtro ("Mostra tutte").
+     */
+    function applyRadiusFilter(sortedItems) {
+        var bar = document.getElementById('map-radius-bar');
+        var info = document.getElementById('map-radius-info');
+        var toggleBtn = document.getElementById('map-radius-toggle');
+
+        if (!userPos || !sortedItems || sortedItems.length === 0) {
+            if (bar) { bar.style.display = 'none'; }
+            return;
+        }
+
+        var withinRadius = sortedItems.filter(function (el) {
+            return parseFloat(el.dataset.distanceKm) <= RADIUS_KM;
+        });
+        var visible = showAllOverride ? sortedItems : (withinRadius.length > 0 ? withinRadius : sortedItems.slice(0, 1));
+        var visibleIds = {};
+
+        sortedItems.forEach(function (el) {
+            var isVisible = visible.indexOf(el) !== -1;
+            el.style.display = isVisible ? '' : 'none';
+            if (isVisible) { visibleIds[el.dataset.id] = true; }
+        });
+
+        if (markersLayer) {
+            Object.keys(markersById).forEach(function (id) {
+                var marker = markersById[id];
+                var shouldShow = showAllOverride || visibleIds[id];
+                var hasLayer = markersLayer.hasLayer(marker);
+                if (shouldShow && !hasLayer) { markersLayer.addLayer(marker); }
+                if (!shouldShow && hasLayer) { markersLayer.removeLayer(marker); }
+            });
+        }
+
+        if (bar && info) {
+            bar.style.display = 'flex';
+            if (showAllOverride) {
+                info.textContent = 'Mostra tutte le ' + sortedItems.length + ' aziende';
+            } else if (withinRadius.length > 0) {
+                info.textContent = withinRadius.length + ' aziende entro ' + RADIUS_KM + ' km';
+            } else {
+                info.textContent = 'Nessuna azienda entro ' + RADIUS_KM + ' km — mostro la più vicina';
+            }
+        }
+        if (toggleBtn) {
+            toggleBtn.textContent = showAllOverride ? 'Solo vicino a te' : 'Mostra tutte';
+        }
     }
 
     function locateMe() {
         var status = document.getElementById('dir-locate-status');
         var btn = document.getElementById('dir-locate-btn');
+
+        geoAttempted = true;
 
         if (!('geolocation' in navigator)) {
             if (status) { status.textContent = 'Geolocalizzazione non supportata da questo browser.'; status.classList.add('is-error'); }
@@ -891,6 +1029,12 @@
             tabMap.classList.add('is-active');
             initMap();
             setTimeout(function () { if (map) { map.invalidateSize(); } }, 60);
+
+            // "Vicino a te" di default, solo al primo apertura della tab
+            // Mappa e solo se non abbiamo gia' una posizione (punto 11).
+            if (!userPos && !geoAttempted) {
+                locateMe();
+            }
         } else {
             mapEl.classList.add('dir-view--hidden');
             listEl.classList.remove('dir-view--hidden');
@@ -904,10 +1048,17 @@
         var tabMap = document.getElementById('dir-tab-map');
         var locateBtn = document.getElementById('dir-locate-btn');
         var sidebarList = document.getElementById('map-sidebar-list');
+        var radiusToggle = document.getElementById('map-radius-toggle');
 
         if (tabList) { tabList.addEventListener('click', function () { showView('list'); }); }
         if (tabMap) { tabMap.addEventListener('click', function () { showView('map'); }); }
         if (locateBtn) { locateBtn.addEventListener('click', locateMe); }
+        if (radiusToggle) {
+            radiusToggle.addEventListener('click', function () {
+                showAllOverride = !showAllOverride;
+                applyDistances();
+            });
+        }
 
         if (sidebarList) {
             sidebarList.addEventListener('click', function (e) {

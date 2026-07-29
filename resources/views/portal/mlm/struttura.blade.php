@@ -11,6 +11,10 @@
         </div>
         <span class="pill">Qualifica: {{ ucfirst($agent->mlm_rank ?: 'start') }} &bull; {{ mlm_points_format($activePoints) }} punti</span>
     </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--ink-muted);">Il tuo codice agente:</span>
+        <span class="pill" style="background:rgba(12,74,134,.1);color:#0c4a86;font-family:monospace;font-weight:700;letter-spacing:.5px;">{{ $agentCode }}</span>
+    </div>
 </div>
 
 @if(!empty($selfClientRegisterUrl))

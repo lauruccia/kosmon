@@ -252,8 +252,67 @@ class PortalController extends Controller
             'mapCompanies' => $mapCompanies,
             'directoryRoute' => route('portal.companies'),
             'directoryMode' => 'portal',
+            // Blocchi "aziende pagate di recente" ed "ecommerce" (punto 10,
+            // 2026-07-29): mostrati solo quando non e' attivo nessun filtro
+            // di ricerca, come scorciatoie in cima alla directory — non
+            // condizionati dai filtri correnti.
+            'recentlyPaidCompanies' => $this->recentlyPaidCompaniesFor($currentAccount),
+            'ecommerceCompanies'    => $this->ecommerceCompanies(),
             'activeNav' => 'aziende',
         ]);
+    }
+
+    /**
+     * Aziende a cui l'utente corrente ha inviato un pagamento di recente
+     * (punto 10, 2026-07-29, richiesta di Laura: "blocchi con attività a cui
+     * ho inviato il pagamento ultimamente"), le piu' recenti prima, senza
+     * duplicati. Si appoggia agli stessi trasferimenti mostrati in
+     * accountTransfersForIds(), filtrati alle sole aziende destinatarie.
+     */
+    private function recentlyPaidCompaniesFor(Account $currentAccount, int $limit = 8): \Illuminate\Support\Collection
+    {
+        $companyIdsInOrder = \App\Models\Transfer::query()
+            ->excludeLedgerCorrections()
+            ->where('from_account_id', $currentAccount->id)
+            ->whereHas('toAccount', fn ($q) => $q->where('owner_type', 'company'))
+            ->with('toAccount:id,company_id')
+            ->orderByRaw('COALESCE(booked_at, created_at) DESC')
+            ->latest('id')
+            ->limit(200)
+            ->get()
+            ->pluck('toAccount.company_id')
+            ->filter()
+            ->unique()
+            ->take($limit)
+            ->values();
+
+        if ($companyIdsInOrder->isEmpty()) {
+            return collect();
+        }
+
+        $companies = Company::whereIn('id', $companyIdsInOrder)
+            ->where('status', 'active')
+            ->where('kyc_status', 'approved')
+            ->get()
+            ->keyBy('id');
+
+        return $companyIdsInOrder->map(fn ($id) => $companies->get($id))->filter()->values();
+    }
+
+    /**
+     * Aziende con permesso admin di vendere prodotti (Company::hasEcommercePlan(),
+     * NON l'abbinamento esterno WooCommerce/Magento — punto 10, distinzione
+     * confermata da Laura il 2026-07-27).
+     */
+    private function ecommerceCompanies(int $limit = 8): \Illuminate\Support\Collection
+    {
+        return Company::query()
+            ->whereHas('plan', fn ($q) => $q->where('can_sell_products', true))
+            ->where('status', 'active')
+            ->where('kyc_status', 'approved')
+            ->inRandomOrder()
+            ->limit($limit)
+            ->get();
     }
 
     public function editProfile(Request $request): View|RedirectResponse
@@ -266,7 +325,15 @@ class PortalController extends Controller
         abort_unless($currentUser->canOperateAccount($currentAccount), 403);
 
         $company = $currentAccount->company;
-        abort_if($company === null, 404);
+
+        // Chi non ha un'azienda (conto privato) non ha un "profilo azienda":
+        // mostriamo il profilo personale invece di un 404 (2026-07-29,
+        // richiesta di Laura: "dovrebbe mostrare il profilo utente"). Puo'
+        // capitare arrivando qui da un link non piu' valido per il proprio
+        // tipo di conto (es. pagina di sicurezza obbligatoria).
+        if ($company === null) {
+            return redirect()->route('portal.personal-profile.edit');
+        }
 
         return view('portal.profile-edit', [
             'pageTitle'      => 'Profilo azienda',
@@ -276,6 +343,7 @@ class PortalController extends Controller
             'sectors'        => Sector::selectableOptions(),
             'acceptedKyPercentages' => Company::ACCEPTED_KY_PERCENTAGES,
             'kyPercentageLocked'    => $currentAccount->isInDebit(),
+            'referredBy'     => $currentUser->referredBy,
             'activeNav'      => 'profile',
         ]);
     }
@@ -374,6 +442,7 @@ class PortalController extends Controller
             'pageTitle'      => 'Il mio profilo',
             'currentAccount' => $currentAccount,
             'currentUser'    => $user,
+            'referredBy'     => $user->referredBy,
             'activeNav'      => 'profilo',
         ]);
     }
@@ -1672,11 +1741,22 @@ class PortalController extends Controller
         $status = trim((string) $request->query('status', ''));
         $kycStatus = trim((string) $request->query('kyc_status', ''));
 
+        // Filtro % Kmoney (punto 7, 2026-07-29): affianca — non sostituisce —
+        // il checkbox booleano "accepts_ky" già esistente. Due modalità
+        // indipendenti, entrambe opzionali: valore ESATTO (solo aziende con
+        // % effettiva esattamente pari) e soglia MINIMA (% effettiva >= X),
+        // secondo la decisione di Laura ("come valore esatto e soglia
+        // minima, affianca il booleano").
+        $exactKy = $request->query('exact_ky_percentage', '');
+        $minKy   = $request->query('min_ky_percentage', '');
+
         return [
             'q' => trim((string) $request->query('q', '')),
             'sector' => trim((string) $request->query('sector', '')),
             'city' => trim((string) $request->query('city', '')),
             'accepts_ky' => $request->boolean('accepts_ky'),
+            'exact_ky_percentage' => is_numeric($exactKy) ? (int) $exactKy : null,
+            'min_ky_percentage'   => is_numeric($minKy) ? (int) $minKy : null,
             'status' => in_array($status, ['active', 'suspended'], true) ? $status : '',
             'kyc_status' => in_array($kycStatus, ['approved', 'pending', 'rejected'], true) ? $kycStatus : '',
         ];
@@ -1731,6 +1811,8 @@ class PortalController extends Controller
             ->when($filters['sector'] !== '', fn ($query) => $query->where('sector', $filters['sector']))
             ->when($filters['city'] !== '', fn ($query) => $query->where('city', $filters['city']))
             ->when(! empty($filters['accepts_ky']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' >= 25'))
+            ->when(! empty($filters['exact_ky_percentage']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' = ?', [$filters['exact_ky_percentage']]))
+            ->when(! empty($filters['min_ky_percentage']), fn ($query) => $query->whereRaw($this->directoryKyPercentageOrderSql() . ' >= ?', [$filters['min_ky_percentage']]))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['kyc_status'] !== '', fn ($query) => $query->where('kyc_status', $filters['kyc_status']));
             // Piani a pagamento disattivati per la directory (27/07): niente
