@@ -67,25 +67,34 @@
     <div class="featured-strip">
         @foreach($featuredListings as $listing)
         <article class="featured-card">
-            <div class="product-media">
+            <a href="{{ route('portal.shop.show', $listing) }}" class="product-media">
                 @if($listing->first_image_url)
                     <img src="{{ $listing->first_image_url }}" alt="{{ $listing->title }}" loading="lazy">
                 @else
                     <div class="product-media-placeholder"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                 @endif
-                <span class="product-badge product-badge--featured">★ Evidenza</span>
-                @if(! $listing->isInStock())
-                    <span class="product-badge product-badge--soldout">Esaurito</span>
+                @if($listing->ky_percentage === 100)
+                    <span class="product-badge product-badge--full-ky">100% KY</span>
                 @endif
-            </div>
+                <span class="product-badge product-badge--featured">★</span>
+                @if(! $listing->isInStock())
+                    <span class="product-media-overlay">Esaurito</span>
+                @endif
+            </a>
             <div class="product-body">
-                <span class="eyebrow">{{ $listing->category_label }}</span>
-                <h3 class="product-title">{{ $listing->title }}</h3>
-                <div class="subtle" style="font-size:12.5px;">{{ $listing->company->name }}</div>
+                <h3 class="product-title">
+                    <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
+                </h3>
+                <div class="entity-meta">
+                    <span class="chip">{{ $listing->company->name }}</span>
+                </div>
                 <div class="product-price-row">
                     <span class="product-price">{{ ky_format($listing->price_ky) }} <small>KY</small></span>
+                    @if($listing->ky_percentage !== 100)
+                        <span class="mix-badge" style="{{ $listing->ky_badge_color }}">{{ $listing->ky_badge_label }}</span>
+                    @endif
                 </div>
-                <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi dettaglio</a>
+                <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
             </div>
         </article>
         @endforeach
@@ -104,7 +113,9 @@
                     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
             @endif
-            <span class="product-badge product-badge--category">{{ $listing->category_label }}</span>
+            @if($listing->ky_percentage === 100)
+                <span class="product-badge product-badge--full-ky">100% KY</span>
+            @endif
             @if($listing->featured)<span class="product-badge product-badge--featured">★</span>@endif
             @if(! $listing->isInStock())
                 <span class="product-media-overlay">Esaurito</span>
@@ -114,22 +125,17 @@
             <h3 class="product-title">
                 <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
             </h3>
-            <p class="subtle product-desc">{{ Str::limit($listing->description, 90) }}</p>
             <div class="entity-meta">
                 <span class="chip">{{ $listing->company->name }}</span>
-                @if($listing->company->plan?->card_style === 'rich')
-                    <span class="chip" style="background:{{ $listing->company->plan->effective_badge_color }}1a;color:{{ $listing->company->plan->effective_badge_color }};border-color:{{ $listing->company->plan->effective_badge_color }};font-weight:700;">✦ {{ $listing->company->plan->name }}</span>
-                @endif
-                @if($listing->delivery_note)<span class="chip">{{ $listing->delivery_note }}</span>@endif
             </div>
             <div class="product-price-row">
                 <span class="product-price">{{ ky_format($listing->price_ky) }} <small>KY</small></span>
-                @if($listing->ky_percentage < 100)
+                @if($listing->ky_percentage !== 100)
                     <span class="mix-badge" style="{{ $listing->ky_badge_color }}">{{ $listing->ky_badge_label }}</span>
                 @endif
             </div>
             <div class="page-actions" style="margin-top:2px;">
-                <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi e acquista</a>
+                <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
                 @if(auth()->user()->company_id === $listing->company_id || auth()->user()->is_super_admin)
                     <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary">Modifica</a>
                 @endif
@@ -226,23 +232,32 @@
         background: rgba(255,255,255,.94); color: var(--ink-soft);
         box-shadow: var(--shadow-xs);
     }
-    .product-badge--category { left: 10px; }
     .product-badge--featured { right: 10px; background: #fef3c7; color: #92400e; }
-    .product-badge--soldout { right: 10px; background: rgba(159,18,57,.92); color: #fff; }
+    /* Ribbon "100% KY" (2026-07-29): sostituisce il vecchio badge piano/Ecommerce
+       — è la vera informazione utile per chi acquista, quindi va evidenziata
+       direttamente sulla foto invece che in un chip generico nel corpo card. */
+    .product-badge--full-ky {
+        left: 10px; background: #059669; color: #fff; font-weight: 800;
+        box-shadow: 0 2px 8px rgba(5,150,105,.35);
+    }
     .product-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
     .product-title { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
-    .product-desc { margin: 0; font-size: 12.5px; line-height: 1.6; }
     .product-price-row {
         margin-top: auto; padding-top: 4px;
         display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
     }
     .product-price {
-        font-size: 21px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
+        font-size: 22px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
     }
     .product-price small { font-size: 12px; font-weight: 700; margin-left: 2px; }
     .mix-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+    /* CTA più prominente in stile "Acquista ora" (Amazon-like) */
+    .catalog-card .page-actions .cta,
+    .featured-card .product-body .cta {
+        font-weight: 700; letter-spacing: .01em;
+    }
 
     /* ── Fascia "In evidenza": scroll orizzontale ── */
     .featured-strip {
