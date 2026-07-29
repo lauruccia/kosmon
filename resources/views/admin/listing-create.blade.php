@@ -100,6 +100,23 @@
                     </div>
                 </div>
 
+                <div class="field">
+                    <label>Tipo di consegna / erogazione *</label>
+                    @php $deliveryType = old('delivery_type', \App\Models\Listing::DELIVERY_TYPE_SERVIZIO); @endphp
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;">
+                        @foreach(\App\Models\Listing::DELIVERY_TYPES as $typeValue => $typeLabel)
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">
+                            <input type="radio" name="delivery_type" value="{{ $typeValue }}" {{ $deliveryType === $typeValue ? 'checked' : '' }}
+                                onchange="document.getElementById('admin-shipping-cost').style.display = this.value === 'spedizione' ? 'block' : 'none';">
+                            {{ $typeLabel }}
+                        </label>
+                        @endforeach
+                    </div>
+                    <div id="admin-shipping-cost" style="margin-top:8px;max-width:220px;{{ $deliveryType === \App\Models\Listing::DELIVERY_TYPE_SPEDIZIONE ? '' : 'display:none;' }}">
+                        <input type="number" name="shipping_cost" min="0" max="99999.99" step="0.01" value="{{ old('shipping_cost') }}" placeholder="Costo spedizione KY (opzionale)">
+                    </div>
+                </div>
+
                 <div class="field-inline">
                     <div class="field">
                         <label>Nota consegna / erogazione</label>

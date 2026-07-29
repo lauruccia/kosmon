@@ -78,6 +78,7 @@
                     <th style="text-align:right;">Importo</th>
                     <th>Stato</th>
                     <th>Pagamento EUR</th>
+                    <th>Consegna</th>
                     <th style="text-align:center;">Azioni</th>
                 </tr>
             </thead>
@@ -156,6 +157,20 @@
                                     <button type="submit" class="cta secondary" style="font-size:10.5px;padding:2px 8px;">Conferma bonifico</button>
                                 </form>
                             @endif
+                        @endif
+                    </td>
+                    <td style="max-width:220px;font-size:11.5px;">
+                        @if($order->shipping_address)
+                            <div style="font-weight:700;color:var(--ink);">📦 {{ $order->shipping_recipient_name }}</div>
+                            <div style="color:var(--ink-muted);line-height:1.5;">
+                                {{ $order->shipping_address }}<br>
+                                {{ trim($order->shipping_postal_code . ' ' . $order->shipping_city . ($order->shipping_province ? ' (' . $order->shipping_province . ')' : '')) }}
+                                @if($order->shipping_phone)<br>Tel. {{ $order->shipping_phone }}@endif
+                            </div>
+                        @elseif($order->listing)
+                            <span style="color:var(--ink-muted);">{{ $order->listing->delivery_type_label }}</span>
+                        @else
+                            <span style="color:var(--ink-muted);">—</span>
                         @endif
                     </td>
                     <td style="text-align:center;white-space:nowrap;">

@@ -132,12 +132,37 @@
                 </div>
             </div>
 
+            <div>
+                <label class="field-label">Tipo di consegna / erogazione *</label>
+                @php
+                    $deliveryType = old('delivery_type', $editingListing?->delivery_type ?? \App\Models\Listing::DELIVERY_TYPE_SERVIZIO);
+                @endphp
+                <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                    @foreach(\App\Models\Listing::DELIVERY_TYPES as $typeValue => $typeLabel)
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                        <input type="radio" name="delivery_type" value="{{ $typeValue }}" {{ $deliveryType === $typeValue ? 'checked' : '' }}
+                            onchange="document.getElementById('shipping-cost-field').style.display = this.value === 'spedizione' ? 'block' : 'none';">
+                        {{ $typeLabel }}
+                    </label>
+                    @endforeach
+                </div>
+                <div id="shipping-cost-field" style="margin-top:10px;{{ $deliveryType === \App\Models\Listing::DELIVERY_TYPE_SPEDIZIONE ? '' : 'display:none;' }}">
+                    <label class="field-label" style="font-size:12px;">Costo di spedizione (KY, opzionale)</label>
+                    <input type="number" name="shipping_cost" min="0" max="99999.99" step="0.01"
+                        value="{{ old('shipping_cost', $editingListing?->shipping_cost ? ky_input($editingListing->shipping_cost) : '') }}"
+                        placeholder="es. 5.00 (lascia vuoto se gratuita)" class="field-input" style="max-width:220px;">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Si aggiunge al prezzo del prodotto seguendo lo stesso mix KY/EUR scelto sopra. Il cliente dovrà avere un indirizzo di spedizione compilato nel proprio profilo per poter acquistare.
+                    </div>
+                </div>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div>
                     <label class="field-label">Nota consegna / erogazione</label>
                     <input type="text" name="delivery_note" maxlength="120"
                         value="{{ old('delivery_note', $editingListing?->delivery_note) }}"
-                        placeholder="es. Consegna in 48h" class="field-input">
+                        placeholder="es. Consegna in 48h, ritiro in via X, link della call..." class="field-input">
                 </div>
                 <div>
                     <label class="field-label">Scadenza offerta</label>

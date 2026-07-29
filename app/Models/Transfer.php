@@ -91,12 +91,23 @@ class Transfer extends Model
         'admin_action',
         'description',
         'booked_at',
+        // Snapshot indirizzo di spedizione (solo kind=portal_marketplace_order
+        // con prodotto di tipo "spedizione") — vedi Listing::requiresShippingAddress()
+        // e Account::hasShippingAddress(). Pass-through come listing_id/quantity.
+        'shipping_recipient_name',
+        'shipping_address',
+        'shipping_city',
+        'shipping_postal_code',
+        'shipping_province',
+        'shipping_phone',
+        'shipping_ky_amount',
     ];
 
     protected $casts = [
         'booked_at' => 'datetime',
         'refunded_at' => 'datetime',
         'quantity' => 'integer',
+        'shipping_ky_amount' => 'integer',
     ];
 
     /**

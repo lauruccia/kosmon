@@ -174,6 +174,14 @@ class ListingController extends Controller
             }
         }
 
+        // Prodotti "da spedire" (2026-07-29): l'indirizzo si compila una volta
+        // sola nel profilo (vedi Account::hasShippingAddress()), non ad ogni
+        // acquisto — se manca, blocchiamo PRIMA di addebitare qualsiasi cosa
+        // e mandiamo il cliente a completarlo.
+        if ($listing->requiresShippingAddress() && ! $currentAccount->hasShippingAddress()) {
+            return back()->with('portal_error', 'Questo prodotto va spedito: prima di acquistarlo, completa il tuo indirizzo di spedizione nella sezione "Indirizzo di spedizione" del tuo profilo.');
+        }
+
         try {
             $result = DB::transaction(function () use ($listing, $currentAccount, $user, $quantity, $bookingService, $request) {
                 // Lock della riga prodotto per verificare/scalare lo stock in modo atomico.
@@ -198,12 +206,21 @@ class ListingController extends Controller
                     ->firstOrFail();
 
                 $unitKyAmount = $lockedListing->ky_amount;
-                $totalAmount  = $unitKyAmount * $quantity;
-
                 $unitEuroAmount = $lockedListing->euro_amount;
-                $totalEuroAmount = $unitEuroAmount * $quantity;
 
-                $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '');
+                // Costo di spedizione: UNA sola volta per ordine (non moltiplicato
+                // per la quantità, coerente con un ordine reale spedito in un unico
+                // pacco), diviso KY/EUR con la STESSA percentuale del prodotto
+                // (scelta di Laura, 2026-07-29).
+                $requiresShipping = $lockedListing->requiresShippingAddress();
+                $shippingKyAmount = $requiresShipping ? $lockedListing->shipping_ky_amount : 0;
+                $shippingEuroAmount = $requiresShipping ? $lockedListing->shipping_euro_amount : 0;
+
+                $totalAmount     = ($unitKyAmount * $quantity) + $shippingKyAmount;
+                $totalEuroAmount = ($unitEuroAmount * $quantity) + $shippingEuroAmount;
+
+                $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '')
+                    . ($shippingKyAmount > 0 || $shippingEuroAmount > 0 ? ' + spedizione' : '');
 
                 $transfer = $bookingService->book([
                     'initiated_by'    => $user->id,
@@ -214,6 +231,16 @@ class ListingController extends Controller
                     'description'     => $description,
                     'listing_id'      => $lockedListing->id,
                     'quantity'        => $quantity,
+                    // Snapshot indirizzo al momento dell'acquisto: se il cliente
+                    // cambia poi l'indirizzo sul profilo, l'ordine già fatto resta
+                    // storicamente corretto (stesso ragionamento del prezzo).
+                    'shipping_recipient_name' => $requiresShipping ? $currentAccount->shipping_recipient_name : null,
+                    'shipping_address'        => $requiresShipping ? $currentAccount->shipping_address : null,
+                    'shipping_city'           => $requiresShipping ? $currentAccount->shipping_city : null,
+                    'shipping_postal_code'    => $requiresShipping ? $currentAccount->shipping_postal_code : null,
+                    'shipping_province'       => $requiresShipping ? $currentAccount->shipping_province : null,
+                    'shipping_phone'          => $requiresShipping ? $currentAccount->shipping_phone : null,
+                    'shipping_ky_amount'      => $requiresShipping ? $shippingKyAmount : null,
                     'idempotency_key' => (string) Str::uuid(),
                     'ip_address'      => $request->ip(),
                 ]);
@@ -643,6 +670,11 @@ class ListingController extends Controller
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999', 'required_if:stock_mode,limited'],
             'contact_info'   => ['nullable', 'string', 'max:200'],
             'delivery_note'  => ['nullable', 'string', 'max:120'],
+            // Tipo di consegna/erogazione (2026-07-29): solo "spedizione" ammette
+            // un costo di spedizione facoltativo, validato in KY come price_ky
+            // (stessa convenzione, convertito sotto in centesimi con ky_to_cents()).
+            'delivery_type'  => ['required', Rule::in(array_keys(Listing::DELIVERY_TYPES))],
+            'shipping_cost'  => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
             'expires_at'     => ['nullable', 'date', 'after:today'],
             'featured'       => ['nullable', 'boolean'],
             'images'         => ['nullable', 'array', 'max:6'],
@@ -652,6 +684,13 @@ class ListingController extends Controller
         // Converte il prezzo digitato dall'utente (KY, es. "10,50") nei
         // centesimi interi memorizzati in price_ky.
         $validated['price_ky'] = ky_to_cents($validated['price_ky']);
+
+        // Il costo di spedizione ha senso solo per i prodotti "da spedire":
+        // per ritiro/servizio lo ignoriamo sempre (anche se il form lo ha
+        // eventualmente inviato, es. cambio tipo senza svuotare il campo).
+        $validated['shipping_cost'] = ($validated['delivery_type'] === Listing::DELIVERY_TYPE_SPEDIZIONE && $validated['shipping_cost'] !== null && $validated['shipping_cost'] !== '')
+            ? ky_to_cents($validated['shipping_cost'])
+            : null;
 
         // Override di sicurezza lato server: se obbligatorio, forza 100%
         if ($requiredPercentage !== null) {

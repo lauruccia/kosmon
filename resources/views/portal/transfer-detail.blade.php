@@ -125,6 +125,32 @@
             </div>
         </div>
 
+        {{-- Indirizzo di spedizione (solo ordini shop con prodotto "da spedire",
+             vedi Listing::requiresShippingAddress() — snapshot preso al momento
+             dell'acquisto, indipendente da eventuali modifiche successive al
+             profilo del cliente). Visibile sia al cliente sia al venditore, che
+             qui trova le informazioni per spedire il pacco. --}}
+        @if($transfer->kind === 'portal_marketplace_order' && $transfer->shipping_address)
+        <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#0369a1;margin-bottom:8px;">
+                🚚 Indirizzo di spedizione
+            </div>
+            <div style="font-size:14px;color:#1e3a5f;line-height:1.7;">
+                {{ $transfer->shipping_recipient_name }}<br>
+                {{ $transfer->shipping_address }}<br>
+                {{ trim($transfer->shipping_postal_code . ' ' . $transfer->shipping_city . ($transfer->shipping_province ? ' (' . $transfer->shipping_province . ')' : '')) }}
+                @if($transfer->shipping_phone)
+                    <br>Tel. {{ $transfer->shipping_phone }}
+                @endif
+            </div>
+            @if($transfer->shipping_ky_amount)
+            <div style="font-size:12px;color:#0369a1;margin-top:8px;">
+                Di cui {{ ky_format($transfer->shipping_ky_amount) }} KY per la spedizione.
+            </div>
+            @endif
+        </div>
+        @endif
+
         {{-- Azioni --}}
         <div style="display:flex;flex-wrap:wrap;gap:10px;padding-top:16px;border-top:1px solid var(--line);">
             @if($transfer->status === 'booked')

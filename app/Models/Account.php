@@ -122,6 +122,12 @@ class Account extends Model
         'daily_outgoing_limit',
         'monthly_outgoing_limit',
         'locked_until',
+        'shipping_recipient_name',
+        'shipping_address',
+        'shipping_city',
+        'shipping_postal_code',
+        'shipping_province',
+        'shipping_phone',
     ];
 
     protected $casts = [
@@ -589,6 +595,49 @@ class Account extends Model
     public function balanceAlerts(): HasMany
     {
         return $this->hasMany(BalanceAlert::class);
+    }
+
+    // ── Indirizzo di spedizione (2026-07-29) ─────────────────────────────────
+
+    /**
+     * true se il conto ha un indirizzo di spedizione utilizzabile. Nome
+     * destinatario, via, città e CAP sono i campi minimi indispensabili per
+     * una spedizione reale; provincia e telefono restano facoltativi.
+     */
+    public function hasShippingAddress(): bool
+    {
+        return filled($this->shipping_recipient_name)
+            && filled($this->shipping_address)
+            && filled($this->shipping_city)
+            && filled($this->shipping_postal_code);
+    }
+
+    /**
+     * Rappresentazione multi-riga dell'indirizzo di spedizione, per le view
+     * (riepilogo in checkout, dettaglio ordine per il venditore, ecc.).
+     * Ritorna un array di righe già pronte da stampare, vuoto se l'indirizzo
+     * non è (ancora) completo.
+     */
+    public function getShippingAddressLinesAttribute(): array
+    {
+        if (! $this->hasShippingAddress()) {
+            return [];
+        }
+
+        $cityLine = trim($this->shipping_postal_code . ' ' . $this->shipping_city
+            . ($this->shipping_province ? ' (' . $this->shipping_province . ')' : ''));
+
+        $lines = [
+            $this->shipping_recipient_name,
+            $this->shipping_address,
+            $cityLine,
+        ];
+
+        if ($this->shipping_phone) {
+            $lines[] = 'Tel. ' . $this->shipping_phone;
+        }
+
+        return $lines;
     }
 
 }

@@ -105,6 +105,22 @@ class Listing extends Model
     /** Valori consentiti per il mix KY/EUR */
     public const KY_PERCENTAGES = [0, 25, 50, 75, 100];
 
+    /**
+     * Tipo di consegna/erogazione del prodotto (2026-07-29, richiesta di
+     * Laura). Solo 'spedizione' richiede un indirizzo di spedizione dal
+     * cliente (vedi Account::hasShippingAddress()) e ammette un costo di
+     * spedizione facoltativo (shipping_cost).
+     */
+    public const DELIVERY_TYPE_SPEDIZIONE = 'spedizione';
+    public const DELIVERY_TYPE_RITIRO     = 'ritiro';
+    public const DELIVERY_TYPE_SERVIZIO   = 'servizio';
+
+    public const DELIVERY_TYPES = [
+        self::DELIVERY_TYPE_SPEDIZIONE => 'Prodotto fisico da spedire',
+        self::DELIVERY_TYPE_RITIRO     => 'Ritiro in sede',
+        self::DELIVERY_TYPE_SERVIZIO   => 'Servizio (online o in sede)',
+    ];
+
     protected $fillable = [
         'uuid',
         'company_id',
@@ -120,6 +136,8 @@ class Listing extends Model
         'featured',
         'contact_info',
         'delivery_note',
+        'delivery_type',
+        'shipping_cost',
         'expires_at',
         'views_count',
     ];
@@ -132,6 +150,7 @@ class Listing extends Model
         'ky_percentage' => 'integer',
         'stock_quantity' => 'integer',
         'views_count' => 'integer',
+        'shipping_cost' => 'integer',
     ];
 
     protected static function booted(): void
@@ -332,6 +351,53 @@ class Listing extends Model
             $this->ky_percentage > 0     => 'background:#fef3c7;color:#92400e;',
             default                      => 'background:#f1f5f9;color:#475569;',
         };
+    }
+
+    // ---- Tipo di consegna / spedizione --------------------------------------
+
+    /**
+     * Etichetta leggibile del tipo di consegna (fallback al valore grezzo se
+     * il DB contiene qualcosa fuori da DELIVERY_TYPES, per non rompere la view).
+     */
+    public function getDeliveryTypeLabelAttribute(): string
+    {
+        return self::DELIVERY_TYPES[$this->delivery_type] ?? ucfirst((string) $this->delivery_type);
+    }
+
+    /**
+     * Solo i prodotti fisici "da spedire" richiedono un indirizzo di
+     * spedizione del cliente — ritiro in sede e servizi (online o in sede)
+     * non ne hanno bisogno.
+     */
+    public function requiresShippingAddress(): bool
+    {
+        return $this->delivery_type === self::DELIVERY_TYPE_SPEDIZIONE;
+    }
+
+    /**
+     * Quota KY del costo di spedizione (per unità), con la STESSA percentuale
+     * di mix KY/EUR del prodotto — scelta esplicita di Laura (2026-07-29): il
+     * costo di spedizione non è "sempre KY" né "sempre EUR", segue il mix del
+     * prodotto a cui è collegato.
+     */
+    public function getShippingKyAmountAttribute(): int
+    {
+        if (! $this->shipping_cost) {
+            return 0;
+        }
+        return (int) round($this->shipping_cost * $this->ky_percentage / 100);
+    }
+
+    /**
+     * Quota EUR del costo di spedizione (per unità), complementare a
+     * shipping_ky_amount.
+     */
+    public function getShippingEuroAmountAttribute(): int
+    {
+        if (! $this->shipping_cost) {
+            return 0;
+        }
+        return $this->shipping_cost - $this->shipping_ky_amount;
     }
 
 }

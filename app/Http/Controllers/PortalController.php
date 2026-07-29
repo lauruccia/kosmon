@@ -377,6 +377,15 @@ class PortalController extends Controller
             'banner'        => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:4096'],
             'remove_logo'   => ['nullable', 'boolean'],
             'remove_banner' => ['nullable', 'boolean'],
+            // Indirizzo di spedizione (2026-07-29): salvato sul CONTO, non
+            // sull'azienda — vedi Account::hasShippingAddress(). Compilato una
+            // volta sola qui, riusato ad ogni acquisto di un prodotto "da spedire".
+            'shipping_recipient_name' => ['nullable', 'string', 'max:150'],
+            'shipping_address'        => ['nullable', 'string', 'max:255'],
+            'shipping_city'           => ['nullable', 'string', 'max:100'],
+            'shipping_postal_code'    => ['nullable', 'string', 'max:12'],
+            'shipping_province'       => ['nullable', 'string', 'max:60'],
+            'shipping_phone'          => ['nullable', 'string', 'max:30'],
         ]);
 
         // Conto sottozero: la % Kmoney accettata non e' modificabile —
@@ -384,6 +393,26 @@ class PortalController extends Controller
         if ($currentAccount->isInDebit()) {
             unset($validated['accepted_ky_percentage']);
         }
+
+        // I campi shipping_* vivono su Account, non su Company: li estraiamo
+        // prima di passare il resto a $company->fill().
+        $shippingFields = [
+            'shipping_recipient_name' => $validated['shipping_recipient_name'] ?? null,
+            'shipping_address'        => $validated['shipping_address'] ?? null,
+            'shipping_city'           => $validated['shipping_city'] ?? null,
+            'shipping_postal_code'    => $validated['shipping_postal_code'] ?? null,
+            'shipping_province'       => $validated['shipping_province'] ?? null,
+            'shipping_phone'          => $validated['shipping_phone'] ?? null,
+        ];
+        unset(
+            $validated['shipping_recipient_name'],
+            $validated['shipping_address'],
+            $validated['shipping_city'],
+            $validated['shipping_postal_code'],
+            $validated['shipping_province'],
+            $validated['shipping_phone'],
+        );
+        $currentAccount->fill($shippingFields)->save();
 
         $dir = 'companies/' . $company->uuid;
 
@@ -461,6 +490,15 @@ class PortalController extends Controller
             'bio'           => ['nullable', 'string', 'max:500'],
             'avatar'        => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             'remove_avatar' => ['nullable', 'boolean'],
+            // Indirizzo di spedizione (2026-07-29) — vive sul conto (Account),
+            // non sull'utente: vedi Account::hasShippingAddress() e la stessa
+            // sezione in updateProfile() per i conti aziendali.
+            'shipping_recipient_name' => ['nullable', 'string', 'max:150'],
+            'shipping_address'        => ['nullable', 'string', 'max:255'],
+            'shipping_city'           => ['nullable', 'string', 'max:100'],
+            'shipping_postal_code'    => ['nullable', 'string', 'max:12'],
+            'shipping_province'       => ['nullable', 'string', 'max:60'],
+            'shipping_phone'          => ['nullable', 'string', 'max:30'],
         ]);
 
         if ($request->boolean('remove_avatar')) {
@@ -476,6 +514,24 @@ class PortalController extends Controller
         }
 
         unset($validated['avatar'], $validated['remove_avatar']);
+
+        $shippingFields = [
+            'shipping_recipient_name' => $validated['shipping_recipient_name'] ?? null,
+            'shipping_address'        => $validated['shipping_address'] ?? null,
+            'shipping_city'           => $validated['shipping_city'] ?? null,
+            'shipping_postal_code'    => $validated['shipping_postal_code'] ?? null,
+            'shipping_province'       => $validated['shipping_province'] ?? null,
+            'shipping_phone'          => $validated['shipping_phone'] ?? null,
+        ];
+        unset(
+            $validated['shipping_recipient_name'],
+            $validated['shipping_address'],
+            $validated['shipping_city'],
+            $validated['shipping_postal_code'],
+            $validated['shipping_province'],
+            $validated['shipping_phone'],
+        );
+        $currentAccount->fill($shippingFields)->save();
 
         $user->fill($validated)->save();
 

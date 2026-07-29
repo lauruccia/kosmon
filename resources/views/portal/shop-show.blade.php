@@ -72,11 +72,17 @@
 
             <div style="font-size:15px;line-height:1.8;color:#334155;white-space:pre-line;">{{ $listing->description }}</div>
 
-            @if($listing->delivery_note)
             <div style="margin-top:20px;background:#eff6ff;border-left:3px solid #0c4a86;border-radius:8px;padding:12px 16px;font-size:14px;color:#1e3a5f;">
-                🚚 <strong>Consegna/erogazione:</strong> {{ $listing->delivery_note }}
+                🚚 <strong>{{ $listing->delivery_type_label }}</strong>
+                @if($listing->delivery_note)
+                    — {{ $listing->delivery_note }}
+                @endif
+                @if($listing->requiresShippingAddress() && $listing->shipping_cost)
+                <div style="margin-top:4px;font-size:12.5px;color:#0369a1;">
+                    Costo di spedizione: <strong>{{ ky_format($listing->shipping_cost) }} KY</strong> equiv., una sola volta per ordine (non per pezzo).
+                </div>
+                @endif
             </div>
-            @endif
 
             @if($listing->expires_at)
             <div style="margin-top:12px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:8px;padding:12px 16px;font-size:14px;color:#78350f;">
@@ -112,7 +118,13 @@
     @php
         $isOwnCompany = auth()->user()->company_id === $listing->company_id;
         $inStock      = $listing->isInStock();
-        $canAfford    = $currentAccount->saldoDisponibile() >= $listing->ky_amount;
+        $needsShippingAddress = $listing->requiresShippingAddress();
+        $hasShippingAddress   = $currentAccount->hasShippingAddress();
+        // Il saldo minimo necessario include anche l'eventuale quota KY di
+        // spedizione (una sola volta, non moltiplicata per quantità) —
+        // per coerenza con quanto viene poi realmente addebitato in buy().
+        $requiredKy   = $listing->ky_amount + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
+        $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
     @endphp
     <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
@@ -159,6 +171,15 @@
                 <div class="metric-value">{{ ky_format($currentAccount->saldoDisponibile()) }} KY</div>
             </div>
 
+            @if($needsShippingAddress && $hasShippingAddress && ! $isOwnCompany && $inStock)
+            <div style="background:var(--bg,#f8fafc);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#334155;">
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">Spedizione a</div>
+                @foreach($currentAccount->shipping_address_lines as $line)
+                    {{ $line }}@if(! $loop->last)<br>@endif
+                @endforeach
+            </div>
+            @endif
+
             <div class="quick-actions" style="margin-top:20px;">
                 @if($isOwnCompany)
                     <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">È un prodotto pubblicato dalla tua azienda.</p>
@@ -166,6 +187,13 @@
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
                         Prodotto esaurito
                     </button>
+                @elseif($needsShippingAddress && ! $hasShippingAddress)
+                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                        Questo prodotto va spedito: completa il tuo indirizzo di spedizione nella sezione dedicata del tuo profilo per poterlo acquistare.
+                    </p>
+                    <a href="{{ $currentAccount->owner_type === 'private' ? route('portal.personal-profile.edit') : route('portal.profile.edit') }}" class="cta" style="width:100%;text-align:center;display:block;">
+                        Completa indirizzo di spedizione
+                    </a>
                 @elseif(! $canAfford)
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
                         Saldo insufficiente
@@ -182,16 +210,16 @@
                         <input type="hidden" name="quantity" value="1">
                         @endif
                         <button type="submit" class="cta" style="width:100%;text-align:center;"
-                            onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($listing->ky_amount) }} KY per unità dal tuo conto.')">
-                            Acquista — {{ ky_format($listing->ky_amount) }} KY{{ $listing->ky_percentage < 100 ? ' + quota EUR' : '' }}
+                            onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
+                            Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->ky_percentage < 100 ? ' + quota EUR' : '' }}
                         </button>
                     </form>
                 @endif
             </div>
 
-            @if(! $isOwnCompany && $inStock && ! $canAfford)
+            @if(! $isOwnCompany && $inStock && (! $needsShippingAddress || $hasShippingAddress) && ! $canAfford)
             <p style="font-size:12px;color:#94a3b8;margin-top:10px;text-align:center;">
-                Ti mancano {{ ky_format($listing->ky_amount - $currentAccount->saldoDisponibile()) }} KY
+                Ti mancano {{ ky_format($requiredKy - $currentAccount->saldoDisponibile()) }} KY
             </p>
             @endif
         </section>

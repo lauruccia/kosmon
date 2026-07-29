@@ -314,6 +314,67 @@
                 </div>
             </div>
 
+            {{-- Indirizzo di spedizione (2026-07-29): compilato una volta sola
+                 qui, riusato ad ogni acquisto di un prodotto "da spedire" nello
+                 shop — vedi Account::hasShippingAddress(). --}}
+            <div class="profile-section">
+                <div class="profile-section-header">
+                    <div class="profile-section-icon">📦</div>
+                    <h2 class="profile-section-title">Indirizzo di spedizione</h2>
+                </div>
+                <div class="profile-section-body">
+                    <p style="font-size:12.5px;color:var(--ink-muted);margin:0 0 16px;line-height:1.6;">
+                        Usato quando acquistate nello shop un prodotto fisico "da spedire". Non serve per ritiro in sede o servizi.
+                    </p>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="shipping_recipient_name">Nome destinatario</label>
+                            <input type="text" id="shipping_recipient_name" name="shipping_recipient_name"
+                                   value="{{ old('shipping_recipient_name', $currentAccount->shipping_recipient_name) }}"
+                                   placeholder="Nome e cognome di chi ritira il pacco" maxlength="150">
+                            @error('shipping_recipient_name')<span class="field-error">{{ $message }}</span>@enderror
+                        </div>
+                        <div class="field">
+                            <label for="shipping_phone">Telefono per la consegna</label>
+                            <input type="text" id="shipping_phone" name="shipping_phone"
+                                   value="{{ old('shipping_phone', $currentAccount->shipping_phone) }}"
+                                   placeholder="+39 333 1234567" maxlength="30">
+                            @error('shipping_phone')<span class="field-error">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:14px;">
+                        <label for="shipping_address">Via e numero civico</label>
+                        <input type="text" id="shipping_address" name="shipping_address"
+                               value="{{ old('shipping_address', $currentAccount->shipping_address) }}"
+                               placeholder="es. Via Roma 10" maxlength="255">
+                        @error('shipping_address')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="field-row" style="margin-top:14px;">
+                        <div class="field">
+                            <label for="shipping_city">Città</label>
+                            <input type="text" id="shipping_city" name="shipping_city"
+                                   value="{{ old('shipping_city', $currentAccount->shipping_city) }}"
+                                   maxlength="100">
+                            @error('shipping_city')<span class="field-error">{{ $message }}</span>@enderror
+                        </div>
+                        <div class="field">
+                            <label for="shipping_postal_code">CAP</label>
+                            <input type="text" id="shipping_postal_code" name="shipping_postal_code"
+                                   value="{{ old('shipping_postal_code', $currentAccount->shipping_postal_code) }}"
+                                   maxlength="12">
+                            @error('shipping_postal_code')<span class="field-error">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:14px;max-width:220px;">
+                        <label for="shipping_province">Provincia</label>
+                        <input type="text" id="shipping_province" name="shipping_province"
+                               value="{{ old('shipping_province', $currentAccount->shipping_province) }}"
+                               placeholder="es. MI" maxlength="60">
+                        @error('shipping_province')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                </div>
+            </div>
+
             {{-- Accettazione Kmoney --}}
             <div class="profile-section">
                 <div class="profile-section-header">

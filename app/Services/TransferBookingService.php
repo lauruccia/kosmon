@@ -663,6 +663,13 @@ class TransferBookingService
                 'description'     => $attributes['description'] ?? null,
                 'listing_id'      => $attributes['listing_id'] ?? null,
                 'quantity'        => $attributes['quantity'] ?? null,
+                'shipping_recipient_name' => $attributes['shipping_recipient_name'] ?? null,
+                'shipping_address'        => $attributes['shipping_address'] ?? null,
+                'shipping_city'           => $attributes['shipping_city'] ?? null,
+                'shipping_postal_code'    => $attributes['shipping_postal_code'] ?? null,
+                'shipping_province'       => $attributes['shipping_province'] ?? null,
+                'shipping_phone'          => $attributes['shipping_phone'] ?? null,
+                'shipping_ky_amount'      => $attributes['shipping_ky_amount'] ?? null,
                 'booked_at'       => $bookedAt,
             ]);
             LedgerEntry::create([
@@ -768,6 +775,13 @@ class TransferBookingService
             'description' => $attributes['description'] ?? null,
             'listing_id' => $attributes['listing_id'] ?? null,
             'quantity' => $attributes['quantity'] ?? null,
+            'shipping_recipient_name' => $attributes['shipping_recipient_name'] ?? null,
+            'shipping_address'        => $attributes['shipping_address'] ?? null,
+            'shipping_city'           => $attributes['shipping_city'] ?? null,
+            'shipping_postal_code'    => $attributes['shipping_postal_code'] ?? null,
+            'shipping_province'       => $attributes['shipping_province'] ?? null,
+            'shipping_phone'          => $attributes['shipping_phone'] ?? null,
+            'shipping_ky_amount'      => $attributes['shipping_ky_amount'] ?? null,
             'booked_at' => $bookedAt,
         ]);
 
