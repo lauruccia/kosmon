@@ -55,3 +55,17 @@ document.addEventListener('click', (e) => {
         el.classList.add('is-revealed');
     }
 });
+
+// ── Tooltip contatti sulla card azienda (directory, punto 4 aggiornato
+// 2026-07-29): email/telefono NON compaiono piu' in chiaro sulla card, sono
+// visibili solo in un pannello che appare al passaggio del mouse sulla card
+// (gestito in CSS, :hover) o al click (qui, per touch/mobile dove :hover non
+// esiste). Il click viene ignorato se cade su un link/pulsante reale della
+// card (Paga, Shop, Profilo, ecc.), cosi' la navigazione normale non viene
+// mai intercettata — si attiva solo cliccando l'area informativa della card.
+document.addEventListener('click', (e) => {
+    if (e.target.closest('a, button')) return;
+    const card = e.target.closest('.dir-card-has-tooltip');
+    if (!card) return;
+    card.classList.toggle('tooltip-open');
+});

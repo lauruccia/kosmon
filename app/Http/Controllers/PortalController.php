@@ -1842,6 +1842,13 @@ class PortalController extends Controller
                     $bizAccount,
                     $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
                 ),
+                // Migliore % Kmoney tra i prodotti attivi dello shop, esposta cosi'
+                // com'e' (non ancora "schiacciata" nel max con accepted_ky_percentage
+                // come sopra) — serve alla card della directory per capire se vale la
+                // pena mostrare "Disponibili prodotti al X% KY sullo shop" (punto 4,
+                // 2026-07-29): solo quando lo shop offre di piu' della % dichiarata
+                // dall'azienda nel profilo.
+                'best_listing_ky_pct' => $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null,
                 'is_in_debit'         => $bizAccount ? $bizAccount->isInDebit() : false,
                 'is_at_ceiling'       => $bizAccount ? $bizAccount->isAtCeiling() : false,
             ];

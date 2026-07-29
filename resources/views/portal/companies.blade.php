@@ -260,18 +260,40 @@
     }
     .dir-btn-shop-icon { flex-shrink:0; }
 
-    /* ── Contatti nascosti (punto 4, 2026-07-29): email/telefono offuscati
-       di default, rivelati al passaggio del mouse o al click (gestito da
-       resources/js/app.js, delega su ".reveal-contact"). Il blur resta un
-       filtro puramente visivo (il testo è comunque nel DOM). ── */
-    .reveal-contact { cursor:pointer; }
-    .reveal-contact .reveal-contact-value {
-        filter:blur(4px); transition:filter .15s ease; user-select:none;
+    /* ── Contatti nascosti (punto 4, aggiornato 2026-07-29): email e telefono
+       non compaiono piu' affatto sulla card. Sono visibili solo in un
+       pannello ("tooltip") che copre l'area informativa della card (tutto
+       tranne il footer con i pulsanti) al passaggio del mouse o al click —
+       il click e' gestito in resources/js/app.js (".dir-card-has-tooltip"),
+       ignora i click sui link/pulsanti reali cosi' Paga/Shop/Profilo restano
+       cliccabili con un solo click. ── */
+    .dir-card-info { position:relative; }
+    .dir-contact-hint {
+        font-size:11px; color:var(--ink-muted); font-style:italic;
+        display:flex; align-items:center; gap:5px; margin-top:2px;
     }
-    .reveal-contact:hover .reveal-contact-value,
-    .reveal-contact.is-revealed .reveal-contact-value {
-        filter:none; user-select:text;
+    .dir-shop-pct-hint {
+        display:flex; align-items:center; gap:6px;
+        font-size:12px; font-weight:700; color:var(--teal-strong, var(--primary));
     }
+    .dir-card-tooltip {
+        position:absolute; inset:0; z-index:4;
+        background:var(--surface); border-radius:inherit;
+        display:flex; flex-direction:column; justify-content:center; gap:8px;
+        padding:16px; text-align:left;
+        opacity:0; visibility:hidden; transform:translateY(3px);
+        transition:opacity .15s ease, transform .15s ease, visibility .15s;
+        box-shadow:0 4px 18px rgba(0,0,0,.12);
+    }
+    .dir-card-has-tooltip:hover .dir-card-tooltip,
+    .dir-card-has-tooltip.tooltip-open .dir-card-tooltip {
+        opacity:1; visibility:visible; transform:translateY(0);
+    }
+    .dir-card-tooltip-title {
+        font-size:10.5px; font-weight:800; text-transform:uppercase;
+        letter-spacing:.05em; color:var(--ink-muted); margin-bottom:2px;
+    }
+    .dir-card-tooltip .dir-contact { font-size:13px; }
 
     /* ── Pagination ── */
     .dir-pagination {
@@ -534,6 +556,22 @@
                     $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
                     $effectiveKyPct = $entry['effective_ky_pct'] ?? null;
                     $plan         = $company->plan;
+
+                    // Testo "Disponibili prodotti al X% KY sullo shop" (punto 4,
+                    // aggiornato 2026-07-29): sostituisce l'email nella card, mostrato
+                    // solo quando lo shop ha prodotti a una % Kmoney piu' alta di quella
+                    // dichiarata dall'azienda nel profilo (accepted_ky_percentage) — cioe'
+                    // quando vale la pena mandare il cliente allo shop per la % migliore.
+                    $bestListingKyPct = $entry['best_listing_ky_pct'] ?? null;
+                    $showShopPctHint  = $bestListingKyPct !== null
+                        && $bestListingKyPct > ($company->accepted_ky_percentage ?? 0);
+
+                    // Email/telefono non compaiono piu' in chiaro sulla card: sono in
+                    // un pannello che si apre al passaggio del mouse o al click sulla
+                    // card (vedi CSS ".dir-card-has-tooltip"/".dir-card-tooltip" e il
+                    // listener delegato in resources/js/app.js). Nessun pannello se
+                    // l'azienda non ha ne' email ne' telefono da mostrare.
+                    $hasHiddenContact = (bool) ($company->email || $company->phone);
                     // Piani a pagamento disattivati per la directory (27/07):
                     // tutte le schede usano lo stile "semplice" a prescindere
                     // dal piano dell'azienda. Per riattivare le schede
@@ -591,11 +629,11 @@
 
                 @if($cardStyle === 'simple')
                 {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══ --}}
-                <article class="dir-card dir-card--simple"
+                <article class="dir-card dir-card--simple {{ $hasHiddenContact ? 'dir-card-has-tooltip' : '' }}"
                     style="--dir-c1:{{ $c1 }};--dir-c2:{{ $c2 }};"
                     @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
                     <span class="dir-distance-badge"></span>
-                    <div class="dir-body">
+                    <div class="dir-body dir-card-info">
                         <div class="dir-simple-top">
                             <div style="min-width:0">
                                 <h3 class="dir-simple-name">{{ $company->name }}</h3>
@@ -613,19 +651,37 @@
                                 <a href="{{ $company->website }}" target="_blank" rel="noopener">{{ preg_replace('#^https?://(www\.)?#', '', rtrim($company->website, '/')) }}</a>
                             </div>
                             @endif
-                            @if($company->email)
-                            <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare l'email">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                <span class="reveal-contact-value">{{ $company->email }}</span>
+                            @if($showShopPctHint)
+                            <div class="dir-shop-pct-hint">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                <span>Disponibili prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
                             </div>
                             @endif
-                            @if($company->phone)
-                            <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare il telefono">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
-                                <span class="reveal-contact-value">{{ $company->phone }}</span>
+                            @if($hasHiddenContact)
+                            <div class="dir-contact-hint">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span>Contatti al passaggio del mouse o al click</span>
                             </div>
                             @endif
                         </div>
+
+                        @if($hasHiddenContact)
+                        <div class="dir-card-tooltip">
+                            <div class="dir-card-tooltip-title">Contatti</div>
+                            @if($company->email)
+                            <div class="dir-contact">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                <span>{{ $company->email }}</span>
+                            </div>
+                            @endif
+                            @if($company->phone)
+                            <div class="dir-contact">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
+                                <span>{{ $company->phone }}</span>
+                            </div>
+                            @endif
+                        </div>
+                        @endif
                     </div>
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
@@ -662,7 +718,7 @@
                      Grafica piatta con logo inline (non su banner), coerente con lo stile
                      "scheda contatti" richiesto: nome, settore/città, contatti con icone,
                      badge del piano in alto a destra. ═══ --}}
-                <article class="dir-card dir-card--{{ $cardStyle }}"
+                <article class="dir-card dir-card--{{ $cardStyle }} {{ $hasHiddenContact ? 'dir-card-has-tooltip' : '' }}"
                     @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
                     <span class="dir-distance-badge"></span>
                     @if($plan)
@@ -670,6 +726,7 @@
                         <span class="dir-plan-badge" style="background:{{ $plan->effective_badge_color }};">{{ $plan->name }}</span>
                     @endif
 
+                    <div class="dir-card-info">
                     <div class="dir-card-header">
                         <div class="dir-logo" style="--dir-c1:{{ $c1 }};--dir-c2:{{ $c2 }};">
                             @if($company->logo_path)
@@ -698,16 +755,16 @@
                             <a href="{{ $company->website }}" target="_blank" rel="noopener">{{ preg_replace('#^https?://(www\.)?#', '', rtrim($company->website, '/')) }}</a>
                         </div>
                         @endif
-                        @if($company->email)
-                        <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare l'email">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                            <span class="reveal-contact-value">{{ $company->email }}</span>
+                        @if($showShopPctHint)
+                        <div class="dir-shop-pct-hint">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            <span>Disponibili prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
                         </div>
                         @endif
-                        @if($company->phone)
-                        <div class="dir-contact reveal-contact" title="Clic o passa il mouse per mostrare il telefono">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
-                            <span class="reveal-contact-value">{{ $company->phone }}</span>
+                        @if($hasHiddenContact)
+                        <div class="dir-contact-hint">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <span>Contatti al passaggio del mouse o al click</span>
                         </div>
                         @endif
                         @if($cardStyle === 'rich' && $company->sector)
@@ -716,6 +773,25 @@
                             <span>{{ $company->sector }}</span>
                         </div>
                         @endif
+                    </div>
+
+                    @if($hasHiddenContact)
+                    <div class="dir-card-tooltip">
+                        <div class="dir-card-tooltip-title">Contatti</div>
+                        @if($company->email)
+                        <div class="dir-contact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            <span>{{ $company->email }}</span>
+                        </div>
+                        @endif
+                        @if($company->phone)
+                        <div class="dir-contact">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.95 16.92z"/></svg>
+                            <span>{{ $company->phone }}</span>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
                     </div>
 
                     @if($cardStyle === 'rich' && ($plan?->can_sell_products || $anns > 0))
