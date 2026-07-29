@@ -37,15 +37,24 @@ class ListingController extends Controller
         $category = $request->query('category', '');
         $q = trim((string) $request->query('q', ''));
 
-        // Filtro % Kmoney nello shop (stesso pattern gia' usato nella
-        // directory aziende, 2026-07-29): due modalita' indipendenti e
-        // opzionali, esatta e minima, entrambe su Listing::ky_percentage
-        // (colonna diretta, niente subquery: qui e' il prodotto stesso,
-        // non serve calcolare una percentuale "effettiva" come per Company).
-        $exactKyRaw = $request->query('exact_ky_percentage', '');
-        $minKyRaw   = $request->query('min_ky_percentage', '');
-        $exactKy = is_numeric($exactKyRaw) ? (int) $exactKyRaw : null;
-        $minKy   = is_numeric($minKyRaw) ? (int) $minKyRaw : null;
+        // Filtro % Kmoney nello shop, su Listing::ky_percentage (colonna
+        // diretta, niente subquery: qui e' il prodotto stesso, non serve
+        // calcolare una percentuale "effettiva" come per Company). Un'unica
+        // select nel form (ky_filter="exact:50" / "min:50") invece di due
+        // campi separati, su richiesta di Laura (2026-07-29 sera).
+        $kyFilter = trim((string) $request->query('ky_filter', ''));
+        $exactKy = null;
+        $minKy   = null;
+        if ($kyFilter !== '') {
+            [$kyMode, $kyValue] = array_pad(explode(':', $kyFilter, 2), 2, null);
+            if (is_numeric($kyValue)) {
+                if ($kyMode === 'exact') {
+                    $exactKy = (int) $kyValue;
+                } elseif ($kyMode === 'min') {
+                    $minKy = (int) $kyValue;
+                }
+            }
+        }
 
         $listingsQuery = Listing::query()
             ->with('company.plan')
@@ -74,8 +83,7 @@ class ListingController extends Controller
             'selectedCategory' => $category,
             'searchQuery'     => $q,
             'kyPercentages'   => Listing::KY_PERCENTAGES,
-            'exactKyPercentage' => $exactKy,
-            'minKyPercentage'   => $minKy,
+            'kyFilter'        => $kyFilter,
             'activeNav'       => 'shop',
         ]);
     }

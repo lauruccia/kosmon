@@ -26,43 +26,30 @@
                 @endforeach
             </select>
         </div>
-        {{-- Filtro % Kmoney (stesso pattern della directory aziende): esatta
-             e minima raggruppate in un unico riquadro allineato con gli
-             altri campi della toolbar. --}}
-        <div class="shop-toolbar-field shop-ky-filter-group">
+        {{-- Filtro % Kmoney: un'unica select (esatta o "da", non due campi separati). --}}
+        <div class="shop-toolbar-field" style="min-width:170px;">
             <label>Filtro Kmoney</label>
-            <div class="shop-ky-filter-box">
-                <div class="shop-ky-select-wrap">
-                    <span class="shop-ky-select-lbl">esatta</span>
-                    <select name="exact_ky_percentage" class="km-select" data-no-search>
-                        <option value="">Qualsiasi</option>
-                        @foreach($kyPercentages as $pct)
-                            <option value="{{ $pct }}" @selected((string) ($exactKyPercentage ?? '') === (string) $pct)>{{ $pct }}%</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="shop-ky-select-wrap">
-                    <span class="shop-ky-select-lbl">min.</span>
-                    <select name="min_ky_percentage" class="km-select" data-no-search>
-                        <option value="">Qualsiasi</option>
-                        @foreach($kyPercentages as $pct)
-                            <option value="{{ $pct }}" @selected((string) ($minKyPercentage ?? '') === (string) $pct)>{{ $pct }}%+</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
+            <select name="ky_filter" class="km-select" data-no-search>
+                <option value="">Qualsiasi</option>
+                <optgroup label="Esatta">
+                    @foreach($kyPercentages as $pct)
+                        <option value="exact:{{ $pct }}" @selected($kyFilter === "exact:{$pct}")>{{ $pct }}%</option>
+                    @endforeach
+                </optgroup>
+                <optgroup label="Da">
+                    @foreach(array_filter($kyPercentages) as $pct)
+                        <option value="min:{{ $pct }}" @selected($kyFilter === "min:{$pct}")>Da {{ $pct }}%</option>
+                    @endforeach
+                </optgroup>
+            </select>
         </div>
         <button type="submit" class="cta">Filtra</button>
-        @if($searchQuery || $selectedCategory || $exactKyPercentage !== null || $minKyPercentage !== null)
+        @if($searchQuery || $selectedCategory || $kyFilter !== '')
             <a href="{{ route('portal.shop') }}" class="cta secondary">✕ Reset</a>
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-            @if(auth()->user()->canAccessMarketplace())
-                @if(auth()->user()->company?->isInDirectory())
-                    <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">+ Pubblica prodotto</a>
-                @else
-                    <span title="Per pubblicare prodotti la tua azienda deve essere presente nella directory (attiva e con KYC approvato). Contatta l'amministrazione se pensi sia un errore." class="cta disabled" style="white-space:nowrap;">+ Pubblica prodotto (azienda non in directory)</span>
-                @endif
+            @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
+                <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">Pubblica un prodotto</a>
             @endif
             @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
                 <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}" style="white-space:nowrap;">Metodi di pagamento EUR</a>
@@ -153,7 +140,7 @@
     <div class="shop-empty">
         <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <p class="subtle">Nessun prodotto trovato nel catalogo.</p>
-        @if($searchQuery || $selectedCategory)
+        @if($searchQuery || $selectedCategory || $kyFilter !== '')
             <a href="{{ route('portal.shop') }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Rimuovi filtri</a>
         @endif
     </div>
@@ -169,7 +156,11 @@
 <style>
     /* ── Toolbar shop: ricerca con icona + select coerenti col design system ── */
     .shop-toolbar-card { padding: 18px 22px; }
-    .shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+    /* Niente a capo (2026-07-29 sera): la barra filtri resta su un'unica
+       riga anche con il nuovo campo "Filtro Kmoney" — flex-wrap:nowrap +
+       overflow-x:auto come rete di sicurezza se lo spazio non basta,
+       invece di lasciar scendere i campi su una seconda riga. */
+    .shop-toolbar { display: flex; gap: 14px; flex-wrap: nowrap; align-items: flex-end; overflow-x: auto; padding-bottom: 2px; }
     .shop-toolbar-field label {
         display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
         margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
@@ -197,23 +188,6 @@
         outline: none; transition: border-color .15s, box-shadow .15s;
     }
     .km-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
-    .cta.disabled {
-        display: inline-flex; align-items: center; padding: 10px 18px; font-size: 14px;
-        border: 1.5px dashed var(--line-strong); border-radius: 10px; color: var(--ink-muted); cursor: not-allowed;
-    }
-
-    /* ── Filtro Kmoney (esatta/minima), stesso pattern della directory
-       aziende — riquadro compatto, sempre su una riga sola, altezza
-       coerente con gli altri campi della toolbar (niente disallineamenti). */
-    .shop-ky-filter-group { min-width: 0; }
-    .shop-ky-filter-box {
-        display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
-        padding: 6px 10px; border: 1.5px solid var(--line-strong); border-radius: 10px;
-        background: var(--surface-soft); overflow-x: auto;
-    }
-    .shop-ky-select-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-    .shop-ky-select-lbl { font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
-    .shop-ky-select-wrap select.km-select { padding: 5px 24px 5px 8px !important; font-size: 12px !important; width: 78px; }
 
     /* ── Catalogo: griglia responsive stile ecommerce ── */
     .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
