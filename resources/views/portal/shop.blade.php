@@ -195,8 +195,10 @@
     }
     .km-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 
-    /* ── Catalogo: griglia responsive stile ecommerce ── */
-    .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+    /* ── Catalogo: griglia responsive stile ecommerce ──
+       Schede più corte (2026-07-30): foto meno alta (aspect-ratio) + meno
+       padding/gap nel corpo card, per ridurre lo spazio bianco inutile. */
+    .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
     .catalog-card {
         padding: 0; overflow: hidden; display: flex; flex-direction: column;
         transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
@@ -207,7 +209,7 @@
         border-color: var(--line-strong);
     }
     .product-media {
-        position: relative; display: block; aspect-ratio: 4 / 3;
+        position: relative; display: block; aspect-ratio: 16 / 10;
         background: linear-gradient(150deg, var(--surface-soft), var(--surface));
         overflow: hidden; text-decoration: none;
     }
@@ -240,24 +242,25 @@
         left: 10px; background: #059669; color: #fff; font-weight: 800;
         box-shadow: 0 2px 8px rgba(5,150,105,.35);
     }
-    .product-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-    .product-title { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+    .product-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
     .product-price-row {
-        margin-top: auto; padding-top: 4px;
+        margin-top: auto; padding-top: 2px;
         display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
     }
     .product-price {
-        font-size: 22px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
+        font-size: 19px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
     }
-    .product-price small { font-size: 12px; font-weight: 700; margin-left: 2px; }
+    .product-price small { font-size: 11px; font-weight: 700; margin-left: 2px; }
     .mix-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
     /* CTA più prominente in stile "Acquista ora" (Amazon-like) */
     .catalog-card .page-actions .cta,
     .featured-card .product-body .cta {
         font-weight: 700; letter-spacing: .01em;
     }
+    .catalog-card .page-actions { margin-top: 0 !important; }
 
     /* ── Fascia "In evidenza": scroll orizzontale ── */
     .featured-strip {
@@ -272,8 +275,8 @@
         transition: box-shadow .18s ease, border-color .18s ease;
     }
     .featured-card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
-    .featured-card .product-body { padding: 12px 14px 14px; gap: 6px; }
-    .featured-card .product-title { font-size: 14px; }
+    .featured-card .product-body { padding: 9px 11px 11px; gap: 5px; }
+    .featured-card .product-title { font-size: 13px; }
 
     /* ── Stato vuoto ── */
     .shop-empty {

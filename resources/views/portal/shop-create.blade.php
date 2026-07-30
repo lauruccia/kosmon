@@ -62,7 +62,9 @@
                     <label class="field-label">Mix pagamento KY/EUR *</label>
 
                     @php
-                        $allowed = $allowedKyPercentages ?? \App\Models\Listing::KY_PERCENTAGES;
+                        // Ordine di visualizzazione invertito (2026-07-30, richiesta di Laura):
+                        // dal 100% KY fino allo 0% KY (100% EUR), invece che dallo 0% al 100%.
+                        $allowed = array_reverse($allowedKyPercentages ?? \App\Models\Listing::KY_PERCENTAGES);
                         $required = $requiredKyPercentage ?? null;
                         $currentPct = old('ky_percentage', $editingListing?->ky_percentage ?? 100);
                     @endphp
@@ -157,21 +159,19 @@
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div>
-                    <label class="field-label">Nota consegna / erogazione</label>
-                    <input type="text" name="delivery_note" maxlength="120"
-                        value="{{ old('delivery_note', $editingListing?->delivery_note) }}"
-                        placeholder="es. Consegna in 48h, ritiro in via X, link della call..." class="field-input">
-                </div>
-                <div>
-                    <label class="field-label">Scadenza offerta</label>
-                    <input type="date" name="expires_at"
-                        value="{{ old('expires_at', $editingListing?->expires_at?->format('Y-m-d')) }}"
-                        min="{{ now()->addDay()->format('Y-m-d') }}"
-                        class="field-input">
-                </div>
+            <div>
+                <label class="field-label">Nota consegna / erogazione</label>
+                <input type="text" name="delivery_note" maxlength="120"
+                    value="{{ old('delivery_note', $editingListing?->delivery_note) }}"
+                    placeholder="es. Consegna in 48h, ritiro in via X, link della call..." class="field-input">
             </div>
+
+            {{-- Campo "Scadenza offerta" nascosto su richiesta di Laura (2026-07-30).
+                 Resta un input hidden (invece di rimuovere del tutto il dato) cosi'
+                 un'eventuale scadenza gia' impostata su un prodotto esistente non
+                 viene azzerata al salvataggio del form di modifica. --}}
+            <input type="hidden" name="expires_at"
+                value="{{ old('expires_at', $editingListing?->expires_at?->format('Y-m-d')) }}">
 
             <div>
                 <label class="field-label">Contatto diretto (email o telefono)</label>
