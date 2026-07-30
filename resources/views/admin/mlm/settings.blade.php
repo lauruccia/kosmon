@@ -233,4 +233,15 @@
         <button type="submit" class="btn btn-secondary">Ricalcola ora</button>
     </div>
 </form>
+
+<form method="POST" action="{{ route('admin.mlm.settings.backfill-wallet-ledger') }}" style="margin-top:14px;" onsubmit="return confirm('Accreditare nel cassetto kmoney le commissioni/bonus maturati prima che il cassetto esistesse? Operazione una tantum, sicura da rilanciare piu\' volte (non duplica gli accrediti).');">
+    @csrf
+    <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+            <strong style="display:block;font-size:14px;">Backfill cassetto kmoney (una tantum)</strong>
+            <span style="color:var(--ink-muted);font-size:12px;">Accredita nel cassetto KY di ogni agente le commissioni e i bonus maturati PRIMA dell'introduzione del cassetto (2026-07-30), cosi' "Il tuo cassetto kmoney" nel portale corrisponde al maturato storico. Da eseguire una sola volta dopo il deploy; rilanciarlo non duplica nulla.</span>
+        </div>
+        <button type="submit" class="btn btn-secondary">Esegui backfill</button>
+    </div>
+</form>
 @endsection

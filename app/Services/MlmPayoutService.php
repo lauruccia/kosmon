@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Aggrega commissioni (mlm_commissions) e bonus (mlm_bonus_payouts) in
@@ -143,7 +144,21 @@ class MlmPayoutService
         // riservare (togliere dal cassetto spendibile/prelevabile) l'importo
         // appena agganciato — altrimenti l'agente potrebbe ancora spenderlo
         // o ri-prelevarlo mentre questa liquidazione manuale e' in corso.
-        $this->reserveWalletForPayout($payout);
+        //
+        // Questa chiamata NON deve pero' mai bloccare la generazione della
+        // liquidazione stessa: generateForMonth() gira dentro un'unica
+        // DB::transaction, quindi un'eccezione qui (es. agente senza conto
+        // personale KY — capita con agenti creati prima del cassetto, o nei
+        // fixture di test) farebbe rollback anche della MlmPayout appena
+        // creata, lasciando la pagina admin vuota come prima del 2026-07-13.
+        // Il flusso EUR via bonifico deve continuare a funzionare comunque;
+        // la mancata riserva del cassetto viene solo loggata per essere
+        // sistemata a mano (es. creando il conto KY mancante e rilanciando).
+        try {
+            $this->reserveWalletForPayout($payout);
+        } catch (\Throwable $e) {
+            Log::warning("Impossibile riservare il cassetto kmoney per la liquidazione #{$payout->id} (agente #{$agentId}): {$e->getMessage()}");
+        }
 
         return $payout->fresh();
     }

@@ -82,13 +82,19 @@ class MlmWalletServiceTest extends TestCase
 
     private function makeCommission(User $agent, int $amountCents, string $type = 'diretta', ?int $level = null): MlmCommission
     {
-        $run = MlmCommissionRun::create([
-            'period_month'    => now()->startOfMonth()->toDateString(),
-            'idempotency_key' => 'run_' . Str::random(10),
-            'status'          => 'completed',
-            'started_at'      => now(),
-            'completed_at'    => now(),
-        ]);
+        // firstOrCreate per period_month: mlm_commission_runs.period_month e'
+        // UNIQUE, quindi due chiamate a makeCommission() nello stesso test
+        // (stesso mese) devono riusare lo stesso run invece di crearne un
+        // secondo e violare il vincolo.
+        $run = MlmCommissionRun::firstOrCreate(
+            ['period_month' => now()->startOfMonth()->toDateString()],
+            [
+                'idempotency_key' => 'run_' . Str::random(10),
+                'status'          => 'completed',
+                'started_at'      => now(),
+                'completed_at'    => now(),
+            ],
+        );
 
         $client = User::create([
             'name'                => 'Cliente ' . Str::random(6),

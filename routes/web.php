@@ -939,6 +939,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::get('/admin/mlm-impostazioni', [MlmSettingsController::class, 'edit'])->name('admin.mlm.settings.edit')->middleware('backoffice');
         Route::post('/admin/mlm-impostazioni', [MlmSettingsController::class, 'update'])->name('admin.mlm.settings.update')->middleware('backoffice');
         Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
+        // Backfill una tantum cassetto kmoney (2026-07-30) — niente terminale su kosmopay.it, vedi MlmSettingsController::backfillWalletLedger().
+        Route::post('/admin/mlm-impostazioni/backfill-cassetto', [MlmSettingsController::class, 'backfillWalletLedger'])->name('admin.mlm.settings.backfill-wallet-ledger')->middleware('backoffice');
 
         // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
         Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');

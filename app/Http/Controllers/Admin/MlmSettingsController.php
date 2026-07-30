@@ -201,6 +201,37 @@ class MlmSettingsController extends Controller
     }
 
     /**
+     * Esegue `mlm:backfill-wallet-ledger` (2026-07-30, cassetto kmoney):
+     * accredita nel cassetto KY le commissioni/bonus maturati PRIMA che il
+     * cassetto esistesse, che altrimenti resterebbero a 0 anche se "Da
+     * pagare" mostra un importo storico (segnalato da Laura). Da lanciare
+     * UNA TANTUM dopo il deploy — rilanciarlo non fa danni (idempotente:
+     * il comando/servizio sotto controllano da soli l'idempotency_key
+     * prima di muovere KY), ma non serve rilanciarlo una volta fatto.
+     * Stesso pattern di recalculateNow(): su kosmopay.it non c'e' un
+     * terminale/SSH per lanciare artisan a mano, quindi il pulsante nel
+     * pannello admin e' l'unico modo per eseguirlo in produzione.
+     */
+    public function backfillWalletLedger(Request $request): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        Artisan::call('mlm:backfill-wallet-ledger');
+        $output = trim(Artisan::output());
+
+        AuditLog::create([
+            'actor_user_id' => $request->user()->id,
+            'event' => 'admin.mlm.backfill_wallet_ledger',
+            'auditable_type' => User::class,
+            'auditable_id' => $request->user()->id,
+            'context' => ['output' => $output],
+        ]);
+
+        return redirect()->route('admin.mlm.settings.edit')
+            ->with('portal_success', 'Backfill cassetto kmoney eseguito. ' . $output);
+    }
+
+    /**
      * GET /admin/mlm-impostazioni/radice — pagina per designare l'unica
      * radice del sistema MLM (2026-07-15, vedi
      * MlmTreeService::systemRootAgent()/setSystemRootAgent()). Mostra la
