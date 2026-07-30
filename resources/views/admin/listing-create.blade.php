@@ -65,7 +65,9 @@
                 <div class="field">
                     <label>Mix pagamento KY/EUR *</label>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        @foreach(\App\Models\Listing::KY_PERCENTAGES as $pct)
+                        {{-- Ordine di visualizzazione invertito (2026-07-30, richiesta di Laura):
+                             dal 100% KY fino allo 0% KY (100% EUR), invece che dallo 0% al 100%. --}}
+                        @foreach(array_reverse(\App\Models\Listing::KY_PERCENTAGES) as $pct)
                             @php
                                 $eur = 100 - $pct;
                                 $pctLabel = $pct === 100 ? '100% KY' : ($pct === 0 ? '100% EUR' : "{$pct}% KY + {$eur}% EUR");
@@ -117,16 +119,15 @@
                     </div>
                 </div>
 
-                <div class="field-inline">
-                    <div class="field">
-                        <label>Nota consegna / erogazione</label>
-                        <input type="text" name="delivery_note" maxlength="120" value="{{ old('delivery_note') }}" placeholder="es. Consegna in 48h">
-                    </div>
-                    <div class="field">
-                        <label>Scadenza offerta</label>
-                        <input type="date" name="expires_at" min="{{ now()->addDay()->format('Y-m-d') }}" value="{{ old('expires_at') }}">
-                    </div>
+                <div class="field">
+                    <label>Nota consegna / erogazione</label>
+                    <input type="text" name="delivery_note" maxlength="120" value="{{ old('delivery_note') }}" placeholder="es. Consegna in 48h">
                 </div>
+
+                {{-- Campo "Scadenza offerta" nascosto su richiesta di Laura (2026-07-30),
+                     stessa scelta fatta in portal/shop-create.blade.php: resta un input
+                     hidden invece di essere rimosso, per coerenza col resto del form. --}}
+                <input type="hidden" name="expires_at" value="{{ old('expires_at') }}">
 
                 <div class="field">
                     <label>Contatto diretto (email o telefono)</label>
