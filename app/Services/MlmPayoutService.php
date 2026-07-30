@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\MlmBonusPayout;
 use App\Models\MlmCommission;
 use App\Models\MlmPayout;
+use App\Models\MlmWalletLedgerEntry;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -138,7 +139,72 @@ class MlmPayoutService
             'total_eur_cents' => $commissionsTotal + $bonusTotal,
         ])->save();
 
+        // Cassetto kmoney (2026-07-30): anche la generazione admin deve
+        // riservare (togliere dal cassetto spendibile/prelevabile) l'importo
+        // appena agganciato — altrimenti l'agente potrebbe ancora spenderlo
+        // o ri-prelevarlo mentre questa liquidazione manuale e' in corso.
+        $this->reserveWalletForPayout($payout);
+
         return $payout->fresh();
+    }
+
+    /**
+     * Riserva nel cassetto kmoney (App\Services\MlmWalletService) solo la
+     * DIFFERENZA tra il totale attuale del payout e quanto gia' riservato
+     * per questo stesso payout in una chiamata precedente — attachAgentPeriod()
+     * puo' essere rieseguita piu' volte sullo stesso payout 'pending' via
+     * generateForMonth(), agganciando via via nuove righe libere: senza
+     * questo calcolo a delta si rischierebbe di riservare due volte lo
+     * stesso importo. Le chiamate da requestWithdrawal() partono sempre da
+     * un payout appena creato (nulla ancora riservato), quindi riservano
+     * l'intero importo in un colpo solo.
+     */
+    private function reserveWalletForPayout(MlmPayout $payout): void
+    {
+        if ($payout->total_eur_cents <= 0) {
+            return;
+        }
+
+        $alreadyReserved = abs((int) MlmWalletLedgerEntry::where('source_type', 'withdrawal_reserve')
+            ->where('idempotency_key', 'like', "mlm_wallet_reserve_payout_{$payout->id}_%")
+            ->sum('amount_cents'));
+
+        $delta = $payout->total_eur_cents - $alreadyReserved;
+        if ($delta <= 0) {
+            return;
+        }
+
+        app(MlmWalletService::class)->reserveForPayout(
+            $payout->agent,
+            $delta,
+            "mlm_wallet_reserve_payout_{$payout->id}_{$payout->total_eur_cents}",
+            "Riserva cassetto kmoney per liquidazione #{$payout->id}",
+        );
+    }
+
+    /**
+     * Rilascia (torna disponibile e ri-prelevabile) tutto quanto era stato
+     * riservato nel cassetto kmoney per questo payout — chiamata da
+     * reject(). Idempotente sulla sola presenza del payout nell'idempotency
+     * key (una sola volta, anche se reject() venisse per assurdo richiamata
+     * due volte: gia' impedito a monte dal controllo di stato).
+     */
+    private function releaseWalletReservationForPayout(MlmPayout $payout): void
+    {
+        $reserved = abs((int) MlmWalletLedgerEntry::where('source_type', 'withdrawal_reserve')
+            ->where('idempotency_key', 'like', "mlm_wallet_reserve_payout_{$payout->id}_%")
+            ->sum('amount_cents'));
+
+        if ($reserved <= 0) {
+            return;
+        }
+
+        app(MlmWalletService::class)->releaseReservation(
+            $payout->agent,
+            $reserved,
+            "mlm_wallet_release_payout_{$payout->id}",
+            "Rilascio riserva cassetto kmoney — liquidazione #{$payout->id} rifiutata",
+        );
     }
 
     /** Approva la liquidazione: le righe collegate passano da 'pending' ad 'approved'. */
@@ -235,6 +301,11 @@ class MlmPayoutService
                 'status' => 'pending',
             ]);
 
+            // Cassetto kmoney (2026-07-30): rilascia quanto era stato
+            // riservato per questa liquidazione — torna disponibile e
+            // ri-prelevabile per l'agente.
+            $this->releaseWalletReservationForPayout($payout);
+
             $payout->forceFill([
                 'status' => 'rejected',
                 'admin_notes' => $reason ?? $payout->admin_notes,
@@ -256,22 +327,17 @@ class MlmPayoutService
     }
 
     /**
-     * Importo EUR (centesimi) maturato e non ancora collegato ad alcuna
-     * liquidazione: e' quanto l'agente puo' richiedere di prelevare.
+     * Quanto l'agente puo' richiedere di prelevare ORA — dal 2026-07-30
+     * (cassetto kmoney) e' il saldo del cassetto (App\Services\MlmWalletService::withdrawableBalance()),
+     * non piu' la semplice somma delle righe 'pending' non ancora
+     * collegate: i compensi sono gia' accreditati in KY non appena
+     * calcolati (vedi MlmWalletService), quindi questo importo puo' essere
+     * INFERIORE alla somma storica delle righe se l'agente ha gia' speso
+     * parte del cassetto come kmoney nel frattempo.
      */
     public function pendingWithdrawableCents(User $agent): int
     {
-        $commissions = (int) MlmCommission::where('agent_user_id', $agent->id)
-            ->whereNull('mlm_payout_id')
-            ->where('status', 'pending')
-            ->sum('amount_eur_cents');
-
-        $bonuses = (int) MlmBonusPayout::where('beneficiary_user_id', $agent->id)
-            ->whereNull('mlm_payout_id')
-            ->where('status', 'pending')
-            ->sum('amount_eur_cents');
-
-        return $commissions + $bonuses;
+        return app(MlmWalletService::class)->withdrawableBalance($agent);
     }
 
     /** L'agente ha gia' una liquidazione in corso (pending o approved)? */
@@ -347,10 +413,26 @@ class MlmPayoutService
 
             $commissionsTotal = (int) $commissions->sum('amount_eur_cents');
             $bonusTotal = (int) $bonuses->sum('amount_eur_cents');
-            $total = $commissionsTotal + $bonusTotal;
+            $rowsTotal = $commissionsTotal + $bonusTotal;
+
+            // Cassetto kmoney (2026-07-30): il maturato storico (righe
+            // ancora non collegate) puo' essere superiore a quanto e'
+            // REALMENTE ancora prelevabile, se l'agente ha gia' speso parte
+            // del cassetto come kmoney in negozio — vedi MlmWalletService.
+            // Il prelievo non puo' mai superare il saldo cassetto reale.
+            $total = min($rowsTotal, app(MlmWalletService::class)->withdrawableBalance($agent));
 
             if ($total <= 0) {
                 throw new \RuntimeException('Non hai importi maturati da prelevare.');
+            }
+
+            // Se il prelievo e' stato limitato dal saldo cassetto reale,
+            // riproporziona commissioni/bonus cosi' che la somma torni al
+            // totale effettivo (le righe restano comunque tutte agganciate
+            // per intero come traccia di audit di cosa le ha generate).
+            if ($rowsTotal > 0 && $total < $rowsTotal) {
+                $commissionsTotal = (int) round($commissionsTotal * $total / $rowsTotal);
+                $bonusTotal = $total - $commissionsTotal;
             }
 
             $threshold = $this->payoutThresholdCents();
@@ -389,6 +471,11 @@ class MlmPayoutService
 
             MlmCommission::whereIn('id', $commissions->pluck('id'))->update(['mlm_payout_id' => $payout->id]);
             MlmBonusPayout::whereIn('id', $bonuses->pluck('id'))->update(['mlm_payout_id' => $payout->id]);
+
+            // Cassetto kmoney (2026-07-30): sposta davvero il KY dal conto
+            // dell'agente al conto sistema, cosi' non e' piu' spendibile ne'
+            // ri-prelevabile mentre questa richiesta e' in corso.
+            $this->reserveWalletForPayout($payout);
 
             AuditLog::create([
                 'actor_user_id'  => $agent->id,

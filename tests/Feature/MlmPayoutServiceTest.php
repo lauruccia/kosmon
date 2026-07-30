@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
 use App\Models\MlmBonusEvent;
 use App\Models\MlmBonusPayout;
 use App\Models\MlmCommission;
@@ -9,6 +10,7 @@ use App\Models\MlmCommissionRun;
 use App\Models\MlmPayout;
 use App\Models\User;
 use App\Services\MlmPayoutService;
+use App\Services\MlmWalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -19,7 +21,17 @@ use Tests\TestCase;
  * (oppure -> rejected), incluso il prelievo "tutto il maturato" richiesto
  * dal portale agente.
  *
- * Vedi app/Services/MlmPayoutService.php.
+ * Dal 2026-07-30 (cassetto kmoney): ogni commissione/bonus "pending" creato
+ * nei test qui sotto viene anche accreditato SUBITO in KY sul conto
+ * dell'agente (givePendingCommission()/givePendingBonus() richiamano
+ * MlmWalletService, esattamente come fanno in produzione
+ * MlmCommissionEngine/MlmBonusService/MlmAwardService appena dopo aver
+ * creato la riga) — pendingWithdrawableCents()/requestWithdrawal() ora
+ * leggono da li', non piu' dalla semplice somma delle righe 'pending'
+ * ancora libere. Con nessuna spesa nel frattempo i due importi coincidono
+ * sempre, quindi le asserzioni numeriche restano invariate.
+ *
+ * Vedi app/Services/MlmPayoutService.php e app/Services/MlmWalletService.php.
  */
 class MlmPayoutServiceTest extends TestCase
 {
@@ -31,11 +43,27 @@ class MlmPayoutServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = new MlmPayoutService();
+        $this->makeSuperAdmin();
+    }
+
+    private function makeSuperAdmin(): User
+    {
+        $user = User::create([
+            'name'                => 'Super Admin Sistema',
+            'email'                => 'superadmin-' . Str::random(8) . '@test.test',
+            'password'             => 'secret123',
+            'account_holder_type'  => 'private',
+            'is_active'            => true,
+            'is_super_admin'       => true,
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $user;
     }
 
     private function makeAgent(): User
     {
-        return User::create([
+        $agent = User::create([
             'name'                => 'Agente ' . Str::random(6),
             'email'                => 'agente-' . Str::random(10) . '@test.test',
             'password'             => 'secret123',
@@ -46,6 +74,25 @@ class MlmPayoutServiceTest extends TestCase
             'mlm_rank'             => 'basic',
             'mlm_activated_at'     => now(),
         ]);
+
+        // Cassetto kmoney (2026-07-30): serve un conto personale, l'unico
+        // dove MlmWalletService puo' accreditare/riservare KY.
+        Account::create([
+            'owner_user_id'     => $agent->id,
+            'owner_type'        => 'private',
+            'type'              => 'primary',
+            'account_name'      => 'Conto personale ' . $agent->name,
+            'currency_code'     => 'KY',
+            'status'            => 'active',
+            'available_balance' => 0,
+        ]);
+
+        return $agent->refresh();
+    }
+
+    private function agentAccountBalance(User $agent): int
+    {
+        return (int) Account::where('owner_user_id', $agent->id)->whereNull('parent_account_id')->firstOrFail()->available_balance;
     }
 
     private function makeAdmin(): User
@@ -96,7 +143,7 @@ class MlmPayoutServiceTest extends TestCase
             ]);
         }
 
-        return MlmCommission::create([
+        $commission = MlmCommission::create([
             'mlm_commission_run_id' => $run->id,
             'agent_user_id'         => $agent->id,
             'type'                  => 'diretta',
@@ -107,6 +154,12 @@ class MlmPayoutServiceTest extends TestCase
             'status'                => 'pending',
             'idempotency_key'       => 'commission_' . Str::random(10),
         ]);
+
+        // Cassetto kmoney (2026-07-30): stesso accredito immediato che
+        // MlmCommissionEngine fa in produzione appena dopo aver creato la riga.
+        app(MlmWalletService::class)->creditFromCommission($commission);
+
+        return $commission;
     }
 
     private function givePendingBonus(User $agent, int $amountEurCents, ?\Illuminate\Support\Carbon $weekEnding = null): MlmBonusPayout
@@ -118,7 +171,7 @@ class MlmPayoutServiceTest extends TestCase
             'processed_at'  => now(),
         ]);
 
-        return MlmBonusPayout::create([
+        $bonus = MlmBonusPayout::create([
             'mlm_bonus_event_id'  => $event->id,
             'beneficiary_user_id' => $agent->id,
             'rank_at_time'        => 'key',
@@ -127,6 +180,12 @@ class MlmPayoutServiceTest extends TestCase
             'status'              => 'pending',
             'idempotency_key'     => 'bonus_' . Str::random(10),
         ]);
+
+        // Cassetto kmoney (2026-07-30): stesso accredito immediato che
+        // MlmBonusService/MlmAwardService fanno in produzione.
+        app(MlmWalletService::class)->creditFromBonusPayout($bonus);
+
+        return $bonus;
     }
 
     public function test_generate_for_month_aggregates_commissions_and_bonuses_for_the_agent(): void
@@ -201,6 +260,12 @@ class MlmPayoutServiceTest extends TestCase
         $this->assertSame('paid', $paid->status);
         $this->assertSame('BONIFICO-123', $paid->payment_reference);
         $this->assertSame('paid', MlmCommission::where('mlm_payout_id', $payout->id)->first()->status);
+
+        // Cassetto kmoney (2026-07-30): il KY era gia' stato riservato (tolto
+        // dal conto dell'agente) quando le righe sono state agganciate al
+        // payout in generateForMonth() — markPaid() non fa altri movimenti,
+        // il KY resta sul conto sistema (bonifico gia' "prelevato").
+        $this->assertSame(0, $this->agentAccountBalance($agent));
     }
 
     public function test_mark_paid_rejects_a_non_approved_payout(): void
@@ -220,6 +285,7 @@ class MlmPayoutServiceTest extends TestCase
         $admin = $this->makeAdmin();
         $this->givePendingCommission($agent, 2_000);
         $payout = $this->service->generateForMonth(now())->first();
+        $this->assertSame(0, $this->agentAccountBalance($agent)); // riservato all'aggancio
 
         $rejected = $this->service->reject($payout, $admin, 'errore di calcolo');
 
@@ -227,6 +293,11 @@ class MlmPayoutServiceTest extends TestCase
         $commission = MlmCommission::where('agent_user_id', $agent->id)->first();
         $this->assertNull($commission->mlm_payout_id);
         $this->assertSame('pending', $commission->status);
+
+        // Cassetto kmoney (2026-07-30): il rifiuto rilascia la riserva, il KY
+        // torna disponibile e ri-prelevabile per l'agente.
+        $this->assertSame(2_000, $this->agentAccountBalance($agent));
+        $this->assertSame(2_000, $this->service->pendingWithdrawableCents($agent->fresh()));
     }
 
     public function test_pending_withdrawable_cents_sums_unlinked_commissions_and_bonuses(): void

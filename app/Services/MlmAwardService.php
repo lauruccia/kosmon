@@ -200,7 +200,7 @@ class MlmAwardService
         string $auditEvent,
         array $auditContext,
     ): void {
-        MlmBonusPayout::create([
+        $bonusPayout = MlmBonusPayout::create([
             'mlm_bonus_event_id' => null,
             'beneficiary_user_id' => $agent->id,
             'rank_at_time' => $rankAtTime,
@@ -210,6 +210,9 @@ class MlmAwardService
             'status' => 'pending',
             'idempotency_key' => $idempotencyKey,
         ]);
+
+        // Cassetto kmoney (2026-07-30): accredito subito in KY, vedi MlmWalletService.
+        app(MlmWalletService::class)->creditFromBonusPayout($bonusPayout);
 
         AuditLog::create([
             'actor_user_id' => null,

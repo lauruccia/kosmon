@@ -207,7 +207,7 @@ class MlmBonusService
 
                 $beneficiary = $ancestor;
 
-                MlmBonusPayout::create([
+                $bonusPayout = MlmBonusPayout::create([
                     'mlm_bonus_event_id' => $event->id,
                     'beneficiary_user_id' => $beneficiary->id,
                     'rank_at_time' => $rank,
@@ -216,6 +216,9 @@ class MlmBonusService
                     'status' => 'pending',
                     'idempotency_key' => "mlm_bonus_{$event->uuid}_{$rank}",
                 ]);
+
+                // Cassetto kmoney (2026-07-30): accredito subito in KY, vedi MlmWalletService.
+                app(MlmWalletService::class)->creditFromBonusPayout($bonusPayout);
 
                 $snapshot[] = [
                     'rank' => $rank,

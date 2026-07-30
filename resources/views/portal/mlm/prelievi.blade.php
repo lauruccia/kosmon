@@ -17,7 +17,7 @@
         <div>
             <h2 style="margin:0 0 4px;font-size:18px;">Storico prelievi</h2>
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">
-                I guadagni del multilevel (commissioni e bonus) vengono liquidati in euro con bonifico bancario dopo l'approvazione dell'amministrazione.
+                I compensi del multilevel sono gia' nel tuo saldo kmoney (cassetto, vedi <a href="{{ route('portal.mlm.earnings') }}">I miei guadagni</a>) e spendibili subito. Qui puoi convertirli in euro con bonifico bancario dopo l'approvazione dell'amministrazione — l'importo qui sotto e' quanto ne resta ancora, cioe' quanto non hai gia' speso come kmoney.
             </p>
         </div>
         <div style="text-align:right;">

@@ -11,6 +11,38 @@
     </div>
 </div>
 
+<div class="card card-pad" style="margin-bottom:14px;background:rgba(12,74,134,.05);border:1px solid rgba(12,74,134,.15);">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+        <div>
+            <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Il tuo cassetto kmoney</span>
+            <strong style="font-size:24px;">&euro; {{ number_format($walletBalance / 100, 2, ',', '.') }}</strong>
+            <p style="margin:6px 0 0;font-size:12px;color:var(--ink-muted);max-width:520px;">
+                Compensi diretti, indiretti, estesi e bonus vengono accreditati qui automaticamente (i bonus ogni mercoledi', le provvigioni il 1&deg; del mese) e sono gia' spendibili come kmoney nel tuo saldo. A differenza del resto del tuo kmoney, puoi anche convertirli in &euro; da <a href="{{ route('portal.mlm.prelievi') }}">Prelievi</a> — finche' non li spendi.
+            </p>
+        </div>
+        <a href="{{ route('portal.mlm.prelievi') }}" class="btn btn-primary">Vai ai prelievi</a>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px;">
+        <div>
+            <span style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);">Diretti</span>
+            <strong style="font-size:15px;">&euro; {{ number_format($walletBreakdown['diretta'] / 100, 2, ',', '.') }}</strong>
+        </div>
+        <div>
+            <span style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);">Indiretti</span>
+            <strong style="font-size:15px;">&euro; {{ number_format($walletBreakdown['indiretta'] / 100, 2, ',', '.') }}</strong>
+        </div>
+        <div>
+            <span style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);">Estesi</span>
+            <strong style="font-size:15px;">&euro; {{ number_format($walletBreakdown['estesa'] / 100, 2, ',', '.') }}</strong>
+        </div>
+        <div>
+            <span style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);">Bonus</span>
+            <strong style="font-size:15px;">&euro; {{ number_format($walletBreakdown['bonus'] / 100, 2, ',', '.') }}</strong>
+        </div>
+    </div>
+</div>
+
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
     <div class="card card-pad">
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Maturato totale (storico)</span>

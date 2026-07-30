@@ -419,7 +419,7 @@ class MlmPortalController extends Controller
      * qui si vede il dettaglio riga per riga di ogni commissione/bonus
      * maturato, con i totali maturato/pagato/da pagare.
      */
-    public function guadagni(Request $request): View
+    public function guadagni(Request $request, \App\Services\MlmWalletService $wallet): View
     {
         $agent = $this->agentOrAbort($request);
 
@@ -436,6 +436,12 @@ class MlmPortalController extends Controller
         ];
         $totals['total_outstanding_eur_cents'] = $totals['total_earned_eur_cents'] - $totals['total_paid_eur_cents'];
 
+        // Cassetto kmoney (2026-07-30): saldo ancora prelevabile/convertibile
+        // in € (gia' spendibile come kmoney da subito) + i 4 contatori
+        // informativi per categoria richiesti da Laura.
+        $walletBalance = $wallet->withdrawableBalance($agent);
+        $walletBreakdown = $wallet->categoryBreakdown($agent);
+
         $commissions = $agent->mlmCommissions()
             ->with(['sourceClient:id,name', 'run:id,period_month'])
             ->latest()
@@ -450,6 +456,8 @@ class MlmPortalController extends Controller
             'pageTitle' => 'I miei guadagni',
             'activeNav' => 'mlm-guadagni',
             'totals' => $totals,
+            'walletBalance' => $walletBalance,
+            'walletBreakdown' => $walletBreakdown,
             'commissions' => $commissions,
             'bonuses' => $bonuses,
         ]);

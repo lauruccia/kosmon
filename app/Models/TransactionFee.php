@@ -48,7 +48,10 @@ class TransactionFee extends Model
         // Il cashback non è mai soggetto a commissione (evita loop di fee su fee).
         // Anche il pagamento upgrade piano (portal_plan_upgrade) è escluso: è già
         // di per sé un canone verso il circuito, non un pagamento commerciale.
-        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade'], true)) {
+        // mlm_wallet_credit/mlm_wallet_withdrawal (2026-07-30, cassetto kmoney,
+        // vedi MlmWalletService): movimenti interni sistema↔agente, non
+        // pagamenti commerciali — mai soggetti a commissione, stesso principio.
+        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade', 'mlm_wallet_credit', 'mlm_wallet_withdrawal'], true)) {
             return 0;
         }
 
@@ -87,6 +90,8 @@ class TransactionFee extends Model
             'api_payment'            => 'Pagamento API',
             'portal_cashback'        => 'Cashback (non soggetto a commissione — escluso automaticamente)',
             'portal_plan_upgrade'    => 'Upgrade piano pagato in KY (non soggetto a commissione — escluso automaticamente)',
+            'mlm_wallet_credit'      => 'Accredito cassetto kmoney MLM (non soggetto a commissione — escluso automaticamente)',
+            'mlm_wallet_withdrawal'  => 'Prelievo/riserva cassetto kmoney MLM (non soggetto a commissione — escluso automaticamente)',
             '*'                      => 'Default (tutti i tipi non coperti)',
         ];
     }

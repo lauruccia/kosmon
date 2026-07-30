@@ -9,6 +9,14 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/*
+ * CASSETTO KMONEY (2026-07-30): ogni riga mlm_commissions creata qui viene
+ * accreditata SUBITO in KY sul conto dell'agente tramite
+ * MlmWalletService::creditFromCommission() — vedi quella classe per il
+ * perché (§10 di MLM_PROPOSAL.md, superato su richiesta di Laura) e per la
+ * garanzia che un problema li' non blocchi mai questo calcolo.
+ */
+
 /**
  * Motore commissioni mensili (dirette + indirette). Vedi MLM_PROPOSAL.md §5.
  *
@@ -252,7 +260,7 @@ class MlmCommissionEngine
                 continue;
             }
 
-            MlmCommission::create([
+            $commission = MlmCommission::create([
                 'mlm_commission_run_id' => $run->id,
                 'agent_user_id' => $agent->id,
                 'type' => 'diretta',
@@ -265,6 +273,8 @@ class MlmCommissionEngine
                 'status' => 'pending',
                 'idempotency_key' => $idempotencyKey,
             ]);
+
+            app(MlmWalletService::class)->creditFromCommission($commission);
         }
     }
 
@@ -333,7 +343,7 @@ class MlmCommissionEngine
                         continue;
                     }
 
-                    MlmCommission::create([
+                    $commission = MlmCommission::create([
                         'mlm_commission_run_id' => $run->id,
                         'agent_user_id' => $agent->id,
                         'type' => 'indiretta',
@@ -346,6 +356,8 @@ class MlmCommissionEngine
                         'status' => 'pending',
                         'idempotency_key' => $idempotencyKey,
                     ]);
+
+                    app(MlmWalletService::class)->creditFromCommission($commission);
                 }
             }
 
