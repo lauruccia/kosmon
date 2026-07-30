@@ -185,8 +185,9 @@ class MlmMetricGrantControllerTest extends TestCase
         $this->assertSame(12, $agent->fresh()->mlmActivePoints());
         $this->assertSame('basic', $agent->fresh()->mlm_rank);
 
-        // Come una promozione normale (confermato da Laura): i Bonus Diretti
-        // sulle 3 soglie (4/6/12) devono essere generati subito.
+        // Come una promozione normale (confermato da Laura, di nuovo il
+        // 2026-07-30): i Bonus Diretti sulle 3 soglie (4/6/12) devono
+        // essere generati subito.
         $this->assertSame(3, MlmBonusPayout::where('beneficiary_user_id', $agent->id)
             ->where('kind', 'diretto')->count());
     }

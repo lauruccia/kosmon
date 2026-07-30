@@ -27,6 +27,16 @@ use Illuminate\Console\Command;
  *    stato 'pending'): il calcolo della cascata bonus per l'upline avviene
  *    nel job settimanale.
  *
+ *    SOLO PUNTI REALI (decisione di Laura, 2026-07-30): a differenza della
+ *    QUALIFICA (passata 2, sotto — che resta su User::mlmActivePoints(),
+ *    reali + omaggio) e dei Bonus Diretti KNM (MlmAwardService, anch'essi
+ *    reali + omaggio), il rilevamento BasiQ usa SOLO User::
+ *    mlmRealActivePoints() (ledger, nessun omaggio): un admin che regala
+ *    punti puo' cosi' far scattare una promozione di qualifica e i Bonus
+ *    Diretti, ma NON puo' innescare la cascata bonus di struttura
+ *    sull'intera upline (Key/Senior/Top/SuperVisor/Manager) — quella resta
+ *    legata solo ad attivita' reale del cliente (ricarica/registrazione).
+ *
  * PASSATA 2 - Valutazione qualifiche: per ogni agente, MlmRankEngine::syncRank()
  *    allinea il grado alla qualifica piu' alta soddisfatta, in ENTRAMBE le
  *    direzioni: promuove chi ha raggiunto nuovi requisiti e RETROCEDE chi
@@ -68,7 +78,7 @@ class RecalculateMlmPoints extends Command
         $newlyBasiq = 0;
 
         foreach ($candidates as $agent) {
-            if ($agent->mlmActivePoints() >= 12) {
+            if ($agent->mlmRealActivePoints() >= 12) {
                 $agent->forceFill([
                     'mlm_basiq_at' => now(),
                     'mlm_basiq_bonus_eligible' => true,
@@ -80,8 +90,8 @@ class RecalculateMlmPoints extends Command
                     'auditable_type' => User::class,
                     'auditable_id'   => $agent->id,
                     'context'        => [
-                        'active_points'    => $agent->mlmActivePoints(),
-                        'mlm_activated_at' => optional($agent->mlm_activated_at)->toDateTimeString(),
+                        'real_active_points' => $agent->mlmRealActivePoints(),
+                        'mlm_activated_at'   => optional($agent->mlm_activated_at)->toDateTimeString(),
                     ],
                 ]);
 

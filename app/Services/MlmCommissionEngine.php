@@ -375,14 +375,33 @@ class MlmCommissionEngine
         }
     }
 
-    /** Numero di figli diretti (1° livello) con qualifica >= basic. */
+    /**
+     * Numero di figli diretti (1° livello) con qualifica >= basic, REALI +
+     * gli eventuali "agenti omaggio" assegnati da un admin (MlmMetricGrant,
+     * metrica 'level1_basic_count').
+     *
+     * DECISIONE DI LAURA (2026-07-30): il gating dei compensi indiretti deve
+     * contare anche gli omaggio, non solo la downline reale — stesso
+     * principio gia' applicato ai punti attivi (mlmActivePoints() include
+     * gia' l'omaggio, vedi sopra) e alla stessa metrica per le QUALIFICHE
+     * (User::mlmGrantedLevel1Basic(), usato da MlmRankEngine::evaluate()).
+     * Prima di questa modifica un agente con Basic solo omaggio (mai
+     * apparsi nell'albero reale) restava bloccato ai livelli 2-5, che
+     * richiedono 2+ Basic al 1° livello, anche se per la qualifica di
+     * rango risultava gia' promosso regolarmente sulla base di quello
+     * stesso omaggio. Il totale non scende mai sotto zero (il grant puo'
+     * essere negativo per correzioni admin), stessa convenzione di
+     * User::mlmActivePoints()/mlmGrantedLevel1Basic().
+     */
     private function countLevel1Basics(User $agent): int
     {
         $basicLevel = $this->rankLevel('basic');
 
-        return $this->tree->directDownline($agent)
+        $realBasics = $this->tree->directDownline($agent)
             ->filter(fn (User $child) => $this->rankLevel($child->mlm_rank) >= $basicLevel)
             ->count();
+
+        return max(0, $realBasics + $agent->mlmGrantedLevel1Basic());
     }
 
     private function rankLevel(string $rank): int

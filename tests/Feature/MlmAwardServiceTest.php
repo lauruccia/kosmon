@@ -150,6 +150,30 @@ class MlmAwardServiceTest extends TestCase
         $this->assertSame(0, MlmBonusPayout::where('beneficiary_user_id', $agent->id)->count());
     }
 
+    /**
+     * Confermato di nuovo da Laura il 2026-07-30 (stessa regola del
+     * 2026-07-14, vedi MlmMetricGrantControllerTest): i Bonus Diretti KNM
+     * contano anche i punti "omaggio", esattamente come un punto reale.
+     * A differenza della cascata bonus BasiQ (RecalculateMlmPoints), che
+     * dal 2026-07-30 usa invece solo punti reali.
+     */
+    public function test_direct_bonuses_count_gifted_points_like_real_points(): void
+    {
+        $agent = $this->makeAgent();
+
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $agent->id,
+            'metric'        => 'points',
+            'amount'        => 12,
+        ]);
+
+        $this->assertSame(12, $agent->mlmActivePoints());
+
+        $this->assertSame(3, $this->awards->grantDirectPointBonuses($agent));
+        $this->assertSame(3, MlmBonusPayout::where('beneficiary_user_id', $agent->id)
+            ->where('kind', 'diretto')->count());
+    }
+
     public function test_direct_bonus_payouts_land_on_a_wednesday_in_the_standard_flow(): void
     {
         $agent = $this->makeAgent();

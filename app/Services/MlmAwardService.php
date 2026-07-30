@@ -37,6 +37,17 @@ use Carbon\Carbon;
  * (queueRankAward, tabella mlm_pending_rank_awards) e l'erogazione vera e
  * propria (grantRankAward) avviene anch'essa nel job settimanale
  * (processPendingRankAwards).
+ *
+ * BONUS DIRETTI KNM: REALI + OMAGGIO (confermato di nuovo da Laura il
+ * 2026-07-30, stessa regola del 2026-07-14, vedi
+ * [[mlm_punti_agenti_omaggio]] in memoria di progetto): un punto omaggio
+ * genera i Bonus Diretti esattamente come un punto reale —
+ * grantDirectPointBonuses() resta quindi su User::mlmActivePoints() (reali
+ * + omaggio, INVARIATO). Il confine "solo dati reali" del 2026-07-30 vale
+ * invece per il rilevamento BasiQ (RecalculateMlmPoints, che innesca la
+ * CASCATA bonus di struttura sull'upline): quello si', da oggi usa
+ * User::mlmRealActivePoints() (solo ledger) — vedi RecalculateMlmPoints per
+ * il motivo della distinzione fra i due tipi di bonus.
  */
 class MlmAwardService
 {
@@ -56,9 +67,9 @@ class MlmAwardService
     ];
 
     /**
-     * Verifica le soglie dei Bonus Diretti sui punti ATTIVI dell'agente e
-     * paga le soglie raggiunte non ancora premiate. Restituisce il numero
-     * di nuovi bonus creati.
+     * Verifica le soglie dei Bonus Diretti sui punti ATTIVI dell'agente
+     * (reali + omaggio, vedi docblock di classe) e paga le soglie raggiunte
+     * non ancora premiate. Restituisce il numero di nuovi bonus creati.
      */
     public function grantDirectPointBonuses(User $agent): int
     {

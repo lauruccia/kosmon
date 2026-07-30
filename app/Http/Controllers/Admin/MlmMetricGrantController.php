@@ -33,7 +33,11 @@ use Illuminate\Support\Facades\Artisan;
  * MlmSettingsController::recalculateNow(), aggiornato il 2026-07-15): cosi'
  * la promozione/retrocessione, l'Extra Bonus una tantum e i Bonus Diretti
  * collegati partono subito, senza aspettare il cron notturno ne' il
- * mercoledi' successivo.
+ * mercoledi' successivo (confermato di nuovo da Laura il 2026-07-30: un
+ * punto omaggio genera i Bonus Diretti KNM come un punto reale — vedi
+ * MlmAwardService). Fa eccezione la cascata bonus BasiQ (bonus di
+ * struttura sull'upline): quella, dal 2026-07-30, scatta solo con punti
+ * REALI — vedi RecalculateMlmPoints.
  */
 class MlmMetricGrantController extends Controller
 {

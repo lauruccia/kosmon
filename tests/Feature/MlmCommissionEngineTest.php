@@ -267,6 +267,59 @@ class MlmCommissionEngineTest extends TestCase
         );
     }
 
+    /**
+     * Decisione di Laura del 2026-07-30: il gating dei compensi indiretti
+     * deve contare anche i Basic "omaggio" (MlmMetricGrant, metrica
+     * 'level1_basic_count'), non solo quelli reali nell'albero — stesso
+     * caso concreto di Valentina Rossi (1 solo figlio diretto reale, rank
+     * Start, livello II bloccato nonostante 43 punti attivi).
+     */
+    public function test_indirect_level_2_counts_gifted_basic_children_toward_the_gating(): void
+    {
+        $root = $this->makeAgent();
+        $this->tree->attachAgent($root, null);
+        $this->givePoints($root, 12);
+
+        // Un solo figlio diretto REALE, e non è nemmeno Basic (rank 'start'):
+        // 0 Basic reali al 1° livello.
+        $onlyChild = $this->makeAgent('start');
+        $this->tree->attachAgent($onlyChild, $root);
+
+        $l1 = $this->makeAgent();
+        $this->tree->attachAgent($l1, $root);
+        $this->giveMonthlyBase($l1, 10_000);
+
+        $l2 = $this->makeAgent();
+        $this->tree->attachAgent($l2, $l1);
+        $this->giveMonthlyBase($l2, 10_000);
+
+        // Senza omaggio: il livello II resta bloccato (0 Basic reali < 2 richiesti).
+        $this->engine->runForMonth(now());
+        $this->assertSame(
+            0,
+            MlmCommission::where('agent_user_id', $root->id)->where('source_agent_id', $l2->id)->count(),
+            'Senza omaggio, 0 Basic reali non devono sbloccare il livello II.'
+        );
+
+        // Un admin regala 2 "Agenti Basic (1° livello)": ora il gating deve
+        // considerarli e sbloccare il livello II al prossimo run.
+        \App\Models\MlmMetricGrant::create([
+            'agent_user_id' => $root->id,
+            'metric'        => 'level1_basic_count',
+            'amount'        => 2,
+        ]);
+
+        \App\Models\MlmCommissionRun::query()->delete();
+        MlmCommission::query()->delete();
+
+        $this->engine->runForMonth(now());
+
+        $level2 = MlmCommission::where('agent_user_id', $root->id)
+            ->where('source_agent_id', $l2->id)->first();
+        $this->assertNotNull($level2, 'Con 2 Basic omaggio il livello II deve sbloccarsi.');
+        $this->assertEqualsWithDelta(2.0, (float) $level2->percentage, 0.01);
+    }
+
     public function test_indirect_level_5_requires_48_points_and_3_basic_children(): void
     {
         // Gating slide 7: con 24 punti e 2 Basic si arriva al IV livello,

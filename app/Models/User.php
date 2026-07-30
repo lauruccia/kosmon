@@ -820,6 +820,33 @@ class User extends Authenticatable implements MustVerifyEmail
         return max(0, mlm_points_normalize($ledgerPoints + $grantedPoints));
     }
 
+    /**
+     * Punti attivi SOLO REALI (ledger, nessun omaggio), stessa finestra di
+     * validita' di mlmActivePoints() ma senza sommare mlmMetricGrants().
+     *
+     * DECISIONE DI LAURA (2026-07-30): compensi diretti/indiretti (vedi
+     * MlmCommissionEngine) continuano a usare mlmActivePoints() (reali +
+     * omaggio, invariato) — ma i BONUS devono contare solo dati reali.
+     * SOSTITUISCE la regola del 2026-07-14 (vedi
+     * [[mlm_punti_agenti_omaggio]]) per cui un punto omaggio doveva generare
+     * subito i Bonus Diretti KNM come un punto reale: da oggi non piu'. Usato
+     * da MlmAwardService::grantDirectPointBonuses() (soglie 4/6/12 pt). NON
+     * usato per il rilevamento BasiQ (RecalculateMlmPoints), che resta
+     * invariato su mlmActivePoints() — scelta esplicita di Laura, solo i
+     * Bonus Diretti KNM passano a "solo reali", non il trigger BasiQ.
+     */
+    public function mlmRealActivePoints(?\Illuminate\Support\Carbon $asOf = null): int|float
+    {
+        $asOf ??= now();
+
+        $ledgerPoints = (float) $this->mlmPointLedgerEntries()
+            ->where('valid_from', '<=', $asOf)
+            ->where('valid_until', '>=', $asOf)
+            ->sum('points');
+
+        return max(0, mlm_points_normalize($ledgerPoints));
+    }
+
     /** Invia la notifica di reset password in italiano con il layout brandizzato. */
     public function sendPasswordResetNotification($token): void
     {
