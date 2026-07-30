@@ -194,7 +194,7 @@
     }
     .dir-btn {
         flex:1; display:inline-flex; align-items:center; justify-content:center;
-        padding:8px 10px; border-radius:9px;
+        gap:5px; padding:8px 10px; border-radius:9px;
         font-size:12.5px; font-weight:700; text-decoration:none; white-space:nowrap;
         transition:background .15s, border-color .15s;
         min-height:36px;
@@ -207,35 +207,45 @@
         border:1.5px solid var(--line-strong); flex:0 0 auto; padding:8px 13px;
     }
     .dir-btn-ghost:hover { background:var(--primary-light); border-color:var(--primary); }
+    /* Nel footer i 3 pulsanti (badge KY / Shop / Paga) devono avere la stessa
+       larghezza (richiesta 30/07): qui il ghost (Shop) passa da larghezza
+       fissa a flex:1 come gli altri due. Selettore a 2 classi, stessa
+       specificita' della regola sopra (.dir-footer .ky-badge) piu' in basso
+       nel file quindi vince senza toccare .dir-btn-ghost usato altrove
+       (es. bottone ⚙ admin, Reset). */
+    .dir-footer .dir-btn-ghost { flex:1; padding:8px 8px; }
 
-    /* ── SIMPLE CARD (anagrafica) ── */
+    /* ── SIMPLE CARD (anagrafica) ──
+       Padding/gap ridotti (richiesta 30/07): card compatta, altezza totale
+       target ~2,5cm, niente spazi vuoti/bianchi in eccesso. */
     .dir-card--simple .dir-body {
-        padding:14px 16px;
-        flex:1; display:flex; flex-direction:column; gap:8px;
+        padding:10px 14px 8px;
+        flex:1; display:flex; flex-direction:column; gap:5px;
     }
     .dir-simple-top {
         display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
     }
     .dir-simple-name {
-        font-size:14.5px; font-weight:800; color:var(--ink);
-        margin:0; line-height:1.3; word-break:break-word;
+        font-size:14px; font-weight:800; color:var(--ink);
+        margin:0; line-height:1.25; word-break:break-word;
     }
-    .dir-simple-sector { font-size:11px; font-weight:600; color:var(--ink-muted); margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+    .dir-simple-sector { font-size:10.5px; font-weight:600; color:var(--ink-muted); margin-top:1px; text-transform:uppercase; letter-spacing:.04em; }
     /* Icona categoria colorata con lo stesso gradiente usato per l'iniziale
        del logo (per-azienda, tramite --dir-c1/--dir-c2): da riquadro grigio
        piatto a un accento cromatico che rende le card riconoscibili a colpo
        d'occhio, senza reintrodurre badge/loghi legati ai piani. */
     .dir-cat-icon {
-        flex-shrink:0; width:38px; height:38px;
-        border-radius:11px;
+        flex-shrink:0; width:34px; height:34px;
+        border-radius:10px;
         background:linear-gradient(150deg,var(--dir-c1,#174d87),var(--dir-c2,#071d35));
         display:flex; align-items:center; justify-content:center;
-        font-size:18px;
+        font-size:16px;
         box-shadow:0 2px 8px rgba(13,28,48,.16);
     }
-    .dir-card--simple .dir-contact { font-size:12px; }
-    .dir-card--simple .dir-footer { padding:8px 14px; border-top:1px solid var(--line); background:var(--surface-soft); }
-    .dir-card--simple .dir-btn-primary { font-size:12px; min-height:32px; }
+    .dir-card--simple .dir-contacts { gap:3px; padding:0; }
+    .dir-card--simple .dir-contact { font-size:11.5px; }
+    .dir-card--simple .dir-footer { padding:6px 12px; border-top:1px solid var(--line); background:var(--surface-soft); }
+    .dir-card--simple .dir-btn-primary { font-size:11.5px; min-height:30px; }
 
     /* ── Badge KY percentuale ── */
     .ky-badge {
@@ -264,22 +274,29 @@
     .dir-card--simple .dir-footer .ky-badge {
         min-height:32px; padding:6px 9px; font-size:11.5px;
     }
+    /* Shop torna ad avere testo ("SHOP") oltre all'icona (richiesta 30/07):
+       stessa altezza/dimensione ridotta del badge KY nella card semplice,
+       cosi' i 3 pulsanti del footer restano visivamente pari. */
+    .dir-card--simple .dir-footer .dir-btn-ghost {
+        min-height:32px; font-size:11.5px;
+    }
     .dir-btn-shop-icon { flex-shrink:0; }
 
-    /* ── Contatti nascosti (punto 4, aggiornato 2026-07-29): email e telefono
-       non compaiono piu' affatto sulla card. Sono visibili solo in un
-       pannello ("tooltip") che copre l'area informativa della card (tutto
-       tranne il footer con i pulsanti) al passaggio del mouse o al click —
-       il click e' gestito in resources/js/app.js (".dir-card-has-tooltip"),
-       ignora i click sui link/pulsanti reali cosi' Paga/Shop/Profilo restano
-       cliccabili con un solo click. Niente piu' hint testuale "Mostra i
-       contatti" (richiesta 29/07): il tooltip resta comunque attivabile con
-       hover/click su tutta la card, solo senza l'etichetta visibile. ── */
+    /* ── Contatti (aggiornato 30/07): su richiesta di Laura, email e cellulare
+       sono di nuovo SEMPRE visibili in chiaro sulla card semplice (non piu'
+       dietro hover/tooltip) — vedi il blocco "SIMPLE CARD" piu' sotto nel
+       markup, che non usa piu' ".dir-card-has-tooltip"/".dir-card-tooltip".
+       Le regole ".dir-card-tooltip" restano sotto solo per il ramo "rich/
+       compact" (attualmente non renderizzato, $cardStyle e' forzato a
+       'simple' in cima al loop) — se in futuro si riattivano quei piani
+       andra' rivista la stessa scelta. ── */
     .dir-card-info { position:relative; }
     .dir-shop-pct-hint {
         display:flex; align-items:center; gap:6px;
         font-size:12px; font-weight:700; color:var(--teal-strong, var(--primary));
+        white-space:nowrap; overflow:hidden;
     }
+    .dir-shop-pct-hint span { overflow:hidden; text-overflow:ellipsis; }
     .dir-card-tooltip {
         position:absolute; inset:0; z-index:4;
         background:var(--surface); border-radius:inherit;
@@ -632,12 +649,15 @@
                 @endphp
 
                 @if($cardStyle === 'simple')
-                {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══ --}}
-                <article class="dir-card dir-card--simple {{ $hasHiddenContact ? 'dir-card-has-tooltip' : '' }}"
+                {{-- ═══ SIMPLE CARD (piani senza logo/vetrina, es. Anagrafica) ═══
+                     Aggiornata 30/07: nome azienda, categoria, email e cellulare
+                     sono sempre visibili in chiaro (niente piu' tooltip a comparsa),
+                     card compatta (altezza ridotta, niente spazi vuoti). ═══ --}}
+                <article class="dir-card dir-card--simple"
                     style="--dir-c1:{{ $c1 }};--dir-c2:{{ $c2 }};"
                     @if($company->hasCoordinates()) data-lat="{{ $company->latitude }}" data-lng="{{ $company->longitude }}" @endif>
                     <span class="dir-distance-badge"></span>
-                    <div class="dir-body dir-card-info">
+                    <div class="dir-body">
                         <div class="dir-simple-top">
                             <div style="min-width:0">
                                 <h3 class="dir-simple-name">{{ $company->name }}</h3>
@@ -649,23 +669,6 @@
                         </div>
 
                         <div class="dir-contacts">
-                            @if($company->website)
-                            <div class="dir-contact">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                                <a href="{{ $company->website }}" target="_blank" rel="noopener">{{ preg_replace('#^https?://(www\.)?#', '', rtrim($company->website, '/')) }}</a>
-                            </div>
-                            @endif
-                            @if($showShopPctHint)
-                            <div class="dir-shop-pct-hint">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                                <span>Disponibili prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
-                            </div>
-                            @endif
-                        </div>
-
-                        @if($hasHiddenContact)
-                        <div class="dir-card-tooltip">
-                            <div class="dir-card-tooltip-title">Contatti</div>
                             @if($company->email)
                             <div class="dir-contact">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -678,8 +681,13 @@
                                 <span>{{ $company->phone }}</span>
                             </div>
                             @endif
+                            @if($showShopPctHint)
+                            <div class="dir-shop-pct-hint">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                <span>Prodotti al {{ $bestListingKyPct }}% KY sullo shop</span>
+                            </div>
+                            @endif
                         </div>
-                        @endif
                     </div>
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
@@ -694,8 +702,9 @@
                             @endif
                         @endif
                         @if($listings > 0)
-                            <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="dir-btn dir-btn-ghost" title="Shop">
+                            <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="dir-btn dir-btn-ghost" title="Vai allo shop">
                                 <svg class="dir-btn-shop-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                                <span>SHOP</span>
                             </a>
                         @endif
                         @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
