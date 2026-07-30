@@ -44,6 +44,7 @@ class MlmMetricGrantSmokeTest extends TestCase
             'pageTitle'          => 'La mia struttura',
             'tree'               => [],
             'agent'              => $agent,
+            'agentCode'          => $agent->agentCode(),
             'activePoints'       => $agent->mlmActivePoints(),
             'expiringPoints'     => 0,
             'rankAtRisk'         => false,

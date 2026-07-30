@@ -82,19 +82,26 @@ class MlmWalletServiceTest extends TestCase
 
     private function makeCommission(User $agent, int $amountCents, string $type = 'diretta', ?int $level = null): MlmCommission
     {
-        // firstOrCreate per period_month: mlm_commission_runs.period_month e'
-        // UNIQUE, quindi due chiamate a makeCommission() nello stesso test
-        // (stesso mese) devono riusare lo stesso run invece di crearne un
-        // secondo e violare il vincolo.
-        $run = MlmCommissionRun::firstOrCreate(
-            ['period_month' => now()->startOfMonth()->toDateString()],
-            [
+        // mlm_commission_runs.period_month e' UNIQUE, quindi due chiamate a
+        // makeCommission() nello stesso test (stesso mese) devono riusare lo
+        // stesso run invece di crearne un secondo e violare il vincolo.
+        // NON usare firstOrCreate(['period_month' => ...toDateString()]):
+        // la colonna e' castata 'date' ma Eloquent la SALVA come datetime
+        // completo ("2026-07-01 00:00:00"), mentre il where di firstOrCreate
+        // confronta con la sola data ("2026-07-01") senza applicare il cast
+        // — non trova mai la riga esistente e tenta di ricrearla, violando
+        // il vincolo UNIQUE al secondo giro. whereDate() normalizza il
+        // confronto lato SQL (stesso pattern gia' usato in produzione da
+        // MlmCommissionEngine) ed evita il problema.
+        $periodMonth = now()->startOfMonth()->toDateString();
+        $run = MlmCommissionRun::whereDate('period_month', $periodMonth)->first()
+            ?? MlmCommissionRun::create([
+                'period_month'    => $periodMonth,
                 'idempotency_key' => 'run_' . Str::random(10),
                 'status'          => 'completed',
                 'started_at'      => now(),
                 'completed_at'    => now(),
-            ],
-        );
+            ]);
 
         $client = User::create([
             'name'                => 'Cliente ' . Str::random(6),
