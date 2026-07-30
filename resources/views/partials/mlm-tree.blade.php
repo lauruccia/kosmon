@@ -173,7 +173,7 @@
                 <div class="mlm-modal-name" id="mlmModalName">&mdash;</div>
                 <div class="mlm-modal-rank" id="mlmModalRank">&mdash;</div>
                 <span class="mlm-modal-basiq" id="mlmModalBasiq" style="display:none;"></span>
-                <span class="mlm-modal-granted" id="mlmModalGranted" style="display:none;" title="Punti omaggio assegnati dall'amministrazione: contano per qualifiche e BasiQ, non compaiono nei punti del riquadro (solo ledger reale)."></span>
+                <span class="mlm-modal-granted" id="mlmModalGranted" style="display:none;" title="Punti omaggio assegnati dall'amministrazione: gia' inclusi nel totale mostrato sopra (contano per qualifiche e BasiQ) &mdash; qui vedi quanti sono nello specifico."></span>
             </div>
         </div>
         <table>

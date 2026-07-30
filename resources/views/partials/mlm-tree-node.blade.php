@@ -6,10 +6,15 @@
     $initials = count($words) >= 2
         ? mb_strtoupper(mb_substr($words[0], 0, 1) . mb_substr($words[1], 0, 1))
         : mb_strtoupper(mb_substr($node['name'], 0, 2));
-    // Punti omaggio: visibili sempre all'admin, nel portale SOLO sul proprio
-    // nodo (un agente non vede i regali fatti ad altri). L'attributo non
-    // viene proprio renderizzato negli altri casi, così non è nemmeno
-    // ispezionabile nell'HTML.
+    // Il numero "X pt" sul nodo (2026-07-30, richiesta di Laura) e' SEMPRE
+    // il totale attivo (reali + omaggio netto, vedi MlmTreeService::subtree
+    // 'points'): chi legge l'albero vede lo stesso numero che decide
+    // davvero qualifiche/gating, non solo il ledger reale. La SCOMPOSIZIONE
+    // (quanto e' omaggio nello specifico) resta invece riservata: visibile
+    // sempre all'admin, nel portale SOLO sul proprio nodo (un agente non
+    // vede QUANTO hanno ricevuto in regalo gli altri, anche se ne vede
+    // l'effetto nel totale). L'attributo non viene proprio renderizzato
+    // negli altri casi, così non è nemmeno ispezionabile nell'HTML.
     $grantedVisible = ($node['granted_points'] ?? 0) !== 0
         && ((($mode ?? 'portal') === 'admin') || auth()->id() === $node['id']);
     // Punti cumulativi del sotto-ramo (nodo + downline, vedi
@@ -47,7 +52,7 @@
         <span class="mlm-node-avatar">{{ $initials }}</span>
         <span class="mlm-node-text">
             <span class="mlm-node-name" title="{{ $node['name'] }}">{{ $node['name'] }}</span>
-            <span class="mlm-node-points">{{ $meta['label'] }} · {{ mlm_points_format($node['points']) }} pt</span>
+            <span class="mlm-node-points" title="Punti attivi (reali + omaggio): il totale che conta davvero per qualifiche, BasiQ e commissioni.">{{ $meta['label'] }} · {{ mlm_points_format($node['points']) }} pt</span>
         </span>
     </a>
     @if($depth === 1)

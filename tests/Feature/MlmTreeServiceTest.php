@@ -366,6 +366,14 @@ class MlmTreeServiceTest extends TestCase
 
         $this->assertSame(0, $tree['granted_points']);
         $this->assertSame(25, $tree['children'][0]['granted_points']);
+
+        // 2026-07-30 (richiesta di Laura): 'points' e' ora il totale attivo
+        // (reali + omaggio netto), non solo il ledger reale — il "gifted"
+        // non ha punti reali (nessun MlmPointLedgerEntry creato sopra), solo
+        // 25 di omaggio netto, quindi points deve valere 25, non 0.
+        // 'points_real' resta invece il solo ledger reale (0).
+        $this->assertSame(25.0, (float) $tree['children'][0]['points'], "points include l'omaggio dal 2026-07-30");
+        $this->assertSame(0.0, (float) $tree['children'][0]['points_real'], 'points_real resta il solo ledger reale');
     }
 
     public function test_subtree_exposes_cumulative_branch_points_per_node(): void
@@ -403,7 +411,7 @@ class MlmTreeServiceTest extends TestCase
         $tree = $this->tree->subtree($root);
 
         $this->assertSame(160.0, (float) $tree['branch_points']);
-        $this->assertSame(10.0, (float) $tree['points'], 'points resta il valore del solo nodo');
+        $this->assertSame(10.0, (float) $tree['points'], 'points resta il totale del solo nodo (non del ramo); qui senza omaggio coincide col reale');
 
         $children = collect($tree['children'])->keyBy('id');
         $this->assertSame(150.0, (float) $children[$a->id]['branch_points']);

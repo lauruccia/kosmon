@@ -184,24 +184,33 @@ class MlmTreeService
     /**
      * Sottoalbero completo di un agente come array annidato, pronto per il
      * rendering dell'albero (portale "Struttura" e admin "Albero agenti").
-     * Ogni nodo: id, name, rank, points (attivi oggi), basiq (bool,
-     * mlm_basiq_at valorizzato — mostrato come spunta "BasiQ" nel popup),
-     * granted_points (netto dei punti omaggio admin attivi SUL SOLO nodo —
-     * la VISIBILITA' è decisa dalla vista: admin sempre, portale solo sul
-     * proprio nodo, vedi mlm-tree-node.blade.php), clients_count,
-     * agents_count (figli diretti), branch_points (punti CUMULATIVI del
-     * sotto-ramo: il nodo stesso + tutta la sua downline — 2026-07-22,
-     * richiesta di Laura: dall'albero si deve vedere come sono distribuiti i
-     * punti per ramo/colonna, es. verso il requisito "colonne da 300
-     * punti"), branch_points_real (stessa cumulata ma SOLO ledger reale,
-     * senza omaggio) e branch_granted_points (cumulata del solo omaggio,
-     * puo' essere negativa per correzioni admin) — dal 2026-07-22
-     * pomeriggio bis branch_points INCLUDE l'omaggio, perche' l'omaggio
-     * conta per la soglia dei 300 (MlmRankEngine::evaluate,
-     * branches_300pt): senza includerlo il numero mostrato non
-     * coinciderebbe con cio' che conta davvero per la qualifica. Le altre
-     * due cumulate servono alle viste per mostrare la scomposizione "X
-     * reali + Y omaggio" invece di un unico numero opaco. children[].
+     * Ogni nodo: id, name, rank, points (TOTALE ATTIVO del solo nodo, reali
+     * + omaggio netto, clampato a 0 — stessa convenzione di
+     * User::mlmActivePoints(): dal 2026-07-30, richiesta di Laura, e' il
+     * numero che il motore usa davvero, cosi' chi legge l'albero vede lo
+     * stesso valore che decide qualifiche/gating, non solo il ledger reale.
+     * Visibile a chiunque veda il nodo, come gia' accadeva per il vecchio
+     * "solo reale" — nessuna nuova restrizione), points_real (solo ledger
+     * reale del nodo, senza omaggio, per chi vuole la scomposizione), basiq
+     * (bool, mlm_basiq_at valorizzato — mostrato come spunta "BasiQ" nel
+     * popup), granted_points (netto dei punti omaggio admin attivi SUL SOLO
+     * nodo — la VISIBILITA' del dettaglio/scomposizione resta quella
+     * decisa dalla vista: admin sempre, portale solo sul proprio nodo, vedi
+     * mlm-tree-node.blade.php; il TOTALE in "points" invece e' sempre
+     * visibile, vedi sopra), clients_count, agents_count (figli diretti),
+     * branch_points (punti CUMULATIVI del sotto-ramo: il nodo stesso +
+     * tutta la sua downline — 2026-07-22, richiesta di Laura: dall'albero
+     * si deve vedere come sono distribuiti i punti per ramo/colonna, es.
+     * verso il requisito "colonne da 300 punti"), branch_points_real
+     * (stessa cumulata ma SOLO ledger reale, senza omaggio) e
+     * branch_granted_points (cumulata del solo omaggio, puo' essere
+     * negativa per correzioni admin) — dal 2026-07-22 pomeriggio bis
+     * branch_points INCLUDE l'omaggio, perche' l'omaggio conta per la
+     * soglia dei 300 (MlmRankEngine::evaluate, branches_300pt): senza
+     * includerlo il numero mostrato non coinciderebbe con cio' che conta
+     * davvero per la qualifica. Le altre due cumulate servono alle viste
+     * per mostrare la scomposizione "X reali + Y omaggio" invece di un
+     * unico numero opaco. children[].
      */
     public function subtree(User $root): array
     {
@@ -262,6 +271,12 @@ class MlmTreeService
             $ownPoints = mlm_points_normalize((float) ($points[$id] ?? 0));
             $ownGranted = (int) ($grantedPoints[$id] ?? 0);
 
+            // Totale attivo del solo nodo (reali + omaggio netto, clampato a
+            // 0, stessa convenzione di User::mlmActivePoints()): dal
+            // 2026-07-30 e' questo il numero esposto come 'points' — vedi
+            // docblock del metodo.
+            $ownActivePoints = max(0, mlm_points_normalize($ownPoints + $ownGranted));
+
             // Punti REALI del sotto-ramo: i propri + la somma dei
             // branch_points_real dei figli (che gia' includono le rispettive
             // downline).
@@ -287,7 +302,8 @@ class MlmTreeService
                 'id'            => $user->id,
                 'name'          => $user->name,
                 'rank'          => $user->mlm_rank ?: 'start',
-                'points'        => $ownPoints,
+                'points'        => $ownActivePoints,
+                'points_real'   => $ownPoints,
                 'basiq'         => $user->mlm_basiq_at !== null,
                 'granted_points' => $ownGranted,
                 'clients_count' => (int) ($clientCounts[$id] ?? 0),
