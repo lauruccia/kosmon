@@ -104,8 +104,21 @@
 
 <div class="catalog-grid" style="margin-top:18px;">
     @forelse($listings as $listing)
-    <article class="catalog-card">
+    {{-- Prodotti non 'active' (sospesi da azienda/admin) compaiono qui SOLO per
+         il proprietario/admin (vedi ListingController::index, query con orWhere
+         company_id) — al pubblico restano invisibili grazie allo scope active()
+         applicato comunque come condizione base. Overlay + azioni sotto rendono
+         chiaro che non sono visibili nello shop pubblico (2026-07-30). --}}
+    <article class="catalog-card{{ $listing->status !== 'active' ? ' catalog-card--inactive' : '' }}">
+        {{-- Il prodotto sospeso non ha una pagina dettaglio raggiungibile (show()
+             la blocca per chiunque, proprietario incluso): niente link su foto/
+             titolo in quel caso, per non portare a un redirect "non disponibile"
+             quando basta il pulsante "Riattiva" qui sotto per gestirlo. --}}
+        @if($listing->status === 'active')
         <a href="{{ route('portal.shop.show', $listing) }}" class="product-media">
+        @else
+        <div class="product-media">
+        @endif
             @if($listing->first_image_url)
                 <img src="{{ $listing->first_image_url }}" alt="{{ $listing->title }}" loading="lazy">
             @else
@@ -117,13 +130,23 @@
                 <span class="product-badge product-badge--full-ky">100% KY</span>
             @endif
             @if($listing->featured)<span class="product-badge product-badge--featured">★</span>@endif
-            @if(! $listing->isInStock())
+            @if($listing->status !== 'active')
+                <span class="product-media-overlay">{{ \App\Models\Listing::statusLabel($listing->status) }}</span>
+            @elseif(! $listing->isInStock())
                 <span class="product-media-overlay">Esaurito</span>
             @endif
+        @if($listing->status === 'active')
         </a>
+        @else
+        </div>
+        @endif
         <div class="product-body">
             <h3 class="product-title">
-                <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
+                @if($listing->status === 'active')
+                    <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
+                @else
+                    <span>{{ $listing->title }}</span>
+                @endif
             </h3>
             <div class="entity-meta">
                 <span class="chip">{{ $listing->company->name }}</span>
@@ -135,9 +158,22 @@
                 @endif
             </div>
             <div class="page-actions" style="margin-top:2px;">
-                <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
+                @if($listing->status === 'active')
+                    <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
+                @else
+                    <span class="listing-hidden-note">Non visibile al pubblico</span>
+                @endif
                 @if(auth()->user()->company_id === $listing->company_id || auth()->user()->is_super_admin)
                     <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary">Modifica</a>
+                    {{-- Sospendi/Riattiva (2026-07-30): azienda proprietaria E admin possono
+                         nascondere temporaneamente il prodotto dal pubblico e riattivarlo
+                         quando serve, senza doverlo eliminare. Solo toggle active<->suspended:
+                         'draft'/'expired' restano stati gestiti solo da admin/sistema. --}}
+                    <form method="POST" action="{{ route('portal.shop.status', $listing) }}" style="display:inline;">
+                        @csrf
+                        <input type="hidden" name="status" value="{{ $listing->status === 'active' ? 'suspended' : 'active' }}">
+                        <button type="submit" class="cta secondary">{{ $listing->status === 'active' ? 'Sospendi' : 'Riattiva' }}</button>
+                    </form>
                 @endif
             </div>
         </div>
@@ -207,6 +243,13 @@
         transform: translateY(-4px);
         box-shadow: var(--shadow-lg);
         border-color: var(--line-strong);
+    }
+    /* Prodotto sospeso/non attivo, visibile solo al proprietario/admin (2026-07-30) */
+    .catalog-card--inactive { opacity: .72; }
+    .catalog-card--inactive:hover { opacity: 1; }
+    .listing-hidden-note {
+        flex: 1; font-size: 12px; font-weight: 600; color: var(--ink-muted);
+        display: flex; align-items: center; justify-content: center; text-align: center;
     }
     .product-media {
         position: relative; display: block; aspect-ratio: 16 / 10;

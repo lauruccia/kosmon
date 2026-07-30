@@ -465,6 +465,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');
     Route::delete('/shop/{listing}/immagini', [ListingController::class, 'destroyImage'])->name('portal.shop.image.destroy');
+    Route::post('/shop/{listing}/stato', [ListingController::class, 'updateOwnStatus'])->name('portal.shop.status');
 
     // Pagamento EUR (quota non-KY) di un ordine shop — vedi PaymentController.
     Route::get('/shop/ordini/{payment}', [PaymentController::class, 'show'])->name('portal.shop.orders.pay');

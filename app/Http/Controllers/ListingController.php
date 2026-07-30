@@ -56,9 +56,22 @@ class ListingController extends Controller
             }
         }
 
+        // Un prodotto sospeso dalla propria azienda (o da admin) resta visibile
+        // SOLO al proprietario (stesso company_id) e agli admin che navigano lo
+        // shop col proprio account super_admin — per chiunque altro lo scope
+        // active() lo esclude come prima. Cosi' chi ha messo in pausa un
+        // prodotto lo ritrova nella stessa griglia per poterlo riattivare,
+        // invece di doverlo cercare in un'altra pagina (2026-07-30).
+        $ownCompanyId = $user->company_id;
+
         $listingsQuery = Listing::query()
             ->with('company.plan')
-            ->active()
+            ->where(function ($query) use ($ownCompanyId) {
+                $query->active();
+                if ($ownCompanyId) {
+                    $query->orWhere('company_id', $ownCompanyId);
+                }
+            })
             ->when($category !== '', fn ($query) => $query->inCategory($category))
             ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
                 $scope->where('title', 'like', "%{$q}%")
@@ -464,6 +477,34 @@ class ListingController extends Controller
         $listing->deleteImage($path);
 
         return back()->with('portal_success', 'Immagine eliminata.');
+    }
+
+    // ── Portale: sospendi/riattiva prodotto (nascondi dal pubblico e viceversa) ──
+
+    /**
+     * Permette all'azienda proprietaria (o a un admin) di nascondere
+     * temporaneamente un prodotto dallo shop pubblico ('suspended') e di
+     * riattivarlo quando serve ('active'), senza doverlo eliminare — richiesta
+     * di Laura del 2026-07-30. Solo questi due stati sono selezionabili da
+     * qui: 'draft'/'expired' restano gestibili solo da admin/sistema tramite
+     * adminUpdateStatus().
+     */
+    public function updateOwnStatus(Request $request, Listing $listing): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+
+        $request->validate([
+            'status' => ['required', Rule::in(['active', 'suspended'])],
+        ]);
+
+        $listing->update(['status' => $request->input('status')]);
+
+        $message = $request->input('status') === 'suspended'
+            ? 'Prodotto sospeso: non è più visibile nello shop pubblico.'
+            : 'Prodotto riattivato: torna visibile nello shop.';
+
+        return back()->with('portal_success', $message);
     }
 
     // ── Admin: lista moderazione ──────────────────────────────────────────────
