@@ -1,29 +1,25 @@
 {{--
     Pagina agente "Segnalazioni aziende" (feature richiesta da Laura il
-    29/07/2026, vedi MlmPortalController::companyReports()/companyReportSign()/
-    companyReportReject() e CompanyReportService): elenco delle segnalazioni
-    ricevute dai propri clienti, con azione "Contratto firmato" (eroga
-    subito il bonus KY al cliente) o "Non riuscita" (richiede una nota).
+    29/07/2026, vedi MlmPortalController::companyReports() e
+    CompanyReportService).
+
+    AGGIORNAMENTO 30/07/2026 (decisione esplicita di Laura): pagina di
+    SOLA VISIBILITÀ — la conferma "contratto firmato" (che eroga il bonus
+    KY al cliente) o "non riuscita" spetta ora solo all'admin (vedi
+    Admin\CompanyReportController::sign()/reject() e
+    admin/mlm/company-reports.blade.php). Prima era l'agente a decidere e
+    l'admin restava in copia: i ruoli sono stati invertiti.
 --}}
 @extends('layouts.portal')
 
 @section('content')
-@if(session('status'))
-    <div style="margin-bottom:14px;padding:12px 16px;border-radius:10px;background:rgba(22,163,74,.09);border:1px solid rgba(22,163,74,.3);color:#166534;font-size:13px;font-weight:600;">
-        {{ session('status') }}
-    </div>
-@endif
-@if($errors->any())
-    <div style="margin-bottom:14px;padding:12px 16px;border-radius:10px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.3);color:#b91c1c;font-size:13px;font-weight:600;">
-        {{ $errors->first() }}
-    </div>
-@endif
 
 <div class="card card-pad" style="margin-bottom:14px;">
     <h2 style="margin:0 0 4px;font-size:18px;">Segnalazioni aziende</h2>
     <p style="margin:0;color:var(--ink-muted);font-size:13px;">
-        Aziende segnalate dai tuoi clienti dove vorrebbero spendere i loro KY. Se firmi un contratto
-        con l'azienda, il cliente riceve subito il bonus KY previsto.
+        Aziende segnalate dai tuoi clienti dove vorrebbero spendere i loro KY. La conferma del
+        contratto firmato (e l'erogazione del bonus KY al cliente) spetta all'admin: qui trovi
+        solo lo stato delle segnalazioni.
     </p>
 </div>
 
@@ -58,32 +54,8 @@
             @endif
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:10px;min-width:260px;">
-            <form method="POST" action="{{ route('portal.mlm.company-reports.sign', $report) }}">
-                @csrf
-                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Contratto firmato</div>
-                    <input type="text" name="agent_notes" maxlength="1000" placeholder="Nota (facoltativa)"
-                        style="width:100%;padding:7px 10px;border:1px solid #86efac;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;margin-bottom:8px;">
-                    <button type="submit" style="width:100%;padding:9px;background:#16a34a;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;">
-                        ✅ Contratto firmato
-                    </button>
-                </div>
-            </form>
-
-            <form method="POST" action="{{ route('portal.mlm.company-reports.reject', $report) }}">
-                @csrf
-                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Non riuscita</div>
-                    <input type="text" name="agent_notes" maxlength="1000" placeholder="Motivazione (obbligatoria)" required
-                        style="width:100%;padding:7px 10px;border:1px solid #fca5a5;border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;margin-bottom:8px;">
-                    <button type="submit"
-                        onclick="return confirm('Confermi che la segnalazione di {{ $report->company_name }} non è andata a buon fine?')"
-                        style="width:100%;padding:9px;background:#dc2626;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;">
-                        ❌ Non riuscita
-                    </button>
-                </div>
-            </form>
+        <div style="min-width:200px;text-align:right;">
+            <span class="chip" style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;">In attesa di conferma admin</span>
         </div>
     </div>
     @endforeach

@@ -12,7 +12,6 @@ use App\Models\MlmInvitation;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\MlmAgentCreatedByReferrerNotification;
-use App\Services\CompanyReportService;
 use App\Services\MlmPayoutService;
 use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
@@ -511,6 +510,12 @@ class MlmPortalController extends Controller
      * (feature richiesta da Laura il 29/07/2026, vedi CompanyReportService)
      * assegnate a questo agente: sezione pending (da valutare) + storico
      * chiuse (contratto firmato / non riuscita).
+     *
+     * AGGIORNAMENTO 30/07/2026: sola visibilità/lettura. La decisione di
+     * segnare "contratto firmato" o "non riuscita" ora spetta SOLO
+     * all'admin (vedi Admin\CompanyReportController::sign()/reject()) —
+     * decisione esplicita di Laura, prima era il contrario (l'agente
+     * decideva, l'admin era in copia).
      */
     public function companyReports(Request $request): View
     {
@@ -534,41 +539,5 @@ class MlmPortalController extends Controller
             'pending'   => $pending,
             'closed'    => $closed,
         ]);
-    }
-
-    /** POST /portale/mlm/segnalazioni-aziende/{companyReport}/contratto-firmato */
-    public function companyReportSign(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
-    {
-        $agent = $this->agentOrAbort($request);
-
-        abort_unless($companyReport->agent_user_id === $agent->id, 403);
-        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
-
-        $validated = $request->validate([
-            'agent_notes' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $service->markContractSigned($companyReport, $agent, $validated['agent_notes'] ?? null);
-
-        return back()->with('status', 'Contratto firmato registrato: bonus accreditato al cliente segnalante.');
-    }
-
-    /** POST /portale/mlm/segnalazioni-aziende/{companyReport}/rifiuta */
-    public function companyReportReject(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
-    {
-        $agent = $this->agentOrAbort($request);
-
-        abort_unless($companyReport->agent_user_id === $agent->id, 403);
-        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
-
-        $validated = $request->validate([
-            'agent_notes' => ['required', 'string', 'max:1000'],
-        ], [
-            'agent_notes.required' => 'Inserisci una breve motivazione per il rifiuto.',
-        ]);
-
-        $service->markRejected($companyReport, $agent, $validated['agent_notes']);
-
-        return back()->with('status', 'Segnalazione chiusa come non riuscita.');
     }
 }

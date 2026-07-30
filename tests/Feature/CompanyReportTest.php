@@ -218,6 +218,72 @@ class CompanyReportTest extends TestCase
 
     public function test_mark_rejected_requires_a_reason_via_the_controller(): void
     {
+        $admin = $this->makeSuperAdmin();
+        $agent = $this->makeAgent();
+        $client = $this->makeClient($agent->id);
+
+        $report = app(CompanyReportService::class)->submit($client, [
+            'company_name' => 'Bar Centrale',
+        ]);
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.company-reports.reject', $report),
+            ['agent_notes' => '']
+        );
+
+        $response->assertSessionHasErrors('agent_notes');
+        $this->assertTrue($report->fresh()->isPending());
+    }
+
+    // ── Controllo dell'attore autorizzato: solo l'admin, non più l'agente ──
+
+    public function test_admin_can_sign_the_contract_via_the_admin_controller(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $agent = $this->makeAgent();
+        $client = $this->makeClient($agent->id);
+
+        $report = app(CompanyReportService::class)->submit($client, [
+            'company_name' => 'Bar Centrale',
+        ]);
+
+        $expectedAmount = (int) SystemSetting::userLimitDefaults()->referral_bonus_attivita_amount;
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.company-reports.sign', $report),
+            ['agent_notes' => 'Firmato in loco']
+        );
+
+        $response->assertRedirect();
+        $report->refresh();
+        $this->assertTrue($report->isContractSigned());
+        $this->assertSame($admin->id, $report->actioned_by);
+        $this->assertSame($expectedAmount, $this->accountBalance($client));
+    }
+
+    public function test_admin_can_reject_via_the_admin_controller(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $agent = $this->makeAgent();
+        $client = $this->makeClient($agent->id);
+
+        $report = app(CompanyReportService::class)->submit($client, [
+            'company_name' => 'Bar Centrale',
+        ]);
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.company-reports.reject', $report),
+            ['agent_notes' => 'Azienda non interessata']
+        );
+
+        $response->assertRedirect();
+        $report->refresh();
+        $this->assertTrue($report->isRejected());
+        $this->assertSame($admin->id, $report->actioned_by);
+    }
+
+    public function test_agent_can_no_longer_sign_or_reject_reports(): void
+    {
         $this->makeSuperAdmin();
         $agent = $this->makeAgent();
         $client = $this->makeClient($agent->id);
@@ -226,12 +292,19 @@ class CompanyReportTest extends TestCase
             'company_name' => 'Bar Centrale',
         ]);
 
+        // Le route dell'agente per firmare/rifiutare non esistono più: solo
+        // la route di sola lettura (portal.mlm.company-reports.index) resta.
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('portal.mlm.company-reports.sign'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('portal.mlm.company-reports.reject'));
+
+        // Un agente non e' un admin: se provasse a colpire la route admin
+        // (es. URL indovinato), verrebbe respinto con 403.
         $response = $this->actingAs($agent)->post(
-            route('portal.mlm.company-reports.reject', $report),
-            ['agent_notes' => '']
+            route('admin.company-reports.reject', $report),
+            ['agent_notes' => 'Provo comunque']
         );
 
-        $response->assertSessionHasErrors('agent_notes');
+        $response->assertForbidden();
         $this->assertTrue($report->fresh()->isPending());
     }
 

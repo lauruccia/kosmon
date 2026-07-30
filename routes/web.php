@@ -465,7 +465,6 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');
     Route::delete('/shop/{listing}/immagini', [ListingController::class, 'destroyImage'])->name('portal.shop.image.destroy');
-    Route::post('/shop/{listing}/stato', [ListingController::class, 'updateOwnStatus'])->name('portal.shop.status');
 
     // Pagamento EUR (quota non-KY) di un ordine shop — vedi PaymentController.
     Route::get('/shop/ordini/{payment}', [PaymentController::class, 'show'])->name('portal.shop.orders.pay');
@@ -674,11 +673,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->
         Route::post('/mlm/prelievi', [MlmPortalController::class, 'prelieviStore'])->name('portal.mlm.prelievi.store')->middleware('step.up');
 
         // Segnalazioni aziende ricevute dai propri clienti (2026-07-29, vedi
-        // CompanyReportService): l'agente conferma/rifiuta, l'admin resta solo
-        // in copia/visibilita' (vedi admin.company-reports.index).
+        // CompanyReportService). AGGIORNAMENTO 30/07/2026: sola
+        // visibilita'/lettura per l'agente — la conferma/rifiuto e' ora solo
+        // dell'admin (vedi admin.company-reports.sign/.reject qui sotto).
         Route::get('/mlm/segnalazioni-aziende', [MlmPortalController::class, 'companyReports'])->name('portal.mlm.company-reports.index');
-        Route::post('/mlm/segnalazioni-aziende/{companyReport}/contratto-firmato', [MlmPortalController::class, 'companyReportSign'])->name('portal.mlm.company-reports.sign');
-        Route::post('/mlm/segnalazioni-aziende/{companyReport}/rifiuta', [MlmPortalController::class, 'companyReportReject'])->name('portal.mlm.company-reports.reject');
 
         // MLM (KNM) — report guadagni dell'agente (2026-07-29): dettaglio riga
         // per riga di ogni commissione/bonus maturato, distinto dallo storico
@@ -923,8 +921,12 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
         Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
         // Segnalazioni aziende (2026-07-29): l'admin vede TUTTE le segnalazioni
-        // di tutti gli agenti, sola visibilita'/copia (vedi CompanyReportService).
+        // di tutti gli agenti. AGGIORNAMENTO 30/07/2026: l'admin e' anche
+        // l'unico che puo' segnare "contratto firmato"/"non riuscita" (prima
+        // era l'agente, vedi CompanyReportService).
         Route::get('/admin/segnalazioni-aziende', [AdminCompanyReportController::class, 'index'])->name('admin.company-reports.index')->middleware('backoffice');
+        Route::post('/admin/segnalazioni-aziende/{companyReport}/contratto-firmato', [AdminCompanyReportController::class, 'sign'])->name('admin.company-reports.sign')->middleware('backoffice');
+        Route::post('/admin/segnalazioni-aziende/{companyReport}/rifiuta', [AdminCompanyReportController::class, 'reject'])->name('admin.company-reports.reject')->middleware('backoffice');
         Route::get('/admin/mlm/{user}', [MlmController::class, 'show'])->name('admin.mlm.show')->middleware('backoffice');
         Route::get('/admin/mlm/{user}/promuovi', [MlmController::class, 'promoteForm'])->name('admin.mlm.promote-form')->middleware('backoffice');
         Route::get('/admin/mlm-albero', [MlmController::class, 'tree'])->name('admin.mlm.tree.roots')->middleware('backoffice');

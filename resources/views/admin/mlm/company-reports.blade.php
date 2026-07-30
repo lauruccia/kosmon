@@ -1,9 +1,12 @@
 {{--
     Pannello admin "Segnalazioni aziende" (feature richiesta da Laura il
-    29/07/2026, vedi Admin\CompanyReportController): elenco READ-ONLY di
-    TUTTE le segnalazioni di tutti gli agenti — l'admin è sempre e solo in
-    copia/visibilità, nessuna azione di approvazione qui (le decisioni
-    spettano all'agente assegnato, vedi portal/mlm/company-reports.blade.php).
+    29/07/2026, vedi Admin\CompanyReportController).
+
+    AGGIORNAMENTO 30/07/2026 (decisione esplicita di Laura): l'admin non è
+    più solo in copia/visibilità — è l'UNICO che può segnare "contratto
+    firmato" (eroga il bonus KY al cliente segnalante) o "non riuscita" per
+    le segnalazioni in attesa. L'agente assegnato resta in sola lettura
+    (vedi portal/mlm/company-reports.blade.php).
 --}}
 @extends('layouts.portal')
 
@@ -13,8 +16,8 @@
     <div>
         <h2 style="margin:0 0 4px;font-size:18px;">Segnalazioni aziende</h2>
         <p style="margin:0;color:var(--ink-muted);font-size:13px;">
-            Tutte le segnalazioni di tutti gli agenti. Sola visibilità: la decisione di firmare o
-            rifiutare spetta all'agente assegnato al cliente.
+            Tutte le segnalazioni di tutti gli agenti. La decisione di segnare "contratto firmato"
+            o "non riuscita" spetta a te: l'agente assegnato resta in sola visibilità.
         </p>
     </div>
     @if($pendingCount > 0)
@@ -43,9 +46,10 @@
                 <th>Azienda</th>
                 <th>Città</th>
                 <th style="text-align:center;">Stato</th>
-                <th>Nota agente</th>
+                <th>Nota</th>
                 <th>Inviata il</th>
                 <th>Chiusa il</th>
+                <th style="min-width:200px;">Azione</th>
             </tr>
         </thead>
         <tbody>
@@ -77,6 +81,32 @@
                 <td style="font-size:12px;color:var(--ink-soft);max-width:180px;">{{ $report->agent_notes ?? '—' }}</td>
                 <td style="font-size:12px;color:var(--ink-muted);">{{ $report->created_at->format('d/m/Y') }}</td>
                 <td style="font-size:12px;color:var(--ink-muted);">{{ $report->actioned_at?->format('d/m/Y') ?? '—' }}</td>
+                <td>
+                    @if($report->isPending())
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <form method="POST" action="{{ route('admin.company-reports.sign', $report) }}">
+                            @csrf
+                            <input type="text" name="agent_notes" maxlength="1000" placeholder="Nota (facoltativa)"
+                                style="width:100%;padding:5px 8px;border:1px solid #86efac;border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;">
+                            <button type="submit" style="width:100%;padding:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;">
+                                ✅ Contratto firmato
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.company-reports.reject', $report) }}">
+                            @csrf
+                            <input type="text" name="agent_notes" maxlength="1000" placeholder="Motivazione (obbligatoria)" required
+                                style="width:100%;padding:5px 8px;border:1px solid #fca5a5;border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;">
+                            <button type="submit"
+                                onclick="return confirm('Confermi che la segnalazione di {{ $report->company_name }} non è andata a buon fine?')"
+                                style="width:100%;padding:6px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;">
+                                ❌ Non riuscita
+                            </button>
+                        </form>
+                    </div>
+                    @else
+                    <span style="color:var(--ink-muted);font-size:12px;">—</span>
+                    @endif
+                </td>
             </tr>
             @endforeach
         </tbody>

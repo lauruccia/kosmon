@@ -5,17 +5,21 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Controller;
 use App\Models\CompanyReport;
+use App\Services\CompanyReportService;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 /**
  * Pannello admin "Segnalazioni aziende" (feature richiesta da Laura il
- * 29/07/2026, vedi CompanyReportService): elenco READ-ONLY di TUTTE le
- * segnalazioni di tutti gli agenti — l'admin resta sempre e solo in
- * copia/visibilita', mai un gate di approvazione (la decisione di
- * segnare "contratto firmato" o "non riuscita" spetta solo all'agente
- * assegnato, vedi MlmPortalController::companyReportSign()/
- * companyReportReject()).
+ * 29/07/2026, vedi CompanyReportService).
+ *
+ * AGGIORNAMENTO 30/07/2026 (decisione esplicita di Laura): la decisione di
+ * segnare "contratto firmato" (eroga il bonus KY al segnalante) o "non
+ * riuscita" NON spetta più all'agente assegnato ma SOLO all'admin — vedi
+ * sign()/reject() qui sotto. L'agente resta in sola visibilità/copia della
+ * segnalazione (vedi portal/mlm/company-reports.blade.php, ormai read-only),
+ * simmetrico a come prima era l'admin.
  */
 class CompanyReportController extends Controller
 {
@@ -42,5 +46,41 @@ class CompanyReportController extends Controller
             'statusFilter' => $status,
             'pendingCount' => CompanyReport::pending()->count(),
         ]);
+    }
+
+    /** POST /admin/segnalazioni-aziende/{companyReport}/contratto-firmato */
+    public function sign(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
+    {
+        $admin = $request->user();
+        $this->authorizeBackoffice($admin);
+
+        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
+
+        $validated = $request->validate([
+            'agent_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $service->markContractSigned($companyReport, $admin, $validated['agent_notes'] ?? null);
+
+        return back()->with('status', 'Contratto firmato registrato: bonus accreditato al cliente segnalante.');
+    }
+
+    /** POST /admin/segnalazioni-aziende/{companyReport}/rifiuta */
+    public function reject(Request $request, CompanyReport $companyReport, CompanyReportService $service): RedirectResponse
+    {
+        $admin = $request->user();
+        $this->authorizeBackoffice($admin);
+
+        abort_unless($companyReport->isPending(), 422, 'Segnalazione non più in attesa.');
+
+        $validated = $request->validate([
+            'agent_notes' => ['required', 'string', 'max:1000'],
+        ], [
+            'agent_notes.required' => 'Inserisci una breve motivazione per il rifiuto.',
+        ]);
+
+        $service->markRejected($companyReport, $admin, $validated['agent_notes']);
+
+        return back()->with('status', 'Segnalazione chiusa come non riuscita.');
     }
 }

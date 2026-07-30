@@ -21,10 +21,17 @@ use Illuminate\Support\Facades\Log;
  * vorrebbe spendere il proprio saldo KY. La segnalazione arriva
  * all'agente di riferimento del cliente (o alla radice di sistema se il
  * cliente non ne ha uno, vedi resolveAgentFor()) e in copia/visibilita' a
- * tutti gli admin. Se l'agente riesce a firmare un contratto con
- * l'azienda segnalata, il sistema eroga SUBITO (nessuna approvazione
- * admin) un bonus KY al segnalante, a carico del conto madre — stesso
- * importo del livello "attivita'" del referral (SystemSetting::
+ * tutti gli admin.
+ *
+ * AGGIORNAMENTO 30/07/2026 (decisione esplicita di Laura): è l'ADMIN,
+ * non più l'agente, a confermare la firma del contratto o il rifiuto
+ * (vedi Admin\CompanyReportController::sign()/reject()) — l'agente resta
+ * in sola visibilità (vedi portal/mlm/company-reports.blade.php). I
+ * metodi markContractSigned()/markRejected() qui sotto restano agnostici
+ * rispetto a chi è $actor (era già così: nessuna modifica di logica, solo
+ * chi li chiama è cambiato). Se l'admin conferma il contratto, il sistema
+ * eroga SUBITO un bonus KY al segnalante, a carico del conto madre —
+ * stesso importo del livello "attivita'" del referral (SystemSetting::
  * userLimitDefaults()->referral_bonus_attivita_amount), ma erogato con
  * una propria idempotency key indipendente da ReferralBonusService
  * (flusso completamente separato).
@@ -88,11 +95,12 @@ class CompanyReportService
     }
 
     /**
-     * L'agente conferma di aver firmato un contratto con l'azienda
-     * segnalata: eroga subito il bonus KY al segnalante (a carico del
-     * conto madre) e chiude la segnalazione. Idempotente — un secondo
-     * click/replay non genera un secondo bonus, ne' fallisce: ritorna
-     * semplicemente il report gia' chiuso.
+     * $actor (dal 30/07/2026: l'admin — vedi commento in cima al file)
+     * conferma di aver firmato un contratto con l'azienda segnalata: eroga
+     * subito il bonus KY al segnalante (a carico del conto madre) e chiude
+     * la segnalazione. Idempotente — un secondo click/replay non genera un
+     * secondo bonus, ne' fallisce: ritorna semplicemente il report gia'
+     * chiuso.
      */
     public function markContractSigned(CompanyReport $report, User $actor, ?string $note = null): CompanyReport
     {
@@ -174,7 +182,7 @@ class CompanyReportService
     }
 
     /**
-     * L'agente segna la segnalazione come non riuscita (es. azienda non
+     * $actor (dal 30/07/2026: l'admin) segna la segnalazione come non riuscita (es. azienda non
      * interessata): nessun bonus, richiede una breve motivazione.
      */
     public function markRejected(CompanyReport $report, User $actor, string $reason): CompanyReport
