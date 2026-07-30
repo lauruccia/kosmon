@@ -149,6 +149,8 @@ Se non c'è nessuna qualifica presente sotto di lui, l'agente incassa l'intero i
 
 Il bonus Key (60 €) scatta solo **dal 3° Basic** acquisito in downline (i primi 2 Basic sono "consumati" per salire a Key stesso, coerente col requisito "2 Basic" per diventare Key).
 
+**RIMOSSA IL 2026-07-30** (decisione di Laura): questa regola non era mai stata richiesta esplicitamente — non era fra i 7 punti del §7 sottoposti a conferma prima dell'implementazione, era un'inferenza aggiunta in questa stessa proposta. Il bonus Key ora scatta dal 1° evento BasiQ in downline, come qualsiasi altra qualifica bonus-eligibile (nessuna soglia minima). Vedi `MlmBonusService`.
+
 ### 6.4 Esempi verificati
 
 Ho ricalcolato con uno script i tuoi esempi usando l'ordine Key(60) < Senior(110) < Top(150) < SuperVisor(180) < Manager(200):

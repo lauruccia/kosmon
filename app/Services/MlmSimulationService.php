@@ -44,8 +44,9 @@ use Illuminate\Support\Facades\DB;
  *     di struttura sulla upline (regola "per POSIZIONE" del 2026-07-20),
  *     con una nota per ogni anello della catena che spiega perche' incassa
  *     quel importo (o perche' non incassa nulla: qualifica senza bonus,
- *     importo assorbito da una qualifica piu' alta sotto, Key non ancora
- *     eleggibile).
+ *     importo assorbito da una qualifica piu' alta sotto). Dal 2026-07-30
+ *     non esiste piu' alcuna soglia minima di eventi BasiQ per il Key (vedi
+ *     MlmBonusService).
  */
 class MlmSimulationService
 {
@@ -177,15 +178,6 @@ class MlmSimulationService
 
                 if ($tier === null) {
                     $note = 'Qualifica senza bonus di struttura (solo da Key in su).';
-                } elseif ($rank === 'key' && ! $this->bonuses->keyIsBonusEligible($ancestor, $event->triggered_at)) {
-                    $count = $this->bonuses->keyBasiqEventCount($ancestor, $event->triggered_at);
-                    $note = sprintf(
-                        'Key non ancora eleggibile: %d event%s BasiQ nella sua struttura su %d richiesti (i primi %d sono "consumati" dal requisito di qualifica). Trattato come assente: non abbassa il bonus di chi sta sopra.',
-                        $count,
-                        $count === 1 ? 'o' : 'i',
-                        MlmBonusService::KEY_MIN_BASIQ_EVENTS,
-                        MlmBonusService::KEY_MIN_BASIQ_EVENTS - 1,
-                    );
                 } elseif ($payout > 0) {
                     $note = $highestBelow > 0
                         ? sprintf('Bonus %s (%s) meno il bonus piu\' alto gia\' presente sotto (%s).', ucfirst($rank), self::eur($tier), self::eur($highestBelow))

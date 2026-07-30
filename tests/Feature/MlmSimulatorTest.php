@@ -216,8 +216,9 @@ class MlmSimulatorTest extends TestCase
 
     public function test_basiq_simulation_reports_the_positional_cascade_with_notes(): void
     {
-        // senior sopra key NON eleggibile sopra basiq: il Key e' assente
-        // (0 eventi pregressi), il Senior incassa 110 pieni.
+        // senior sopra key sopra basiq: dal 2026-07-30 il Key e' bonus-eligibile
+        // fin dal primo evento (nessuna soglia di 3 eventi), quindi incassa il
+        // pieno e il Senior sopra di lui riceve solo la differenza.
         $senior = $this->makeAgent('senior');
         $key = $this->makeAgent('key');
         $basiq = $this->makeAgent('basic');
@@ -232,11 +233,12 @@ class MlmSimulatorTest extends TestCase
         [$keyRow, $seniorRow] = $result['chain'];
 
         $this->assertSame('key', $keyRow['rank']);
-        $this->assertSame(0, $keyRow['payout_eur_cents']);
-        $this->assertStringContainsString('non ancora eleggibile', $keyRow['note']);
+        $this->assertSame(6_000, $keyRow['payout_eur_cents']);
+        $this->assertStringContainsString('Primo bonus-eligibile della catena', $keyRow['note']);
 
         $this->assertSame('senior', $seniorRow['rank']);
-        $this->assertSame(11_000, $seniorRow['payout_eur_cents']);
+        $this->assertSame(5_000, $seniorRow['payout_eur_cents']); // 110 - 60
+        $this->assertStringContainsString('meno il bonus', $seniorRow['note']);
 
         $this->assertSame(11_000, $result['total_eur_cents']);
     }

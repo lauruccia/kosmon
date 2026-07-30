@@ -14,14 +14,15 @@ use Tests\TestCase;
 /**
  * Copre la cascata bonus di struttura con la regola "per POSIZIONE"
  * (2026-07-20, testo letterale della slide: ogni upline sottrae il bonus
- * della maggiore qualifica presente fra il BasiQ e se stesso), la regola
- * speciale Key (paga solo dal 3° evento BasiQ nella sua downline) e
+ * della maggiore qualifica presente fra il BasiQ e se stesso) e
  * l'idempotenza dell'evento. Nel caso normale di gradi crescenti verso
  * l'alto la regola per posizione coincide con la vecchia telescopica.
  * Copre anche (2026-07-29) lo snapshot del rank di ogni upline al momento
  * del rilevamento BasiQ, usato dal calcolo settimanale al posto del rank
  * corrente al momento dell'elaborazione — con fallback per gli eventi
- * pre-esistenti senza snapshot.
+ * pre-esistenti senza snapshot. Dal 2026-07-30 il Key e' bonus-eligibile
+ * fin dal primo evento BasiQ nella sua downline (rimossa la precedente
+ * soglia dei 3 eventi, mai richiesta da Laura — vedi MlmBonusService).
  *
  * Vedi app/Services/MlmBonusService.php e MLM_PROPOSAL.md §6.
  */
@@ -54,22 +55,6 @@ class MlmBonusServiceTest extends TestCase
         ]);
     }
 
-    /** Crea N eventi BasiQ gia' processati nella downline di $keyAgent per renderlo eleggibile al bonus. */
-    private function preloadBasiqEvents(User $keyAgent, int $count): void
-    {
-        for ($i = 0; $i < $count; $i++) {
-            $basiq = $this->makeAgent();
-            $this->tree->attachAgent($basiq, $keyAgent);
-            MlmBonusEvent::create([
-                'basiq_user_id'         => $basiq->id,
-                'triggered_at'          => now()->subDays(10),
-                'status'                => 'processed',
-                'processed_at'          => now()->subDays(10),
-                'upline_chain_snapshot' => [],
-            ]);
-        }
-    }
-
     public function test_cascade_telescopes_amounts_across_the_full_chain(): void
     {
         $manager = $this->makeAgent('manager');
@@ -86,9 +71,6 @@ class MlmBonusServiceTest extends TestCase
         $this->tree->attachAgent($key, $senior);
         $this->tree->attachAgent($basiq, $key);
 
-        // Il Key deve essere eleggibile: precarica 2 eventi precedenti nella sua downline.
-        $this->preloadBasiqEvents($key, 2);
-
         $event = $this->service->processBasiqEvent($basiq);
 
         $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
@@ -103,8 +85,10 @@ class MlmBonusServiceTest extends TestCase
         $this->assertSame(20_000, (int) $payouts->sum('amount_eur_cents'));
     }
 
-    public function test_key_below_the_third_basiq_event_is_skipped_and_senior_absorbs_the_full_tier(): void
+    public function test_key_is_bonus_eligible_from_the_very_first_basiq_event_in_its_downline(): void
     {
+        // Regola dei "3 eventi" rimossa il 2026-07-30: nessun evento
+        // pregresso nella downline del Key, eppure incassa subito.
         $senior = $this->makeAgent('senior');
         $key = $this->makeAgent('key');
         $basiq = $this->makeAgent('basic');
@@ -113,16 +97,14 @@ class MlmBonusServiceTest extends TestCase
         $this->tree->attachAgent($key, $senior);
         $this->tree->attachAgent($basiq, $key);
 
-        // Solo 1 evento precedente: il Key non e' ancora eleggibile (serve il 3°).
-        $this->preloadBasiqEvents($key, 1);
-
         $event = $this->service->processBasiqEvent($basiq);
 
         $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
 
-        $this->assertArrayNotHasKey($key->id, $payouts->toArray());
-        // Il Senior, primo rank bonus-eligibile presente, incassa l'intero importo pieno (non la differenza).
-        $this->assertSame(11_000, (int) $payouts[$senior->id]->amount_eur_cents);
+        // Key: primo bonus-eligibile della catena, incassa il pieno.
+        $this->assertSame(6_000, (int) $payouts[$key->id]->amount_eur_cents);
+        // Senior sopra di lui: 110 - 60 (regola per posizione, invariata).
+        $this->assertSame(5_000, (int) $payouts[$senior->id]->amount_eur_cents);
     }
 
     public function test_process_basiq_event_is_idempotent(): void
@@ -219,11 +201,8 @@ class MlmBonusServiceTest extends TestCase
         $this->tree->attachAgent($senior, $key);
         $this->tree->attachAgent($basiq, $senior);
 
-        // Il Key e' eleggibile (3 eventi nella sua downline), ma la regola
-        // per posizione lo esclude comunque perche' sotto di lui c'e' gia'
-        // un Senior (110 > 60).
-        $this->preloadBasiqEvents($key, 2);
-
+        // La regola per posizione esclude comunque il Key perche' sotto di
+        // lui c'e' gia' un Senior (110 > 60) — indipendente dall'eleggibilita'.
         $event = $this->service->processBasiqEvent($basiq);
 
         $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
@@ -254,49 +233,6 @@ class MlmBonusServiceTest extends TestCase
         $this->assertArrayNotHasKey($seniorFar->id, $payouts->toArray());
     }
 
-    public function test_positional_rule_an_ineligible_key_does_not_lower_the_bonus_above(): void
-    {
-        // Key NON eleggibile (sotto il 3° evento) fra BasiQ e Senior: e'
-        // trattato come assente, quindi il Senior incassa 110 pieni e il Key
-        // non abbassa nulla.
-        $senior = $this->makeAgent('senior');
-        $key = $this->makeAgent('key');
-        $basiq = $this->makeAgent('basic');
-
-        $this->tree->attachAgent($senior, null);
-        $this->tree->attachAgent($key, $senior);
-        $this->tree->attachAgent($basiq, $key);
-
-        $event = $this->service->processBasiqEvent($basiq);
-
-        $payouts = MlmBonusPayout::where('mlm_bonus_event_id', $event->id)->get()->keyBy('beneficiary_user_id');
-
-        $this->assertArrayNotHasKey($key->id, $payouts->toArray());
-        $this->assertSame(11_000, (int) $payouts[$senior->id]->amount_eur_cents);
-    }
-
-    public function test_key_eligibility_depends_on_detection_order_not_processing_order(): void
-    {
-        // Il Key ha gia' 2 eventi pregressi (precaricati processati). Un 3°
-        // evento, rilevato la notte X ma elaborato solo il mercoledi'
-        // successivo insieme ad altri eventi dello stesso batch, deve comunque
-        // renderlo eleggibile: keyIsBonusEligible conta per triggered_at, non
-        // per l'ordine con cui processPendingEvents() li elabora.
-        $key = $this->makeAgent('key');
-        $this->tree->attachAgent($key, null);
-        $this->preloadBasiqEvents($key, 2);
-
-        $basiq = $this->makeAgent();
-        $this->tree->attachAgent($basiq, $key);
-
-        $this->service->recordBasiqEvent($basiq);
-        $this->service->processPendingEvents();
-
-        $payout = MlmBonusPayout::where('beneficiary_user_id', $key->id)->first();
-        $this->assertNotNull($payout, 'Il Key deve essere eleggibile al 3° evento, anche elaborato in batch settimanale.');
-        $this->assertSame(6_000, (int) $payout->amount_eur_cents);
-    }
-
     /**
      * Decisione di Laura (2026-07-29): la cascata deve usare "le qualifiche
      * del momento" in cui BasiQ e' scattato, non quelle correnti al momento
@@ -311,7 +247,6 @@ class MlmBonusServiceTest extends TestCase
         $basiq = $this->makeAgent('basic');
         $this->tree->attachAgent($key, null);
         $this->tree->attachAgent($basiq, $key);
-        $this->preloadBasiqEvents($key, 2); // il Key e' eleggibile (3° evento con $basiq).
 
         // Rilevamento notturno: fotografa il Key come "key".
         $this->service->recordBasiqEvent($basiq);

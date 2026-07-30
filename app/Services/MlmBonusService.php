@@ -33,11 +33,23 @@ use Illuminate\Support\Facades\DB;
  * Key max(0, 60-110)=0. La somma dei payout e' sempre pari all'importo della
  * qualifica piu' alta presente in catena — verificato in test.
  *
- * Regola speciale Key: paga solo a partire dal 3° evento BasiQ nella sua
- * downline (i primi 2 sono "consumati" per il requisito di qualifica Key
- * stesso). Se il Key non e' ancora eleggibile, viene trattato come assente
- * nella catena per questo evento (chi sta sopra incassa l'importo pieno,
- * non la differenza).
+ * REGOLA RIMOSSA (decisione di Laura, 2026-07-30): esisteva una soglia
+ * ESPLICITA di 3 eventi BasiQ nella downline del Key prima che incassasse
+ * il bonus struttura. Laura non ricordava di averla mai richiesta;
+ * verificato che non era fra i 7 punti che MLM_PROPOSAL.md §7 chiedeva
+ * esplicitamente di confermare — era un'inferenza aggiunta durante la
+ * stesura della proposta (§6.3), mai confermata. RIMOSSA come soglia
+ * esplicita, ma il fenomeno che descriveva (i primi eventi non pagano il
+ * Key) resta comunque presente come effetto NATURALE, non piu' come regola
+ * a se stante: per diventare Key servono 2 Basic al 1° livello (§4.2), e
+ * `mlm:recalculate-points` rileva i nuovi BasiQ (PASSATA 1) PRIMA di
+ * rivalutare le qualifiche (PASSATA 2, stessa esecuzione) — quindi lo
+ * snapshot upline_ranks_at_trigger di un evento che *rende* l'agente Key
+ * lo fotografa ancora col rank precedente (non "key"), e semplicemente non
+ * compare in BONUS_AMOUNTS_EUR_CENTS per quell'evento (skip naturale nel
+ * loop sotto, nessun codice dedicato). Il Key inizia a incassare dal primo
+ * evento successivo alla propria promozione, qualunque esso sia — non da
+ * un conteggio fisso.
  *
  * RILEVAMENTO vs CALCOLO (separati dal 2026-07-15, vedi MLM_PROPOSAL.md §9):
  * il job notturno `mlm:recalculate-points` rileva solo il nuovo BasiQ e crea
@@ -72,8 +84,6 @@ class MlmBonusService
         'supervisor' => 18_000,
         'manager' => 20_000,
     ];
-
-    public const KEY_MIN_BASIQ_EVENTS = 3;
 
     public function __construct(private readonly MlmTreeService $tree) {}
 
@@ -176,9 +186,7 @@ class MlmBonusService
             // se stesso (cioe' gia' incontrata sotto di lui). Un Key sopra un
             // Senior quindi non incassa nulla (60 - 110 < 0), e una qualifica
             // ripetuta paga solo alla prima occorrenza (la seconda sottrae se
-            // stessa). Un Key non ancora eleggibile (regola del 3° BasiQ) e'
-            // trattato come ASSENTE: niente payout e non abbassa il bonus di
-            // chi sta sopra.
+            // stessa).
             $weekEnding = $this->nextWednesday(now());
             $highestBelowAmount = 0;
             $snapshot = [];
@@ -186,10 +194,6 @@ class MlmBonusService
             foreach ($upline as $ancestor) {
                 $rank = $ranksAtTrigger[$ancestor->id] ?? $ancestor->mlm_rank;
                 if (! array_key_exists($rank, self::BONUS_AMOUNTS_EUR_CENTS)) {
-                    continue;
-                }
-
-                if ($rank === 'key' && ! $this->keyIsBonusEligible($ancestor, $event->triggered_at)) {
                     continue;
                 }
 
@@ -239,32 +243,6 @@ class MlmBonusService
                 'upline_chain_snapshot' => $snapshot,
             ])->save();
         });
-    }
-
-    /**
-     * Un agente Key e' eleggibile al bonus solo dal 3° evento BasiQ (incluso
-     * questo) nella sua downline. Conta gli eventi BasiQ RILEVATI (a
-     * prescindere dallo stato pending/processed) fino a $upToTime incluso —
-     * cosi' l'ordine di elaborazione settimanale in batch non altera
-     * l'eleggibilita', che dipende solo da quando l'evento e' stato
-     * rilevato, non da quando viene calcolato il payout.
-     *
-     * Pubblica dal 2026-07-21: riusata dal simulatore admin per annotare
-     * PERCHE' un Key non incassa (stessa query, nessuna logica duplicata).
-     */
-    public function keyIsBonusEligible(User $keyAgent, Carbon $upToTime): bool
-    {
-        return $this->keyBasiqEventCount($keyAgent, $upToTime) >= self::KEY_MIN_BASIQ_EVENTS;
-    }
-
-    /** Numero di eventi BasiQ rilevati nella downline del Key fino a $upToTime incluso (vedi keyIsBonusEligible). */
-    public function keyBasiqEventCount(User $keyAgent, Carbon $upToTime): int
-    {
-        return DB::table('mlm_bonus_events')
-            ->join('mlm_agent_closure', 'mlm_agent_closure.descendant_id', '=', 'mlm_bonus_events.basiq_user_id')
-            ->where('mlm_agent_closure.ancestor_id', $keyAgent->id)
-            ->where('mlm_bonus_events.triggered_at', '<=', $upToTime)
-            ->count();
     }
 
     private function nextWednesday(Carbon $from): Carbon
