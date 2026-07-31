@@ -41,12 +41,20 @@
         <div>
             <div style="font-size:15px;font-weight:700;color:var(--ink);">{{ $report->company_name }}</div>
             <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px;">
-                {{ $report->company_city ?? 'Città non indicata' }} — segnalata il {{ $report->created_at->format('d/m/Y H:i') }}
+                {{ $report->company_city ?? 'Città non indicata' }}
+                @if($report->company_sector) — {{ $report->company_sector }} @endif
+                — segnalata il {{ $report->created_at->format('d/m/Y H:i') }}
             </div>
-            <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">
+            <div style="font-size:12px;color:var(--ink-soft);margin-bottom:4px;">
                 Segnalata da <strong>{{ $report->reporter->name ?? 'N/D' }}</strong>
                 ({{ $report->reporter->email ?? '—' }})
+                @if($report->knowledge_level) — {{ $report->knowledgeLevelLabel() }} @endif
             </div>
+            @if($report->contact_name || $report->contact_phone || $report->contact_email)
+            <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">
+                Referente: {{ collect([$report->contact_name, $report->contact_phone, $report->contact_email])->filter()->implode(' — ') }}
+            </div>
+            @endif
             @if($report->company_notes)
             <div style="background:var(--bg-soft,#f9fafb);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--ink-soft);font-style:italic;">
                 "{{ $report->company_notes }}"

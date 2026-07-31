@@ -51,14 +51,75 @@
                     style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
             </div>
         </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px;">
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
+                    Settore / categoria *
+                </label>
+                <select name="company_sector" required
+                    style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
+                    <option value="">— Seleziona un settore —</option>
+                    @foreach($sectors as $s)
+                        <option value="{{ $s['name'] }}" @selected(old('company_sector') === $s['name'])>{{ $s['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
+                    Grado di conoscenza *
+                </label>
+                <select name="knowledge_level" required
+                    style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
+                    <option value="">— Seleziona un'opzione —</option>
+                    @foreach($knowledgeLevels as $value => $label)
+                        <option value="{{ $value }}" @selected(old('knowledge_level') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
         <div style="margin-bottom:14px;">
             <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
-                Note <span style="font-weight:400;">(facoltative — indirizzo, contatti, perché la segnali...)</span>
+                Note <span style="font-weight:400;">(facoltative — indirizzo, perché la segnali...)</span>
             </label>
             <textarea name="company_notes" rows="3" maxlength="2000"
-                placeholder="Indirizzo, contatti, oppure perché pensi sia adatta al circuito..."
+                placeholder="Indirizzo, oppure perché pensi sia adatta al circuito..."
                 style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);box-sizing:border-box;resize:vertical;">{{ old('company_notes') }}</textarea>
         </div>
+
+        <div style="border-top:1px solid var(--line);padding-top:14px;margin-bottom:6px;">
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;">Referente aziendale <span style="font-weight:400;color:var(--ink-muted);">(facoltativo)</span></div>
+            <p style="font-size:12px;color:var(--ink-muted);margin:0 0 10px;">Se conosci un contatto in azienda, indicalo: aiuterà a valutare la segnalazione più velocemente.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
+                    Nome responsabile
+                </label>
+                <input type="text" name="contact_name" maxlength="190"
+                    value="{{ old('contact_name') }}"
+                    placeholder="es. Mario Rossi"
+                    style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
+                    Telefono
+                </label>
+                <input type="text" name="contact_phone" maxlength="40"
+                    value="{{ old('contact_phone') }}"
+                    placeholder="es. 070 1234567"
+                    style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;">
+                    Email
+                </label>
+                <input type="email" name="contact_email" maxlength="190"
+                    value="{{ old('contact_email') }}"
+                    placeholder="es. info@azienda.it"
+                    style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box;">
+            </div>
+        </div>
+
         <button type="submit" class="btn btn-primary" style="padding:9px 22px;">Invia segnalazione</button>
     </form>
 </div>
@@ -77,6 +138,7 @@
             <tr>
                 <th>Azienda</th>
                 <th>Città</th>
+                <th>Settore</th>
                 <th>Inviata il</th>
                 <th style="text-align:center;">Stato</th>
                 <th>Nota agente</th>
@@ -87,6 +149,7 @@
             <tr>
                 <td style="font-weight:600;">{{ $report->company_name }}</td>
                 <td style="color:var(--ink-soft);">{{ $report->company_city ?? '—' }}</td>
+                <td style="color:var(--ink-soft);">{{ $report->company_sector ?? '—' }}</td>
                 <td style="font-size:12px;color:var(--ink-muted);">{{ $report->created_at->format('d/m/Y H:i') }}</td>
                 <td style="text-align:center;">
                     @if($report->isPending())

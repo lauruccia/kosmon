@@ -25,7 +25,12 @@ use Illuminate\Support\Str;
  * @property int|null $agent_user_id
  * @property string $company_name
  * @property string|null $company_city
+ * @property string|null $company_sector
+ * @property string|null $knowledge_level
  * @property string|null $company_notes
+ * @property string|null $contact_name
+ * @property string|null $contact_phone
+ * @property string|null $contact_email
  * @property string $status
  * @property string|null $agent_notes
  * @property int|null $actioned_by
@@ -47,13 +52,29 @@ class CompanyReport extends Model
     public const STATUS_CONTRACT_SIGNED = 'contract_signed';
     public const STATUS_REJECTED = 'rejected';
 
+    /**
+     * Grado di conoscenza dell'azienda dichiarato da chi segnala (31/07/2026).
+     * Chiave salvata in `knowledge_level`, valore mostrato nei pannelli admin/agente.
+     */
+    public const KNOWLEDGE_LEVELS = [
+        'cliente_abituale'           => 'Sono cliente abituale',
+        'conosco_responsabile'       => 'Conosco personalmente il titolare/responsabile',
+        'conoscenza_indiretta'       => 'Ne ho sentito parlare (conoscenza indiretta)',
+        'nessuna_conoscenza_diretta' => 'Nessuna conoscenza diretta',
+    ];
+
     protected $fillable = [
         'uuid',
         'user_id',
         'agent_user_id',
         'company_name',
         'company_city',
+        'company_sector',
+        'knowledge_level',
         'company_notes',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
         'status',
         'agent_notes',
         'actioned_by',
@@ -122,5 +143,11 @@ class CompanyReport extends Model
     public function isRejected(): bool
     {
         return $this->status === self::STATUS_REJECTED;
+    }
+
+    /** Etichetta leggibile del grado di conoscenza dichiarato, per le view. */
+    public function knowledgeLevelLabel(): ?string
+    {
+        return self::KNOWLEDGE_LEVELS[$this->knowledge_level] ?? $this->knowledge_level;
     }
 }

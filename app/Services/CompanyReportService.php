@@ -59,12 +59,17 @@ class CompanyReportService
         $agent = $this->resolveAgentFor($client);
 
         $report = CompanyReport::create([
-            'user_id'        => $client->id,
-            'agent_user_id'  => $agent?->id,
-            'company_name'   => $data['company_name'],
-            'company_city'   => $data['company_city'] ?? null,
-            'company_notes'  => $data['company_notes'] ?? null,
-            'status'         => CompanyReport::STATUS_PENDING,
+            'user_id'         => $client->id,
+            'agent_user_id'   => $agent?->id,
+            'company_name'    => $data['company_name'],
+            'company_city'    => $data['company_city'] ?? null,
+            'company_sector'  => $data['company_sector'] ?? null,
+            'knowledge_level' => $data['knowledge_level'] ?? null,
+            'company_notes'   => $data['company_notes'] ?? null,
+            'contact_name'    => $data['contact_name'] ?? null,
+            'contact_phone'   => $data['contact_phone'] ?? null,
+            'contact_email'   => $data['contact_email'] ?? null,
+            'status'          => CompanyReport::STATUS_PENDING,
         ]);
 
         AuditLog::create([
@@ -73,9 +78,11 @@ class CompanyReportService
             'auditable_type' => CompanyReport::class,
             'auditable_id'   => $report->id,
             'context'        => [
-                'company_name'  => $report->company_name,
-                'company_city'  => $report->company_city,
-                'agent_user_id' => $agent?->id,
+                'company_name'    => $report->company_name,
+                'company_city'    => $report->company_city,
+                'company_sector'  => $report->company_sector,
+                'knowledge_level' => $report->knowledge_level,
+                'agent_user_id'   => $agent?->id,
             ],
         ]);
 

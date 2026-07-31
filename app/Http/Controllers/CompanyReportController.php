@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyReport;
+use App\Models\Sector;
 use App\Services\CompanyReportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -40,9 +43,11 @@ class CompanyReportController extends Controller
             ->paginate(15);
 
         return view('portal.company-reports', [
-            'pageTitle' => 'Segnala un\'azienda',
-            'reports'   => $reports,
-            'activeNav' => 'company-reports',
+            'pageTitle'       => 'Segnala un\'azienda',
+            'reports'         => $reports,
+            'activeNav'       => 'company-reports',
+            'sectors'         => Sector::selectableOptions(),
+            'knowledgeLevels' => CompanyReport::KNOWLEDGE_LEVELS,
         ]);
     }
 
@@ -52,11 +57,21 @@ class CompanyReportController extends Controller
         $user = $this->clientOrAbort($request);
 
         $validated = $request->validate([
-            'company_name'  => ['required', 'string', 'max:190'],
-            'company_city'  => ['nullable', 'string', 'max:120'],
-            'company_notes' => ['nullable', 'string', 'max:2000'],
+            'company_name'    => ['required', 'string', 'max:190'],
+            'company_city'    => ['nullable', 'string', 'max:120'],
+            'company_sector'  => ['required', 'string', Rule::in(Sector::activeList()->toArray())],
+            'knowledge_level' => ['required', 'string', Rule::in(array_keys(CompanyReport::KNOWLEDGE_LEVELS))],
+            'company_notes'   => ['nullable', 'string', 'max:2000'],
+            'contact_name'    => ['nullable', 'string', 'max:190'],
+            'contact_phone'   => ['nullable', 'string', 'max:40'],
+            'contact_email'   => ['nullable', 'string', 'email', 'max:190'],
         ], [
-            'company_name.required' => 'Inserisci il nome dell\'azienda che vuoi segnalare.',
+            'company_name.required'    => 'Inserisci il nome dell\'azienda che vuoi segnalare.',
+            'company_sector.required'  => 'Seleziona il settore/categoria dell\'azienda.',
+            'company_sector.in'        => 'Seleziona un settore valido dall\'elenco.',
+            'knowledge_level.required' => 'Indica il tuo grado di conoscenza dell\'azienda.',
+            'knowledge_level.in'       => 'Seleziona un\'opzione valida.',
+            'contact_email.email'      => 'Inserisci un indirizzo email valido per il referente.',
         ]);
 
         $service->submit($user, $validated);

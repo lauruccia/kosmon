@@ -345,4 +345,75 @@ class CompanyReportTest extends TestCase
         $report->refresh();
         $this->assertTrue($report->isContractSigned()); // resta come firmato, non rifiutato
     }
+
+    // ── Nuovi campi (31/07/2026): settore, grado di conoscenza, referente ──
+
+    public function test_store_requires_sector_and_knowledge_level_via_the_controller(): void
+    {
+        $client = $this->makeClient();
+
+        $response = $this->actingAs($client)->post(route('portal.company-reports.store'), [
+            'company_name' => 'Bar Centrale',
+        ]);
+
+        $response->assertSessionHasErrors(['company_sector', 'knowledge_level']);
+        $this->assertSame(0, CompanyReport::count());
+    }
+
+    public function test_store_rejects_a_sector_not_in_the_active_list(): void
+    {
+        $client = $this->makeClient();
+
+        $response = $this->actingAs($client)->post(route('portal.company-reports.store'), [
+            'company_name'    => 'Bar Centrale',
+            'company_sector'  => 'Settore Inventato Che Non Esiste',
+            'knowledge_level' => 'cliente_abituale',
+        ]);
+
+        $response->assertSessionHasErrors('company_sector');
+    }
+
+    public function test_store_saves_sector_knowledge_level_and_optional_contact_details(): void
+    {
+        $client = $this->makeClient();
+        $sector = \App\Models\Sector::activeList()->first();
+
+        $response = $this->actingAs($client)->post(route('portal.company-reports.store'), [
+            'company_name'    => 'Bar Centrale',
+            'company_city'    => 'Cagliari',
+            'company_sector'  => $sector,
+            'knowledge_level' => 'conosco_responsabile',
+            'contact_name'    => 'Mario Rossi',
+            'contact_phone'   => '070 1234567',
+            'contact_email'   => 'mario@example.test',
+        ]);
+
+        $response->assertRedirect();
+        $report = CompanyReport::firstOrFail();
+
+        $this->assertSame($sector, $report->company_sector);
+        $this->assertSame('conosco_responsabile', $report->knowledge_level);
+        $this->assertSame('Mario Rossi', $report->contact_name);
+        $this->assertSame('070 1234567', $report->contact_phone);
+        $this->assertSame('mario@example.test', $report->contact_email);
+    }
+
+    public function test_store_allows_omitting_the_optional_contact_details(): void
+    {
+        $client = $this->makeClient();
+        $sector = \App\Models\Sector::activeList()->first();
+
+        $response = $this->actingAs($client)->post(route('portal.company-reports.store'), [
+            'company_name'    => 'Bar Centrale',
+            'company_sector'  => $sector,
+            'knowledge_level' => 'nessuna_conoscenza_diretta',
+        ]);
+
+        $response->assertRedirect();
+        $report = CompanyReport::firstOrFail();
+
+        $this->assertNull($report->contact_name);
+        $this->assertNull($report->contact_phone);
+        $this->assertNull($report->contact_email);
+    }
 }

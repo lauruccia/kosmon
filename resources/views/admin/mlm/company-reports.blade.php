@@ -44,7 +44,8 @@
                 <th>Cliente</th>
                 <th>Agente</th>
                 <th>Azienda</th>
-                <th>Città</th>
+                <th>Dettagli segnalazione</th>
+                <th>Referente</th>
                 <th style="text-align:center;">Stato</th>
                 <th>Nota</th>
                 <th>Inviata il</th>
@@ -67,8 +68,26 @@
                         <span style="color:var(--ink-muted);">Nessun agente</span>
                     @endif
                 </td>
-                <td style="font-weight:600;">{{ $report->company_name }}</td>
-                <td style="color:var(--ink-soft);">{{ $report->company_city ?? '—' }}</td>
+                <td>
+                    <strong style="display:block;">{{ $report->company_name }}</strong>
+                    <span style="color:var(--ink-muted);font-size:12px;">{{ $report->company_city ?? 'Città non indicata' }}</span>
+                </td>
+                <td style="font-size:12px;color:var(--ink-soft);max-width:220px;">
+                    <div><strong>Settore:</strong> {{ $report->company_sector ?? '—' }}</div>
+                    <div><strong>Conoscenza:</strong> {{ $report->knowledgeLevelLabel() ?? '—' }}</div>
+                    @if($report->company_notes)
+                    <div style="margin-top:4px;font-style:italic;">"{{ $report->company_notes }}"</div>
+                    @endif
+                </td>
+                <td style="font-size:12px;color:var(--ink-soft);max-width:170px;">
+                    @if($report->contact_name || $report->contact_phone || $report->contact_email)
+                        @if($report->contact_name)<div>{{ $report->contact_name }}</div>@endif
+                        @if($report->contact_phone)<div>📞 {{ $report->contact_phone }}</div>@endif
+                        @if($report->contact_email)<div>✉️ {{ $report->contact_email }}</div>@endif
+                    @else
+                        <span style="color:var(--ink-muted);">Non indicato</span>
+                    @endif
+                </td>
                 <td style="text-align:center;">
                     @if($report->isPending())
                         <span class="chip" style="font-size:10px;background:#fef3c7;color:#92400e;">In attesa</span>
