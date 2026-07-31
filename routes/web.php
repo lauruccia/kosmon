@@ -299,7 +299,7 @@ Route::middleware(['throttle:10,1'])->group(function () {
 });
 
 // Endpoint autenticati: registrazione e gestione dispositivi
-Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->prefix('webauthn')->name('webauthn.')->group(function () {
+Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contract', 'contract'])->prefix('webauthn')->name('webauthn.')->group(function () {
     Route::post('/register/options',   [WebAuthnController::class, 'registerOptions'])->name('register.options');
     Route::post('/register/verify',    [WebAuthnController::class, 'registerVerify'])->name('register.verify');
     Route::get('/credentials',         [WebAuthnController::class, 'listCredentials'])->name('credentials');
@@ -376,7 +376,7 @@ Route::middleware(['auth', 'verified', 'twofactor'])->prefix('contratto')->name(
     Route::get('/scarica',       [ContractController::class, 'downloadSigned'])->name('download');
 });
 
-Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract'])->group(function () {
+Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contract', 'contract'])->group(function () {
 
     Route::get('/dashboard', [PortalController::class, 'dashboard'])->name('portal.dashboard');
     Route::get('/scanner', [PortalController::class, 'scanner'])->name('portal.scanner');

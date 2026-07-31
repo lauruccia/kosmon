@@ -67,6 +67,13 @@
         </div>
     @endif
 
+    @if(session('agent_contract_required'))
+        <div class="banner banner-required">
+            <span class="banner-icon">✍️</span>
+            <div>Prima di accedere al resto del portale devi leggere e firmare questo contratto di nomina.</div>
+        </div>
+    @endif
+
     @if(session('otp_sent'))
         <div class="banner banner-otp-sent">
             <span class="banner-icon">✉️</span>

@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'not.suspended' => \App\Http\Middleware\EnsureCompanyNotSuspended::class,
             'step.up'       => \App\Http\Middleware\RequireStepUp::class,
             'contract'      => \App\Http\Middleware\EnsureContractSigned::class,
+            'agent.contract' => \App\Http\Middleware\EnsureMlmAgentContractSigned::class,
             'backoffice'    => \App\Http\Middleware\EnsureCanAccessBackoffice::class,
             'mlm.enabled'   => \App\Http\Middleware\EnsureMlmEnabled::class,
         ]);
