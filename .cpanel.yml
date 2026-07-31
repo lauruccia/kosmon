@@ -12,49 +12,46 @@
 # non necessario per modifiche solo-codice). Se in futuro cambi le dipendenze
 # (composer.json/lock), aggiorna vendor/ a parte una tantum.
 #
-# DEPLOYPATH multi-sito: questo stesso .cpanel.yml viene tirato giù dal
-# branch main sia dal Git Version Control di kosmopay.it sia da quello di
-# kmoney.it (due account cPanel separati). Il layout dei due siti e' diverso:
+# DEPLOYPATH multi-sito, PERCORSI SCRITTI PER ESTESO (fix 31/07/2026 — vedi
+# sotto, NON usare piu' $HOME):
 #
 #   - kosmopay.it: app live in /home2/kosmopay/kosmon (public servito da
 #     kosmon/public). PUBLICPATH vuoto: nessuna copia extra.
 #
-#   - kmoney.it: app live in $HOME/kosmon_git, ma il web server serve
-#     $HOME/public_html. Gli asset di public/ vanno quindi copiati anche
-#     in public_html — TRANNE index.php, che su kmoney e' personalizzato
-#     per puntare a ../kosmon_git e NON va mai sovrascritto.
+#   - kmoney.it: app live in /home2/kmoney/kosmon_git (STESSA cartella del
+#     checkout git), ma il web server serve /home2/kmoney/public_html.
+#     Confermato leggendo public_html/index.php il 31/07/2026: usa
+#     __DIR__.'/../kosmon_git/...' (percorso RELATIVO), quindi la cartella
+#     viva e' per forza quella accanto a public_html. Gli asset di public/
+#     vanno quindi copiati anche in public_html — TRANNE index.php, che su
+#     kmoney e' personalizzato per puntare a ../kosmon_git e NON va mai
+#     sovrascritto.
 #
-# Il path si autodetermina in base a quale cartella esiste su QUESTO host —
-# niente da editare a mano quando si cambia sito.
-#
-# FIX 31/07/2026: su kmoney.it DEPLOYPATH coincide ESATTAMENTE con la
-# cartella di checkout git (entrambi $HOME/kosmon_git) — a differenza di
-# kosmopay.it dove sono due cartelle diverse. Il vecchio step "copia il
-# codice" (cp -Rf app bootstrap ... $DEPLOYPATH/) su kmoney diventava quindi
-# un self-copy (cp di "app" dentro se stessa), che GNU cp rifiuta con
-# "cannot copy a directory into itself" — la deploy falliva sempre su
-# kmoney.it (mai su kosmopay), senza che "Last Deployment Information" si
-# aggiornasse mai. Un primo tentativo di fix confrontava le stringhe
-# "$DEPLOYPATH" e "$(pwd)", ma su alcuni host $HOME e' un symlink e le due
-# stringhe possono non combaciare pur essendo la STESSA cartella fisica —
-# quindi la guardia non scattava e il self-copy falliva comunque. Ora si usa
-# il test "-ef" (bash/POSIX test), che confronta le cartelle per identita'
-# reale (stesso inode/device), robusto anche in presenza di symlink.
+# FIX 31/07/2026 (importante): usavamo "$HOME/kosmon_git" per calcolare il
+# percorso live di kmoney.it, assumendo $HOME=/home2/kmoney. Verificato in
+# Gestione File pero' che il pannello Git Version Control mostra
+# "Repository Path: /home/kmoney/kosmon_git" (senza il 2!) — un valore che
+# potrebbe non corrispondere a $HOME durante l'esecuzione dei task di
+# deploy. Per eliminare ogni ambiguita' i percorsi ora sono scritti per
+# esteso (/home2/kmoney/...), MAI piu' derivati da $HOME. La vecchia copia
+# codice->DEPLOYPATH per kmoney e' stata anche rimossa del tutto (non solo
+# saltata condizionalmente): su kmoney DEPLOYPATH e' la checkout stessa,
+# quindi non c'e' proprio nulla da copiare li' — evita ogni rischio di
+# self-copy per sempre, indipendentemente da come si comporta $HOME su
+# questo host.
 deployment:
   tasks:
-    # Rilevamento su una sola riga (niente blocchi multi-riga "|"):
-    # più compatibile con il parser dei task di cPanel.
-    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d \"$HOME/kosmon_git\" ]; then export DEPLOYPATH=$HOME/kosmon_git; export PUBLICPATH=$HOME/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non $HOME/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard}, pwd: $(pwd))\""
+    # Rilevamento: percorsi scritti per esteso, niente $HOME.
+    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d /home2/kmoney/kosmon_git ]; then export DEPLOYPATH=/home2/kmoney/kosmon_git; export PUBLICPATH=/home2/kmoney/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non /home2/kmoney/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard})\""
 
-    # 1. Copia il codice aggiornato dalla checkout git alla cartella live —
-    #    SALTATA quando DEPLOYPATH e' fisicamente la cartella corrente (test
-    #    -ef, robusto ai symlink): e' il caso di kmoney.it, dove il pull di
-    #    "Update from Remote" ha gia' aggiornato tutto.
-    - "if [ -e \"$DEPLOYPATH\" ] && [ \"$DEPLOYPATH\" -ef . ]; then echo \"DEPLOYPATH ($DEPLOYPATH) e' la checkout corrente: codice gia' aggiornato via pull, nessuna copia necessaria.\"; else /bin/cp -Rf app bootstrap config database public resources routes \"$DEPLOYPATH/\"; /bin/cp -f artisan composer.json composer.lock \"$DEPLOYPATH/\"; echo \"Codice copiato in $DEPLOYPATH\"; fi"
+    # 1. SOLO kosmopay.it: copia il codice dalla checkout alla cartella live
+    #    separata. Su kmoney.it questo task non fa nulla (DEPLOYPATH e' gia'
+    #    la checkout: il pull di "Update from Remote" ha gia' aggiornato tutto).
+    - "if [ -d /home2/kosmopay/kosmon ]; then /bin/cp -Rf app bootstrap config database public resources routes /home2/kosmopay/kosmon/; /bin/cp -f artisan composer.json composer.lock /home2/kosmopay/kosmon/; fi"
 
-    # 1b. Solo kmoney.it: aggiorna gli asset in public_html, SENZA toccare
+    # 1b. SOLO kmoney.it: aggiorna gli asset in public_html, SENZA toccare
     #     index.php (personalizzato: punta a ../kosmon_git).
-    - "if [ -n \"$PUBLICPATH\" ] && [ -d \"$PUBLICPATH\" ]; then cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" \"$PUBLICPATH/\"; fi; done; cd ..; fi"
+    - "if [ -d /home2/kmoney/kosmon_git ]; then cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" /home2/kmoney/public_html/; fi; done; cd ..; fi"
 
     # 2. Svuota le cache cancellando i file compilati (senza dipendere da php/composer).
     - /bin/rm -f $DEPLOYPATH/bootstrap/cache/config.php
