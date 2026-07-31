@@ -157,12 +157,42 @@ class MlmPortalController extends Controller
     {
         $agent = $this->agentOrAbort($request);
 
+        // 2026-07-31 (richiesta di Laura): "quando un agente registra un
+        // agente sotto di lui, vorrei che inserisse per l'agente che deve
+        // registrare tutti i dati utili al contratto" — prima si raccoglievano
+        // solo nome/email/telefono. Il contratto di nomina (vedi
+        // SystemSetting::defaultAgentContractText()) è ora un vero "modulo di
+        // adesione" ex D. Lgs. 114/98 e richiede maggiore età + residenza in
+        // Italia (art. 6 del testo): questi dati devono quindi essere
+        // obbligatori qui, non compilabili in un secondo momento dal nuovo
+        // agente stesso (che li vedrà, già scritti, nel contratto da firmare).
+        $minBirthDate = now()->subYears(18)->toDateString();
+
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:120'],
             'email'     => ['required', 'email', 'unique:users,email'],
             'phone'     => ['nullable', 'string', 'max:30'],
             'sponsor_id' => ['nullable', 'integer'],
-        ], [], ['name' => 'nome e cognome', 'email' => 'email', 'phone' => 'telefono', 'sponsor_id' => 'sponsor']);
+            'fiscal_code' => ['required', 'string', 'max:16', 'regex:/^[A-Za-z0-9]{16}$/', 'unique:users,fiscal_code'],
+            'birth_date'  => ['required', 'date', 'before_or_equal:' . $minBirthDate],
+            'birth_place' => ['required', 'string', 'max:100'],
+            'residence_address'  => ['required', 'string', 'max:190'],
+            'residence_zip'      => ['required', 'string', 'max:10'],
+            'residence_city'     => ['required', 'string', 'max:100'],
+            'residence_province' => ['required', 'string', 'size:2'],
+        ], [
+            'fiscal_code.regex'         => 'Il codice fiscale deve essere di 16 caratteri alfanumerici.',
+            'fiscal_code.unique'        => 'Questo codice fiscale risulta già registrato su KMoney.',
+            'birth_date.before_or_equal' => 'Il nuovo incaricato deve avere almeno 18 anni (requisito di legge, art. 6 delle Condizioni Generali).',
+        ], [
+            'name' => 'nome e cognome', 'email' => 'email', 'phone' => 'telefono', 'sponsor_id' => 'sponsor',
+            'fiscal_code' => 'codice fiscale', 'birth_date' => 'data di nascita', 'birth_place' => 'luogo di nascita',
+            'residence_address' => 'indirizzo di residenza', 'residence_zip' => 'CAP', 'residence_city' => 'comune di residenza',
+            'residence_province' => 'provincia di residenza',
+        ]);
+
+        $validated['fiscal_code'] = mb_strtoupper(trim($validated['fiscal_code']));
+        $validated['residence_province'] = mb_strtoupper(trim($validated['residence_province']));
 
         // Lo sponsor sotto cui viene registrato il nuovo agente: di default
         // l'agente referente stesso, ma puo' essere qualunque agente della
@@ -201,6 +231,13 @@ class MlmPortalController extends Controller
                 'email'                      => $email,
                 'email_verified_at'          => now(),
                 'phone'                      => $validated['phone'] ?? null,
+                'fiscal_code'                => $validated['fiscal_code'],
+                'birth_date'                 => $validated['birth_date'],
+                'birth_place'                => $validated['birth_place'],
+                'residence_address'          => $validated['residence_address'],
+                'residence_zip'              => $validated['residence_zip'],
+                'residence_city'             => $validated['residence_city'],
+                'residence_province'         => $validated['residence_province'],
                 'password'                   => $temporaryPassword,
                 'role'                       => 'registered-private',
                 'is_active'                  => true,
@@ -240,12 +277,64 @@ class MlmPortalController extends Controller
             'context'        => ['referrer_agent_id' => $agent->id],
         ]);
 
-        $newAgent->notify(new MlmAgentCreatedByReferrerNotification($temporaryPassword, $agent));
+        // 2026-07-31 (richiesta di Laura): il nuovo agente deve ricevere via
+        // email il contratto di nomina GIA' COMPILATO con i suoi dati (in
+        // allegato, PDF), non solo un link a cui accedere per compilarlo lui
+        // stesso. Il contratto non è ancora firmato a questo punto (la firma
+        // OTP avviene al primo accesso su /mlm/contratto-agente, invariato) —
+        // questo PDF è solo un'anteprima "as compiled", generata con lo stesso
+        // renderer usato dalla pagina di firma (SystemSetting::
+        // renderAgentContractText()), cosi' i due testi non possono
+        // disallinearsi.
+        $contractPdf = $this->buildAgentContractPreviewPdf($newAgent);
+
+        $newAgent->notify(new MlmAgentCreatedByReferrerNotification($temporaryPassword, $agent, $contractPdf));
 
         return redirect()->route('portal.mlm.struttura')->with(
             'success',
-            "Nuovo agente registrato: {$newAgent->name}. Ha ricevuto un'email con le credenziali di primo accesso; diventerà agente attivo dopo aver firmato il contratto di nomina."
+            "Nuovo agente registrato: {$newAgent->name}. Ha ricevuto un'email con le credenziali di primo accesso e il contratto di nomina già compilato; diventerà agente attivo dopo averlo firmato con OTP."
         );
+    }
+
+    /**
+     * Genera il PDF del contratto di nomina ad agente già compilato con i
+     * dati di $newAgent (non firmato: è solo un'anteprima allegata all'email
+     * di benvenuto, vedi registraAgenteStore()). Stessa impaginazione usata
+     * da Admin\ContractController::contractSignatureExportSingle() per i
+     * contratti già firmati, cosi' l'aspetto resta coerente in tutto il
+     * sistema.
+     */
+    private function buildAgentContractPreviewPdf(User $newAgent): string
+    {
+        $settings = \App\Models\SystemSetting::agentContractSettings();
+        $contractHtml = $settings->renderAgentContractText($newAgent);
+
+        $html = '<html><head><meta charset="UTF-8">
+<style>
+body{font-family:Georgia,serif;font-size:13px;line-height:1.7;color:#111;margin:40px 50px;}
+h1{font-size:1.2rem;color:#0f766e;margin-bottom:4px;}
+.meta{font-size:11px;color:#666;margin-bottom:32px;border-bottom:1px solid #ddd;padding-bottom:16px;}
+h2{font-size:.95rem;font-weight:700;margin:20px 0 8px;color:#0f766e;}
+p{margin:0 0 12px;}
+hr{border:none;border-top:1px solid #ddd;margin:20px 0;}
+table{border-collapse:collapse;margin-bottom:16px;}
+table td{padding:3px 10px 3px 0;vertical-align:top;}
+ol,ul{padding-left:20px;}
+li{margin-bottom:6px;}
+.footer{margin-top:40px;border-top:2px solid #0f766e;padding-top:16px;font-size:11px;color:#555;}
+</style></head><body>
+<h1>Contratto di nomina ad Agente KNM — bozza da firmare</h1>
+<div class="meta">
+<strong>Candidato Incaricato:</strong> ' . e($newAgent->name) . ' (' . e($newAgent->email) . ') &nbsp;|&nbsp;
+<strong>Generato il:</strong> ' . now()->format('d/m/Y H:i') . '
+</div>
+' . sanitize_html($contractHtml) . '
+<div class="footer">
+Documento generato da KMoney — questa è una bozza non firmata. La firma digitale con codice OTP avviene al primo accesso, dalla sezione "Contratto agente" del portale.
+</div>
+</body></html>';
+
+        return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->setPaper('a4')->output();
     }
 
     /** GET /portale/mlm/clienti — clienti collegati con acquisti KYCard. */

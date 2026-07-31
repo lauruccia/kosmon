@@ -200,7 +200,21 @@
         <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:8px 12px;margin-bottom:10px;">
             <span style="font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap;padding-top:2px;">📌 Variabili:</span>
             <div style="display:flex;flex-wrap:wrap;gap:5px;">
-                @foreach(['[[nome_agente]]' => 'Nome', '[[email_agente]]' => 'Email', '[[data_firma]]' => 'Data firma'] as $ph => $lbl)
+                @foreach([
+                    '[[nome_agente]]'                => 'Nome',
+                    '[[email_agente]]'                => 'Email',
+                    '[[telefono_agente]]'             => 'Telefono',
+                    '[[codice_fiscale_agente]]'        => 'Codice fiscale',
+                    '[[data_nascita_agente]]'          => 'Data di nascita',
+                    '[[luogo_nascita_agente]]'         => 'Luogo di nascita',
+                    '[[indirizzo_residenza_agente]]'   => 'Indirizzo residenza',
+                    '[[cap_residenza_agente]]'         => 'CAP residenza',
+                    '[[comune_residenza_agente]]'      => 'Comune residenza',
+                    '[[provincia_residenza_agente]]'   => 'Provincia residenza',
+                    '[[nome_sponsor]]'                => 'Nome sponsor',
+                    '[[codice_agente_sponsor]]'        => 'Codice agente sponsor',
+                    '[[data_firma]]'                   => 'Data firma',
+                ] as $ph => $lbl)
                 <span title="{{ $lbl }}" style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:11px;font-family:monospace;white-space:nowrap;">{{ str_replace(['[[',']]'], ['{{','}}'], $ph) }}</span>
                 @endforeach
             </div>

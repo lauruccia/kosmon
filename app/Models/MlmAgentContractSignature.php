@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $user_id
  * @property int $contract_version
  * @property string $contract_html_snapshot
+ * @property array|null $signer_data_snapshot
  * @property \Illuminate\Support\Carbon $signed_at
  * @property string|null $ip_address
  * @property string|null $user_agent
@@ -24,6 +25,7 @@ class MlmAgentContractSignature extends Model
         'user_id',
         'contract_version',
         'contract_html_snapshot',
+        'signer_data_snapshot',
         'signed_at',
         'ip_address',
         'user_agent',
@@ -33,6 +35,7 @@ class MlmAgentContractSignature extends Model
     {
         return [
             'signed_at' => 'datetime',
+            'signer_data_snapshot' => 'array',
         ];
     }
 

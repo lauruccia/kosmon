@@ -103,6 +103,24 @@ class MlmAgentContractController extends Controller
             'user_id'                => $user->id,
             'contract_version'       => $contractVersion,
             'contract_html_snapshot' => $contractHtml,
+            // 2026-07-31: congela i dati anagrafici del firmatario e dello
+            // sponsor al momento della firma, in colonna strutturata (query-
+            // abile) oltre allo snapshot HTML — vedi SystemSetting::
+            // renderAgentContractText() per i placeholder equivalenti.
+            'signer_data_snapshot'   => [
+                'name'                => $user->name,
+                'email'               => $user->email,
+                'phone'               => $user->phone,
+                'fiscal_code'         => $user->fiscal_code,
+                'birth_date'          => $user->birth_date?->toDateString(),
+                'birth_place'         => $user->birth_place,
+                'residence_address'   => $user->residence_address,
+                'residence_zip'       => $user->residence_zip,
+                'residence_city'      => $user->residence_city,
+                'residence_province'  => $user->residence_province,
+                'sponsor_name'        => $user->referredBy?->name,
+                'sponsor_agent_code'  => $user->referredBy?->mlm_agent_code,
+            ],
             'signed_at'              => $now,
             'ip_address'             => $request->ip(),
             'user_agent'             => $request->userAgent(),

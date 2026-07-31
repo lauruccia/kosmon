@@ -28,6 +28,12 @@ use Illuminate\Notifications\Notifiable;
  * @property int|null $managed_account_id
  * @property string|null $phone
  * @property string|null $fiscal_code
+ * @property \Illuminate\Support\Carbon|null $birth_date
+ * @property string|null $birth_place
+ * @property string|null $residence_address
+ * @property string|null $residence_zip
+ * @property string|null $residence_city
+ * @property string|null $residence_province
  * @property int|null $circuit_capacity_limit
  * @property int|null $negative_balance_limit
  * @property int|null $daily_transaction_limit
@@ -139,6 +145,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'bio',
         'avatar_path',
         'fiscal_code',
+        'birth_date',
+        'birth_place',
+        'residence_address',
+        'residence_zip',
+        'residence_city',
+        'residence_province',
         'password',
         'role',
         'is_active',
@@ -217,6 +229,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'mlm_agent_reviewed_at'              => 'datetime',
             'mlm_agent_contract_signed_at'       => 'datetime',
             'mlm_agent_contract_otp_expires_at'  => 'datetime',
+
+            'birth_date' => 'date',
         ];
     }
 
