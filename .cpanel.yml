@@ -33,24 +33,28 @@
 # codice" (cp -Rf app bootstrap ... $DEPLOYPATH/) su kmoney diventava quindi
 # un self-copy (cp di "app" dentro se stessa), che GNU cp rifiuta con
 # "cannot copy a directory into itself" — la deploy falliva sempre su
-# kmoney.it (mai su kosmopay, dove le due cartelle sono distinte), senza che
-# "Last Deployment Information" si aggiornasse mai. Ora lo step di copia
-# viene saltato quando DEPLOYPATH e' gia' la cartella corrente (il codice e'
-# gia' li' grazie al pull di "Update from Remote").
+# kmoney.it (mai su kosmopay), senza che "Last Deployment Information" si
+# aggiornasse mai. Un primo tentativo di fix confrontava le stringhe
+# "$DEPLOYPATH" e "$(pwd)", ma su alcuni host $HOME e' un symlink e le due
+# stringhe possono non combaciare pur essendo la STESSA cartella fisica —
+# quindi la guardia non scattava e il self-copy falliva comunque. Ora si usa
+# il test "-ef" (bash/POSIX test), che confronta le cartelle per identita'
+# reale (stesso inode/device), robusto anche in presenza di symlink.
 deployment:
   tasks:
     # Rilevamento su una sola riga (niente blocchi multi-riga "|"):
     # più compatibile con il parser dei task di cPanel.
-    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d \"$HOME/kosmon_git\" ]; then export DEPLOYPATH=$HOME/kosmon_git; export PUBLICPATH=$HOME/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non $HOME/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard})\""
+    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d \"$HOME/kosmon_git\" ]; then export DEPLOYPATH=$HOME/kosmon_git; export PUBLICPATH=$HOME/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non $HOME/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard}, pwd: $(pwd))\""
 
     # 1. Copia il codice aggiornato dalla checkout git alla cartella live —
-    #    SALTATA quando DEPLOYPATH e' gia' la cartella di checkout corrente
-    #    (kmoney.it: il pull di "Update from Remote" ha gia' aggiornato tutto).
-    - "if [ \"$DEPLOYPATH\" != \"$(pwd)\" ]; then /bin/cp -Rf app bootstrap config database public resources routes \"$DEPLOYPATH/\"; /bin/cp -f artisan composer.json composer.lock \"$DEPLOYPATH/\"; echo \"Codice copiato in $DEPLOYPATH\"; else echo \"DEPLOYPATH coincide con la checkout git: codice gia' aggiornato via pull, nessuna copia necessaria.\"; fi"
+    #    SALTATA quando DEPLOYPATH e' fisicamente la cartella corrente (test
+    #    -ef, robusto ai symlink): e' il caso di kmoney.it, dove il pull di
+    #    "Update from Remote" ha gia' aggiornato tutto.
+    - "if [ -e \"$DEPLOYPATH\" ] && [ \"$DEPLOYPATH\" -ef . ]; then echo \"DEPLOYPATH ($DEPLOYPATH) e' la checkout corrente: codice gia' aggiornato via pull, nessuna copia necessaria.\"; else /bin/cp -Rf app bootstrap config database public resources routes \"$DEPLOYPATH/\"; /bin/cp -f artisan composer.json composer.lock \"$DEPLOYPATH/\"; echo \"Codice copiato in $DEPLOYPATH\"; fi"
 
     # 1b. Solo kmoney.it: aggiorna gli asset in public_html, SENZA toccare
     #     index.php (personalizzato: punta a ../kosmon_git).
-    - "if [ -n \"$PUBLICPATH\" ] && [ -d \"$PUBLICPATH\" ]; then cd public; for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" \"$PUBLICPATH/\"; fi; done; cd ..; fi"
+    - "if [ -n \"$PUBLICPATH\" ] && [ -d \"$PUBLICPATH\" ]; then cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" \"$PUBLICPATH/\"; fi; done; cd ..; fi"
 
     # 2. Svuota le cache cancellando i file compilati (senza dipendere da php/composer).
     - /bin/rm -f $DEPLOYPATH/bootstrap/cache/config.php
