@@ -846,6 +846,7 @@ Route::get('/admin/contratto',   [AdminContractController::class, 'contractSetti
 Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update')->middleware('backoffice');
 Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update')->middleware('backoffice');
 Route::post('/admin/contratto/testo-agente', [AdminContractController::class, 'agentContractTextUpdate'])->name('admin.agent-contract-text.update')->middleware('backoffice');
+Route::post('/admin/contratto/testo-direttive-agente', [AdminContractController::class, 'agentDirectivesTextUpdate'])->name('admin.agent-directives-text.update')->middleware('backoffice');
 Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures')->middleware('backoffice');
 Route::get('/admin/contratto/firme/export',      [AdminContractController::class, 'contractSignaturesExport'])->name('admin.contract-signatures.export')->middleware('backoffice');
 Route::get('/admin/contratto/firme/{signature}', [AdminContractController::class, 'contractSignatureShow'])->name('admin.contract-signatures.show')->middleware('backoffice');

@@ -97,6 +97,8 @@ class SystemSetting extends Model
         'contract_version',
         'mlm_agent_contract_text',
         'mlm_agent_contract_version',
+        'mlm_agent_directives_text',
+        'mlm_agent_directives_version',
         'mlm_points_validity_override_minutes',
         'mlm_knm_margin_percent',
         'mlm_root_agent_id',
@@ -305,13 +307,13 @@ HTML;
 
 <p><strong>CONDIZIONI GENERALI PER L'INCARICATO DI VENDITA</strong></p>
 
-<p><strong>1.</strong> L'incaricato di vendita Kosmos (in seguito indicato come incaricato) opera ai sensi dell'art.19 dl D. Lgs.114/1998 promuovendo la vendita di servizi della Kosmos s.r.l. (in seguito indicata come Kosmos) raccogliendo proposte d'ordine dai consumatori finali su moduli predisposti da Kosmos. Solo l'incaricato di vendita autorizzato da Kosmos può promuovere i servizi di Kosmos. L'incaricato può promuovere i servizi di Kosmos solo a consumatori finali.</p>
+<p><strong>1.</strong> L'incaricato di vendita Kosmos (in seguito indicato come incaricato) opera ai sensi dell'art.19 dl D. Lgs.114/1998 promuovendo la vendita di beni e servizi della Kosmos s.r.l. (in seguito indicata come Kosmos). Solo l'incaricato di vendita autorizzato da Kosmos può promuovere beni e servizi di Kosmos. L'incaricato può promuovere i beni e servizi di Kosmos solo a consumatori finali.</p>
 
 <p><strong>2.</strong> L'incaricato è un lavoratore autonomo, è responsabile della propria attività e non sarà considerato a nessun fine o titolo dipendente, socio, rappresentante, agente o mandatario di Kosmos o di qualsiasi terzo con cui Kosmos tratti o abbia rapporti d'affari. L'incaricato non dovrà presentarsi in alcun modo come dipendente, socio, rappresentante, agente o mandatario di Kosmos o di qualsiasi terzo con cui Kosmos tratti o abbia rapporti d'affari. L'incaricato non può causare od incorrere in alcuna responsabilità a nome di Kosmos. Kosmos non è responsabile per accordi conclusi o promesse, dichiarazioni o proposte che si assumono effettuate dall'incaricato a nome di Kosmos.</p>
 
-<p><strong>3.</strong> Al fine di diventare incaricato, il candidato deve compilare l'apposito modulo di adesione e la sua candidatura deve essere sempre accettata da Kosmos. Kosmos deve ricevere l'originale del modulo debitamente compilato che deve essere sottoscritto dal candidato e dal proprio sponsor personalmente, senza cancellature, modifiche o segni di alcun tipo. La richiesta di nomina a incaricato è affidata all'insindacabile giudizio di Kosmos. Ad accettazione avvenuta Kosmos provvederà a consegnare all'incaricato il tesserino di riconoscimento rilasciato ai sensi del D. Lgs.114/98. L'incaricato è personalmente responsabile di tale documento che dovrà essere esibito durante lo svolgimento dell'attività e prontamente restituito quando dovesse cessare di operare per qualsiasi motivo per Kosmos.</p>
+<p><strong>3.</strong> Al fine di diventare incaricato, il candidato deve sottoscrivere l'apposito modulo di adesione (cartaceo o online) e la sua candidatura deve essere sempre accettata da Kosmos. In caso di sottoscrizione cartacea, Kosmos deve ricevere l'originale del modulo debitamente compilato che deve essere sottoscritto dal candidato e dal proprio sponsor personalmente, senza cancellature, modifiche o segni di alcun tipo. La richiesta di nomina a incaricato è affidata all'insindacabile giudizio di Kosmos. Ad accettazione avvenuta Kosmos provvederà a consegnare all'incaricato il tesserino di riconoscimento rilasciato ai sensi del D. Lgs.114/98. L'incaricato è personalmente responsabile di tale documento che dovrà essere esibito durante lo svolgimento dell'attività e prontamente restituito quando dovesse cessare di operare per qualsiasi motivo per Kosmos.</p>
 
-<p><strong>4.</strong> Il rimborso spese forfettario annuale per assistenza e consulenza deve essere pagato a Kosmos entro la data del primo anniversario dalla data di stipula del presente contratto ed in seguito annualmente. E' previsto un ulteriore rimborso spese separato di €. 2,25 per ogni versamento necessario per procedere ai pagamenti in favore degli incaricati. L'incaricato dà atto che tale rimborso potrà essere dedotto dalle provvigioni a lui dovute in qualunque momento. Ad ogni rinnovo annuale del presente contratto l'incaricato dovrà rinnovare, in conformità alle condizioni e termini di cui al presente contratto che saranno in vigore, anche la propria adesione alla Direttive e Procedure Kosmos ed al piano dei compensi di vendita.</p>
+<p><strong>4.</strong> Il rimborso spese forfettario annuale per assistenza e consulenza deve essere pagato a Kosmos entro la data del primo anniversario dalla data di stipula del presente contratto ed in seguito annualmente. L'incaricato dà atto che tale rimborso potrà essere dedotto dalle provvigioni a lui dovute in qualunque momento. Ad ogni rinnovo annuale del presente contratto l'incaricato dovrà rinnovare, in conformità alle condizioni e termini di cui al presente contratto che saranno in vigore, anche la propria adesione alla Direttive e Procedure Kosmos ed al piano dei compensi di vendita.</p>
 
 <p><strong>5.</strong> Tutte le spese in cui l'incaricato incorrerà nell'esercizio della sua attività sono esclusivamente a suo carico.</p>
 
@@ -319,13 +321,13 @@ HTML;
 
 <p><strong>7.</strong> Qualora l'incaricato svolga la propria attività per professione abituale, ancorché non esclusiva, l'incaricato di vendita si impegna a comunicare per iscritto a Kosmos la propria partita Iva ed a fornire a Kosmos copia del certificato di attribuzione della stessa. Kosmos si riserva il diritto di accettare che l'incaricato svolga la sua attività per professione abituale, ancorché non esclusiva, e qualora Kosmos ritenga sussistere tale requisito, anche indipendentemente dalla comunicazione di cui sopra, l'incaricato sarà tenuto a fornire a Kosmos, su richiesta di quest'ultima, copia del certificato di attribuzione della partita Iva. Qualora si verifichi tale eventualità Kosmos si riserva il diritto di sospendere ogni pagamento dovuto all'incaricato fino ad avvenuto ricevimento del certificato di attribuzione della partita Iva. Se la registrazione della partita Iva viene meno per qualsiasi motivo, l'incaricato dovrà comunicarlo per iscritto a Kosmos entro 14 giorni dalla data in cui la registrazione è venuta meno. Qualora Kosmos sia tenuta a pagare l'Iva su qualsiasi pagamento dovuto all'incaricato ai sensi del piano dei compensi Kosmos, qualora Kosmos ritenga opportuno, a qualunque titolo e previa approvazione, autofatturarsi tali somme, l'Iva sarà pagata all'incaricato soltanto se questi avrà fornito alla Kosmos copia del certificato di attribuzione della partita Iva. Qualora Kosmos sia soggetta ad effettuare qualsiasi pagamento di Iva alle autorità competenti, in conseguenza dell'adempimento dell'incaricato a comunicare a Kosmos l'inizio e/o la cessazione dell'esercizio dell'attività dell'incaricato per professione abituale, ancorché non esclusiva, ovvero il venir meno della partita Iva, Kosmos avrà il diritto di recuperare l'importo corrispondente mediante deduzione dell'importo medesimo dal conto dell'incaricato o mediante qualsiasi altro mezzo di volta in volta disponibile.</p>
 
-<p><strong>8.</strong> Il presente contratto potrà essere risolto in qualsiasi momento dall'incaricato Kosmos, con o senza motivazione, in conformità a quanto previsto dalle Direttive e Procedure Kosmos, previa comunicazione scritta da inviare a Kosmos con preavviso di 14 gg. all'indirizzo indicato sull'intestazione del presente modulo di adesione. Il presente contratto potrà altresì essere risolto da Kosmos a sua propria totale discrezione, ai sensi delle Direttive e Procedure Kosmos, previa comunicazione scritta da inviare all'indirizzo dell'incaricato indicato sul modulo di adesione con preavviso di 14 giorni. Nel caso in cui una delle parti risolva il presente contratto l'incaricato dovrà restituire a Kosmos ogni bene (ivi inclusi il materiale promozionale formativo ed i manuali).</p>
+<p><strong>8.</strong> Il presente contratto potrà essere risolto in qualsiasi momento dall'incaricato Kosmos, con o senza motivazione, in conformità a quanto previsto dalle Direttive e Procedure Kosmos, previa comunicazione scritta o pec da inviare a Kosmos con preavviso di 14 gg. all'indirizzo indicato sull'intestazione del presente modulo di adesione. Il presente contratto potrà altresì essere risolto da Kosmos a sua propria totale discrezione, ai sensi delle Direttive e Procedure Kosmos, previa comunicazione scritta o pec da inviare all'indirizzo dell'incaricato indicato sul modulo di adesione con preavviso di 14 giorni. Nel caso in cui una delle parti risolva il presente contratto l'incaricato dovrà restituire a Kosmos ogni bene (ivi inclusi il materiale promozionale formativo ed i manuali).</p>
 
 <p><strong>9.</strong> In caso di risoluzione del presente contratto, per qualsiasi ragione o causa, l'incaricato avrà diritto di essere esonerato da ogni futura responsabilità contrattuale nei confronti di Kosmos in relazione al sistema commerciale di cui al presente contratto ad eccezione di: a) responsabilità relative a pagamenti effettuati in favore dell'incaricato in forza di eventuali contratti stipulati dall'incaricato in qualità di agente della Kosmos; b) qualsiasi obbligo di pagare a Kosmos il prezzo di beni o servizi già forniti all'incaricato da Kosmos nel caso in cui l'incaricato non abbia restituito tali beni a Kosmos ai sensi delle norme di cui sopra delle Direttive e Procedure Kosmos.</p>
 
-<p><strong>10.</strong> L'incaricato potrà acquisire tutti i clienti che desidera, purché si tratti di consumatori finali. Per ogni cliente personalmente acquisito che avrà stipulato un contratto con Kosmos, l'incaricato riceverà una provvigione basata sui "clienti personali" dell'incaricato, ai sensi del piano dei compensi. La corresponsione di qualsiasi altra somma spettante all'incaricato sarà regolata dal piano dei compensi. Kosmos non corrisponderà provvigioni o bonus di alcun tipo per la sponsorizzazione di nuovi incaricati di vendita. Kosmos corrisponderà provvigioni o bonus solo fino e non oltre la data di risoluzione del presente contratto. Kosmos pagherà provvigioni o bonus solo in seguito alla avvenuta promozione dei servizi Kosmos ai consumatori finali, secondo le condizioni e i termini di cui al piano provvigionale. L'incaricato è tenuto, quando invitato, a partecipare alle riunioni della Kosmos ed ai corsi di formazione dalla Kosmos erogati. L'incaricato concentrerà, come condizione necessaria per il ricevimento di provvigioni, la propria attività di promozione di servizi nei confronti di quei clienti che non partecipano al piano commerciale di Kosmos. Kosmos potrà modificare le aliquote del piano dei compensi per i prodotti promozionali o i prezzi concordati.</p>
+<p><strong>10.</strong> L'incaricato potrà acquisire tutti i clienti che desidera, purché si tratti di consumatori finali. Per ogni cliente personalmente acquisito che avrà stipulato un contratto con Kosmos, l'incaricato riceverà un compenso basato sui suoi "clienti personali", ai sensi del piano dei compensi. La corresponsione di qualsiasi altra somma spettante all'incaricato sarà regolata dal piano dei compensi. Kosmos non corrisponderà provvigioni o bonus di alcun tipo per la sponsorizzazione di nuovi incaricati di vendita. Kosmos corrisponderà provvigioni o bonus solo fino e non oltre la data di risoluzione del presente contratto. Kosmos pagherà provvigioni o bonus solo in seguito alla avvenuta promozione dei beni e servizi Kosmos ai consumatori finali, secondo le condizioni e i termini di cui al piano dei compensi. L'incaricato è tenuto, quando invitato, a partecipare alle riunioni della Kosmos ed ai corsi di formazione dalla Kosmos erogati. L'incaricato concentrerà, come condizione necessaria per il ricevimento di compensi, la propria attività di promozione di beni e servizi nei confronti di quei clienti che non partecipano al piano commerciale di Kosmos. Kosmos potrà modificare le aliquote del piano dei compensi per i prodotti promozionali o i prezzi concordati.</p>
 
-<p><strong>11.</strong> L'incaricato deve dare ad ogni cliente che effettua un ordine un modulo d'ordine debitamente compilato che deve essere sottoscritto dal cliente stesso. L'incaricato dovrà trasmettere gli ordini raccolti a Kosmos per l'accettazione ed esecuzione degli stessi da parte della Kosmos medesima. L'incaricato non sottoporrà a Kosmos alcun modulo d'ordine che non sia sottoscritto dal cliente. Nessun ordine da parte dell'incaricato relativo ai servizi Kosmos avrà effetto a meno che e finché non sia stato accettato da Kosmos.</p>
+<p><strong>11.</strong> Nessun ordine da parte dell'incaricato relativo ai beni e servizi Kosmos avrà effetto a meno che e finché non sia stato accettato da Kosmos.</p>
 
 <p><strong>12.</strong> L'incaricato non può avere diritti diversi da quelli derivanti dal proprio rapporto con Kosmos.</p>
 
@@ -340,7 +342,7 @@ HTML;
 
 <p><strong>14.</strong> L'incaricato terrà una documentazione accurata della propria attività e non porrà in essere alcuna attività fuorviante, ingannevole o contraria all'etica. L'incaricato si atterrà alle leggi che regolano la promozione dei servizi commercializzati da Kosmos, ivi inclusi a titolo esemplificativo, ogni eventuale permesso, autorizzazione o licenza richieste per svolgere l'attività di incaricato ai sensi del presente contratto. Kosmos fornirà all'incaricato un'adeguata documentazione, anche in forma di moduli d'ordine dettagliati, di fatture o di ricevute, in relazione a tutti i beni ed i servizi forniti da Kosmos all'incaricato, per i quali l'incaricato dovrà effettuare un pagamento.</p>
 
-<p><strong>15.</strong> In nessun caso Kosmos sarà responsabile per qualsiasi danno o perdita che possa derivare da ogni causa, ivi incluse, a titolo esemplificativo, la violazione di garanzie, ritardi, atti, errori o omissioni di Kosmos e/o dei suoi fornitori di beni e servizi, o nel caso di interruzione o modifica di un prodotto o servizio da parte di Kosmos dei suoi fornitori di beni e servizi, salvo che tale danno o perdita o l'interruzione o la modifica di un prodotto o servizio siano dovuti a dolo o colpa grave di Kosmos e/o dei suoi fornitori di beni e servizi, e salvo in ogni caso quanto previsto dal Decreto del Presidente della Repubblica n° 224 del 24 maggio 1988 in materia di responsabilità per danno da prodotti difettosi.</p>
+<p><strong>15.</strong> In nessun caso Kosmos sarà responsabile per qualsiasi danno o perdita che possa derivare da ogni causa, ivi incluse, a titolo esemplificativo, la violazione di garanzie, ritardi, atti, errori o omissioni di Kosmos e/o dei suoi fornitori di beni e servizi, o nel caso di interruzione o modifica di un bene o servizio da parte di Kosmos dei suoi fornitori di beni e servizi, salvo che tale danno o perdita o l'interruzione o la modifica di un bene o servizio siano dovuti a dolo o colpa grave di Kosmos e/o dei suoi fornitori di beni e servizi, e salvo in ogni caso quanto previsto dal Decreto del Presidente della Repubblica n° 224 del 24 maggio 1988 in materia di responsabilità per danno da prodotti difettosi.</p>
 
 <p><strong>16.</strong> L'incaricato è libero di scegliere i propri mezzi, metodi e modalità operative e di scegliere gli orari ed i luoghi in cui svolgerà la propria attività in conformità alle indicazioni e suggerimenti a lui dati da Kosmos e sulla base del presente contratto e delle Direttive e Procedure Kosmos.</p>
 
@@ -348,11 +350,11 @@ HTML;
 
 <p><strong>18.</strong> L'incaricato accetta di manlevare completamente e pienamente Kosmos e i suoi fornitori di beni e servizi da ogni costo o danno derivanti da una o più violazioni del presente contratto. Al fine di recuperare i danni o le spese sostenute a seguito di tali violazioni, Kosmos potrà dedurre tali importi dalle provvigioni e/o dagli altri pagamenti dovuti all'incaricato.</p>
 
-<p><strong>19.</strong> L'incaricato dà atto che Kosmos si riserva espressamente tutti i diritti di proprietà intellettuale relativi al nome della società, al logo, ai marchi, ai marchi di servizio e ai materiali coperti dai diritti d'autore ("Proprietà Intellettuale"). All'Incaricato viene concesso il diritto non esclusivo, per tutta la durata del presente contratto, di utilizzare la proprietà intellettuale di Kosmos in stretta conformità alle Direttive e Procedure Kosmos. L'incaricato non utilizzerà la proprietà intellettuale di Kosmos se non nei modi autorizzati per iscritto da Kosmos o previsti nel materiale pubblicitario e promozionale fornito, creato o pubblicato da Kosmos L'incaricato non potrà fotocopiare o duplicare il materiale fornito o acquistato da Kosmos se non previa autorizzazione scritta da parte di Kosmos: l'utilizzo non autorizzato dalla proprietà intellettuale sarà considerato illegittimo e costituirà causa di risoluzione del presente contratto da parte di Kosmos.</p>
+<p><strong>19.</strong> L'incaricato dà atto che Kosmos si riserva espressamente tutti i diritti di proprietà intellettuale relativi al nome della società, al logo, ai marchi, ai marchi di servizio e ai materiali coperti dai diritti d'autore ("Proprietà Intellettuale"). All'Incaricato viene concesso il diritto non esclusivo, per tutta la durata del presente contratto, di utilizzare la proprietà intellettuale di Kosmos in stretta conformità alle Direttive e Procedure Kosmos. L'incaricato non utilizzerà la proprietà intellettuale di Kosmos se non nei modi autorizzati per iscritto da Kosmos o previsti nel materiale pubblicitario e promozionale fornito, creato o pubblicato da Kosmos. L'incaricato non potrà fotocopiare o duplicare il materiale fornito o acquistato da Kosmos se non previa autorizzazione scritta da parte di Kosmos: l'utilizzo non autorizzato dalla proprietà intellettuale sarà considerato illegittimo e costituirà causa di risoluzione del presente contratto da parte di Kosmos.</p>
 
-<p><strong>20.</strong> Nello svolgimento della propria attività, l'incaricato farà uso esclusivamente di materiale stampato prodotto da Kosmos. L'incaricato non potrà fare uso di alcuna dichiarazione, affermazione, rappresentazione o assicurazione che non siano riprodotte sul materiale pubblicitario di Kosmos, sia nel promuovere la vendita di prodotti o servizi sia nel reclutare nuovi incaricati. Qualsiasi ulteriore materiale usato a scopi promozionali potrà essere utilizzato solo in circostanze straordinarie e dovrà essere preventivamente autorizzato per iscritto da Kosmos. L'incaricato non potrà, se non previa autorizzazione o su richiesta di Kosmos, rivelare ad alcuna persona i segreti commerciali e le informazioni riservate acquisite nel corso della durata del presente contratto, in conformità alle Direttive e Procedure Kosmos.</p>
+<p><strong>20.</strong> Nello svolgimento della propria attività, l'incaricato farà uso esclusivamente di materiale stampato o digitale prodotto da Kosmos. L'incaricato non potrà fare uso di alcuna dichiarazione, affermazione, rappresentazione o assicurazione che non siano riprodotte sul materiale pubblicitario di Kosmos, sia nel promuovere la vendita di beni e servizi sia nel reclutare nuovi incaricati. Qualsiasi ulteriore materiale usato a scopi promozionali potrà essere utilizzato solo in circostanze straordinarie e dovrà essere preventivamente autorizzato per iscritto da Kosmos. L'incaricato non potrà, se non previa autorizzazione o su richiesta di Kosmos, rivelare ad alcuna persona i segreti commerciali e le informazioni riservate acquisite nel corso della durata del presente contratto, in conformità alle Direttive e Procedure Kosmos.</p>
 
-<p><strong>21.</strong> Nel corso della durata del presente contratto l'incaricato non potrà, direttamente o indirettamente, stornare, attirare, distogliere, invitare i clienti di Kosmos o i suoi fornitori di prodotti e servizi a svolgere per suo conto l'attività di promozione, indipendentemente dal fatto che tali clienti siano stati originariamente acquisiti da Kosmos tramite l'incaricato, in conformità alle Direttive e Procedure Kosmos. Inoltre, nel corso della durata del presente contratto, l'incaricato non potrà stipulare alcun accordo commerciale con qualsiasi fornitore di prodotti e servizi di Kosmos. Nel corso della durata del presente contratto, l'incaricato non dovrà proporre ad alcun incaricato, sia attivo che inattivo, di partecipare ad una rete di vendita organizzata da qualsiasi altra società, indipendentemente dal fatto che tale società offra servizi e prodotti analoghi. La violazione della presente clausola potrà costituire giusta causa di risoluzione del presente contratto da parte di Kosmos e della perdita di ogni diritto di promozione, ivi inclusi tutti i compensi correnti e futuri, i bonus ed i pagamenti di qualsiasi tipo.</p>
+<p><strong>21.</strong> Nel corso della durata del presente contratto l'incaricato non potrà, direttamente o indirettamente, stornare, attirare, distogliere, invitare i clienti di Kosmos o i suoi fornitori di beni e servizi a svolgere per suo conto l'attività di promozione, indipendentemente dal fatto che tali clienti siano stati originariamente acquisiti da Kosmos tramite l'incaricato, in conformità alle Direttive e Procedure Kosmos. Inoltre, nel corso della durata del presente contratto, l'incaricato non potrà stipulare alcun accordo commerciale con qualsiasi fornitore di beni e servizi di Kosmos. Nel corso della durata del presente contratto, l'incaricato non dovrà proporre ad alcun incaricato, sia attivo che inattivo, di partecipare ad una rete di vendita organizzata da qualsiasi altra società, indipendentemente dal fatto che tale società offra beni e servizi analoghi. La violazione della presente clausola potrà costituire giusta causa di risoluzione del presente contratto da parte di Kosmos e della perdita di ogni diritto di promozione, ivi inclusi tutti i compensi correnti e futuri, i bonus ed i pagamenti di qualsiasi tipo.</p>
 
 <p><strong>22.</strong> Il presente contratto è regolato e dovrà essere interpretato ai sensi della legge italiana; per qualsiasi controversia tra le parti nascente dal presente contratto o da ogni altro rapporto contrattuale tra le parti sarà esclusivamente competente l'Autorità Giudiziaria di Macerata.</p>
 
@@ -362,8 +364,150 @@ HTML;
 
 <p><strong>25.</strong> L'incaricato dà atto di essere stato informato da Kosmos che ogni informazione che lo stesso fornirà a Kosmos sarà conservata da Kosmos in un database elettronico e verrà utilizzata da Kosmos per scopi commerciali o amministrativi. L'incaricato dà altresì atto che Kosmos potrà rivelare tali informazioni con riferimento a tali scopi, ad altri membri delle società del gruppo Kosmos sia che si trovino all'interno sia che si trovino all'esterno della UE e ad altre persone e, in particolare, potrà rivelare tali dati ad altri incaricati in quanto facenti parte dell'organizzazione di Kosmos. L'incaricato si impegna a informare per iscritto e senza ritardo Kosmos su qualsiasi cambiamento riguardante i propri dati personali comunicati a Kosmos. L'incaricato autorizza Kosmos a conservare, trattenere e rivelare tali informazioni alle condizioni sopra indicate.</p>
 
+<p><em>Dlgs privacy</em></p>
+
 <hr>
 <p>Con la firma digitale tramite codice OTP inviato all'indirizzo email registrato in data [[data_firma]], il candidato Incaricato sopra generalizzato dichiara di aver letto, compreso e accettato integralmente il presente modulo di adesione e le Condizioni Generali per l'Incaricato di Vendita che precedono, in sostituzione della sottoscrizione autografa e del timbro/firma.</p>
+HTML;
+    }
+
+    // ── Direttive e Procedure Kosmos (Agente) ────────────────────────────────
+
+    /**
+     * 2026-08-07 (richiesta di Laura): oltre al contratto di nomina sopra,
+     * l'agente deve accettare anche il documento "Direttive e Procedure
+     * Kosmos" (regole operative + glossario + piano compensi/qualifiche).
+     * Firmato con lo STESSO atto di firma OTP del contratto (un'unica firma
+     * copre entrambi i documenti, mostrati in sequenza sulla stessa pagina
+     * — vedi MlmAgentContractController), non un flusso OTP separato.
+     * Testo fornito da Laura ("Direttive e procedure Kosmos.docx"), nessun
+     * placeholder: è un documento aziendale generale, uguale per tutti gli
+     * agenti (non contiene dati personali del firmatario).
+     *
+     * NOTA: rispetto al Word originale sono stati rimossi due elementi che
+     * sembravano note di lavorazione interne, non testo definitivo:
+     * la frase "Il Sito Personale è il sito..." (barrata nel documento
+     * originale, quindi presumibilmente da considerarsi eliminata) e
+     * l'annotazione "(riprenderlo dalle slide nuove)" dopo la definizione di
+     * "Clienti Personali". Se invece dovevano restare, vanno reintegrate qui
+     * o direttamente dal pannello Admin (ha lo stesso editor visuale/HTML
+     * del contratto).
+     */
+    public static function defaultAgentDirectivesText(): string
+    {
+        return <<<'HTML'
+<p>L'incaricato di vendita Kosmos non può utilizzare per l'invio di ordini relativi a beni e servizi moduli e/o contratti non approvati e/o autorizzati da Kosmos; la violazione di tale norma può comportare, nei confronti dell'incaricato di vendita, sanzioni disciplinari, ivi compresa la sospensione di ogni diritto relativo alla qualifica di incaricato di vendita e la perdita del diritto di ricevere provvigioni, bonus e pagamenti.</p>
+<p>In caso di falsificazione dei moduli d'ordine, in qualunque modo appurato da Kosmos, si procederà alla radiazione del responsabile da qualsiasi incarico e/o qualifica in forza a Kosmos.</p>
+<p>Kosmos non consente in alcun caso l'acquisizione indebita di clienti già in forza ad altro incaricato di vendita; in caso ciò avvenga si procederà inizialmente al richiamo, qualora l'attività dovesse proseguire, alla sospensione temporanea e, nei casi più gravi, alla radiazione del responsabile da qualsiasi incarico e/o qualifica in forza a Kosmos.</p>
+<p>L'incaricato di vendita Kosmos dovrà partecipare agli eventi formativi previsti dall'azienda ed aggiornarsi costantemente sia sui prodotti e servizi offerti che sulle procedure Kosmos.</p>
+<p>L'incaricato di vendita Kosmos, ogni volta che si dovesse interfacciare con il cliente, sarà tenuto a precisare la qualifica da lui acquisita in Kosmos e non potrà prospettare al cliente qualifiche o incarichi che non gli siano stati espressamente riconosciuti da Kosmos.</p>
+<h3>Offerta / Termini del servizio</h3>
+<p>1) Kosmos si riserva il diritto, a proprio insindacabile giudizio, di accettare o rifiutare ordini relativi a prodotti e servizi, di fissare e adattare il prezzo di tali prodotti e servizi, nonché di stabilire termini e condizioni generali dell'offerta degli stessi. Kosmos si riserva altresì il diritto di interrompere l'offerta o la vendita di tali prodotti o servizi, senza responsabilità od obblighi nei confronti degli Incaricati di vendita.</p>
+<p>2) Gli Incaricati di vendita possono offrire e promuovere la vendita di prodotti e servizi limitatamente e in conformità alle condizioni e tariffe stabilite da Kosmos o dai relativi fornitori di kosmos. Tutte le rappresentazioni e attività condotte dall'Incaricato a scopo di promozione e di vendita di prodotti e servizi non devono essere fuorvianti e devono avvenire nel pieno rispetto della legislazione vigente in materia. Gli Incaricati di vendita possono utilizzare soltanto i mezzi di promozione e di vendita di prodotti e servizi autorizzati o consentiti da Kosmos.</p>
+<h3>Reti di distribuzione multiple</h3>
+<p>Nessuna persona fisica può essere titolare, detenere una quota o prendere parte alla gestione di più di una (1) qualifica di Incaricato di vendita in qualunque sua forma, sia diretta sia indiretta, senza previa autorizzazione scritta da parte di Kosmos.</p>
+<p>Inoltre:</p>
+<ul><li>Un Incaricato di vendita può figurare come contatto principale una unica volta;</li><li>Un conto corrente bancario può essere utilizzato per l'accredito diretto per una sola rete di distribuzione, ad eccezione di conti correnti bancari relativi a coniugi o partner, o a discrezione di Kosmos, in qual caso il conto corrente potrà essere utilizzato per più di una rete di distribuzione.</li><li>Un Incaricato di vendita può sottoscrivere un nuovo Modulo di adesione o prendere parte alla gestione della rete di distribuzione di un altro Incaricato a condizione che:</li><li>non sia titolare di una rete di distribuzione esistente;</li><li>abbia disdetto o non rinnovato una rete di distribuzione precedente, da lui stesso gestita, ed abbia mantenuto un (1) anno intero di inattività, a partire dalla data di disdetta/non rinnovo (per inattività si intende non acquisire clienti, non sponsorizzare Incaricati, non partecipare a manifestazioni, ecc.).</li><li>Ad un Incaricato di vendita è fatto divieto di avvicinare ai fini del reclutamento una persona che sia stata sponsorizzata da un altro Incaricato, per il periodo di durata della rete di distribuzione e per un periodo pari ad un(1) anno successivo alla disdetta di detta rete di distribuzione.</li><li>Ad un Incaricato di vendita è fatto divieto avvicinare ai fini del reclutamento una persona che stia valutando di prendere parte al piano commerciale Kosmos, in qualità di membro dell'organizzazione di un altro Incaricato.</li><li>In caso di cessazione dell'attività da parte di un componente di una società, lo stesso ha facoltà di costituire una nuova rete di distribuzione entro un (1) anno dalla cessazione, a condizione che tale rete di distribuzione sia sponsorizzata dalla precedente rete in qualità di società. Trascorso un (1) anno, sarà possibile costituire una nuova rete di distribuzione, la quale potrà essere sponsorizzata da qualsiasi altra rete, senza limitazioni di sorta.</li><li>Se un componente di una società lascia la rete di distribuzione, la sua quota di appartenenza può essere ceduta ad un nuovo socio, il quale non sia stato un Incaricato di vendita per almeno un (1) anno, e a condizione che il suo nome figuri nella documentazione aziendale relativa alla rete di distribuzione che dovrà essere fornita a Kosmos.</li></ul>
+<p>In caso di morte o inabilità dell'Incaricato di vendita, o dei suoi soci, il diritto alla riscossione della rete di distribuzione sarà trasferito all'erede designato, a condizione che tale erede sia maggiorenne, non sia già Incaricato di vendita Kosmos e si uniformi alle condizioni generali di cui al Modulo di adesione per Incaricato di vendita.</p>
+<p>L'Incaricato di vendita è tenuto a comunicare immediatamente un eventuale cambio di residenza, numero di telefono o indirizzo di posta elettronica per iscritto all'indirizzo di Kosmos o tramite posta elettronica.</p>
+<p>L'incaricato di vendita Kosmos dovrà utilizzare solo ed esclusivamente materiale pubblicitario eventualmente messo a disposizione da Kosmos. Non potrà in alcun modo provvedere in proprio alla creazione di materiale pubblicitari, pena la sospensione dall'incarico.</p>
+<p>Il successo personale e professionale all'interno di Kosmos si realizza esclusivamente con il proprio lavoro, secondo le proprie attitudini e professionalità. E' fatto assoluto divieto di promettere o far credere di poter creare reddito all'interno di Kosmos in modo automatico. L'incaricato di vendita Kosmos potrà illustrare i vantaggi di servizi/prodotti offerti, senza esprimere concrete valutazioni su eventuali vantaggi. La creazione di un sito internet, in violazione di quanto sopra indicato, comporterà la sospensione dall'incarico.</p>
+<p>Kosmos vieta all'incaricato di vendita l'uso di telemarketing e/o di mezzi similari. L'incaricato di vendita Kosmos si premura, nell'esercizio della propria attività, di non gettare discredito o mettere in imbarazzo Kosmos, preservando la stessa da qualsivoglia attacco negativo possa verificarsi.</p>
+<p>E' fatto assoluto divieto di compromettere Kosmos in attività commerciali e finanziarie, nessun esclusa, se non dietro espressa e formale autorizzazione di Kosmos. Allo stesso modo l'incaricato di vendita Kosmos non potrà acquistare e/o prendere in locazione beni e/o servizi a nome di Kosmos, dovendosi in ogni caso ritenere inefficace e di nessun effetto ogni contratto in assenza di autorizzazione.</p>
+<h3>Rinnovo</h3>
+<p>L'incaricato di vendita Kosmos, oltre a versare la quota di attivazione, è tenuto a corrispondere un canone annuo, a titolo di rimborso spese per assistenza e consulenza fornite da Kosmos.</p>
+<p>Tale canone potrà essere corrisposto mensilmente, frazionandone il costo in 12 rate anticipate, oppure in un'unica soluzione, da versare entro e non oltre il mese successivo all'ultima scadenza contrattuale.</p>
+<p>Il ritardo, in entrambe le ipotesi, comporterà la sospensione dell'erogazione delle provvigioni, il mancato pagamento che dovesse perdurare per ulteriori 12 mesi comporterà la disattivazione del codice e la perdita delle relative provvigioni e qualifiche.</p>
+<h4>Glossario dei termini di Knm Sito Personale</h4>
+<p>Clienti Personali I Clienti Personali sono i clienti che l'incaricato acquisisce direttamente facendo acquistare un servizio o un prodotto dal proprio sito personale.</p>
+<p>Volumi Personali I Volumi Personali sono gli importi al netto dell'iva generati dai servizi e dai prodotti acquistati dai Clienti Personali e generano i Volumi Assegnati Personali soggetti a compenso.</p>
+<p>Volumi Assegnati Personali soggetti a compenso I Volumi Assegnati Personali soggetti a compenso sono calcolati in percentuale sui Volumi Personali e sono la base per il calcolo dei Compensi Diretti e dei Compensi Indiretti</p>
+<p><strong>Tabella punti</strong></p>
+<table><tr><td></td><td><p>Punti</p></td><td><p>Durata M</p></td><td><p>Importo</p></td><td><p>VAP %</p></td></tr><tr><td><p>Nuovo Cliente ordine &gt; 71,99</p></td><td><p>1</p></td><td><p>12</p></td><td></td><td></td></tr><tr><td><p>Ordine (importo &gt; 71,99)</p></td><td><p>1</p></td><td><p>3</p></td><td></td><td></td></tr><tr><td><p>Presenza base 12 mesi</p></td><td><p>1</p></td><td><p>12</p></td><td><p>288</p></td><td><p>100</p></td></tr><tr><td><p>Presenza base 24 mesi</p></td><td><p>1</p></td><td><p>24</p></td><td><p>756</p></td><td><p>100</p></td></tr><tr><td><p>Presenza base 36 mesi</p></td><td><p>1</p></td><td><p>36</p></td><td><p>1080</p></td><td><p>100</p></td></tr></table>
+<h3>Compensi diretti</h3>
+<p>I compensi diretti sono calcolati in base alle percentuali, riportate nella tabella Punti Personali , applicate agli Importi Personali Mensili.</p>
+<h3>Punti Personali</h3>
+<p>I Punti Personali sono i Punti che l'incaricato acquisisce direttamente facendo acquistare un servizio o un prodotto dal proprio <strong>sito personale</strong>.</p>
+<h3>Importo Personale Mensile</h3>
+<p>L'importo personale mensile si ottiene dividendo per 12 (se non diversamente previsto) l'Importo Assegnato Personale soggetto a provvigione. Tale importo viene imputato, ai fini del calcolo dei compensi, dal mese stesso di fatturazione e per altri 11 mesi (se non diversamente previsto).</p>
+<table><tr><td><p>Punti Personali</p></td><td><p>Percentuale</p></td></tr><tr><td><p>Fino a 5</p></td><td><p>0 %</p></td></tr><tr><td><p>Da 6</p></td><td><p>5 %</p></td></tr><tr><td><p>Da 12</p></td><td><p>10 %</p></td></tr><tr><td><p>Da 24</p></td><td><p>15 %</p></td></tr><tr><td><p>Da 48</p></td><td><p>20 %</p></td></tr><tr><td><p>Da 96</p></td><td><p>25 %</p></td></tr><tr><td><p>Da 150</p></td><td><p>30 %</p></td></tr><tr><td><p>Da 200</p></td><td><p>40 %</p></td></tr></table>
+<h3>Compensi indiretti</h3>
+<p>I Compensi Indiretti sono calcolati in base alle percentuali, riportate nella tabella Criteri per i Compensi Indiretti, applicate ai VAP da tutti gli incaricati appartenenti alla propria downline fino al 5° Livello.</p>
+<h3>Criteri per i Compensi Indiretti</h3>
+<table><tr><td><p>Livello</p></td><td><p>%</p></td><td><p>N° Punti Personali</p></td><td><p>N° Account Livello</p></td></tr><tr><td><p>I°</p></td><td><p>4%</p></td><td><p>12</p></td><td><p>0</p></td></tr><tr><td><p>II°</p></td><td><p>2%</p></td><td><p>12</p></td><td><p>2</p></td></tr><tr><td><p>III°</p></td><td><p>1%</p></td><td><p>24</p></td><td><p>2</p></td></tr><tr><td><p>IV°</p></td><td><p>0,5%</p></td><td><p>24</p></td><td><p>2</p></td></tr><tr><td><p>V°</p></td><td><p>8%</p></td><td><p>48</p></td><td><p>3</p></td></tr></table>
+<h5>Compensi indiretti estesi</h5>
+<p>I Compensi Indiretti estesi sono calcolati in base alle percentuali, riportate nella tabella Criteri per i Compensi Indiretti Estesi, applicate ai VAP prodotti da tutti gli incaricati appartenenti alla propria downline dal 6° livello.</p>
+<h3>Criteri per i Compensi Indiretti Estesi</h3>
+<p>Il TOP percepisce provvigioni dello 0,5% su tutti i clienti al di sotto del 5° livello per un numero illimitato di livelli e fino al 5° livello del TOP seguente. Il SPV percepisce provvigioni dello 0,5% su tutti i clienti al di sotto del 5° livello per un numero illimitato di livelli e fino al 5° livello del SPV seguente.</p>
+<p>Il MNG percepisce provvigioni dello 0,5% su tutti i clienti al di sotto del 5° livello per un numero illimitato di livelli e fino al 5° livello del MNG seguente.</p>
+<h3>Bonus</h3>
+<p>Ogni volta che un nuovo incaricato diventa BasiQ genera bonus per la sua Up Line. I bonus percepiti da ognuno dei livelli superiori vengono calcolati sottraendo al bonus relativo alla propria qualifica il bonus relativo alla qualifica maggiore presente fra chi diventa BasiQ e se stesso.</p>
+<h3>Valore imprenditoriale</h3>
+<table><tr><td colspan="2"><p>Qualifica Bonus</p></td></tr><tr><td><p>Key</p></td><td><p>€ 60</p></td></tr><tr><td><p>Senior</p></td><td><p>€ 110</p></td></tr><tr><td><p>Top</p></td><td><p>€ 150</p></td></tr><tr><td><p>Spv</p></td><td><p>€ 180</p></td></tr><tr><td><p>Mng</p></td><td><p>€ 200</p></td></tr></table>
+<p>Kosmos offre ai potenziali Incaricati Knm la qualifica iniziale Start (ST). A seguire vi sono 6 qualifiche per avanzamento: Basic (KB), Key (K), Senior (KS), Top (KT), Supervisore (SPV) e Manager (MNG). Il piano compensi offre un incentivo semplice ma efficace ai fini dell'avanzamento alle qualifiche superiori: a qualifiche superiori corrispondono infatti guadagni più elevati.</p>
+<h2>QUALIFICHE BASIC</h2>
+<p>Criteri per essere qualificati BASIC</p>
+<p>Codice KNM 12 punti personali</p>
+<h2>BASIQ</h2>
+<p>Criteri per essere qualificati BASIQ Codice KNM</p>
+<p>12 punti personali in 30 giorni dall'acquisizione del codice KNM</p>
+<h2>KEY</h2>
+<p>Criteri per essere qualificati KEY Codice KNM</p>
+<p>24 punti personali 2 Basic al I° livello</p>
+<h2>SENIOR</h2>
+<p>Criteri per essere qualificati SENIOR Codice KNM</p>
+<p>48 punti personali 3 Basic al I° livello</p>
+<p>2 Key su 2 colonne diverse</p>
+<h2>TOP</h2>
+<p>Criteri per essere qualificati TOP Codice KNM</p>
+<p>48 punti personali 4 Basic al I° livello</p>
+<p>3 colonne da 300 punti</p>
+<h2>SPV</h2>
+<p>Criteri per essere qualificati SPV Codice KNM</p>
+<p>48 punti personali 5 Basic al I° livello</p>
+<p>2 Senior e 2 Top su 4 colonne diverse</p>
+<h2>MNG</h2>
+<p>Criteri per essere qualificati MNG Codice KNM</p>
+<p>48 punti personali 6 Basic al I livello</p>
+<p>3 Spv su 3 colonne diverse</p>
+<h3>Come qualificarsi</h3>
+<p>Per potersi qualificare, gli Incaricati Kosmos devono acquisire e mantenere clienti personali che, acquistando prodotti o servizi, generano Punti Personali.</p>
+<h3>Come qualificarsi BASIC</h3>
+<p>Per ottenere la qualifica <strong>Basic </strong>l'incaricato deve avere e mantenere almeno 12 punti personali.</p>
+<h3>Criteri per essere qualificati BASIC</h3>
+<p>Codice KNM</p>
+<p>12 punti personali</p>
+<h3>Qualifiche per avanzamento</h3>
+<p>Le diverse qualifiche per avanzamento all'interno della struttura di Knm richiedono agli Incaricati di soddisfare dei requisiti aggiuntivi.</p>
+<h3>Come qualificarsi Key</h3>
+<p>Per ottenere la qualifica Key l' Incaricato deve avere un minimo di 24 punti personali ed almeno 2 incaricati direttamente sponsorizzati e qualificati almeno Basic, che ha aiutato ad acquisire punti. Il suo obiettivo dovrebbe essere quello di diventare Key entro i primi 30 giorni di attività.</p>
+<h3>Criteri per essere qualificati KEY</h3>
+<p>Codice KNM</p>
+<p>24 punti personali 2 Basic al I° livello</p>
+<h3>Come qualificarsi Senior</h3>
+<p>Per ottenere la qualifica Senior l' Incaricato deve avere almeno 48 punti personali, 3 Incaricati direttamente sponsorizzati e qualificati almeno Basic ed avere almeno 2 organizzazioni sponsorizzate separatamente, dette colonne, ognuna delle quali deve avere almeno un incaricato qualificato Key. Il suo obiettivo dovrebbe essere quello di diventare SENIOR entro i primi 3-6 mesi di attività.</p>
+<h3>Criteri per essere qualificati SENIOR</h3>
+<p>Codice KNM</p>
+<p>48 punti personali</p>
+<p>3 Basic al I° livello 2 Key su 2 colonne diverse (a qualsiasi livello)</p>
+<h3>Come qualificarsi Top</h3>
+<p>Per ottenere la qualifica Top l' Incaricato deve avere almeno 48 punti personali, 4 Incaricati direttamente sponsorizzati e qualificati almeno Basic ed almeno 3 organizzazioni sponsorizzate separatamente, dette colonne, ognuna delle quali deve avere almeno 300 punti. Ad esempio, una colonna potrebbe contenere un Incaricato sponsorizzato direttamente che ha acquisito 300 punti, o un Incaricato sponsorizzato direttamente che ha arruolato a sua volta 10 persone, ognuna delle quali ha 30 punti. Le combinazioni possibili sono diverse, ma contano tutte ai fini della qualifica a TOP. Nel momento in cui raggiunge un totale di 300 punti, distribuiti in qualsiasi modo, per ognuna delle tre colonne distinte, si sarà qualificato <strong>TOP</strong>. Il suo obiettivo dovrebbe essere quello di diventare TOP entro i primi 6-9 mesi di attività.</p>
+<h3>Criteri per essere qualificati TOP</h3>
+<p>Codice KNM</p>
+<p>48 punti personali 4 Basic al I° livello</p>
+<p>3 colonne da 300 punti</p>
+<h3>Come qualificarsi Supervisore</h3>
+<p>Per qualificarsi SPV deve essere un Incaricato con almeno 48 punti personali, 5 Incaricati direttamente sponsorizzati e qualificati almeno Basic ed almeno 4 organizzazioni sponsorizzate separatamente, dette colonne, delle quali almeno 2 devono avere almeno 2 incaricati qualificati almeno Senior e almeno altre 2 devono avere almeno 2 incaricati qualificati almeno Top. Il suo obiettivo dovrebbe essere quello di diventare SPV entro 6 mesi/1 anno di attività.</p>
+<h3>Criteri per essere qualificati SPV</h3>
+<p>Codice KNM 48 punti personali 5 Basic al I° livello</p>
+<p>2 Senior e 2 Top su 4 colonne diverse</p>
+<h3>Come qualificarsi Manager</h3>
+<p>Per qualificarsi MNG deve essere un Incaricato con almeno 48 punti personali, 6 Incaricati direttamente sponsorizzati e qualificati almeno Basic ed almeno 3 organizzazioni sponsorizzate separatamente, dette colonne, ognuna delle quali deve avere almeno un incaricato qualificato almeno <strong>SPV</strong></p>
+<p>Il tuo obiettivo dovrebbe essere quello di diventare <strong>MNG </strong>entro 1 – 2 anni di attività.</p>
+<h3>Criteri per essere qualificati MNG</h3>
+<p>Codice KNM</p>
+<p>48 punti personali 6 Basic al I livello</p>
+<p>3 Spv su 3 colonne diverse</p>
 HTML;
     }
 

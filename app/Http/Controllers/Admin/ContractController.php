@@ -51,6 +51,14 @@ class ContractController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        if (request()->has('default_agent_directives_text')) {
+            \App\Models\SystemSetting::agentContractSettings()->update([
+                'mlm_agent_directives_text'    => null,
+                'mlm_agent_directives_version' => 1,
+            ]);
+            return response()->json(['ok' => true]);
+        }
+
         $settings             = \App\Models\SystemSetting::contractSettings();
         $forceSign            = (bool) $settings->contract_force_sign;
         $requiredFrom         = $settings->contract_required_from;
@@ -65,9 +73,16 @@ class ContractController extends Controller
         $agentPendingCount    = \App\Models\User::where('mlm_agent_request_status', 'approved')
             ->whereNull('mlm_agent_contract_signed_at')->count();
 
+        // 2026-08-07: "Direttive e Procedure Kosmos", secondo documento che
+        // l'agente accetta con la stessa firma OTP del contratto — vedi
+        // MlmAgentContractController e SystemSetting::defaultAgentDirectivesText().
+        $agentDirectivesText    = $settings->mlm_agent_directives_text ?? \App\Models\SystemSetting::defaultAgentDirectivesText();
+        $agentDirectivesVersion = $settings->mlm_agent_directives_version ?? 1;
+
         return view('admin.contract-settings', compact(
             'forceSign', 'requiredFrom', 'contractText', 'contractVersion', 'signedCount', 'totalUsers',
-            'agentContractText', 'agentContractVersion', 'agentSignedCount', 'agentPendingCount'
+            'agentContractText', 'agentContractVersion', 'agentSignedCount', 'agentPendingCount',
+            'agentDirectivesText', 'agentDirectivesVersion'
         ));
     }
 
@@ -93,6 +108,30 @@ class ContractController extends Controller
         ]);
 
         return back()->with('success', 'Testo del contratto agente aggiornato (versione ' . $settings->mlm_agent_contract_version . ').');
+    }
+
+    /** Aggiorna il testo delle Direttive e Procedure Kosmos accettate dall'agente (form separato, versionato). */
+    public function agentDirectivesTextUpdate(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $request->validate(['agent_directives_text' => ['required', 'string']]);
+
+        $settings = \App\Models\SystemSetting::agentContractSettings();
+        $settings->update([
+            'mlm_agent_directives_text'    => sanitize_html($request->input('agent_directives_text')),
+            'mlm_agent_directives_version' => ($settings->mlm_agent_directives_version ?? 1) + 1,
+        ]);
+
+        \App\Models\AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.mlm_agent_directives_text.update',
+            'auditable_type' => \App\Models\SystemSetting::class,
+            'auditable_id'   => $settings->id,
+            'context'        => ['version' => $settings->mlm_agent_directives_version],
+        ]);
+
+        return back()->with('success', 'Testo delle Direttive e Procedure Kosmos aggiornato (versione ' . $settings->mlm_agent_directives_version . ').');
     }
 
     public function contractSettingsUpdate(UpdateContractSettingsRequest $request): \Illuminate\Http\RedirectResponse

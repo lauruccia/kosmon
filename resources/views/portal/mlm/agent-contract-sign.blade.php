@@ -24,9 +24,16 @@
         .contract-toolbar { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
         .contract-toolbar span { font-size: 13px; color: #64748b; }
         .contract-body { padding: 28px 32px; max-height: 460px; overflow-y: auto; font-size: 14px; line-height: 1.75; }
-        .contract-body h2 { font-size: .95rem; font-weight: 700; margin: 22px 0 8px; color: #0f766e; }
+        .contract-body h2 { font-size: 1.05rem; font-weight: 800; margin: 24px 0 8px; color: #0f766e; }
+        .contract-body h3 { font-size: .95rem; font-weight: 700; margin: 20px 0 6px; color: #0f766e; }
+        .contract-body h4 { font-size: .9rem; font-weight: 700; margin: 18px 0 6px; color: #334155; }
+        .contract-body h5 { font-size: .85rem; font-weight: 700; margin: 16px 0 4px; color: #475569; text-transform: uppercase; }
         .contract-body p  { margin: 0 0 12px; }
         .contract-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+        .contract-body ul, .contract-body ol { padding-left: 20px; margin: 0 0 12px; }
+        .contract-body li { margin-bottom: 6px; }
+        .contract-body table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 13px; }
+        .contract-body table td, .contract-body table th { border: 1px solid #e2e8f0; padding: 6px 10px; }
         .expand-btn { font-size: 12px; color: #0f766e; border: 1px solid #0f766e; background: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
         .sign-section { border-top: 1px solid #e2e8f0; padding-top: 24px; }
         .sign-title { font-size: 14px; font-weight: 700; color: #374151; margin: 0 0 6px; }
@@ -70,7 +77,7 @@
     @if(session('agent_contract_required'))
         <div class="banner banner-required">
             <span class="banner-icon">✍️</span>
-            <div>Prima di accedere al resto del portale devi leggere e firmare questo contratto di nomina.</div>
+            <div>Prima di accedere al resto del portale devi leggere e firmare il contratto di nomina e le Direttive e Procedure Kosmos.</div>
         </div>
     @endif
 
@@ -84,17 +91,27 @@
     <div class="card">
         <div class="card-header">
             <h1>📜 Contratto di Nomina ad Agente KNM</h1>
-            <p>Versione {{ $contractVer }} — la tua richiesta è stata approvata. Firma per attivare il tuo profilo agente.</p>
+            <p>Versione {{ $contractVer }} — la tua richiesta è stata approvata. Leggi entrambi i documenti e firma per attivare il tuo profilo agente.</p>
         </div>
         <div class="card-body">
 
             <div class="contract-wrapper">
                 <div class="contract-toolbar">
                     <span>📄 Contratto di nomina ad agente — versione {{ $contractVer }}</span>
-                    <button class="expand-btn" onclick="toggleExpand(this)">⤢ Espandi</button>
+                    <button class="expand-btn" onclick="toggleExpand(this, 'contractBody')">⤢ Espandi</button>
                 </div>
                 <div class="contract-body" id="contractBody">
                     {!! sanitize_html($contractHtml) !!}
+                </div>
+            </div>
+
+            <div class="contract-wrapper">
+                <div class="contract-toolbar">
+                    <span>📋 Direttive e Procedure Kosmos — versione {{ $directivesVer }}</span>
+                    <button class="expand-btn" onclick="toggleExpand(this, 'directivesBody')">⤢ Espandi</button>
+                </div>
+                <div class="contract-body" id="directivesBody">
+                    {!! sanitize_html($directivesHtml) !!}
                 </div>
             </div>
 
@@ -105,7 +122,7 @@
 
                 @if(! session('otp_sent'))
                     <p class="sign-subtitle">
-                        Dichiaro di aver letto e accettato integralmente il contratto di nomina ad agente KNM.<br>
+                        Dichiaro di aver letto e accettato integralmente il contratto di nomina ad agente KNM e le Direttive e Procedure Kosmos riportate sopra.<br>
                         Clicca il pulsante per ricevere un codice di conferma su <strong>{{ $user->email }}</strong>.
                     </p>
                     <form method="POST" action="{{ route('portal.mlm.agent-contract.send-otp') }}">
@@ -139,7 +156,7 @@
                         <div class="actions">
                             <div>
                                 <button type="submit" class="btn btn-primary" id="signBtn" disabled>
-                                    ✅ Conferma e firma il contratto
+                                    ✅ Conferma e firma entrambi i documenti
                                 </button>
                             </div>
                             <div style="font-size:13px;color:#94a3b8;">
@@ -169,8 +186,8 @@ if (otpInput) {
         if (signBtn) signBtn.disabled = this.value.length < 6;
     });
 }
-function toggleExpand(btn) {
-    const body = document.getElementById('contractBody');
+function toggleExpand(btn, bodyId) {
+    const body = document.getElementById(bodyId);
     if (body.style.maxHeight === 'none') {
         body.style.maxHeight = '460px';
         btn.textContent = '⤢ Espandi';

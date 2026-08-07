@@ -119,8 +119,8 @@
     <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:8px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:.95rem;">&#x270D;&#xFE0F; Testo contratto <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">v{{ $contractVersion }}</span></h2>
         <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;">
-            <button type="button" onclick="setMode('visual')" id="tabVisual" class="mode-tab mode-tab-active">&#x1F441; Visuale</button>
-            <button type="button" onclick="setMode('html')" id="tabHtml" class="mode-tab">&lt;/&gt; HTML</button>
+            <button type="button" onclick="setMode('main','visual')" id="tabVisual" class="mode-tab mode-tab-active">&#x1F441; Visuale</button>
+            <button type="button" onclick="setMode('main','html')" id="tabHtml" class="mode-tab">&lt;/&gt; HTML</button>
         </div>
     </div>
     <div class="card-body" style="padding:12px 16px;">
@@ -143,7 +143,7 @@
                     '[[data_firma]]'          => 'Data firma',
                 ] as $ph => $lbl)
                 @php $phDisplay = str_replace(['[[',']]'], ['{{','}}'], $ph); @endphp
-                <span onclick="insertPH('{{ $ph }}')" title="{{ $lbl }}"
+                <span onclick="insertPH('main','{{ $ph }}')" title="{{ $lbl }}"
                       style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:11px;font-family:monospace;cursor:pointer;border:1px solid #bae6fd;white-space:nowrap;">
                     {{ $phDisplay }}
                 </span>
@@ -151,24 +151,24 @@
             </div>
         </div>
 
-        <form method="POST" action="{{ route('admin.contract-text.update') }}" onsubmit="syncToTextarea();">
+        <form method="POST" action="{{ route('admin.contract-text.update') }}" onsubmit="syncToTextarea('main');">
             @csrf
 
             {{-- Toolbar formattazione (solo modalità visuale) --}}
             <div id="visualToolbar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;background:#fafafa;">
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('bold')" class="fmt-btn" title="Grassetto" style="font-weight:700;">B</button>
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('italic')" class="fmt-btn" title="Corsivo" style="font-style:italic;">I</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('main','bold')" class="fmt-btn" title="Grassetto" style="font-weight:700;">B</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('main','italic')" class="fmt-btn" title="Corsivo" style="font-style:italic;">I</button>
                 <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('h2')" class="fmt-btn" title="Titolo articolo">Titolo</button>
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('p')" class="fmt-btn" title="Paragrafo">Paragrafo</button>
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('insertUnorderedList')" class="fmt-btn" title="Elenco puntato">&bull; Elenco</button>
-                <button type="button" onmousedown="event.preventDefault()" onclick="insertHr()" class="fmt-btn" title="Linea separatrice">&horbar; Separatore</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('main','h2')" class="fmt-btn" title="Titolo articolo">Titolo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('main','p')" class="fmt-btn" title="Paragrafo">Paragrafo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('main','insertUnorderedList')" class="fmt-btn" title="Elenco puntato">&bull; Elenco</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="insertHr('main')" class="fmt-btn" title="Linea separatrice">&horbar; Separatore</button>
                 <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
-                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('removeFormat')" class="fmt-btn" title="Rimuovi formattazione">&#x232B; Pulisci</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('main','removeFormat')" class="fmt-btn" title="Rimuovi formattazione">&#x232B; Pulisci</button>
             </div>
 
             {{-- Editor visuale (WYSIWYG) --}}
-            <div id="visualEditor" contenteditable="true" oninput="syncToTextarea()"
+            <div id="visualEditor" class="rich-editor" contenteditable="true" oninput="syncToTextarea('main')"
                  style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! sanitize_html(old('contract_text', $contractText)) !!}</div>
 
             {{-- Editor HTML grezzo --}}
@@ -189,11 +189,17 @@
 <div class="card" style="margin-top:16px;">
     <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:8px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:.95rem;">🤝 Contratto di nomina Agente KNM <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">v{{ $agentContractVersion }}</span></h2>
-        <div style="display:flex;gap:10px;font-size:11px;color:#64748b;">
-            <span>{{ $agentSignedCount }} firmati</span>
-            @if($agentPendingCount > 0)
-                <span style="color:#b45309;font-weight:700;">{{ $agentPendingCount }} in attesa di firma</span>
-            @endif
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;gap:10px;font-size:11px;color:#64748b;">
+                <span>{{ $agentSignedCount }} firmati</span>
+                @if($agentPendingCount > 0)
+                    <span style="color:#b45309;font-weight:700;">{{ $agentPendingCount }} in attesa di firma</span>
+                @endif
+            </div>
+            <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;">
+                <button type="button" onclick="setMode('agent','visual')" id="tabVisualAgent" class="mode-tab mode-tab-active">&#x1F441; Visuale</button>
+                <button type="button" onclick="setMode('agent','html')" id="tabHtmlAgent" class="mode-tab">&lt;/&gt; HTML</button>
+            </div>
         </div>
     </div>
     <div class="card-body" style="padding:12px 16px;">
@@ -201,9 +207,9 @@
             <span style="font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap;padding-top:2px;">📌 Variabili:</span>
             <div style="display:flex;flex-wrap:wrap;gap:5px;">
                 @foreach([
-                    '[[nome_agente]]'                => 'Nome',
-                    '[[email_agente]]'                => 'Email',
-                    '[[telefono_agente]]'             => 'Telefono',
+                    '[[nome_agente]]'                  => 'Nome',
+                    '[[email_agente]]'                 => 'Email',
+                    '[[telefono_agente]]'              => 'Telefono',
                     '[[codice_fiscale_agente]]'        => 'Codice fiscale',
                     '[[data_nascita_agente]]'          => 'Data di nascita',
                     '[[luogo_nascita_agente]]'         => 'Luogo di nascita',
@@ -211,20 +217,43 @@
                     '[[cap_residenza_agente]]'         => 'CAP residenza',
                     '[[comune_residenza_agente]]'      => 'Comune residenza',
                     '[[provincia_residenza_agente]]'   => 'Provincia residenza',
-                    '[[nome_sponsor]]'                => 'Nome sponsor',
+                    '[[nome_sponsor]]'                 => 'Nome sponsor',
                     '[[codice_agente_sponsor]]'        => 'Codice agente sponsor',
                     '[[data_firma]]'                   => 'Data firma',
                 ] as $ph => $lbl)
-                <span title="{{ $lbl }}" style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:11px;font-family:monospace;white-space:nowrap;">{{ str_replace(['[[',']]'], ['{{','}}'], $ph) }}</span>
+                @php $phDisplayAgent = str_replace(['[[',']]'], ['{{','}}'], $ph); @endphp
+                <span onclick="insertPH('agent','{{ $ph }}')" title="{{ $lbl }}"
+                      style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:11px;font-family:monospace;cursor:pointer;border:1px solid #bae6fd;white-space:nowrap;">
+                    {{ $phDisplayAgent }}
+                </span>
                 @endforeach
             </div>
         </div>
 
-        <form method="POST" action="{{ route('admin.agent-contract-text.update') }}">
+        <form method="POST" action="{{ route('admin.agent-contract-text.update') }}" onsubmit="syncToTextarea('agent');">
             @csrf
-            <textarea name="agent_contract_text" rows="18"
-                style="width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
-                placeholder="Testo HTML del contratto di nomina ad agente...">{{ old('agent_contract_text', $agentContractText) }}</textarea>
+
+            {{-- Toolbar formattazione (solo modalità visuale) --}}
+            <div id="visualToolbarAgent" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;background:#fafafa;">
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('agent','bold')" class="fmt-btn" title="Grassetto" style="font-weight:700;">B</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('agent','italic')" class="fmt-btn" title="Corsivo" style="font-style:italic;">I</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('agent','h2')" class="fmt-btn" title="Titolo articolo">Titolo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('agent','p')" class="fmt-btn" title="Paragrafo">Paragrafo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('agent','insertUnorderedList')" class="fmt-btn" title="Elenco puntato">&bull; Elenco</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="insertHr('agent')" class="fmt-btn" title="Linea separatrice">&horbar; Separatore</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('agent','removeFormat')" class="fmt-btn" title="Rimuovi formattazione">&#x232B; Pulisci</button>
+            </div>
+
+            {{-- Editor visuale (WYSIWYG) --}}
+            <div id="visualEditorAgent" class="rich-editor" contenteditable="true" oninput="syncToTextarea('agent')"
+                 style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! sanitize_html(old('agent_contract_text', $agentContractText)) !!}</div>
+
+            {{-- Editor HTML grezzo --}}
+            <textarea id="agent_contract_text" name="agent_contract_text" rows="18"
+                style="display:none;width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
+                placeholder="Incolla qui il testo HTML del contratto di nomina ad agente...">{{ old('agent_contract_text', $agentContractText) }}</textarea>
 
             <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
                 <button type="submit" class="btn btn-primary btn-sm">💾 Salva testo contratto agente</button>
@@ -235,26 +264,98 @@
     </div>
 </div>
 
+{{-- Editor testo Direttive e Procedure Kosmos (Agente) --}}
+{{-- 2026-08-07: secondo documento che l'agente accetta con la STESSA firma
+     OTP del contratto sopra (vedi MlmAgentContractController e la pagina
+     portal.mlm.agent-contract-sign) — non un flusso di firma separato. --}}
+<div class="card" style="margin-top:16px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:8px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-size:.95rem;">📋 Direttive e Procedure Kosmos (Agente) <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">v{{ $agentDirectivesVersion }}</span></h2>
+        <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;">
+            <button type="button" onclick="setMode('directives','visual')" id="tabVisualDirectives" class="mode-tab mode-tab-active">&#x1F441; Visuale</button>
+            <button type="button" onclick="setMode('directives','html')" id="tabHtmlDirectives" class="mode-tab">&lt;/&gt; HTML</button>
+        </div>
+    </div>
+    <div class="card-body" style="padding:12px 16px;">
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">
+            Documento generale (nessun dato personale/placeholder): firmato dall'agente insieme al contratto di nomina, con lo stesso codice OTP.
+        </div>
+
+        <form method="POST" action="{{ route('admin.agent-directives-text.update') }}" onsubmit="syncToTextarea('directives');">
+            @csrf
+
+            {{-- Toolbar formattazione (solo modalità visuale) --}}
+            <div id="visualToolbarDirectives" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;background:#fafafa;">
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('directives','bold')" class="fmt-btn" title="Grassetto" style="font-weight:700;">B</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('directives','italic')" class="fmt-btn" title="Corsivo" style="font-style:italic;">I</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('directives','h2')" class="fmt-btn" title="Titolo principale">Titolo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('directives','h3')" class="fmt-btn" title="Sottotitolo">Sottotitolo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmtBlock('directives','p')" class="fmt-btn" title="Paragrafo">Paragrafo</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('directives','insertUnorderedList')" class="fmt-btn" title="Elenco puntato">&bull; Elenco</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="insertHr('directives')" class="fmt-btn" title="Linea separatrice">&horbar; Separatore</button>
+                <span style="width:1px;background:#e2e8f0;margin:0 2px;"></span>
+                <button type="button" onmousedown="event.preventDefault()" onclick="fmt('directives','removeFormat')" class="fmt-btn" title="Rimuovi formattazione">&#x232B; Pulisci</button>
+            </div>
+
+            {{-- Editor visuale (WYSIWYG) --}}
+            <div id="visualEditorDirectives" class="rich-editor" contenteditable="true" oninput="syncToTextarea('directives')"
+                 style="min-height:380px;max-height:560px;overflow-y:auto;background:#fff;border:1.5px solid #e2e8f0;border-radius:6px;padding:20px 24px;font-size:14px;line-height:1.75;outline:none;">{!! sanitize_html(old('agent_directives_text', $agentDirectivesText)) !!}</div>
+
+            {{-- Editor HTML grezzo --}}
+            <textarea id="agent_directives_text" name="agent_directives_text" rows="18"
+                style="display:none;width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
+                placeholder="Incolla qui il testo HTML delle Direttive e Procedure Kosmos...">{{ old('agent_directives_text', $agentDirectivesText) }}</textarea>
+
+            <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm">💾 Salva testo direttive</button>
+                <button type="button" onclick="resetAgentDirectivesDefault()" class="btn btn-secondary btn-sm" style="color:#dc2626;">↩ Ripristina default</button>
+                <span style="font-size:11px;color:#94a3b8;">Il salvataggio incrementa la versione delle direttive.</span>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
 .mode-tab { border:none;background:transparent;color:#64748b;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer; }
 .mode-tab-active { background:#fff;color:#0f766e;box-shadow:0 1px 2px rgba(0,0,0,.08); }
 .fmt-btn { border:1px solid #e2e8f0;background:#fff;color:#374151;font-size:12px;padding:4px 9px;border-radius:5px;cursor:pointer;line-height:1; }
 .fmt-btn:hover { background:#f1f5f9;border-color:#cbd5e1; }
-#visualEditor h2 { font-size:.95rem;font-weight:700;margin:18px 0 6px;color:#0f766e; }
-#visualEditor p  { margin:0 0 12px; }
-#visualEditor hr { border:none;border-top:1px solid #e2e8f0;margin:18px 0; }
-#visualEditor ul,#visualEditor ol { padding-left:20px; }
-#visualEditor li { margin-bottom:6px; }
-#visualEditor:focus { border-color:#0f766e; }
+.rich-editor h2 { font-size:1.05rem;font-weight:800;margin:22px 0 8px;color:#0f766e; }
+.rich-editor h3 { font-size:.95rem;font-weight:700;margin:18px 0 6px;color:#0f766e; }
+.rich-editor h4 { font-size:.9rem;font-weight:700;margin:16px 0 6px;color:#334155; }
+.rich-editor h5 { font-size:.85rem;font-weight:700;margin:14px 0 4px;color:#475569;text-transform:uppercase; }
+.rich-editor p  { margin:0 0 12px; }
+.rich-editor hr { border:none;border-top:1px solid #e2e8f0;margin:18px 0; }
+.rich-editor ul,.rich-editor ol { padding-left:20px; }
+.rich-editor li { margin-bottom:6px; }
+.rich-editor table { width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:13px; }
+.rich-editor table td,.rich-editor table th { border:1px solid #e2e8f0;padding:6px 10px; }
+.rich-editor:focus { border-color:#0f766e; }
 </style>
 
 <script>
-let editMode = 'visual';
+// I tre editor (contratto generale "main", contratto agente "agent",
+// direttive e procedure agente "directives") condividono la stessa logica
+// visuale/HTML, distinta solo dagli id degli elementi coinvolti (vedi ids()
+// sotto).
+let editMode = { main: 'visual', agent: 'visual', directives: 'visual' };
 
-function setMode(mode) {
-    const visual = document.getElementById('visualEditor');
-    const toolbar = document.getElementById('visualToolbar');
-    const ta = document.getElementById('contract_text');
+function ids(which) {
+    if (which === 'agent') {
+        return { visual: 'visualEditorAgent', toolbar: 'visualToolbarAgent', ta: 'agent_contract_text', tabVisual: 'tabVisualAgent', tabHtml: 'tabHtmlAgent' };
+    }
+    if (which === 'directives') {
+        return { visual: 'visualEditorDirectives', toolbar: 'visualToolbarDirectives', ta: 'agent_directives_text', tabVisual: 'tabVisualDirectives', tabHtml: 'tabHtmlDirectives' };
+    }
+    return { visual: 'visualEditor', toolbar: 'visualToolbar', ta: 'contract_text', tabVisual: 'tabVisual', tabHtml: 'tabHtml' };
+}
+
+function setMode(which, mode) {
+    const id = ids(which);
+    const visual = document.getElementById(id.visual);
+    const toolbar = document.getElementById(id.toolbar);
+    const ta = document.getElementById(id.ta);
     if (mode === 'html') {
         // visuale -> html
         ta.value = visual.innerHTML;
@@ -266,42 +367,44 @@ function setMode(mode) {
         ta.style.display = 'none';
         visual.style.display = 'block'; toolbar.style.display = 'flex';
     }
-    editMode = mode;
-    document.getElementById('tabVisual').classList.toggle('mode-tab-active', mode === 'visual');
-    document.getElementById('tabHtml').classList.toggle('mode-tab-active', mode === 'html');
+    editMode[which] = mode;
+    document.getElementById(id.tabVisual).classList.toggle('mode-tab-active', mode === 'visual');
+    document.getElementById(id.tabHtml).classList.toggle('mode-tab-active', mode === 'html');
 }
 
 // Tiene il campo inviato sempre allineato all'editor attivo
-function syncToTextarea() {
-    if (editMode === 'visual') {
-        document.getElementById('contract_text').value = document.getElementById('visualEditor').innerHTML;
+function syncToTextarea(which) {
+    const id = ids(which);
+    if (editMode[which] === 'visual') {
+        document.getElementById(id.ta).value = document.getElementById(id.visual).innerHTML;
     }
 }
 
-function fmt(cmd) {
-    document.getElementById('visualEditor').focus();
+function fmt(which, cmd) {
+    document.getElementById(ids(which).visual).focus();
     document.execCommand(cmd, false, null);
-    syncToTextarea();
+    syncToTextarea(which);
 }
-function fmtBlock(tag) {
-    document.getElementById('visualEditor').focus();
+function fmtBlock(which, tag) {
+    document.getElementById(ids(which).visual).focus();
     document.execCommand('formatBlock', false, tag);
-    syncToTextarea();
+    syncToTextarea(which);
 }
-function insertHr() {
-    document.getElementById('visualEditor').focus();
+function insertHr(which) {
+    document.getElementById(ids(which).visual).focus();
     document.execCommand('insertHorizontalRule', false, null);
-    syncToTextarea();
+    syncToTextarea(which);
 }
 
-function insertPH(ph) {
-    if (editMode === 'visual') {
-        const ed = document.getElementById('visualEditor');
+function insertPH(which, ph) {
+    const id = ids(which);
+    if (editMode[which] === 'visual') {
+        const ed = document.getElementById(id.visual);
         ed.focus();
         document.execCommand('insertText', false, ph);
-        syncToTextarea();
+        syncToTextarea(which);
     } else {
-        const ta = document.getElementById('contract_text');
+        const ta = document.getElementById(id.ta);
         const s = ta.selectionStart, e = ta.selectionEnd;
         ta.value = ta.value.slice(0,s) + ph + ta.value.slice(e);
         ta.selectionStart = ta.selectionEnd = s + ph.length;
@@ -317,6 +420,11 @@ function resetDefault() {
 function resetAgentDefault() {
     if (!confirm('Sostituire il testo del contratto agente con quello di default?')) return;
     fetch('{{ route("admin.contract-settings") }}?default_agent_text=1').then(() => location.reload());
+}
+
+function resetAgentDirectivesDefault() {
+    if (!confirm('Sostituire il testo delle Direttive e Procedure Kosmos con quello di default?')) return;
+    fetch('{{ route("admin.contract-settings") }}?default_agent_directives_text=1').then(() => location.reload());
 }
 </script>
 @endsection

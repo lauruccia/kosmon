@@ -32,16 +32,23 @@ class MlmAgentContractController extends Controller
             return redirect()->route('portal.mlm.agent-request.show');
         }
 
-        $settings     = SystemSetting::agentContractSettings();
-        $contractHtml = $settings->renderAgentContractText($user);
-        $contractVer  = $settings->mlm_agent_contract_version ?? 1;
+        $settings       = SystemSetting::agentContractSettings();
+        $contractHtml   = $settings->renderAgentContractText($user);
+        $contractVer    = $settings->mlm_agent_contract_version ?? 1;
+        // 2026-08-07: le Direttive e Procedure Kosmos sono un secondo
+        // documento (nessun placeholder personale) da leggere e accettare
+        // insieme al contratto, con la stessa firma OTP — vedi sign().
+        $directivesHtml = $settings->mlm_agent_directives_text ?? SystemSetting::defaultAgentDirectivesText();
+        $directivesVer  = $settings->mlm_agent_directives_version ?? 1;
 
         return view('portal.mlm.agent-contract-sign', [
-            'pageTitle'    => 'Contratto di nomina ad agente KNM',
-            'user'         => $user,
-            'contractHtml' => $contractHtml,
-            'contractVer'  => $contractVer,
-            'activeNav'    => 'mlm-agent-request',
+            'pageTitle'      => 'Contratto di nomina ad agente KNM',
+            'user'           => $user,
+            'contractHtml'   => $contractHtml,
+            'contractVer'    => $contractVer,
+            'directivesHtml' => $directivesHtml,
+            'directivesVer'  => $directivesVer,
+            'activeNav'      => 'mlm-agent-request',
         ]);
     }
 
@@ -94,15 +101,22 @@ class MlmAgentContractController extends Controller
             return back()->withErrors(['otp' => 'Codice OTP non corretto.'])->withInput();
         }
 
-        $settings        = SystemSetting::agentContractSettings();
-        $contractHtml    = $settings->renderAgentContractText($user);
-        $contractVersion = $settings->mlm_agent_contract_version ?? 1;
-        $now             = now();
+        $settings          = SystemSetting::agentContractSettings();
+        $contractHtml      = $settings->renderAgentContractText($user);
+        $contractVersion   = $settings->mlm_agent_contract_version ?? 1;
+        // Stesso atto di firma copre anche le Direttive e Procedure Kosmos
+        // (2026-08-07): congeliamo anche questo snapshot, così come per il
+        // contratto, per avere prova di cosa esattamente è stato accettato.
+        $directivesHtml    = $settings->mlm_agent_directives_text ?? SystemSetting::defaultAgentDirectivesText();
+        $directivesVersion = $settings->mlm_agent_directives_version ?? 1;
+        $now               = now();
 
         MlmAgentContractSignature::create([
-            'user_id'                => $user->id,
-            'contract_version'       => $contractVersion,
-            'contract_html_snapshot' => $contractHtml,
+            'user_id'                  => $user->id,
+            'contract_version'         => $contractVersion,
+            'contract_html_snapshot'   => $contractHtml,
+            'directives_version'       => $directivesVersion,
+            'directives_html_snapshot' => $directivesHtml,
             // 2026-07-31: congela i dati anagrafici del firmatario e dello
             // sponsor al momento della firma, in colonna strutturata (query-
             // abile) oltre allo snapshot HTML — vedi SystemSetting::
