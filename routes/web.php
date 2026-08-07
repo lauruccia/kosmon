@@ -696,6 +696,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
         Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
         Route::post('/mlm/contratto-agente/otp', [MlmAgentContractController::class, 'sendOtp'])->name('portal.mlm.agent-contract.send-otp')->middleware('throttle:3,10');
         Route::post('/mlm/contratto-agente/firma', [MlmAgentContractController::class, 'sign'])->name('portal.mlm.agent-contract.sign')->middleware('throttle:10,1');
+        // 2026-08-07 (richiesta di Laura): pagina di sola lettura per
+        // rivedere il contratto agente + le Direttive firmate, dato che
+        // show() sopra reindirizza via appena l'utente è già agente. Il nome
+        // resta sotto 'portal.mlm.agent-contract.*' cosi' EnsureMlmAgentContractSigned
+        // continua a lasciarla passare senza loop.
+        Route::get('/mlm/contratto-agente/firmato', [MlmAgentContractController::class, 'viewSigned'])->name('portal.mlm.agent-contract.view');
     });
 
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');

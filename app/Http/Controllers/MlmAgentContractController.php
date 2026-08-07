@@ -52,6 +52,41 @@ class MlmAgentContractController extends Controller
         ]);
     }
 
+    /**
+     * GET /portale/mlm/contratto-agente/firmato — sola lettura, per
+     * rivedere il contratto agente + le Direttive già firmate (2026-08-07,
+     * richiesta di Laura: show() sopra reindirizza via una volta che
+     * l'utente è già agente, quindi senza questa pagina non c'era alcun
+     * modo di riconsultarli). Mostra lo SNAPSHOT congelato al momento della
+     * firma, non il testo di default/attuale — coerente con
+     * ContractController::viewSigned() per il contratto generale.
+     */
+    public function viewSigned(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+
+        $signature = MlmAgentContractSignature::where('user_id', $user->id)
+            ->latest('signed_at')
+            ->first();
+
+        if (! $signature) {
+            return redirect()->route('portal.dashboard')
+                ->with('info', 'Non risulta ancora nessun contratto agente firmato.');
+        }
+
+        return view('portal.mlm.agent-contract-view', [
+            'pageTitle'      => 'Il mio contratto agente KNM',
+            'user'           => $user,
+            'signature'      => $signature,
+            'contractHtml'   => $signature->contract_html_snapshot,
+            // Le firme precedenti al 2026-08-07 non hanno le Direttive
+            // (documento introdotto in quella data): in quel caso non
+            // mostriamo nulla di "accettato" che in realtà non lo era.
+            'directivesHtml' => $signature->directives_html_snapshot,
+            'activeNav'      => 'mlm-agent-contract',
+        ]);
+    }
+
     /** POST /portale/mlm/contratto-agente/otp */
     public function sendOtp(Request $request): RedirectResponse
     {

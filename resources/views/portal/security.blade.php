@@ -242,6 +242,29 @@
     </section>
     @endif
 
+    {{-- 2026-08-07 (richiesta di Laura): analoga card per il contratto
+         agente + Direttive e Procedure Kosmos, visibile solo agli agenti
+         già attivi — vedi MlmAgentContractController::viewSigned(). --}}
+    @if(config('kmoney.mlm_enabled') && auth()->user()->isMlmAgent() && auth()->user()->mlm_agent_contract_signed_at)
+    <section class="card card-pad" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">
+                &#x1F4DC;
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:2px;">Contratto Agente KNM</div>
+                <div style="font-size:13px;color:var(--ink-soft);">
+                    Firmato il {{ auth()->user()->mlm_agent_contract_signed_at->format('d/m/Y \\a\\l\\l\\e H:i') }} — include le Direttive e Procedure Kosmos
+                </div>
+            </div>
+            <a href="{{ route('portal.mlm.agent-contract.view') }}"
+               style="padding:8px 16px;background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap;">
+                Visualizza &#x2192;
+            </a>
+        </div>
+    </section>
+    @endif
+
 
     {{-- Suggerimento app --}}
     @if(!$enabled)

@@ -1622,6 +1622,9 @@
                                 @endif
                                 @if(config('kmoney.mlm_enabled'))
                                 @if(($currentUser??$authUser)?->isMlmAgent())
+                                <a class="sidebar-link {{ $an === 'mlm-agent-contract' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-contract.view') }}">
+                                    <span class="nav-icon">&#128220;</span><span>Il mio contratto</span>
+                                </a>
                                 <a class="sidebar-link {{ $an === 'mlm-struttura' ? 'active' : '' }}" href="{{ route('portal.mlm.struttura') }}">
                                     <span class="nav-icon">&#127795;</span><span>La mia struttura</span>
                                 </a>
