@@ -218,4 +218,167 @@ class Transfer extends Model
     {
         return $this->hasOne(MarketplaceOrderPayment::class);
     }
+
+    /**
+     * "A cosa è dovuto" questo movimento, per i kind che derivano da un altro
+     * evento del sistema (commissione di transazione, cashback, accredito o
+     * prelievo del cassetto kmoney MLM) — richiesta di Laura del 2026-08-10:
+     * dal registro movimenti (admin) e dal dettaglio movimento (portale) si
+     * deve poter risalire esattamente all'origine di una commissione/cashback.
+     *
+     * Volutamente NON chiamato nelle liste (transfers.blade.php,
+     * movements.blade.php): fa query mirate sul singolo movimento, va
+     * invocato solo nelle pagine di dettaglio di UN transfer per evitare N+1
+     * su elenchi con molte righe.
+     *
+     * @return array{title:string, lines:array<int,array{label:string,value:string}>, admin_route:string|null, admin_route_params:array<string,int>}|null
+     */
+    public function originSummary(): ?array
+    {
+        return match ($this->kind) {
+            'portal_fee' => $this->originSummaryForFee(),
+            'portal_cashback' => $this->originSummaryForCashback(),
+            'mlm_wallet_credit' => $this->originSummaryForWalletCredit(),
+            'mlm_wallet_withdrawal' => $this->originSummaryForWalletWithdrawal(),
+            default => null,
+        };
+    }
+
+    private function originSummaryForFee(): ?array
+    {
+        $parent = $this->relatedTransfer;
+        if (! $parent) {
+            return null;
+        }
+
+        return [
+            'title' => 'Commissione di transazione',
+            'lines' => [
+                ['label' => 'Movimento originario', 'value' => $parent->reference],
+                ['label' => 'Causale movimento originario', 'value' => $parent->description ?? '—'],
+                ['label' => 'Importo movimento originario', 'value' => ky_format($parent->amount) . ' KY'],
+            ],
+            'admin_route' => null,
+            'admin_route_params' => [],
+        ];
+    }
+
+    /**
+     * Il movimento cashback non ha un related_transfer_id: il collegamento al
+     * pagamento che lo ha generato è nell'idempotency_key, sempre
+     * 'cashback_{uuid del transfer originario}' — vedi CashbackService::applyIfEligible().
+     */
+    private function originSummaryForCashback(): ?array
+    {
+        if (! Str::startsWith((string) $this->idempotency_key, 'cashback_')) {
+            return null;
+        }
+
+        $origin = self::where('uuid', Str::after($this->idempotency_key, 'cashback_'))->first();
+        if (! $origin) {
+            return null;
+        }
+
+        return [
+            'title' => 'Cashback',
+            'lines' => [
+                ['label' => 'Movimento che ha generato il cashback', 'value' => $origin->reference],
+                ['label' => 'Causale movimento originario', 'value' => $origin->description ?? '—'],
+                ['label' => 'Importo movimento originario', 'value' => ky_format($origin->amount) . ' KY'],
+                ['label' => 'Data movimento originario', 'value' => optional($origin->booked_at ?? $origin->created_at)->format('d/m/Y H:i') ?? '—'],
+            ],
+            'admin_route' => null,
+            'admin_route_params' => [],
+        ];
+    }
+
+    /**
+     * Accredito nel cassetto kmoney (compenso diretto/indiretto/esteso o
+     * bonus) — risale alla riga mlm_wallet_ledger_entries collegata a questo
+     * transfer e da lì alla commissione o al bonus di origine.
+     */
+    private function originSummaryForWalletCredit(): ?array
+    {
+        $entry = MlmWalletLedgerEntry::where('transfer_id', $this->id)->first();
+        if (! $entry) {
+            return null;
+        }
+
+        if ($entry->source_type === 'commission') {
+            $commission = MlmCommission::with(['sourceClient', 'sourceAgent'])->find($entry->source_id);
+            if (! $commission) {
+                return null;
+            }
+
+            return [
+                'title' => 'Compenso ' . $commission->type,
+                'lines' => array_values(array_filter([
+                    ['label' => 'Tipo compenso', 'value' => ucfirst((string) $commission->type)],
+                    ['label' => 'Cliente sorgente (acquisto che ha generato il compenso)', 'value' => $commission->sourceClient->name ?? '—'],
+                    $commission->sourceAgent ? ['label' => 'Agente sorgente (livello indiretto)', 'value' => $commission->sourceAgent->name] : null,
+                    ['label' => 'Livello', 'value' => $commission->level !== null ? (string) $commission->level : '—'],
+                    ['label' => 'Base di calcolo (Prov K)', 'value' => number_format($commission->base_amount_eur_cents / 100, 2, ',', '.') . ' €'],
+                    ['label' => 'Percentuale applicata', 'value' => number_format((float) $commission->percentage, 2, ',', '.') . '%'],
+                ])),
+                'admin_route' => $commission->mlm_payout_id ? 'admin.mlm.payouts.show' : null,
+                'admin_route_params' => $commission->mlm_payout_id ? ['mlmPayout' => $commission->mlm_payout_id] : [],
+            ];
+        }
+
+        if ($entry->source_type === 'bonus_payout') {
+            $bonus = MlmBonusPayout::find($entry->source_id);
+            if (! $bonus) {
+                return null;
+            }
+
+            $bonusLabel = $bonus->kind === 'diretto'
+                ? 'Bonus diretto'
+                : ($bonus->kind === 'extra' ? 'Extra Bonus ' . ucfirst((string) $bonus->rank_at_time) : ucfirst((string) $bonus->rank_at_time));
+
+            return [
+                'title' => 'Bonus ' . $bonus->kind,
+                'lines' => array_values(array_filter([
+                    ['label' => 'Tipo bonus', 'value' => $bonusLabel],
+                    ['label' => 'Settimana di riferimento', 'value' => $bonus->week_ending->format('d/m/Y')],
+                    $bonus->rank_at_time ? ['label' => 'Qualifica al momento', 'value' => ucfirst((string) $bonus->rank_at_time)] : null,
+                ])),
+                'admin_route' => $bonus->mlm_payout_id ? 'admin.mlm.payouts.show' : null,
+                'admin_route_params' => $bonus->mlm_payout_id ? ['mlmPayout' => $bonus->mlm_payout_id] : [],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Riserva/rilascio del cassetto kmoney per una liquidazione EUR — l'id
+     * della liquidazione è sempre nella descrizione testuale
+     * ("...liquidazione #{id}...", vedi MlmPayoutService::reserveWalletForPayout()
+     * e releaseWalletReservationForPayout()), non c'è altro collegamento
+     * strutturato in questo caso.
+     */
+    private function originSummaryForWalletWithdrawal(): ?array
+    {
+        if (! preg_match('/liquidazione #(\d+)/u', (string) $this->description, $matches)) {
+            return null;
+        }
+
+        $payout = MlmPayout::with('agent')->find((int) $matches[1]);
+        if (! $payout) {
+            return null;
+        }
+
+        return [
+            'title' => 'Movimento cassetto per liquidazione EUR',
+            'lines' => [
+                ['label' => 'Liquidazione', 'value' => '#' . $payout->id],
+                ['label' => 'Agente', 'value' => $payout->agent->name ?? '—'],
+                ['label' => 'Periodo', 'value' => $payout->period_from->format('m/Y')],
+                ['label' => 'Stato liquidazione', 'value' => ucfirst((string) $payout->status)],
+                ['label' => 'Totale liquidazione', 'value' => number_format($payout->total_eur_cents / 100, 2, ',', '.') . ' €'],
+            ],
+            'admin_route' => 'admin.mlm.payouts.show',
+            'admin_route_params' => ['mlmPayout' => $payout->id],
+        ];
+    }
 }

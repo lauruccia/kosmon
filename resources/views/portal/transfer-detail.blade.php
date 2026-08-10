@@ -24,6 +24,8 @@
         'code'                       => 'Pagamento via codice',
         'nfc_card'                   => 'Pagamento NFC',
         'portal_scheduled'           => 'Pagamento programmato',
+        'mlm_wallet_credit'          => 'Accredito cassetto kmoney',
+        'mlm_wallet_withdrawal'      => 'Movimento cassetto kmoney (liquidazione)',
     ];
     $kindLabel = $kindLabels[$transfer->kind] ?? ucfirst(str_replace('_', ' ', $transfer->kind ?? ''));
 
@@ -124,6 +126,25 @@
                 <code style="font-size:11px;word-break:break-all;">{{ $transfer->uuid }}</code>
             </div>
         </div>
+
+        {{-- A cosa è dovuto questo movimento (cashback, commissione, accredito/prelievo
+             cassetto kmoney MLM) — richiesta di Laura del 2026-08-10, vedi
+             Transfer::originSummary() / PortalController::transferDetail(). --}}
+        @if(($origin ?? null) !== null)
+        <div style="background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#0369a1;margin-bottom:10px;">
+                ℹ️ A cosa è dovuto: {{ $origin['title'] }}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px;color:#1e3a5f;">
+                @foreach($origin['lines'] as $line)
+                    <div>
+                        <span style="display:block;color:#0369a1;font-size:11px;margin-bottom:1px;">{{ $line['label'] }}</span>
+                        {{ $line['value'] }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         {{-- Indirizzo di spedizione (solo ordini shop con prodotto "da spedire",
              vedi Listing::requiresShippingAddress() — snapshot preso al momento

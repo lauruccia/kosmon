@@ -1451,6 +1451,9 @@ class PortalController extends Controller
             'alreadyRefunded' => $alreadyRefunded,
             'maxRefundable'   => $maxRefundable,
             'relatedRefunds'  => $relatedRefunds,
+            // A cosa è dovuto il movimento (cashback, commissione, cassetto
+            // MLM) — richiesta di Laura del 2026-08-10, vedi Transfer::originSummary().
+            'origin'          => $transfer->originSummary(),
         ]);
     }
 

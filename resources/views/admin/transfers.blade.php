@@ -183,8 +183,12 @@
                         'portal_netting'            => 'Netting',
                         'portal_payment_request'    => 'Pag. richiesta',
                         'portal_collection_request' => 'Incasso richiesta',
+                        'mlm_wallet_credit'         => 'Accredito cassetto MLM',
+                        'mlm_wallet_withdrawal'     => 'Prelievo cassetto MLM',
                         default => $transfer->kind ? ucfirst(str_replace('_', ' ', $transfer->kind)) : 'Movimento',
                     };
+
+                    $hasTraceableOrigin = in_array($transfer->kind, ['portal_fee', 'portal_cashback', 'mlm_wallet_credit', 'mlm_wallet_withdrawal'], true);
 
                     $fromLabel = $transfer->fromAccount?->display_name
                         ?? $transfer->fromAccount?->company?->name
@@ -244,6 +248,13 @@
                     </td>
                     <td style="padding:5px 10px;font-size:12px;color:#5a6474;white-space:nowrap;">{{ $transfer->initiator?->name ?? 'sistema' }}</td>
                     <td style="padding:5px 10px;white-space:nowrap;">
+                        @if ($hasTraceableOrigin)
+                            <a href="{{ route('admin.transfers.origin', $transfer) }}"
+                               class="cta secondary"
+                               style="font-size:11px;padding:3px 10px;text-decoration:none;display:inline-block;margin-right:4px;">
+                                Dettaglio
+                            </a>
+                        @endif
                         @if ($isAlreadyRefunded)
                             <span style="font-size:11px;color:#e07e00;" title="Storno di {{ $transfer->reversedTransfer->reference }}">↩ stornato</span>
                         @elseif ($hasReversalChild)

@@ -180,11 +180,32 @@ class AdminController extends Controller
             'portal_installment'        => 'Rata',
             'portal_netting'            => 'Netting',
             'ky_emission'               => 'Emissione KY',
+            'mlm_wallet_credit'         => 'Accredito cassetto MLM',
+            'mlm_wallet_withdrawal'     => 'Prelievo cassetto MLM',
         ];
     }
 
+    /**
+     * "A cosa è dovuto" un movimento derivato (cashback, commissione di
+     * transazione, accredito/prelievo del cassetto kmoney MLM) — richiesta di
+     * Laura del 2026-08-10: dal registro movimenti si clicca "Dettaglio" e si
+     * vede l'evento di origine. Vedi Transfer::originSummary() e, lato
+     * portale utente, PortalController::transferDetail().
+     */
+    public function transferOrigin(Request $request, Transfer $transfer): View
+    {
+        $this->authorizeBackoffice($request->user());
 
-
+        // Se originSummary() non risolve (dati collegati eliminati o mai
+        // creati), mostriamo comunque la pagina con un messaggio chiaro
+        // invece di un 404 secco — vedi admin/transfer-origin.blade.php.
+        return view('admin.transfer-origin', [
+            'pageTitle' => 'Origine movimento ' . $transfer->reference,
+            'activeNav' => 'transfers',
+            'transfer'  => $transfer,
+            'origin'    => $transfer->originSummary(),
+        ]);
+    }
 
 
 
