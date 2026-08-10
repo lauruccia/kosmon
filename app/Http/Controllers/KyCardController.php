@@ -33,8 +33,9 @@ class KyCardController extends PortalController
             ->get();
 
         return view('portal.ky-cards', compact('currentAccount', 'currentUser', 'cards', 'recentPurchases') + [
-            'pageTitle' => 'Ricarica KMoney',
-            'activeNav' => 'ky-cards',
+            'pageTitle'  => 'Ricarica KMoney',
+            'activeNav'  => 'ky-cards',
+            'redirectTo' => $this->redirectTargetFromRequest($request),
         ]);
     }
 
@@ -94,9 +95,10 @@ class KyCardController extends PortalController
         );
 
         return view('portal.ky-card-checkout', compact('currentAccount', 'currentUser') + [
-            'card'      => $kyCard,
-            'pageTitle' => 'Acquista ' . $kyCard->name,
-            'activeNav' => 'ky-cards',
+            'card'       => $kyCard,
+            'pageTitle'  => 'Acquista ' . $kyCard->name,
+            'activeNav'  => 'ky-cards',
+            'redirectTo' => $this->redirectTargetFromRequest($request),
         ]);
     }
 
@@ -112,6 +114,13 @@ class KyCardController extends PortalController
             $request->user(), $this->requestedCompanyId($request)
         );
 
+        // redirect_to (facoltativo, hidden field nel form del checkout): pagina da
+        // cui l'utente e' arrivato per saldo insufficiente (es. shop, richiesta di
+        // pagamento) — vedi redirectTargetFromRequest(). La riportiamo dentro
+        // success_url cosi' success() puo' riportarcelo in automatico a pagamento
+        // riuscito.
+        $redirectTo = $this->redirectTargetFromRequest($request);
+
         $purchase = KyCardPurchase::create([
             'ky_card_id'      => $kyCard->id,
             'account_id'      => $currentAccount->id,
@@ -125,12 +134,17 @@ class KyCardController extends PortalController
         try {
             \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
 
+            $successUrl = route('portal.ky-cards.success', ['purchase' => $purchase->uuid]) . '?session_id={CHECKOUT_SESSION_ID}';
+            if ($redirectTo) {
+                $successUrl .= '&redirect_to=' . urlencode($redirectTo);
+            }
+
             $session = \Stripe\Checkout\Session::create([
                 'payment_method_types' => ['card'],
                 'line_items'           => [['price' => $kyCard->stripe_price_id, 'quantity' => 1]],
                 'mode'                 => 'payment',
-                'success_url'          => route('portal.ky-cards.success', ['purchase' => $purchase->uuid]) . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url'           => route('portal.ky-cards.index'),
+                'success_url'          => $successUrl,
+                'cancel_url'           => route('portal.ky-cards.index', $redirectTo ? ['redirect_to' => $redirectTo] : []),
                 'client_reference_id'  => $purchase->uuid,
                 'metadata'             => ['purchase_uuid' => $purchase->uuid],
             ]);
@@ -142,7 +156,7 @@ class KyCardController extends PortalController
         } catch (\Exception $e) {
             $purchase->update(['status' => 'failed']);
             Log::error('Stripe checkout error', ['error' => $e->getMessage(), 'purchase' => $purchase->uuid]);
-            return redirect()->route('portal.ky-cards.index')
+            return redirect()->route('portal.ky-cards.index', $redirectTo ? ['redirect_to' => $redirectTo] : [])
                 ->with('error', 'Errore avvio pagamento Stripe. Riprova o scegli un altro metodo.');
         }
     }
@@ -157,6 +171,10 @@ class KyCardController extends PortalController
         [$currentAccount, $currentUser] = $this->resolveCurrentContext(
             $request->user(), $this->requestedCompanyId($request)
         );
+
+        // redirect_to arriva come query string sull'URL fetch() chiamato dal
+        // bottone PayPal — vedi ky-card-checkout.blade.php — non da un campo form.
+        $redirectTo = $this->redirectTargetFromRequest($request);
 
         // Crea il purchase in pending
         $purchase = KyCardPurchase::create([
@@ -174,6 +192,9 @@ class KyCardController extends PortalController
             $accessToken = $this->getPaypalAccessToken();
             $amount      = number_format($kyCard->price_eur, 2, '.', '');
 
+            $captureReturnUrl = route('portal.ky-cards.paypal-capture', ['purchase' => $purchase->uuid])
+                . ($redirectTo ? '?redirect_to=' . urlencode($redirectTo) : '');
+
             $response = \Illuminate\Support\Facades\Http::withToken($accessToken)
                 ->post($this->paypalApiBase() . '/v2/checkout/orders', [
                     'intent'         => 'CAPTURE',
@@ -183,8 +204,8 @@ class KyCardController extends PortalController
                         'custom_id'   => $purchase->uuid,
                     ]],
                     'application_context' => [
-                        'return_url' => route('portal.ky-cards.paypal-capture', ['purchase' => $purchase->uuid]),
-                        'cancel_url' => route('portal.ky-cards.index'),
+                        'return_url' => $captureReturnUrl,
+                        'cancel_url' => route('portal.ky-cards.index', $redirectTo ? ['redirect_to' => $redirectTo] : []),
                         'brand_name' => 'KMoney',
                         'user_action' => 'PAY_NOW',
                     ],
@@ -193,7 +214,7 @@ class KyCardController extends PortalController
             $order = $response->json();
             $purchase->update(['paypal_order_id' => $order['id']]);
 
-            return response()->json(['id' => $order['id'], 'purchase_uuid' => $purchase->uuid]);
+            return response()->json(['id' => $order['id'], 'purchase_uuid' => $purchase->uuid, 'redirect_to' => $redirectTo]);
 
         } catch (\Exception $e) {
             $purchase->update(['status' => 'failed']);
@@ -233,7 +254,12 @@ class KyCardController extends PortalController
 
         $purchase->refresh();
 
-        return redirect()->route('portal.ky-cards.success', ['purchase' => $purchase->uuid]);
+        $redirectTo = $this->redirectTargetFromRequest($request);
+
+        return redirect()->route('portal.ky-cards.success', array_filter([
+            'purchase'    => $purchase->uuid,
+            'redirect_to' => $redirectTo,
+        ]));
     }
 
     // ── BONIFICO: genera istruzioni ────────────────────────────────────────
@@ -268,6 +294,10 @@ class KyCardController extends PortalController
             'bankIban'       => config('kmoney.bank_iban'),
             'bankName'       => config('kmoney.bank_name'),
             'bankBeneficiary'=> config('kmoney.bank_beneficiary'),
+            // Il bonifico non accredita subito (verifica manuale entro 1-2
+            // giorni lavorativi): mostriamo solo un link "torna al pagamento"
+            // manuale, niente redirect automatico — i KY non ci sono ancora.
+            'redirectTo'     => $this->redirectTargetFromRequest($request),
         ]);
     }
 
@@ -299,6 +329,13 @@ class KyCardController extends PortalController
             'activeNav'      => 'ky-cards',
             'currentAccount' => $purchase->account,
             'currentUser'    => $request->user(),
+            // Se l'utente e' arrivato qui da un pagamento bloccato per saldo
+            // insufficiente (shop, richiesta di pagamento — vedi
+            // redirectTargetFromRequest()), e la ricarica e' andata a buon fine
+            // subito (Stripe/PayPal), lo riportiamo li' in automatico invece di
+            // lasciarlo sulla pagina "ricarica completata" a cercare la strada
+            // del ritorno da solo.
+            'redirectTo'     => $this->redirectTargetFromRequest($request),
         ]);
     }
 
@@ -572,6 +609,48 @@ class KyCardController extends PortalController
                 $purchase->update(['status' => 'failed']);
             }
         }
+    }
+
+    // ── Redirect al pagamento di partenza dopo ricarica ────────────────────
+
+    /**
+     * Legge redirect_to dalla request (query string su GET/fetch, campo
+     * hidden nei form POST — Request::input() copre entrambi i casi) e lo
+     * valida come path locale prima di riusarlo altrove nel flusso.
+     *
+     * Serve a chi arriva qui da un pagamento bloccato per saldo
+     * insufficiente (es. "Ricarica ora" su un prodotto shop o su una
+     * richiesta di pagamento — vedi shop-show.blade.php e
+     * pay-request.blade.php) per essere riportato automaticamente li' a
+     * ricarica completata, invece di dover ritrovare da solo la pagina da
+     * cui era partito. Passato esplicitamente attraverso tutto il giro
+     * (query string / campo hidden / success_url e return_url dei
+     * provider) invece che in sessione: evita ambiguita' tra ricariche
+     * concorrenti in tab diverse, stesso motivo per cui e' preferibile a
+     * un semplice session()->put() globale.
+     */
+    private function redirectTargetFromRequest(Request $request): ?string
+    {
+        return $this->sanitizeLocalRedirectTarget($request->input('redirect_to'));
+    }
+
+    /**
+     * Accetta solo path locali relativi (mai URL assoluti/esterni), per
+     * evitare un open-redirect tramite il parametro redirect_to.
+     */
+    private function sanitizeLocalRedirectTarget(mixed $target): ?string
+    {
+        if (! is_string($target)) {
+            return null;
+        }
+
+        $target = trim($target);
+
+        if ($target === '' || ! str_starts_with($target, '/') || str_starts_with($target, '//') || str_contains($target, '://')) {
+            return null;
+        }
+
+        return $target;
     }
 
     // ── PayPal helpers ─────────────────────────────────────────────────────

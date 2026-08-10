@@ -29,14 +29,48 @@
             </div>
         </div>
 
-        <div style="display:flex;gap:12px;justify-content:center;">
-            <a href="{{ route('portal.dashboard') }}" class="cta" style="min-width:160px;justify-content:center;">Vai al conto</a>
-            <a href="{{ route('portal.ky-cards.index') }}" class="cta secondary">Acquista ancora</a>
-        </div>
+        @if($redirectTo ?? null)
+            {{-- Ricarica partita da un pagamento bloccato per saldo insufficiente
+                 (shop, richiesta di pagamento…): la riportiamo li' in automatico
+                 dopo pochi secondi, con link immediato + fallback senza JS. --}}
+            <meta http-equiv="refresh" content="3;url={{ $redirectTo }}">
+            <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;" id="auto-redirect-note">
+                Torni automaticamente al pagamento tra <span id="redirect-countdown">3</span> secondi…
+            </p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <a href="{{ $redirectTo }}" class="cta" style="min-width:160px;justify-content:center;">Torna al pagamento ora →</a>
+                <a href="{{ route('portal.dashboard') }}" class="cta secondary">Vai al conto</a>
+            </div>
+            <script>
+                (function () {
+                    var left = 3;
+                    var el = document.getElementById('redirect-countdown');
+                    var timer = setInterval(function () {
+                        left -= 1;
+                        if (el) el.textContent = Math.max(left, 0);
+                        if (left <= 0) {
+                            clearInterval(timer);
+                            window.location.href = @json($redirectTo);
+                        }
+                    }, 1000);
+                })();
+            </script>
+        @else
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <a href="{{ route('portal.dashboard') }}" class="cta" style="min-width:160px;justify-content:center;">Vai al conto</a>
+                <a href="{{ route('portal.ky-cards.index') }}" class="cta secondary">Acquista ancora</a>
+            </div>
+        @endif
     @else
         <p style="color:var(--ink-soft);font-size:15px;margin-bottom:28px;">
             Il pagamento &egrave; in fase di verifica. I KY saranno accreditati a breve.
         </p>
+        @if($redirectTo ?? null)
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#1d4ed8;">
+                Appena accreditati, torna al pagamento che stavi per fare:
+                <a href="{{ $redirectTo }}" style="color:#1d4ed8;font-weight:700;">continua qui →</a>
+            </div>
+        @endif
         <a href="{{ route('portal.dashboard') }}" class="cta" style="min-width:160px;justify-content:center;">Torna alla dashboard</a>
     @endif
 

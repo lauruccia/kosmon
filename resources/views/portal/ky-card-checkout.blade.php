@@ -4,10 +4,16 @@
 
 {{-- ── BREADCRUMB ──────────────────────────────────────────────────────── --}}
 <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-muted);margin-bottom:20px;">
-    <a href="{{ route('portal.ky-cards.index') }}" style="color:var(--primary);text-decoration:none;font-weight:600;">← Ricarica KY</a>
+    <a href="{{ route('portal.ky-cards.index', ($redirectTo ?? null) ? ['redirect_to' => $redirectTo] : []) }}" style="color:var(--primary);text-decoration:none;font-weight:600;">← Ricarica KY</a>
     <span>/</span>
     <span style="color:var(--ink);">{{ $card->name }}</span>
 </div>
+
+@if($redirectTo ?? null)
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#1d4ed8;display:flex;align-items:center;gap:8px;">
+    ℹ️ Completa questa ricarica: appena confermata torni automaticamente al pagamento che stavi per fare.
+</div>
+@endif
 
 {{-- ── LAYOUT CHECKOUT ─────────────────────────────────────────────────── --}}
 <div id="checkout-grid" style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
@@ -66,6 +72,9 @@
             </div>
             <form method="POST" action="{{ route('portal.ky-cards.stripe-checkout', $card) }}">
                 @csrf
+                @if($redirectTo ?? null)
+                <input type="hidden" name="redirect_to" value="{{ $redirectTo }}">
+                @endif
                 <button type="submit" class="cta" style="width:100%;justify-content:center;font-size:14px;padding:13px 20px;border-radius:10px;">
                     Paga {{ number_format($card->price_eur, 2, ',', '.') }} € con carta →
                 </button>
@@ -95,6 +104,9 @@
             </div>
             <form method="POST" action="{{ route('portal.ky-cards.bank-transfer', $card) }}">
                 @csrf
+                @if($redirectTo ?? null)
+                <input type="hidden" name="redirect_to" value="{{ $redirectTo }}">
+                @endif
                 <button type="submit" class="cta secondary" style="width:100%;justify-content:center;font-size:14px;padding:13px 20px;border-radius:10px;">
                     Ricevi coordinate per il bonifico →
                 </button>
@@ -183,9 +195,12 @@
 @if($hasPaypal)
 <script src="https://www.paypal.com/sdk/js?client-id={{ config('services.paypal.client_id') }}&currency=EUR"></script>
 <script>
+var redirectTo = @json($redirectTo ?? null);
 paypal.Buttons({
     createOrder: function() {
-        return fetch('{{ route('portal.ky-cards.paypal-create-order', $card) }}', {
+        var createUrl = '{{ route('portal.ky-cards.paypal-create-order', $card) }}'
+            + (redirectTo ? '?redirect_to=' + encodeURIComponent(redirectTo) : '');
+        return fetch(createUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
         }).then(r => r.json()).then(data => {
@@ -194,7 +209,8 @@ paypal.Buttons({
         });
     },
     onApprove: function(data) {
-        window.location = '{{ route('portal.ky-cards.paypal-capture', ['purchase' => '__UUID__']) }}'.replace('__UUID__', data.orderID);
+        var captureUrl = '{{ route('portal.ky-cards.paypal-capture', ['purchase' => '__UUID__']) }}'.replace('__UUID__', data.orderID);
+        window.location = captureUrl + (redirectTo ? '?redirect_to=' + encodeURIComponent(redirectTo) : '');
     },
     onError: function() { alert('Errore PayPal. Riprova o scegli un altro metodo.'); }
 }).render('#paypal-button-container');

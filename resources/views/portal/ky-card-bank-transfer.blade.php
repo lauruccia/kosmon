@@ -84,6 +84,15 @@
             Riceverai una notifica email di conferma.
         </div>
 
+        @if($redirectTo ?? null)
+        {{-- Il bonifico non e' istantaneo: niente ritorno automatico (i KY non
+             ci sono ancora), ma lasciamo un link diretto per quando servira'. --}}
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#1d4ed8;">
+            Una volta accreditati i KY, torna al pagamento che stavi per fare:
+            <a href="{{ $redirectTo }}" style="color:#1d4ed8;font-weight:700;">continua qui →</a>
+        </div>
+        @endif
+
         <div style="display:flex;gap:12px;">
             <a href="{{ route('portal.ky-cards.index') }}" class="cta secondary" style="flex:1;justify-content:center;">Torna alle KYCard</a>
             <a href="{{ route('portal.dashboard') }}" class="cta" style="flex:1;justify-content:center;">Vai al conto</a>

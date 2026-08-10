@@ -122,7 +122,11 @@
                             Il tuo saldo disponibile ({{ ky_format($fromAccount->saldoDisponibile()) }} KY) non copre l'importo richiesto.
                         </div>
                     </div>
-                    <a href="{{ route('portal.ky-cards.index') }}" target="_blank" rel="noopener" class="cta" style="width:100%;justify-content:center;margin-bottom:10px;">Ricarica ora</a>
+                    {{-- redirect_to riporta qui in automatico appena la ricarica va a buon
+                         fine (Stripe/PayPal): vedi KyCardController::success(). Il QR ha una
+                         scadenza breve, quindi teniamo comunque i link manuali come rete di
+                         sicurezza se la ricarica richiede più tempo (es. bonifico). --}}
+                    <a href="{{ route('portal.ky-cards.index', ['redirect_to' => route('portal.pay-request.show', $pr->token)]) }}" class="cta" style="width:100%;justify-content:center;margin-bottom:10px;">Ricarica ora</a>
                     <a href="{{ route('portal.pay-request.show', $pr->token) }}" class="cta secondary" style="width:100%;justify-content:center;margin-bottom:10px;">Ho ricaricato, riprova</a>
                     <a href="{{ route('portal.dashboard') }}" class="cta secondary" style="width:100%;justify-content:center;">Torna al conto</a>
                 @endif

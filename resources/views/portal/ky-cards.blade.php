@@ -9,6 +9,14 @@
     <div class="alert alert-danger" style="margin-bottom:16px;">{{ session('error') }}</div>
 @endif
 
+{{-- Arrivati qui per saldo insufficiente su un pagamento (shop, richiesta di
+     pagamento…): a ricarica completata veniamo riportati li' in automatico. --}}
+@if($redirectTo ?? null)
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#1d4ed8;display:flex;align-items:center;gap:8px;">
+    ℹ️ Scegli una ricarica: appena completata torni automaticamente al pagamento che stavi per fare.
+</div>
+@endif
+
 {{-- ── CATALOGO CARD ────────────────────────────────────────────────────── --}}
 @if($cards->isEmpty())
     <div class="card" style="padding:60px;text-align:center;color:var(--ink-muted);">
@@ -19,7 +27,7 @@
 @else
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-bottom:32px;">
         @foreach($cards as $card)
-        <a href="{{ route('portal.ky-cards.checkout', $card) }}"
+        <a href="{{ route('portal.ky-cards.checkout', $card) }}{{ ($redirectTo ?? null) ? '?redirect_to=' . urlencode($redirectTo) : '' }}"
            style="text-decoration:none;display:block;border-radius:14px;overflow:hidden;
                   border:2px solid {{ $card->ky_bonus > 0 ? '#bbf7d0' : 'var(--border)' }};
                   background:var(--card-bg);box-shadow:var(--shadow);

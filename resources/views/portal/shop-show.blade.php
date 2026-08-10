@@ -195,9 +195,12 @@
                         Completa indirizzo di spedizione
                     </a>
                 @elseif(! $canAfford)
-                    <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
-                        Saldo insufficiente
-                    </button>
+                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                        Saldo insufficiente: ti mancano {{ ky_format($requiredKy - $currentAccount->saldoDisponibile()) }} KY per acquistare questo prodotto.
+                    </p>
+                    <a href="{{ route('portal.ky-cards.index', ['redirect_to' => route('portal.shop.show', $listing)]) }}" class="cta" style="width:100%;text-align:center;display:block;">
+                        Ricarica il tuo conto
+                    </a>
                 @else
                     <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
                         @csrf
@@ -216,12 +219,6 @@
                     </form>
                 @endif
             </div>
-
-            @if(! $isOwnCompany && $inStock && (! $needsShippingAddress || $hasShippingAddress) && ! $canAfford)
-            <p style="font-size:12px;color:#94a3b8;margin-top:10px;text-align:center;">
-                Ti mancano {{ ky_format($requiredKy - $currentAccount->saldoDisponibile()) }} KY
-            </p>
-            @endif
         </section>
 
         @if(auth()->user()->company_id === $listing->company_id || auth()->user()->is_super_admin)
