@@ -72,7 +72,7 @@
                 <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">{{ $targetLabel }}</code>
             </label>
             <input type="text" name="confirmation" id="confirmation-input" autocomplete="off"
-                class="form-input" style="width:100%;margin-bottom:16px;" placeholder="{{ $targetLabel }}">
+                class="form-input" style="width:100%;margin-bottom:16px;" placeholder="Scrivi qui il nome esatto...">
 
             <div style="display:flex;gap:10px;">
                 <button type="submit" id="purge-submit" class="cta" style="background:#dc2626;opacity:0.5;pointer-events:none;" disabled>
@@ -101,6 +101,14 @@
         }
 
         input.addEventListener('input', refresh);
+        input.addEventListener('change', refresh);
+        input.addEventListener('paste', function () { setTimeout(refresh, 0); });
+
+        // Ricontrolla subito allo state iniziale: se il browser ripristina un
+        // valore già digitato (autofill, tasto "indietro", bfcache dopo reload)
+        // l'evento 'input' non scatta, e senza questa chiamata il pulsante
+        // resterebbe disabilitato anche col testo corretto già presente.
+        refresh();
 
         form.addEventListener('submit', function (e) {
             if (input.value.trim() !== expected.trim()) {
