@@ -51,9 +51,15 @@
                 </div>
                 <div>
                     <label class="field-label">Prezzo totale (KY) *</label>
-                    <input type="number" name="price_ky" min="1" max="9999999"
-                        value="{{ old('price_ky', $editingListing?->price_ky) }}"
-                        required placeholder="1000" class="field-input">
+                    {{-- 12/08/2026: price_ky è salvato in centesimi (vedi ky_to_cents()
+                         in validateListing()), ma qui mancavano step="0.01" e ky_input()
+                         per il precompilamento — l'input, di fatto un numero intero,
+                         scartava la virgola digitata (es. "17,00" diventava "1700") e in
+                         modifica mostrava il valore grezzo in centesimi invece che in KY.
+                         Bug segnalato da Laura il 12/08. --}}
+                    <input type="number" name="price_ky" min="0.01" max="99999.99" step="0.01"
+                        value="{{ old('price_ky', $editingListing ? ky_input($editingListing->price_ky) : '') }}"
+                        required placeholder="es. 10.00" class="field-input">
                     <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
                         Il prezzo in KY rappresenta il valore totale dell'offerta.
                     </div>
