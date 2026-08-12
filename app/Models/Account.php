@@ -462,9 +462,12 @@ class Account extends Model
     /**
      * Percentuali KY consentite per le vendite, in base al saldo.
      *
-     * - Saldo < 0        => [100]              (solo 100% KY, obbligatorio)
-     * - 0 <= saldo < max => [0, 25, 50, 75, 100] (libera scelta)
-     * - Saldo >= max     => []                 (vendita bloccata)
+     * - Saldo < 0        => [100]               (solo 100% KY, obbligatorio)
+     * - 0 <= saldo < max => [25, 50, 75, 100]    (libera scelta)
+     * - Saldo >= max     => []                  (vendita bloccata)
+     *
+     * 12/08/2026: rimosso 0 (100% EUR) su richiesta di Laura — non serve,
+     * un prodotto shop deve avere sempre una quota KY minima del 25%.
      *
      * @return int[]
      */
@@ -476,7 +479,7 @@ class Account extends Model
         if ($this->isInDebit()) {
             return [100];
         }
-        return [0, 25, 50, 75, 100];
+        return [25, 50, 75, 100];
     }
 
     /**

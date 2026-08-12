@@ -102,8 +102,12 @@ class Listing extends Model
         return self::STATUS_LABELS[$status] ?? ucfirst($status);
     }
 
-    /** Valori consentiti per il mix KY/EUR */
-    public const KY_PERCENTAGES = [0, 25, 50, 75, 100];
+    /**
+     * Valori consentiti per il mix KY/EUR.
+     * 12/08/2026: rimosso 0 (100% EUR) su richiesta di Laura — non serve,
+     * un prodotto shop deve avere sempre una quota KY minima del 25%.
+     */
+    public const KY_PERCENTAGES = [25, 50, 75, 100];
 
     /**
      * Tipo di consegna/erogazione del prodotto (2026-07-29, richiesta di
