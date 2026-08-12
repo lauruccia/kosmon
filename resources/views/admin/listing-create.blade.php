@@ -21,7 +21,14 @@
 
                 <div class="field">
                     <label>Azienda *</label>
-                    <select name="company_id" id="admin-company-select" required onchange="applyAdminKyRules()">
+                    {{-- 12/08/2026: data-no-search per disattivare l'enhancement TomSelect
+                         (search-as-you-type globale su tutti i <select>, vedi layouts/portal.blade.php)
+                         — con tanti nomi simili (Kirkaia, Knm, Koine', Kokus Bar, Kor Caffè,
+                         kosmoprof...) la casella di ricerca dava l'impressione di poter scrivere
+                         un nome libero invece di scegliere solo tra le aziende esistenti.
+                         Stesso pattern già usato per status/categoria in admin/listings.blade.php
+                         e portal/shop.blade.php. Bug segnalato da Laura. --}}
+                    <select name="company_id" id="admin-company-select" required data-no-search onchange="applyAdminKyRules()">
                         <option value="">— Seleziona azienda —</option>
                         @foreach($companies as $company)
                             <option value="{{ $company->id }}" @selected((int) old('company_id') === $company->id)>{{ $company->name }}</option>
