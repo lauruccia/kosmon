@@ -925,6 +925,39 @@
             background: var(--line, #eef0f3); color: var(--ink-soft);
             cursor: not-allowed; opacity: .75;
         }
+        /* Alias per il markup che usa le classi piatte "field-label"/"field-input"
+           direttamente su label/input invece del wrapper .field (usato in
+           resources/views/portal/shop-create.blade.php per il form prodotto shop).
+           Senza queste regole gli input risultavano completamente privi di stile
+           — bug già notato e aggirato localmente in shop-show.blade.php (vedi
+           commento su .qty-field lì), ma mai risolto alla radice. 12/08/2026. */
+        .field-label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+        .field-input {
+            width: 100%; min-height: 44px; padding: 10px 14px;
+            border-radius: 9px; border: 1px solid var(--line-strong);
+            background: var(--surface); color: var(--ink);
+            transition: border-color .16s, box-shadow .16s, background .28s;
+        }
+        .field-input:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(15,82,196,.12);
+        }
+        .field-input:disabled {
+            background: var(--line, #eef0f3); color: var(--ink-soft);
+            cursor: not-allowed; opacity: .75;
+        }
+        /* .btn-outline: usato per il link "Annulla" nel form prodotto shop,
+           mai definito in questo layout — stesso problema di cui sopra. */
+        .btn-outline {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            min-height: 36px; padding: 0 14px; border-radius: 9px;
+            background: var(--surface); color: var(--ink);
+            border: 1px solid var(--line-strong); box-shadow: var(--shadow-xs);
+            font-size: 13px; font-weight: 700; letter-spacing: .02em;
+            text-decoration: none; cursor: pointer;
+            transition: background .16s, box-shadow .16s;
+        }
+        .btn-outline:hover { background: var(--surface-hover); box-shadow: var(--shadow); }
         .field-inline { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 14px; }
         /* ── PASSWORD TOGGLE ─────────────────────────────────────────── */
         .pw-wrap { position: relative; }
