@@ -86,7 +86,11 @@ class ListingController extends Controller
             ->orderByDesc('featured')
             ->orderByDesc('created_at');
 
-        $listings = $listingsQuery->paginate(12)->withQueryString();
+        // 15 e non 12 (2026-08-12, richiesta di Laura): la griglia prodotti
+        // e' a 5 colonne, con 12/pagina l'ultima riga restava incompleta
+        // (2 prodotti "orfani"). 15 = multiplo di 5, riempie sempre l'intera
+        // griglia su ogni pagina piena.
+        $listings = $listingsQuery->paginate(15)->withQueryString();
         $featuredListings = Listing::query()->with('company.plan')->active()->featured()->latest()->take(4)->get();
 
         return view('portal.shop', [
