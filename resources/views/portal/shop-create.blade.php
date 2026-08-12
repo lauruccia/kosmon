@@ -7,7 +7,10 @@
     <p>Inserisci le informazioni del prodotto o servizio che vuoi offrire nel circuito KMoney.</p>
 </section>
 
-<div style="max-width:720px;">
+{{-- 12/08/2026: mancava margin:0 auto — il form restava ancorato a sinistra
+     invece di centrarsi come admin/listing-create.blade.php (che usa
+     "max-width:760px;margin:0 auto;"). Bug segnalato da Laura. --}}
+<div style="max-width:720px;margin:0 auto;">
 <section class="card light-card">
     @if($errors->any())
     <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
