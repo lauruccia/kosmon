@@ -21,23 +21,31 @@
 
                 <div class="field">
                     <label>Azienda *</label>
-                    {{-- 12/08/2026: data-no-search per disattivare l'enhancement TomSelect
-                         (search-as-you-type globale su tutti i <select>, vedi layouts/portal.blade.php)
-                         — con tanti nomi simili (Kirkaia, Knm, Koine', Kokus Bar, Kor Caffè,
-                         kosmoprof...) la casella di ricerca dava l'impressione di poter scrivere
-                         un nome libero invece di scegliere solo tra le aziende esistenti.
-                         Stesso pattern già usato per status/categoria in admin/listings.blade.php
-                         e portal/shop.blade.php. Bug segnalato da Laura. --}}
-                    <select name="company_id" id="admin-company-select" required data-no-search onchange="applyAdminKyRules()">
-                        <option value="">— Seleziona azienda —</option>
+                    {{-- 12/08/2026 pomeriggio: prima qui c'era data-no-search per disattivare del
+                         tutto l'enhancement TomSelect (search-as-you-type globale, vedi
+                         layouts/portal.blade.php), perché con tanti nomi simili (Kirkaia, Knm,
+                         Koine', Kokus Bar, Kor Caffè, kosmoprof...) la casella di ricerca dava
+                         l'impressione di poter scrivere un nome libero invece di scegliere solo
+                         tra le aziende esistenti. Su richiesta di Laura la ricerca è stata
+                         reintrodotta (utile con tante aziende in elenco): il campo resta
+                         comunque vincolato alle sole opzioni esistenti (TomSelect su una
+                         <select> nativa non permette di inserire valori arbitrari, il plugin
+                         "create" non è abilitato), quindi non si può più assegnare il prodotto
+                         a un nome digitato a mano — solo il messaggio sotto il campo chiarisce
+                         il comportamento. Pattern data-no-search (senza ricerca) resta invece
+                         per status/categoria in admin/listings.blade.php e portal/shop.blade.php,
+                         dove il menu è breve e la ricerca non serve. --}}
+                    <select name="company_id" id="admin-company-select" required onchange="applyAdminKyRules()">
+                        <option value="">— Cerca o seleziona azienda —</option>
                         @foreach($companies as $company)
                             <option value="{{ $company->id }}" @selected((int) old('company_id') === $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     <p style="margin:6px 0 0;font-size:11.5px;color:var(--ink-muted);line-height:1.4;">
-                        Il prodotto verrà assegnato a questa azienda. Se il suo saldo è negativo, valgono le stesse
-                        regole KY/EUR che si applicherebbero se lo pubblicasse lei: qui sotto il mix pagamento verrà
-                        bloccato automaticamente al 100% KY.
+                        Digita per cercare tra le aziende del circuito: puoi scegliere solo tra i risultati mostrati
+                        nell'elenco. Il prodotto verrà assegnato a questa azienda. Se il suo saldo è negativo,
+                        valgono le stesse regole KY/EUR che si applicherebbero se lo pubblicasse lei: qui sotto
+                        il mix pagamento verrà bloccato automaticamente al 100% KY.
                     </p>
                 </div>
 
