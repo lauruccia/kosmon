@@ -210,7 +210,7 @@
             {{-- Indirizzo di spedizione (2026-07-29): compilato una volta sola
                  qui, riusato ad ogni acquisto di un prodotto "da spedire" nello
                  shop — vedi Account::hasShippingAddress(). --}}
-            <div class="profile-section">
+            <div class="profile-section" id="shipping-address">
                 <div class="profile-section-header">
                     <div class="profile-section-icon">📦</div>
                     <h2 class="profile-section-title">Indirizzo di spedizione</h2>

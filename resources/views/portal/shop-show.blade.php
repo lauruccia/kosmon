@@ -173,7 +173,10 @@
 
             @if($needsShippingAddress && $hasShippingAddress && ! $isOwnCompany && $inStock)
             <div style="background:var(--bg,#f8fafc);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#334155;">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">Spedizione a</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">Spedizione a</div>
+                    <a href="{{ ($currentAccount->owner_type === 'private' ? route('portal.personal-profile.edit') : route('portal.profile.edit')) . '#shipping-address' }}" style="font-size:11px;font-weight:600;color:#0c4a86;text-decoration:none;white-space:nowrap;">Modifica</a>
+                </div>
                 @foreach($currentAccount->shipping_address_lines as $line)
                     {{ $line }}@if(! $loop->last)<br>@endif
                 @endforeach
