@@ -164,33 +164,12 @@
                     <input type="hidden" name="remove_avatar" id="remove_avatar" value="0">
                     @error('avatar')<span class="field-error">{{ $message }}</span>@enderror
 
-                    <div class="field-row" style="margin-top:18px;">
-                        <div class="field">
-                            <label for="name">Nome e cognome <span style="color:#dc2626">*</span></label>
-                            <input type="text" id="name" name="name"
-                                   value="{{ old('name', $currentUser->name) }}"
-                                   required maxlength="255">
-                            @error('name')<span class="field-error">{{ $message }}</span>@enderror
-                        </div>
-                        <div class="field">
-                            <label for="city">Città / zona</label>
-                            <input type="text" id="city" name="city"
-                                   value="{{ old('city', $currentUser->city) }}"
-                                   placeholder="es. Milano, Roma, Napoli…"
-                                   maxlength="100">
-                            @error('city')<span class="field-error">{{ $message }}</span>@enderror
-                        </div>
-                    </div>
-
-                    <div class="field" style="margin-top:14px;">
-                        <label for="bio">Presentazione <span style="font-weight:400;color:var(--ink-muted)">(max 500 caratteri)</span></label>
-                        <textarea id="bio" name="bio" rows="4"
-                                  placeholder="Raccontati brevemente: chi sei, cosa fai, quali servizi o prodotti offri nel circuito."
-                                  maxlength="500"
-                                  oninput="updateCounter('bio','bio-counter',500)"
-                                  style="resize:vertical;">{{ old('bio', $currentUser->bio) }}</textarea>
-                        <div class="char-counter" id="bio-counter">{{ strlen($currentUser->bio ?? '') }}/500</div>
-                        @error('bio')<span class="field-error">{{ $message }}</span>@enderror
+                    <div class="field" style="margin-top:18px;">
+                        <label for="name">Nome e cognome <span style="color:#dc2626">*</span></label>
+                        <input type="text" id="name" name="name"
+                               value="{{ old('name', $currentUser->name) }}"
+                               required maxlength="255">
+                        @error('name')<span class="field-error">{{ $message }}</span>@enderror
                     </div>
 
                 </div>
@@ -312,14 +291,6 @@
                         <div class="ci-icon">{{ $currentUser->phone ? '✓' : '·' }}</div>
                         <span>Telefono</span>
                     </div>
-                    <div class="completeness-item {{ $currentUser->city ? 'done' : '' }}" data-field="city">
-                        <div class="ci-icon">{{ $currentUser->city ? '✓' : '·' }}</div>
-                        <span>Città</span>
-                    </div>
-                    <div class="completeness-item {{ $currentUser->bio ? 'done' : '' }}" data-field="bio">
-                        <div class="ci-icon">{{ $currentUser->bio ? '✓' : '·' }}</div>
-                        <span>Presentazione</span>
-                    </div>
                     <div class="completeness-item {{ $currentUser->avatar_path ? 'done' : '' }}" data-field="avatar">
                         <div class="ci-icon" id="ci-avatar">{{ $currentUser->avatar_path ? '✓' : '·' }}</div>
                         <span>Foto profilo</span>
@@ -333,7 +304,7 @@
 
 @push('scripts')
 <script>
-const CP_FIELDS = ['name','phone','city','bio'];
+const CP_FIELDS = ['name','phone'];
 
 function updateCounter(fieldId, counterId, max) {
     const el = document.getElementById(fieldId);
@@ -405,7 +376,6 @@ CP_FIELDS.forEach(f => {
 });
 
 recalcCompleteness();
-updateCounter('bio','bio-counter',500);
 </script>
 @endpush
 

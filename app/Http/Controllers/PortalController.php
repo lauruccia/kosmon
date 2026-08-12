@@ -486,13 +486,14 @@ class PortalController extends Controller
         $validated = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
             'phone'         => ['nullable', 'string', 'max:30'],
-            'city'          => ['nullable', 'string', 'max:100'],
-            'bio'           => ['nullable', 'string', 'max:500'],
             'avatar'        => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             'remove_avatar' => ['nullable', 'boolean'],
-            // Indirizzo di spedizione (2026-07-29) — vive sul conto (Account),
-            // non sull'utente: vedi Account::hasShippingAddress() e la stessa
-            // sezione in updateProfile() per i conti aziendali.
+            // Profilo privato semplificato (2026-08-12, richiesta di Laura):
+            // niente "chi siamo"/descrizione (bio) e niente città autonoma —
+            // per i conti privati l'unico indirizzo è quello di spedizione,
+            // vive sul conto (Account), non sull'utente: vedi
+            // Account::hasShippingAddress() e la stessa sezione in
+            // updateProfile() per i conti aziendali.
             'shipping_recipient_name' => ['nullable', 'string', 'max:150'],
             'shipping_address'        => ['nullable', 'string', 'max:255'],
             'shipping_city'           => ['nullable', 'string', 'max:100'],
