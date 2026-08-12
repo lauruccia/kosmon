@@ -208,17 +208,19 @@
                         <img src="{{ Storage::disk('public')->url($path) }}"
                             alt="Immagine prodotto"
                             style="width:90px;height:90px;object-fit:cover;border-radius:8px;display:block;">
-                        <form method="POST"
-                              action="{{ route('portal.shop.image.destroy', $editingListing) }}"
-                              style="position:absolute;top:3px;right:3px;"
-                              onsubmit="return confirm('Eliminare questa immagine?')">
-                            @csrf
-                            @method('DELETE')
-                            <input type="hidden" name="path" value="{{ $path }}">
-                            <button type="submit"
-                                style="background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;
-                                       width:20px;height:20px;font-size:13px;line-height:1;cursor:pointer;">×</button>
-                        </form>
+                        {{-- 12/08/2026: NON usare un <form> qui — era annidato dentro il form
+                             principale di modifica prodotto (form-in-form, HTML non valido).
+                             Il browser scartava il tag <form> interno ma manteneva i suoi campi
+                             (incluso @method('DELETE')) come figli del form esterno, che quindi
+                             si ritrovava con due input "_method" (PUT e DELETE): vince l'ultimo,
+                             quindi "Salva modifiche" inviava DELETE invece di PUT verso lo stesso
+                             URL /shop/{listing} → eliminava il prodotto invece di aggiornarlo.
+                             Bug segnalato da Laura. Ora il bottone pilota un form indipendente,
+                             fuori dal form principale (vedi fine pagina). --}}
+                        <button type="button"
+                            onclick="deleteListingImage('{{ $path }}')"
+                            style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;
+                                   width:20px;height:20px;font-size:13px;line-height:1;cursor:pointer;">×</button>
                     </div>
                     @endforeach
                 </div>
@@ -248,11 +250,28 @@
 
         </div>
     </form>
+
+    {{-- Form indipendente per l'eliminazione di una singola immagine — DEVE
+         restare fuori dal form di modifica prodotto qui sopra, vedi commento
+         12/08/2026 nel blocco "Immagini". --}}
+    @if($editingListing)
+    <form id="delete-image-form" method="POST"
+          action="{{ route('portal.shop.image.destroy', $editingListing) }}" style="display:none;">
+        @csrf
+        @method('DELETE')
+        <input type="hidden" name="path" id="delete-image-path">
+    </form>
+    @endif
 </section>
 </div>
 
 @push('scripts')
 <script>
+function deleteListingImage(path) {
+    if (!confirm('Eliminare questa immagine?')) return;
+    document.getElementById('delete-image-path').value = path;
+    document.getElementById('delete-image-form').submit();
+}
 // Sotto-categoria dipendente dalla categoria scelta (2026-08-12): niente
 // ricarica pagina, la lista sotto-categorie per ogni categoria arriva già
 // pronta dal server (solo quelle attive + l'eventuale sotto-categoria già
