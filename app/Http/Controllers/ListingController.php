@@ -439,19 +439,22 @@ class ListingController extends Controller
     public function edit(Request $request, Listing $listing): View|RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+        abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
-        // Stesso ragionamento di update(): un admin che apre il form di modifica
-        // del prodotto di un'altra azienda non ha un conto proprio da usare per
-        // calcolare le percentuali KY consentite (spesso non ha nemmeno
-        // un'azienda associata, causa del 404 riprodotto il 24/07 su
+        // Stesso ragionamento di update(): un admin/backoffice che apre il form
+        // di modifica del prodotto di un'altra azienda non ha un conto proprio
+        // da usare per calcolare le percentuali KY consentite (spesso non ha
+        // nemmeno un'azienda associata, causa del 404 riprodotto il 24/07 su
         // /shop/{id}/modifica) — usiamo quello dell'azienda proprietaria del
-        // prodotto, stesso conto usato in update()/adminStore().
-        $currentAccount = ($user->is_super_admin && $listing->company_id !== $user->company_id)
+        // prodotto, stesso conto usato in update()/adminStore(). Nota 2026-08-12:
+        // esteso da is_super_admin a canAccessBackoffice() perché l'Account di
+        // Sistema (permesso backoffice.access, non super admin) può caricare
+        // prodotti per conto azienda ma prendeva 403 in modifica.
+        $currentAccount = ($user->canAccessBackoffice() && $listing->company_id !== $user->company_id)
             ? $listing->company->primaryBusinessAccount()
             : $this->resolveAccount($user);
 
-        if (! $user->is_super_admin && ($redirect = $this->redirectIfNoAccount($currentAccount, $user))) {
+        if (! $user->canAccessBackoffice() && ($redirect = $this->redirectIfNoAccount($currentAccount, $user))) {
             return $redirect;
         }
 
@@ -472,13 +475,14 @@ class ListingController extends Controller
     public function update(Request $request, Listing $listing): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+        abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
-        // Un admin che modifica il prodotto di un'altra azienda non ha un conto
-        // proprio da usare per calcolare le percentuali KY consentite (spesso
-        // non ha nemmeno un'azienda associata): usiamo quello dell'azienda
-        // proprietaria del prodotto, stesso conto usato in adminStore().
-        $currentAccount = ($user->is_super_admin && $listing->company_id !== $user->company_id)
+        // Un admin/backoffice che modifica il prodotto di un'altra azienda non
+        // ha un conto proprio da usare per calcolare le percentuali KY
+        // consentite (spesso non ha nemmeno un'azienda associata): usiamo
+        // quello dell'azienda proprietaria del prodotto, stesso conto usato in
+        // adminStore().
+        $currentAccount = ($user->canAccessBackoffice() && $listing->company_id !== $user->company_id)
             ? $listing->company->primaryBusinessAccount()
             : $this->resolveAccount($user);
         $validated = $this->validateListing($request, $currentAccount);
@@ -498,7 +502,7 @@ class ListingController extends Controller
     public function destroy(Request $request, Listing $listing): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+        abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
         $listing->deleteAllImages();
         $listing->delete();
@@ -511,7 +515,7 @@ class ListingController extends Controller
     public function destroyImage(Request $request, Listing $listing): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+        abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
         $request->validate(['path' => ['required', 'string']]);
         $path = $request->input('path');
@@ -539,7 +543,7 @@ class ListingController extends Controller
     public function updateOwnStatus(Request $request, Listing $listing): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->is_super_admin || $listing->company_id === $user->company_id, 403);
+        abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
         $request->validate([
             'status' => ['required', Rule::in(['active', 'suspended'])],
