@@ -225,11 +225,17 @@
                 @endif
 
                 {{-- Carica nuove immagini --}}
-                <input type="file" name="images[]" multiple accept="image/jpeg,image/png,image/webp"
+                <input type="file" id="new-images-input" name="images[]" multiple accept="image/jpeg,image/png,image/webp"
                     class="field-input" style="padding:8px;">
                 <small style="color:#94a3b8;font-size:12px;">
                     Massimo 6 immagini · JPG, PNG, WebP · max 3 MB ciascuna
                 </small>
+
+                {{-- 12/08/2026: anteprima delle immagini appena scelte — prima si vedeva
+                     solo il nome del file (minuscolo, accanto al pulsante "Scegli i
+                     file"), facile non notarlo e pensare che il caricamento non fosse
+                     andato a buon fine. Bug segnalato da Laura. --}}
+                <div id="new-images-preview" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;"></div>
             </div>
 
             {{-- ── Pulsante submit ─────────────────────────────────────────── --}}
@@ -286,6 +292,49 @@
 
     categorySelect.addEventListener('change', function() {
         renderSubcategories(this.value, null);
+    });
+})();
+
+// Anteprima immagini appena scelte (12/08/2026, vedi commento nel markup sopra):
+// il campo file nativo mostra solo il nome del file in piccolo, qui invece
+// mostriamo delle miniature reali cliccando "Scegli i file", cosi' si vede
+// subito cosa si sta per pubblicare.
+(function() {
+    var input = document.getElementById('new-images-input');
+    var preview = document.getElementById('new-images-preview');
+    if (!input || !preview) return;
+
+    var currentUrls = [];
+
+    function clearPreview() {
+        currentUrls.forEach(function(url) { URL.revokeObjectURL(url); });
+        currentUrls = [];
+        preview.innerHTML = '';
+    }
+
+    input.addEventListener('change', function() {
+        clearPreview();
+
+        var files = Array.from(input.files || []);
+        files.forEach(function(file) {
+            if (!file.type.startsWith('image/')) return;
+
+            var url = URL.createObjectURL(file);
+            currentUrls.push(url);
+
+            var thumb = document.createElement('div');
+            thumb.className = 'img-thumb';
+            thumb.style.position = 'relative';
+
+            var img = document.createElement('img');
+            img.src = url;
+            img.alt = file.name;
+            img.title = file.name;
+            img.style.cssText = 'width:90px;height:90px;object-fit:cover;border-radius:8px;display:block;';
+
+            thumb.appendChild(img);
+            preview.appendChild(thumb);
+        });
     });
 })();
 

@@ -147,8 +147,12 @@
 
                 <div class="field">
                     <label>Foto prodotto</label>
-                    <input type="file" name="images[]" multiple accept="image/jpeg,image/png,image/webp">
+                    <input type="file" id="admin-new-images-input" name="images[]" multiple accept="image/jpeg,image/png,image/webp">
                     <p style="margin:6px 0 0;font-size:11.5px;color:var(--ink-muted);">Massimo 6 immagini · JPG, PNG, WebP · max 3 MB ciascuna</p>
+                    {{-- 12/08/2026: stessa anteprima aggiunta al form portale (shop-create.blade.php)
+                         — senza, si vedeva solo il nome del file in piccolo accanto al pulsante
+                         "Scegli i file". Bug segnalato da Laura. --}}
+                    <div id="admin-new-images-preview" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;"></div>
                 </div>
 
             </div>
@@ -247,5 +251,41 @@
     }
 
     document.addEventListener('DOMContentLoaded', applyAdminKyRules);
+
+    // Anteprima immagini appena scelte (12/08/2026), stesso meccanismo di
+    // portal/shop-create.blade.php: il campo file nativo mostra solo il nome
+    // del file in piccolo, qui mostriamo delle miniature reali.
+    (function () {
+        var input = document.getElementById('admin-new-images-input');
+        var preview = document.getElementById('admin-new-images-preview');
+        if (!input || !preview) return;
+
+        var currentUrls = [];
+
+        function clearPreview() {
+            currentUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+            currentUrls = [];
+            preview.innerHTML = '';
+        }
+
+        input.addEventListener('change', function () {
+            clearPreview();
+
+            Array.from(input.files || []).forEach(function (file) {
+                if (!file.type.startsWith('image/')) return;
+
+                var url = URL.createObjectURL(file);
+                currentUrls.push(url);
+
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = file.name;
+                img.title = file.name;
+                img.style.cssText = 'width:90px;height:90px;object-fit:cover;border-radius:8px;display:block;';
+
+                preview.appendChild(img);
+            });
+        });
+    })();
 </script>
 @endsection
