@@ -910,7 +910,16 @@
         .entity-meta, .meta-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .field-grid { display: grid; gap: 14px; }
         .field label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
-        .field input, .field select, .field textarea {
+        {{-- 12/08/2026: esclusi radio/checkbox — la regola sotto (pensata per
+             input di testo/select/textarea, min-height 44px per touch target)
+             si applicava per cascata anche a <input type="radio"/checkbox">
+             dentro un wrapper .field (es. "Disponibilità"/"Tipo di consegna"
+             in admin/listing-create.blade.php), gonfiando i pallini di
+             selezione a 13x44px invece della dimensione nativa. Bug segnalato
+             da Laura, presente anche in altre viste con lo stesso pattern
+             (admin/companies, admin/roles, admin/transfers, admin/user-show,
+             admin/users, auth/register, portal/companies, portal/profile-edit). --}}
+        .field input:not([type="radio"]):not([type="checkbox"]), .field select, .field textarea {
             width: 100%; min-height: 44px; padding: 10px 14px;
             border-radius: 9px; border: 1px solid var(--line-strong);
             background: var(--surface); color: var(--ink);
@@ -932,7 +941,7 @@
            — bug già notato e aggirato localmente in shop-show.blade.php (vedi
            commento su .qty-field lì), ma mai risolto alla radice. 12/08/2026. */
         .field-label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
-        .field-input {
+        .field-input:not([type="radio"]):not([type="checkbox"]) {
             width: 100%; min-height: 44px; padding: 10px 14px;
             border-radius: 9px; border: 1px solid var(--line-strong);
             background: var(--surface); color: var(--ink);
