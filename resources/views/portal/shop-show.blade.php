@@ -120,6 +120,16 @@
         $inStock      = $listing->isInStock();
         $needsShippingAddress = $listing->requiresShippingAddress();
         $hasShippingAddress   = $currentAccount->hasShippingAddress();
+        // Link alla sezione indirizzo di spedizione del profilo, con
+        // redirect_to (path relativo, MAI l'URL assoluto di route() — la
+        // sanitizzazione anti open-redirect in PortalController lo
+        // rifiuterebbe) cosi' l'utente torna qui in automatico dopo il
+        // salvataggio invece di restare sul profilo.
+        $shippingReturnUrl = route('portal.shop.show', $listing, false);
+        $shippingEditUrl = ($currentAccount->owner_type === 'private'
+                ? route('portal.personal-profile.edit', ['redirect_to' => $shippingReturnUrl])
+                : route('portal.profile.edit', ['redirect_to' => $shippingReturnUrl]))
+            . '#shipping-address';
         // Il saldo minimo necessario include anche l'eventuale quota KY di
         // spedizione (una sola volta, non moltiplicata per quantità) —
         // per coerenza con quanto viene poi realmente addebitato in buy().
@@ -175,7 +185,7 @@
             <div style="background:var(--bg,#f8fafc);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#334155;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
                     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">Spedizione a</div>
-                    <a href="{{ ($currentAccount->owner_type === 'private' ? route('portal.personal-profile.edit') : route('portal.profile.edit')) . '#shipping-address' }}" style="font-size:11px;font-weight:600;color:#0c4a86;text-decoration:none;white-space:nowrap;">Modifica</a>
+                    <a href="{{ $shippingEditUrl }}" style="font-size:11px;font-weight:600;color:#0c4a86;text-decoration:none;white-space:nowrap;">Modifica</a>
                 </div>
                 @foreach($currentAccount->shipping_address_lines as $line)
                     {{ $line }}@if(! $loop->last)<br>@endif
@@ -194,7 +204,7 @@
                     <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Questo prodotto va spedito: completa il tuo indirizzo di spedizione nella sezione dedicata del tuo profilo per poterlo acquistare.
                     </p>
-                    <a href="{{ $currentAccount->owner_type === 'private' ? route('portal.personal-profile.edit') : route('portal.profile.edit') }}" class="cta" style="width:100%;text-align:center;display:block;">
+                    <a href="{{ $shippingEditUrl }}" class="cta" style="width:100%;text-align:center;display:block;">
                         Completa indirizzo di spedizione
                     </a>
                 @elseif(! $canAfford)

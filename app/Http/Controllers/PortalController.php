@@ -315,6 +315,30 @@ class PortalController extends Controller
             ->get();
     }
 
+    /**
+     * Accetta solo path locali relativi (mai URL assoluti/esterni), per
+     * evitare un open-redirect tramite il parametro redirect_to. Usato da
+     * editProfile()/updateProfile() ed editPersonalProfile()/updatePersonalProfile()
+     * per riportare l'utente alla pagina di partenza (es. shop-show.blade.php)
+     * dopo aver completato/corretto l'indirizzo di spedizione dal profilo.
+     * Stessa logica di KyCardController::sanitizeLocalRedirectTarget()
+     * (2026-08-10, flusso ricarica saldo insufficiente).
+     */
+    private function sanitizeLocalRedirectTarget(mixed $target): ?string
+    {
+        if (! is_string($target)) {
+            return null;
+        }
+
+        $target = trim($target);
+
+        if ($target === '' || ! str_starts_with($target, '/') || str_starts_with($target, '//') || str_contains($target, '://')) {
+            return null;
+        }
+
+        return $target;
+    }
+
     public function editProfile(Request $request): View|RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {
@@ -326,13 +350,21 @@ class PortalController extends Controller
 
         $company = $currentAccount->company;
 
+        // redirect_to (2026-08-12): pagina da cui l'utente e' arrivato qui
+        // per completare/correggere l'indirizzo di spedizione (es.
+        // shop-show.blade.php) — dopo il salvataggio in updateProfile() lo
+        // riportiamo li' invece che sul profilo. Stesso meccanismo (query
+        // string / campo hidden, sanificato contro open-redirect) gia'
+        // usato per la ricarica saldo, vedi KyCardController.
+        $redirectTo = $this->sanitizeLocalRedirectTarget($request->query('redirect_to'));
+
         // Chi non ha un'azienda (conto privato) non ha un "profilo azienda":
         // mostriamo il profilo personale invece di un 404 (2026-07-29,
         // richiesta di Laura: "dovrebbe mostrare il profilo utente"). Puo'
         // capitare arrivando qui da un link non piu' valido per il proprio
         // tipo di conto (es. pagina di sicurezza obbligatoria).
         if ($company === null) {
-            return redirect()->route('portal.personal-profile.edit');
+            return redirect()->route('portal.personal-profile.edit', $redirectTo ? ['redirect_to' => $redirectTo] : []);
         }
 
         return view('portal.profile-edit', [
@@ -345,6 +377,7 @@ class PortalController extends Controller
             'kyPercentageLocked'    => $currentAccount->isInDebit(),
             'referredBy'     => $currentUser->referredBy,
             'activeNav'      => 'profile',
+            'redirectTo'     => $redirectTo,
         ]);
     }
 
@@ -456,7 +489,12 @@ class PortalController extends Controller
 
         $company->save();
 
-        return redirect()->route('portal.profile.edit')
+        // redirect_to (campo hidden nel form, vedi profile-edit.blade.php):
+        // se arriviamo da una pagina bloccata per indirizzo di spedizione
+        // mancante/incompleto, torniamo li' invece che sul profilo.
+        $redirectTo = $this->sanitizeLocalRedirectTarget($request->input('redirect_to'));
+
+        return redirect()->to($redirectTo ?? route('portal.profile.edit'))
             ->with('success', 'Profilo aggiornato con successo.' . ($geocodeWarning ? ' ' . $geocodeWarning : ''));
     }
 
@@ -473,6 +511,9 @@ class PortalController extends Controller
             'currentUser'    => $user,
             'referredBy'     => $user->referredBy,
             'activeNav'      => 'profilo',
+            // redirect_to (2026-08-12): vedi editProfile() sopra — stesso
+            // meccanismo per i conti privati.
+            'redirectTo'     => $this->sanitizeLocalRedirectTarget($request->query('redirect_to')),
         ]);
     }
 
@@ -536,7 +577,12 @@ class PortalController extends Controller
 
         $user->fill($validated)->save();
 
-        return redirect()->route('portal.personal-profile.edit')
+        // redirect_to (campo hidden nel form, vedi personal-profile-edit.blade.php):
+        // se arriviamo da una pagina bloccata per indirizzo di spedizione
+        // mancante/incompleto, torniamo li' invece che sul profilo.
+        $redirectTo = $this->sanitizeLocalRedirectTarget($request->input('redirect_to'));
+
+        return redirect()->to($redirectTo ?? route('portal.personal-profile.edit'))
             ->with('success', 'Profilo aggiornato con successo.');
     }
 

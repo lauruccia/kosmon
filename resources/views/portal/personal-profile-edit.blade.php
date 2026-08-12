@@ -111,6 +111,12 @@
 
 <form method="POST" action="{{ route('portal.personal-profile.update') }}" id="profile-form" enctype="multipart/form-data">
     @csrf
+    {{-- Se si arriva qui da una pagina bloccata per indirizzo mancante (es.
+         shop-show.blade.php), riporta l'utente li' dopo il salvataggio
+         invece del profilo — vedi PortalController::sanitizeLocalRedirectTarget(). --}}
+    @if($redirectTo ?? null)
+        <input type="hidden" name="redirect_to" value="{{ $redirectTo }}">
+    @endif
 
     @if(session('success'))
         <div class="alert alert-success" style="margin-bottom:20px;">{{ session('success') }}</div>
