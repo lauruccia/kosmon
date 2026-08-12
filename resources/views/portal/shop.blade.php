@@ -51,6 +51,12 @@
             @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
                 <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">Pubblica un prodotto</a>
             @endif
+            {{-- "I miei prodotti" (2026-08-12): chi pubblica prodotti non aveva modo
+                 di ritrovare/verificare i propri, mescolati nello shop pubblico tra
+                 quelli di tutte le altre aziende — link diretto alla vista dedicata. --}}
+            @if(auth()->user()->company_id)
+                <a class="cta secondary" href="{{ route('portal.shop.mine') }}" style="white-space:nowrap;">I miei prodotti</a>
+            @endif
             @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
                 <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}" style="white-space:nowrap;">Metodi di pagamento EUR</a>
             @endif

@@ -101,6 +101,53 @@ class ListingController extends Controller
         ]);
     }
 
+    // ── Portale: "I miei prodotti" (solo la propria azienda, tutti gli stati) ──
+
+    /**
+     * Elenco completo dei prodotti pubblicati dalla PROPRIA azienda, in
+     * qualunque stato (attivo/sospeso/bozza/scaduto) — a differenza di
+     * index() (shop pubblico, dove i prodotti propri sono mescolati a quelli
+     * di tutte le altre aziende ed e' facile perderli tra le pagine), qui
+     * non compaiono MAI prodotti di altre aziende: serve a chi pubblica
+     * prodotti per ritrovarli e verificarli senza scorrere l'intero
+     * catalogo del circuito (richiesta di Laura, 2026-08-12).
+     */
+    public function mine(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        $currentAccount = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
+        if (! $user->company_id) {
+            return redirect()->route('portal.shop')
+                ->with('portal_error', '"I miei prodotti" è disponibile solo per utenti collegati a un\'azienda.');
+        }
+
+        $status = trim((string) $request->query('status', ''));
+        $q = trim((string) $request->query('q', ''));
+
+        $listings = Listing::query()
+            ->where('company_id', $user->company_id)
+            ->when($q !== '', fn ($query) => $query->where('title', 'like', "%{$q}%"))
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->orderByDesc('created_at')
+            ->paginate(15)->withQueryString();
+
+        return view('portal.shop-mine', [
+            'pageTitle'      => 'I miei prodotti',
+            'currentAccount' => $currentAccount,
+            'currentUser'    => $user,
+            'listings'       => $listings,
+            'statuses'       => Listing::STATUSES,
+            'statusFilter'   => $status,
+            'searchQuery'    => $q,
+            'activeNav'      => 'shop',
+        ]);
+    }
+
     // ── Portale: dettaglio prodotto ───────────────────────────────────────────
 
     public function show(Request $request, Listing $listing): View|RedirectResponse

@@ -459,12 +459,24 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/shop', [ListingController::class, 'index'])->name('portal.shop');
     Route::get('/shop/crea', [ListingController::class, 'create'])->name('portal.shop.create');
     Route::post('/shop', [ListingController::class, 'store'])->name('portal.shop.store');
+    // "I miei prodotti" (2026-08-12): route statica, va registrata PRIMA di
+    // /shop/{listing} qui sotto — altrimenti Laravel la interpreterebbe come
+    // un listing_id e risponderebbe 404 (stesso motivo per cui /shop/crea è
+    // già sopra a /shop/{listing}).
+    Route::get('/shop/i-miei-prodotti', [ListingController::class, 'mine'])->name('portal.shop.mine');
     Route::get('/shop/{listing}', [ListingController::class, 'show'])->name('portal.shop.show');
     Route::post('/shop/{listing}/acquista', [ListingController::class, 'buy'])->name('portal.shop.buy')->middleware('throttle:payments');
     Route::get('/shop/{listing}/modifica', [ListingController::class, 'edit'])->name('portal.shop.edit');
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');
     Route::delete('/shop/{listing}/immagini', [ListingController::class, 'destroyImage'])->name('portal.shop.image.destroy');
+    // Sospendi/riattiva un proprio prodotto (nascosto/rimostrato dal pubblico
+    // senza eliminarlo) — la view lo chiamava già (shop.blade.php e
+    // shop-mine.blade.php, form action="{{ route('portal.shop.status', ...) }}")
+    // e il metodo ListingController::updateOwnStatus() esiste da tempo, ma la
+    // route non era mai stata registrata: il bottone "Sospendi/Riattiva" dava
+    // un 500 (RouteNotFoundException) a chiunque lo cliccasse. Fix (2026-08-12).
+    Route::post('/shop/{listing}/status', [ListingController::class, 'updateOwnStatus'])->name('portal.shop.status');
 
     // Pagamento EUR (quota non-KY) di un ordine shop — vedi PaymentController.
     Route::get('/shop/ordini/{payment}', [PaymentController::class, 'show'])->name('portal.shop.orders.pay');
