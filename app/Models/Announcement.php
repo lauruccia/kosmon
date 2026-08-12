@@ -67,19 +67,31 @@ class Announcement extends Model
         'request' => 'Richiesta',
     ];
 
-    // Condivide gli stessi slug-settori delle Listing per coerenza
+    // Condivide gli stessi slug/nomi delle categorie prodotto shop
+    // (ListingCategory) per coerenza in tutto il sito — allineato il
+    // 2026-08-12 alla stessa nuova nomenclatura a 17 voci (era un elenco di
+    // 11 voci più vecchio, ricalcato sulle vecchie Listing::CATEGORIES ora
+    // rimosse). Vedi anche la migration
+    // 2026_08_12_140100_remap_announcements_sector_to_new_categories per il
+    // backfill degli annunci già pubblicati.
     public const SECTORS = [
-        'alimentari'  => 'Alimentari & Ristorazione',
-        'artigianato' => 'Artigianato & Manifattura',
-        'consulenza'  => 'Consulenza & Servizi professionali',
-        'formazione'  => 'Formazione & Educazione',
-        'informatica' => 'Informatica & Tecnologia',
-        'logistica'   => 'Logistica & Trasporti',
-        'marketing'   => 'Marketing & Comunicazione',
-        'salute'      => 'Salute & Benessere',
-        'turismo'     => 'Turismo & Hospitality',
-        'verde'       => 'Verde & Ambiente',
-        'altro'       => 'Altro',
+        'arte-e-intrattenimento'    => 'Arte e intrattenimento',
+        'artigiani'                 => 'Artigiani',
+        'auto-e-moto'               => 'Auto e Moto',
+        'costruire-e-abitare'       => 'Costruire e Abitare',
+        'dormire'                   => 'Dormire',
+        'elettronica-e-tecnologia'  => 'Elettronica e Tecnologia',
+        'consulenza-e-formazione'   => 'Consulenza e Formazione',
+        'marketing-e-comunicazione' => 'Marketing e Comunicazione',
+        'professionisti'            => 'Professionisti',
+        'mangiare-e-bere'           => 'Mangiare e Bere',
+        'pet-shop'                  => 'Pet Shop',
+        'servizi'                   => 'Servizi',
+        'salute-e-bellezza'         => 'Salute e Bellezza',
+        'regali-e-preziosi'         => 'Regali e Preziosi',
+        'vestire-e-camminare'       => 'Vestire e Camminare',
+        'sport'                     => 'Sport',
+        'altro'                     => 'Altro',
     ];
 
     public const STATUSES = ['active', 'suspended', 'expired', 'draft'];
