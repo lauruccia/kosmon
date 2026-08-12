@@ -6,6 +6,7 @@ use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\SubAccountLimitRequestController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSectorController;
+use App\Http\Controllers\AdminListingCategoryController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\CashbackRuleController;
 use App\Http\Controllers\AuthController;
@@ -896,6 +897,13 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::post('/admin/listings', [ListingController::class, 'adminStore'])->name('admin.listings.store')->middleware('backoffice');
     Route::post('/admin/listings/{listing}/status', [ListingController::class, 'adminUpdateStatus'])->name('admin.listings.status')->middleware('backoffice');
     Route::get('/admin/listings/ordini', [ListingController::class, 'adminOrders'])->name('admin.listings.orders')->middleware('backoffice');
+
+    // Admin categorie/sotto-categorie shop (2026-08-12, richiesta di Laura) — vedi AdminListingCategoryController.
+    Route::get('/admin/listings/categorie', [AdminListingCategoryController::class, 'index'])->name('admin.listing-categories.index')->middleware('backoffice');
+    Route::post('/admin/listings/categorie', [AdminListingCategoryController::class, 'store'])->name('admin.listing-categories.store')->middleware('backoffice');
+    Route::put('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'update'])->name('admin.listing-categories.update')->middleware('backoffice');
+    Route::patch('/admin/listings/categorie/{listingCategory}/toggle', [AdminListingCategoryController::class, 'toggle'])->name('admin.listing-categories.toggle')->middleware('backoffice');
+    Route::delete('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'destroy'])->name('admin.listing-categories.destroy')->middleware('backoffice');
 
     Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index')->middleware('backoffice');
     Route::post('/admin/announcements/{announcement}/status', [AnnouncementController::class, 'adminUpdateStatus'])->name('admin.announcements.status')->middleware('backoffice');

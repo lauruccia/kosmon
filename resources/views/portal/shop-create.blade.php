@@ -46,10 +46,16 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div>
                     <label class="field-label">Categoria *</label>
-                    <select name="category" required class="field-input">
-                        @foreach($categories as $slug => $label)
-                            <option value="{{ $slug }}" @selected(old('category', $editingListing?->category) === $slug)>{{ $label }}</option>
+                    <select name="category" id="category-select" required class="field-input">
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->slug }}" @selected(old('category', $editingListing?->category) === $cat->slug)>{{ $cat->name }}</option>
                         @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Sotto-categoria <span style="font-weight:400;color:var(--text-muted);">(facoltativa)</span></label>
+                    <select name="subcategory" id="subcategory-select" class="field-input">
+                        <option value="">— Nessuna —</option>
                     </select>
                 </div>
                 <div>
@@ -241,6 +247,48 @@
 
 @push('scripts')
 <script>
+// Sotto-categoria dipendente dalla categoria scelta (2026-08-12): niente
+// ricarica pagina, la lista sotto-categorie per ogni categoria arriva già
+// pronta dal server (solo quelle attive + l'eventuale sotto-categoria già
+// assegnata al prodotto, vedi ListingController::categoryFormOptions()).
+(function() {
+    var subcategoriesBySlug = @json($subcategoriesBySlug ?? []);
+    var selectedCategory = @json(old('category', $editingListing?->category));
+    var selectedSubcategory = @json(old('subcategory', $editingListing?->subcategory));
+
+    var categorySelect = document.getElementById('category-select');
+    var subcategorySelect = document.getElementById('subcategory-select');
+
+    function renderSubcategories(categorySlug, preselect) {
+        var options = subcategoriesBySlug[categorySlug] || [];
+        subcategorySelect.innerHTML = '';
+
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = '— Nessuna —';
+        subcategorySelect.appendChild(empty);
+
+        options.forEach(function(opt) {
+            var el = document.createElement('option');
+            el.value = opt.slug;
+            el.textContent = opt.name;
+            if (preselect && opt.slug === preselect) {
+                el.selected = true;
+            }
+            subcategorySelect.appendChild(el);
+        });
+
+        // Disattiva la select se la categoria non ha sotto-categorie.
+        subcategorySelect.disabled = options.length === 0;
+    }
+
+    renderSubcategories(categorySelect.value || selectedCategory, selectedSubcategory);
+
+    categorySelect.addEventListener('change', function() {
+        renderSubcategories(this.value, null);
+    });
+})();
+
 // Toggle radio button stile pill per il selettore KY/EUR
 document.querySelectorAll('.ky-pct-radio').forEach(function(radio) {
     radio.addEventListener('change', function() {

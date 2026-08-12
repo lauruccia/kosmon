@@ -48,10 +48,16 @@
                 <div class="field-inline">
                     <div class="field">
                         <label>Categoria *</label>
-                        <select name="category" required>
-                            @foreach($categories as $slug => $label)
-                                <option value="{{ $slug }}" @selected(old('category') === $slug)>{{ $label }}</option>
+                        <select name="category" id="admin-category-select" required>
+                            @foreach($categories as $cat)
+                                <option value="{{ $cat->slug }}" @selected(old('category') === $cat->slug)>{{ $cat->name }}</option>
                             @endforeach
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Sotto-categoria <span style="font-weight:400;color:var(--ink-muted);">(facoltativa)</span></label>
+                        <select name="subcategory" id="admin-subcategory-select">
+                            <option value="">— Nessuna —</option>
                         </select>
                     </div>
                     <div class="field">
@@ -177,6 +183,41 @@
          seleziona un'azienda in debito, invece di farlo scoprire dall'errore
          di validazione al salvataggio. Richiesta di Laura. --}}
     var adminCompanyKyRules = @json($companyKyRules);
+
+    // Sotto-categoria dipendente dalla categoria scelta (2026-08-12), stesso
+    // meccanismo di portal/shop-create.blade.php.
+    var adminSubcategoriesBySlug = @json($subcategoriesBySlug ?? []);
+
+    function renderAdminSubcategories(categorySlug, preselect) {
+        var subSelect = document.getElementById('admin-subcategory-select');
+        var options = adminSubcategoriesBySlug[categorySlug] || [];
+        subSelect.innerHTML = '';
+
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = '— Nessuna —';
+        subSelect.appendChild(empty);
+
+        options.forEach(function (opt) {
+            var el = document.createElement('option');
+            el.value = opt.slug;
+            el.textContent = opt.name;
+            if (preselect && opt.slug === preselect) {
+                el.selected = true;
+            }
+            subSelect.appendChild(el);
+        });
+
+        subSelect.disabled = options.length === 0;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var categorySelect = document.getElementById('admin-category-select');
+        renderAdminSubcategories(categorySelect.value, @json(old('subcategory')));
+        categorySelect.addEventListener('change', function () {
+            renderAdminSubcategories(this.value, null);
+        });
+    });
 
     function applyAdminKyRules() {
         var select = document.getElementById('admin-company-select');

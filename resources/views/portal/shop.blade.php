@@ -19,13 +19,24 @@
         </div>
         <div class="shop-toolbar-field" style="min-width:210px;">
             <label>Categoria</label>
-            <select name="category" class="km-select" data-no-search>
+            <select name="category" id="shop-category-select" class="km-select" data-no-search onchange="this.form.submit()">
                 <option value="">Tutte le categorie</option>
-                @foreach($categories as $slug => $label)
-                    <option value="{{ $slug }}" @selected($selectedCategory === $slug)>{{ $label }}</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->slug }}" @selected($selectedCategory === $cat->slug)>{{ $cat->name }}</option>
                 @endforeach
             </select>
         </div>
+        @if($selectedCategory !== '')
+        <div class="shop-toolbar-field" style="min-width:190px;">
+            <label>Sotto-categoria</label>
+            <select name="subcategory" id="shop-subcategory-select" class="km-select" data-no-search>
+                <option value="">Tutte</option>
+                @foreach(($subcategoriesBySlug[$selectedCategory] ?? []) as $sub)
+                    <option value="{{ $sub['slug'] }}" @selected($selectedSubcategory === $sub['slug'])>{{ $sub['name'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
         {{-- Filtro % Kmoney: un'unica select (esatta o "da", non due campi separati). --}}
         <div class="shop-toolbar-field" style="min-width:170px;">
             <label>Filtro Kmoney</label>
@@ -44,7 +55,7 @@
             </select>
         </div>
         <button type="submit" class="cta">Filtra</button>
-        @if($searchQuery || $selectedCategory || $kyFilter !== '')
+        @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
             <a href="{{ route('portal.shop') }}" class="cta secondary">✕ Reset</a>
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
@@ -188,7 +199,7 @@
     <div class="shop-empty">
         <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <p class="subtle">Nessun prodotto trovato nel catalogo.</p>
-        @if($searchQuery || $selectedCategory || $kyFilter !== '')
+        @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
             <a href="{{ route('portal.shop') }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Rimuovi filtri</a>
         @endif
     </div>

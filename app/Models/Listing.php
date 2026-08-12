@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
  * @property string $title
  * @property string $description
  * @property string $category
+ * @property string|null $subcategory
  * @property int $price_ky
  * @property array<array-key, mixed>|null $images
  * @property string $status
@@ -32,6 +33,7 @@ use Illuminate\Support\Str;
  * @property-read \App\Models\Company $company
  * @property-read \App\Models\User $createdByUser
  * @property-read string $category_label
+ * @property-read string|null $subcategory_label
  * @property-read int $euro_amount
  * @property-read string|null $first_image
  * @property-read string|null $first_image_url
@@ -70,19 +72,9 @@ class Listing extends Model
 {
     use HasFactory;
 
-    public const CATEGORIES = [
-        'alimentari'     => 'Alimentari & Ristorazione',
-        'artigianato'    => 'Artigianato & Manifattura',
-        'consulenza'     => 'Consulenza & Servizi professionali',
-        'formazione'     => 'Formazione & Educazione',
-        'informatica'    => 'Informatica & Tecnologia',
-        'logistica'      => 'Logistica & Trasporti',
-        'marketing'      => 'Marketing & Comunicazione',
-        'salute'         => 'Salute & Benessere',
-        'turismo'        => 'Turismo & Hospitality',
-        'verde'          => 'Verde & Ambiente',
-        'altro'          => 'Altro',
-    ];
+    // Le categorie NON sono più hardcoded qui (rimosse il 2026-08-12, richiesta
+    // di Laura): vivono nella tabella listing_categories, gestibili da
+    // Admin -> Shop -> Categorie (vedi ListingCategory, AdminListingCategoryController).
 
     public const STATUSES = ['active', 'suspended', 'expired', 'draft'];
 
@@ -132,6 +124,7 @@ class Listing extends Model
         'title',
         'description',
         'category',
+        'subcategory',
         'price_ky',
         'ky_percentage',
         'stock_quantity',
@@ -205,11 +198,30 @@ class Listing extends Model
         return $query->where('category', $category);
     }
 
+    public function scopeInSubcategory(Builder $query, string $subcategory): Builder
+    {
+        return $query->where('subcategory', $subcategory);
+    }
+
     // ── Accessors ─────────────────────────────────────────────────────────────
 
+    /**
+     * Etichetta leggibile della categoria, presa da listing_categories (con
+     * fallback al valore grezzo se la categoria è stata nel frattempo
+     * eliminata — vedi ListingCategory::labelFor()).
+     */
     public function getCategoryLabelAttribute(): string
     {
-        return self::CATEGORIES[$this->category] ?? $this->category;
+        return ListingCategory::labelFor($this->category) ?? $this->category;
+    }
+
+    /**
+     * Etichetta leggibile della sotto-categoria, o null se il prodotto non ne
+     * ha una assegnata (è facoltativa).
+     */
+    public function getSubcategoryLabelAttribute(): ?string
+    {
+        return ListingCategory::labelFor($this->subcategory);
     }
 
     public function getIsExpiredAttribute(): bool

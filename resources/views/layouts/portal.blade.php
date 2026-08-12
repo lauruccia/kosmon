@@ -1369,10 +1369,11 @@
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'companies' ? 'active' : '' }}" href="{{ route('admin.companies.index') }}"><span class="subnav-icon">DR</span><span>Directory</span></a>
                             </div>
-                            <a class="sidebar-link {{ in_array($activeNav ?? '', ['admin-listings', 'admin-listing-orders']) ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
+                            <a class="sidebar-link {{ in_array($activeNav ?? '', ['admin-listings', 'admin-listing-orders', 'admin-listing-categories']) ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listings' ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="subnav-icon">MD</span><span>Moderazione</span></a>
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-orders' ? 'active' : '' }}" href="{{ route('admin.listings.orders') }}"><span class="subnav-icon">OR</span><span>Ordini</span></a>
+                                <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-categories' ? 'active' : '' }}" href="{{ route('admin.listing-categories.index') }}"><span class="subnav-icon">CT</span><span>Categorie</span></a>
                             </div>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
                             <div class="sidebar-nav-group">

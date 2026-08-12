@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\HandlesMovementFilters;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Listing;
+use App\Models\ListingCategory;
 use App\Models\MarketplaceOrderPayment;
 use App\Models\PaymentGateway;
 use App\Models\Transfer;
@@ -35,6 +36,7 @@ class ListingController extends Controller
         }
 
         $category = $request->query('category', '');
+        $subcategory = $request->query('subcategory', '');
         $q = trim((string) $request->query('q', ''));
 
         // Filtro % Kmoney nello shop, su Listing::ky_percentage (colonna
@@ -73,6 +75,7 @@ class ListingController extends Controller
                 }
             })
             ->when($category !== '', fn ($query) => $query->inCategory($category))
+            ->when($subcategory !== '', fn ($query) => $query->inSubcategory($subcategory))
             ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
                 $scope->where('title', 'like', "%{$q}%")
                       ->orWhere('description', 'like', "%{$q}%")
@@ -92,8 +95,10 @@ class ListingController extends Controller
             'currentUser'     => $user,
             'listings'        => $listings,
             'featuredListings' => $featuredListings,
-            'categories'      => Listing::CATEGORIES,
+            'categories'      => ListingCategory::activeTopLevelOptions(),
+            'subcategoriesBySlug' => ListingCategory::activeSubcategoriesBySlug(),
             'selectedCategory' => $category,
+            'selectedSubcategory' => $subcategory,
             'searchQuery'     => $q,
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
@@ -384,7 +389,8 @@ class ListingController extends Controller
             'pageTitle'            => 'Pubblica un prodotto',
             'currentAccount'       => $currentAccount,
             'currentUser'          => $user,
-            'categories'           => Listing::CATEGORIES,
+            'categories'           => ListingCategory::activeTopLevelOptions(),
+            'subcategoriesBySlug'  => ListingCategory::activeSubcategoriesBySlug(),
             'editingListing'       => null,
             'allowedKyPercentages' => $currentAccount->allowedKyPercentages(),
             'requiredKyPercentage' => $currentAccount->requiredKyPercentage(),
@@ -458,11 +464,14 @@ class ListingController extends Controller
             return $redirect;
         }
 
+        [$editCategories, $editSubcategoriesBySlug] = $this->categoryFormOptions($listing);
+
         return view('portal.shop-create', [
             'pageTitle'            => 'Modifica prodotto',
             'currentAccount'       => $currentAccount,
             'currentUser'          => $user,
-            'categories'           => Listing::CATEGORIES,
+            'categories'           => $editCategories,
+            'subcategoriesBySlug'  => $editSubcategoriesBySlug,
             'editingListing'       => $listing,
             'allowedKyPercentages' => $currentAccount?->allowedKyPercentages() ?? Listing::KY_PERCENTAGES,
             'requiredKyPercentage' => $currentAccount?->requiredKyPercentage(),
@@ -485,7 +494,7 @@ class ListingController extends Controller
         $currentAccount = ($user->canAccessBackoffice() && $listing->company_id !== $user->company_id)
             ? $listing->company->primaryBusinessAccount()
             : $this->resolveAccount($user);
-        $validated = $this->validateListing($request, $currentAccount);
+        $validated = $this->validateListing($request, $currentAccount, $listing);
 
         // Carica nuove immagini e le aggiunge a quelle esistenti
         $newPaths   = $this->storeUploadedImages($request, $listing->uuid);
@@ -635,7 +644,8 @@ class ListingController extends Controller
         return view('admin.listing-create', [
             'pageTitle'      => 'Nuovo prodotto per conto azienda',
             'companies'      => $companies,
-            'categories'     => Listing::CATEGORIES,
+            'categories'     => ListingCategory::activeTopLevelOptions(),
+            'subcategoriesBySlug' => ListingCategory::activeSubcategoriesBySlug(),
             'companyKyRules' => $companyKyRules,
             'activeNav'      => 'admin-listings',
         ]);
@@ -767,7 +777,42 @@ class ListingController extends Controller
         return Listing::query();
     }
 
-    private function validateListing(Request $request, ?\App\Models\Account $account = null): array
+    /**
+     * Categorie/sotto-categorie per il form di modifica prodotto: le attive,
+     * più — se il prodotto ha già una categoria/sotto-categoria nel frattempo
+     * disattivata — quella stessa voce, per non farla sparire silenziosamente
+     * dalla select (che altrimenti la sostituirebbe con la prima opzione
+     * disponibile al salvataggio, cambiando categoria a insaputa di chi
+     * modifica). Vedi anche ListingCategory::selectableTopLevelSlugs() usato
+     * lato validazione con lo stesso ragionamento.
+     *
+     * @return array{0: \Illuminate\Support\Collection<int, ListingCategory>, 1: array}
+     */
+    private function categoryFormOptions(?Listing $listing = null): array
+    {
+        $categories = ListingCategory::activeTopLevelOptions();
+        $subcategoriesBySlug = ListingCategory::activeSubcategoriesBySlug();
+
+        if ($listing && $listing->category && ! $categories->contains('slug', $listing->category)) {
+            $categories->push(new ListingCategory([
+                'slug' => $listing->category,
+                'name' => ListingCategory::labelFor($listing->category) ?? $listing->category,
+            ]));
+        }
+
+        if ($listing && $listing->subcategory) {
+            $alreadyListed = collect($subcategoriesBySlug[$listing->category] ?? [])->contains('slug', $listing->subcategory);
+            if (! $alreadyListed) {
+                $subcategoriesBySlug[$listing->category] = array_merge($subcategoriesBySlug[$listing->category] ?? [], [
+                    ['slug' => $listing->subcategory, 'name' => ListingCategory::labelFor($listing->subcategory) ?? $listing->subcategory],
+                ]);
+            }
+        }
+
+        return [$categories, $subcategoriesBySlug];
+    }
+
+    private function validateListing(Request $request, ?\App\Models\Account $account = null, ?Listing $listing = null): array
     {
         // Determina le percentuali KY consentite per questo venditore
         $allowedPercentages = $account ? $account->allowedKyPercentages() : Listing::KY_PERCENTAGES;
@@ -778,7 +823,23 @@ class ListingController extends Controller
         $validated = $request->validate([
             'title'          => ['required', 'string', 'max:160'],
             'description'    => ['required', 'string', 'max:2000'],
-            'category'       => ['required', Rule::in(array_keys(Listing::CATEGORIES))],
+            // 2026-08-12: categorie/sotto-categorie non più hardcoded, vivono in
+            // listing_categories (gestibili da Admin -> Shop -> Categorie).
+            // selectableTopLevelSlugs() include anche l'eventuale categoria GIA'
+            // assegnata al prodotto pur se nel frattempo disattivata, altrimenti
+            // salvare il form di modifica senza toccarla fallirebbe la validazione.
+            'category'       => ['required', Rule::in(ListingCategory::selectableTopLevelSlugs($listing?->category))],
+            // Sotto-categoria facoltativa (richiesta di Laura): deve appartenere
+            // alla categoria scelta, se presente.
+            'subcategory'    => ['nullable', 'string', function ($attribute, $value, $fail) use ($request, $listing) {
+                if ($value === null || $value === '') {
+                    return;
+                }
+                $allowed = ListingCategory::selectableSubSlugs((string) $request->input('category'), $listing?->subcategory);
+                if (! in_array($value, $allowed, true)) {
+                    $fail('La sotto-categoria selezionata non è valida per la categoria scelta.');
+                }
+            }],
             // Il venditore digita il prezzo in KY (es. "10" o "10,50"), non in
             // centesimi: 'numeric' valida la stringa decimale così com'è
             // digitata; la conversione in centesimi avviene subito sotto con
@@ -804,6 +865,10 @@ class ListingController extends Controller
             'images'         => ['nullable', 'array', 'max:6'],
             'images.*'       => ['image', 'mimes:jpeg,png,webp', 'max:3072'], // 3 MB
         ]);
+
+        // Normalizza la sotto-categoria: la select del form invia stringa vuota
+        // per "— Nessuna —", ma è facoltativa e va salvata come NULL, non "".
+        $validated['subcategory'] = ($validated['subcategory'] ?? '') !== '' ? $validated['subcategory'] : null;
 
         // Converte il prezzo digitato dall'utente (KY, es. "10,50") nei
         // centesimi interi memorizzati in price_ky.
