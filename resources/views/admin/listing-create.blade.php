@@ -21,16 +21,16 @@
 
                 <div class="field">
                     <label>Azienda *</label>
-                    <select name="company_id" required>
+                    <select name="company_id" id="admin-company-select" required onchange="applyAdminKyRules()">
                         <option value="">— Seleziona azienda —</option>
                         @foreach($companies as $company)
                             <option value="{{ $company->id }}" @selected((int) old('company_id') === $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                     <p style="margin:6px 0 0;font-size:11.5px;color:var(--ink-muted);line-height:1.4;">
-                        Il prodotto verrà assegnato a questa azienda. Se il suo saldo è negativo o al tetto massimo,
-                        valgono le stesse regole KY/EUR che si applicherebbero se lo pubblicasse lei: il salvataggio
-                        darà errore in caso di percentuale non consentita.
+                        Il prodotto verrà assegnato a questa azienda. Se il suo saldo è negativo, valgono le stesse
+                        regole KY/EUR che si applicherebbero se lo pubblicasse lei: qui sotto il mix pagamento verrà
+                        bloccato automaticamente al 100% KY.
                     </p>
                 </div>
 
@@ -64,7 +64,7 @@
 
                 <div class="field">
                     <label>Mix pagamento KY/EUR *</label>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <div id="admin-ky-pct-options" style="display:flex;gap:8px;flex-wrap:wrap;">
                         {{-- Ordine di visualizzazione invertito (2026-07-30, richiesta di Laura):
                              dal 100% KY fino allo 0% KY (100% EUR), invece che dallo 0% al 100%. --}}
                         @foreach(array_reverse(\App\Models\Listing::KY_PERCENTAGES) as $pct)
@@ -80,6 +80,10 @@
                             </label>
                         @endforeach
                     </div>
+                    {{-- 12/08/2026: mostrato via JS quando l'azienda selezionata è in debito
+                         (companyKyRules[id].required) — vedi ListingController::adminCreate().
+                         Stesso messaggio/stile del box giallo di portal/shop-create.blade.php. --}}
+                    <div id="admin-ky-pct-forced-msg" style="display:none;margin-top:8px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#713f12;"></div>
                 </div>
 
                 <div class="field">
@@ -161,5 +165,46 @@
     .admin-ky-pct-btn--active {
         background: var(--primary); color: #fff; border-color: var(--primary);
     }
+    .admin-ky-pct-btn--disabled {
+        opacity: .4; cursor: not-allowed;
+    }
 </style>
+
+<script>
+    {{-- 12/08/2026: regole KY per azienda (Account::requiredKyPercentage()),
+         calcolate una volta sola lato server in ListingController::adminCreate()
+         e usate qui per bloccare il mix pagamento al 100% KY appena l'admin
+         seleziona un'azienda in debito, invece di farlo scoprire dall'errore
+         di validazione al salvataggio. Richiesta di Laura. --}}
+    var adminCompanyKyRules = @json($companyKyRules);
+
+    function applyAdminKyRules() {
+        var select = document.getElementById('admin-company-select');
+        var rules = select && select.value ? adminCompanyKyRules[select.value] : null;
+        var forced = !!(rules && rules.required);
+
+        document.querySelectorAll('.admin-ky-pct-radio').forEach(function (radio) {
+            var btn = radio.nextElementSibling;
+            if (forced) {
+                radio.disabled = radio.value !== '100';
+                radio.checked = radio.value === '100';
+                btn.classList.toggle('admin-ky-pct-btn--active', radio.value === '100');
+                btn.classList.toggle('admin-ky-pct-btn--disabled', radio.value !== '100');
+            } else {
+                radio.disabled = false;
+                btn.classList.remove('admin-ky-pct-btn--disabled');
+            }
+        });
+
+        var msgBox = document.getElementById('admin-ky-pct-forced-msg');
+        if (forced) {
+            msgBox.textContent = rules.message;
+            msgBox.style.display = 'block';
+        } else {
+            msgBox.style.display = 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', applyAdminKyRules);
+</script>
 @endsection

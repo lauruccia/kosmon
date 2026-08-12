@@ -595,13 +595,45 @@ class ListingController extends Controller
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
 
-        $companies = Company::query()->orderBy('name')->get(['id', 'name']);
+        // Conto business principale di ciascuna azienda, eager-loaded per
+        // evitare N+1 nel calcolo di companyKyRules() qui sotto — stesso
+        // filtro di Company::primaryBusinessAccount().
+        $companies = Company::query()
+            ->orderBy('name')
+            ->with(['accounts' => function ($query) {
+                $query->where('is_system_account', false)
+                    ->where('owner_type', 'company')
+                    ->whereNull('parent_account_id');
+            }])
+            ->get(['id', 'name']);
+
+        // 12/08/2026: l'admin poteva selezionare una % KY/EUR che il
+        // salvataggio rifiutava comunque (l'azienda scelta è in debito →
+        // solo 100% KY consentito, vedi Account::requiredKyPercentage()),
+        // mostrando l'errore "Il valore selezionato per ky percentage non è
+        // valido." solo dopo l'invio. Passiamo qui le stesse regole per
+        // azienda usate da validateListing(), cosi' il JS in
+        // admin/listing-create.blade.php puo' forzare/disabilitare la
+        // scelta appena l'azienda viene selezionata, invece di farlo
+        // scoprire con un errore. Richiesta di Laura.
+        $companyKyRules = $companies->mapWithKeys(function (Company $company) {
+            $account = $company->accounts->first();
+            $required = $account?->requiredKyPercentage();
+
+            return [$company->id => [
+                'required' => $required !== null,
+                'message'  => $required !== null
+                    ? '100% KY obbligatorio — il saldo di questa azienda è ' . ky_format($account->available_balance) . ' KY (negativo). Deve incassare KY per recuperare il saldo prima di poter offrire un mix EUR.'
+                    : null,
+            ]];
+        });
 
         return view('admin.listing-create', [
-            'pageTitle'  => 'Nuovo prodotto per conto azienda',
-            'companies'  => $companies,
-            'categories' => Listing::CATEGORIES,
-            'activeNav'  => 'admin-listings',
+            'pageTitle'      => 'Nuovo prodotto per conto azienda',
+            'companies'      => $companies,
+            'categories'     => Listing::CATEGORIES,
+            'companyKyRules' => $companyKyRules,
+            'activeNav'      => 'admin-listings',
         ]);
     }
 
