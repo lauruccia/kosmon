@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\NettingProposal;
 use App\Models\PaymentPlan;
 use App\Models\Plan;
+use App\Models\Sector;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Models\Webhook;
@@ -109,6 +110,7 @@ class CompanyController extends Controller
             'paymentGateways' => $paymentGateways,
             'planPayments'    => $planPayments,
             'plans'           => Plan::orderBy('display_order')->get(),
+            'sectors'         => Sector::selectableOptions(),
             'activeNav'       => 'companies',
         ]);
     }
@@ -169,6 +171,38 @@ class CompanyController extends Controller
         return back()->with('portal_success',
             'Indirizzo di ' . $company->name . ' aggiornato.' . ($geocodeWarning ? ' ' . $geocodeWarning : '')
         );
+    }
+
+    /**
+     * POST /admin/companies/{company}/sector
+     *
+     * Normalmente il settore lo sceglie l'azienda dal proprio profilo
+     * (portal.profile.update, stessa lista/validazione qui sotto), ma l'admin
+     * deve poterlo assegnare o correggere per conto suo — richiesta di Laura,
+     * 12/08/2026: prima era visibile in sola lettura nella scheda azienda.
+     */
+    public function updateSector(Request $request, Company $company): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'sector' => ['nullable', 'string', 'max:120', \Illuminate\Validation\Rule::in(Sector::activeList()->push('')->toArray())],
+        ]);
+
+        $value = $validated['sector'] !== '' ? ($validated['sector'] ?? null) : null;
+        $company->update(['sector' => $value]);
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.company.sector_updated',
+            'auditable_type' => Company::class,
+            'auditable_id'   => $company->id,
+            'context'        => ['sector' => $value],
+        ]);
+
+        return back()->with('portal_success', $value !== null
+            ? 'Settore di ' . $company->name . ' impostato a "' . $value . '".'
+            : 'Settore di ' . $company->name . ' rimosso.');
     }
 
     // ── Sospensione azienda ───────────────────────────────────────────────────

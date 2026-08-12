@@ -231,6 +231,41 @@
             </form>
         </section>
 
+        {{-- Settore azienda — 12/08/2026: prima era di sola lettura qui sotto in "Dati
+             azienda", ora l'admin può assegnarlo/modificarlo per conto dell'azienda
+             (che normalmente lo sceglie da sola in Profilo). Stessa lista di settori
+             foglia attivi e stessa validazione del form self-service. --}}
+        <section class="card light-card card-pad">
+            <div class="eyebrow" style="margin-bottom:12px;">Settore azienda</div>
+
+            <form method="POST" action="{{ route('admin.companies.sector', $company) }}">
+                @csrf
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text);">
+                        Settore
+                    </label>
+                    @php $currentSector = $company->sector; @endphp
+                    <select name="sector"
+                        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);">
+                        <option value="">— Nessun settore —</option>
+                        @foreach($sectors as $s)
+                            <option value="{{ $s['name'] }}" @selected($currentSector === $s['name'])>{{ $s['label'] }}</option>
+                        @endforeach
+                        @if($currentSector && ! collect($sectors)->contains('name', $currentSector))
+                            <option value="{{ $currentSector }}" selected>{{ $currentSector }} (non più attivo)</option>
+                        @endif
+                    </select>
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+                        Lo stesso settore che l'azienda può scegliere dal proprio profilo. Elenco gestibile in
+                        <a href="{{ route('admin.sectors.index') }}">Admin → Settori</a>.
+                    </p>
+                </div>
+                <button type="submit" class="cta" style="width:100%;justify-content:center;">
+                    Salva settore
+                </button>
+            </form>
+        </section>
+
         {{-- Dati azienda --}}
         <section class="card light-card card-pad">
             <div class="eyebrow" style="margin-bottom:10px;">Dati azienda</div>
@@ -238,10 +273,6 @@
                 <tr>
                     <td style="padding:6px 0;color:var(--text-muted);width:38%;">Ragione sociale</td>
                     <td style="padding:6px 0;font-weight:600;">{{ $company->name }}</td>
-                </tr>
-                <tr>
-                    <td style="padding:6px 0;color:var(--text-muted);">Settore</td>
-                    <td style="padding:6px 0;">{{ $company->sector ?? '—' }}</td>
                 </tr>
                 @if($company->vat_number)
                 <tr>

@@ -808,6 +808,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/admin/companies/{company}', [CompanyController::class, 'showCompany'])->name('admin.companies.show')->middleware('backoffice');
     Route::post('/admin/companies/{company}/broker', [CompanyController::class, 'assignBroker'])->name('admin.companies.broker')->middleware('backoffice');
     Route::post('/admin/companies/{company}/address', [CompanyController::class, 'updateAddress'])->name('admin.companies.address')->middleware('backoffice');
+    Route::post('/admin/companies/{company}/sector', [CompanyController::class, 'updateSector'])->name('admin.companies.sector')->middleware('backoffice');
     Route::post('/admin/companies/{company}/credit-limit', [CreditLimitController::class, 'setCreditLimit'])->name('admin.companies.credit-limit')->middleware('backoffice');
     Route::post('/admin/companies/{company}/max-balance', [CreditLimitController::class, 'setMaxBalance'])->name('admin.companies.max-balance')->middleware('backoffice');
     Route::get('/admin/richieste-fido', [CreditLimitController::class, 'creditLimitRequests'])->name('admin.credit-requests.index')->middleware('backoffice');
