@@ -75,7 +75,7 @@ class KycController extends Controller
         ]);
 
         $file          = $request->file('document');
-        $storagePath   = $file->store("kyc/{$company->uuid}", 'private');
+        $storagePath   = $file->store("kyc/{$company->uuid}", 'local');
 
         KycDocument::create([
             'company_id'          => $company->id,
@@ -112,12 +112,12 @@ class KycController extends Controller
 
         abort_unless($canAccess, 403);
 
-        if (! Storage::disk('private')->exists($kycDocument->file_path)) {
+        if (! Storage::disk('local')->exists($kycDocument->file_path)) {
             return back()->with('portal_error', 'File non trovato.');
         }
 
         return response()->download(
-            Storage::disk('private')->path($kycDocument->file_path),
+            Storage::disk('local')->path($kycDocument->file_path),
             $kycDocument->original_name,
         );
     }

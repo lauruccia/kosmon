@@ -126,7 +126,7 @@ class OnboardingController extends Controller
         ]);
 
         $file        = $request->file('document');
-        $storagePath = $file->store("kyc/{$company->uuid}", 'private');
+        $storagePath = $file->store("kyc/{$company->uuid}", 'local');
 
         KycDocument::create([
             'company_id'          => $company->id,

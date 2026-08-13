@@ -154,6 +154,6 @@ class KycDocument extends Model
      */
     public function deleteFile(): void
     {
-        Storage::disk('private')->delete($this->file_path);
+        Storage::disk('local')->delete($this->file_path);
     }
 }
