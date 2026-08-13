@@ -146,6 +146,10 @@
         .ob-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         @media (max-width: 520px) { .ob-row { grid-template-columns: 1fr; } }
 
+        /* ── Feature grid (pagina Benvenuto) ─────────────────────────── */
+        .ob-feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; width: 100%; }
+        @media (max-width: 480px) { .ob-feature-grid { grid-template-columns: 1fr; } }
+
         /* ── Buttons ──────────────────────────────────────────────────── */
         .ob-btn {
             display: inline-flex; align-items: center; justify-content: center;
@@ -176,6 +180,7 @@
 
         /* ── Upload area ──────────────────────────────────────────────── */
         .ob-upload-zone {
+            display: block;
             border: 2px dashed var(--line); border-radius: 12px;
             padding: 28px 20px; text-align: center;
             background: var(--bg); cursor: pointer;

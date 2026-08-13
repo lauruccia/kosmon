@@ -42,7 +42,7 @@
     </p>
 
     {{-- Feature pillars --}}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;text-align:left;">
+    <div class="ob-feature-grid" style="margin-bottom:2rem;text-align:left;">
         <div style="background:var(--primary-light);border-radius:12px;padding:1rem;">
             <div style="font-size:1.5rem;margin-bottom:.4rem;">&#128176;</div>
             <div style="font-weight:700;font-size:.9rem;color:var(--ink);">Valuta KY</div>
