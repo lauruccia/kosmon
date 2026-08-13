@@ -104,6 +104,14 @@ class PaymentPinTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/limits', [
                 'payment_pin_threshold' => '10.00',  // 10,00 KY
+                // Il form limiti salva sempre insieme anche i bonus
+                // segnalazione (obbligatori dal 27/07, vedi
+                // CreditLimitController::updateLimitDefaults): senza questi
+                // tre campi la validazione fallisce e la richiesta torna
+                // indietro senza salvare nulla.
+                'referral_bonus_amico_amount'    => '0',
+                'referral_bonus_agente_amount'   => '0',
+                'referral_bonus_attivita_amount' => '0',
             ])
             ->assertRedirect();
 
@@ -130,9 +138,15 @@ class PaymentPinTest extends TestCase
         // Prima la imposto
         SystemSetting::userLimitDefaults()->forceFill(['payment_pin_threshold' => 5000])->save();
 
-        // Poi la svuoto
+        // Poi la svuoto (stesso motivo del test sopra: i bonus segnalazione
+        // sono obbligatori su ogni submit del form limiti).
         $this->actingAs($admin)
-            ->post('/admin/limits', ['payment_pin_threshold' => ''])
+            ->post('/admin/limits', [
+                'payment_pin_threshold'          => '',
+                'referral_bonus_amico_amount'    => '0',
+                'referral_bonus_agente_amount'   => '0',
+                'referral_bonus_attivita_amount' => '0',
+            ])
             ->assertRedirect();
 
         $this->assertNull(SystemSetting::userLimitDefaults()->payment_pin_threshold);
