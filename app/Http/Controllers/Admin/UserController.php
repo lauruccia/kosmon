@@ -38,6 +38,7 @@ class UserController extends Controller
         $selectedHolderType = (string) $request->query('account_holder_type', '');
         $selectedBalanceFilter = (string) $request->query('balance_filter', '');
         $selectedReferredBy = $request->integer('referred_by') ?: null;
+        $selectedAgentId    = $request->integer('agent_id') ?: null;
         $sortField          = (string) $request->query('sort', '');
         $sortDir            = $request->query('dir', 'asc') === 'desc' ? 'desc' : 'asc';
         $perPage            = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true)
@@ -56,6 +57,7 @@ class UserController extends Controller
                 'ownedAccounts.parentAccount',
                 'ownedAccounts.company',
                 'roles.permissions',
+                'mlmClientAgent:id,name',
             ]);
 
         if ($search !== '') {
@@ -91,6 +93,12 @@ class UserController extends Controller
         if ($selectedReferredBy) {
             $referredByUser = User::find($selectedReferredBy);
             $usersQuery->where('referred_by_user_id', $selectedReferredBy);
+        }
+
+        $selectedAgent = null;
+        if ($selectedAgentId) {
+            $selectedAgent = User::find($selectedAgentId);
+            $usersQuery->where('mlm_client_agent_id', $selectedAgentId);
         }
 
         // ── Balance filter ─────────────────────────────────────────────────────
@@ -137,6 +145,7 @@ class UserController extends Controller
             'users' => $users,
             'roles' => Role::query()->with('permissions')->orderBy('name')->get(),
             'companies' => Company::query()->withCount(['users', 'accounts'])->orderBy('name')->get(),
+            'agents' => User::query()->where('mlm_role', 'agente')->orderBy('name')->get(['id', 'name']),
             'filteredUsersCount' => $filteredUsersCount,
             'holderTotalCount' => (clone $holderMetricsQuery)->count(),
             'activeUsersCount' => $activeUsersCount,
@@ -154,6 +163,8 @@ class UserController extends Controller
             'selectedBalanceFilter' => in_array($selectedBalanceFilter, $validBalanceFilters, true) ? $selectedBalanceFilter : '',
             'selectedReferredBy'    => $selectedReferredBy,
             'referredByUser'        => $referredByUser,
+            'selectedAgentId'       => $selectedAgentId,
+            'selectedAgent'         => $selectedAgent,
             'sortField'             => in_array($sortField, $allowedSorts, true) ? $sortField : '',
             'sortDir'               => $sortDir,
             'perPage'               => $perPage,

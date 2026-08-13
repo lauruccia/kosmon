@@ -82,9 +82,10 @@
         .balance-pos  { color: #1a7a4a; }
         .balance-zero { color: var(--ink-muted); }
         .user-row-actions { display: flex; justify-content: flex-end; gap: 5px; white-space: nowrap; }
-        .sort-link { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
-        .sort-icon { opacity: .45; font-size: 10px; }
-        .sort-icon.active { opacity: 1; color: var(--primary-strong); }
+        .sort-link { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+        .sort-icon { opacity: .6; font-size: 13px; font-weight: 900; transition: opacity .15s ease, color .15s ease; }
+        .sort-link:hover .sort-icon { opacity: 1; }
+        .sort-icon.active { opacity: 1; color: var(--primary-strong); font-size: 14px; }
 
         /* ── Pagination ──────────────────────────────────────────────────────── */
         .users-pagination {
@@ -165,6 +166,7 @@
                 'account_holder_type' => $selectedHolderType ?: null,
                 'balance_filter'      => $selectedBalanceFilter ?: null,
                 'referred_by'         => $selectedReferredBy ?: null,
+                'agent_id'            => $selectedAgentId ?: null,
                 'sort'                => $sortField ?: null,
                 'dir'                 => ($sortDir !== 'asc') ? $sortDir : null,
                 'per_page'            => ($perPage !== 25) ? $perPage : null,
@@ -214,7 +216,7 @@
 
                 <div class="ufb-field">
                     <span class="ufb-label">Tipo utente</span>
-                    <select class="ufb-select" name="account_holder_type">
+                    <select class="ufb-select" name="account_holder_type" data-no-search>
                         <option value=""        @selected(!$selectedHolderType)>Tutti ({{ $holderTotalCount }})</option>
                         <option value="company" @selected($selectedHolderType === 'company')>Aziende ({{ $companyUsersCount }})</option>
                         <option value="private" @selected($selectedHolderType === 'private')>Privati ({{ $privateUsersCount }})</option>
@@ -223,7 +225,7 @@
 
                 <div class="ufb-field">
                     <span class="ufb-label">Saldo</span>
-                    <select class="ufb-select ufb-select--sm" name="balance_filter">
+                    <select class="ufb-select ufb-select--sm" name="balance_filter" data-no-search>
                         @foreach ($balanceTabs as $bfVal => $bfLabel)
                             <option value="{{ $bfVal }}" @selected($selectedBalanceFilter === $bfVal)>{{ $bfLabel }}</option>
                         @endforeach
@@ -232,7 +234,7 @@
 
                 <div class="ufb-field">
                     <span class="ufb-label">Ruolo</span>
-                    <select class="ufb-select ufb-select--sm" name="role_id">
+                    <select class="ufb-select ufb-select--sm" name="role_id" data-no-search>
                         <option value="">Tutti i ruoli</option>
                         @foreach ($roles as $role)
                             <option value="{{ $role->id }}" @selected((int)($selectedRoleId ?? 0) === $role->id)>{{ $role->name }}</option>
@@ -242,7 +244,7 @@
 
                 <div class="ufb-field">
                     <span class="ufb-label">Stato</span>
-                    <select class="ufb-select" name="status">
+                    <select class="ufb-select" name="status" data-no-search>
                         <option value="">Tutti</option>
                         <option value="active"   @selected($selectedStatus === 'active')>Attivi</option>
                         <option value="inactive" @selected($selectedStatus === 'inactive')>Disattivi</option>
@@ -250,23 +252,24 @@
                 </div>
 
                 <div class="ufb-field">
-                    <span class="ufb-label">Ordina</span>
-                    <select class="ufb-select" name="sort">
-                        <option value=""           @selected(!$sortField)>—</option>
-                        <option value="name"       @selected($sortField === 'name')>Nome</option>
-                        <option value="email"      @selected($sortField === 'email')>Email</option>
-                        <option value="balance"    @selected($sortField === 'balance')>Saldo</option>
-                        <option value="created_at" @selected($sortField === 'created_at')>Data reg.</option>
+                    <span class="ufb-label">Agente</span>
+                    <select class="ufb-select ufb-select--sm" name="agent_id">
+                        <option value="">Tutti gli agenti</option>
+                        @foreach ($agents as $agent)
+                            <option value="{{ $agent->id }}" @selected((int)($selectedAgentId ?? 0) === $agent->id)>{{ $agent->name }}</option>
+                        @endforeach
                     </select>
                 </div>
 
-                <div class="ufb-field">
-                    <span class="ufb-label">Dir.</span>
-                    <select class="ufb-select ufb-select--xs" name="dir">
-                        <option value="asc"  @selected($sortDir === 'asc')>↑</option>
-                        <option value="desc" @selected($sortDir === 'desc')>↓</option>
-                    </select>
-                </div>
+                {{-- 13/08: menu "Ordina"/"Dir." rimossi dalla barra filtri (richiesta di
+                     Laura) — l'ordinamento resta possibile cliccando le intestazioni di
+                     colonna (vedi $sortLink sopra, ora con frecce più evidenti). Il sort/dir
+                     correnti restano comunque nel form come campi nascosti, così non si
+                     perdono quando si applica un altro filtro con "Filtra". --}}
+                @if($sortField)
+                    <input type="hidden" name="sort" value="{{ $sortField }}">
+                    <input type="hidden" name="dir" value="{{ $sortDir }}">
+                @endif
 
                 <div class="ufb-actions">
                     <button type="submit" class="cta secondary users-compact-cta">Filtra</button>
@@ -275,7 +278,7 @@
             </form>
 
             {{-- Chip filtri attivi (solo se presente almeno uno) --}}
-            @if($search || $selectedRoleId || $selectedStatus || $selectedHolderType || $selectedBalanceFilter || $selectedReferredBy || $sortField)
+            @if($search || $selectedRoleId || $selectedStatus || $selectedHolderType || $selectedBalanceFilter || $selectedReferredBy || $selectedAgentId || $sortField)
                 <div class="users-directory-meta">
                     @if($search)         <span class="chip">{{ $search }}</span> @endif
                     @if($selectedHolderType) <span class="chip">{{ $selectedHolderType === 'company' ? 'Aziende' : 'Privati' }}</span> @endif
@@ -286,6 +289,12 @@
                         <span class="chip" style="display:inline-flex;align-items:center;gap:6px;">
                             🎁 Segnalati da: {{ $referredByUser?->name ?? ('utente #' . $selectedReferredBy) }}
                             <a href="{{ route('admin.users.index', collect($allParams)->except('referred_by')->all()) }}" title="Rimuovi filtro" style="color:inherit;text-decoration:none;font-weight:800;">✕</a>
+                        </span>
+                    @endif
+                    @if($selectedAgentId)
+                        <span class="chip" style="display:inline-flex;align-items:center;gap:6px;">
+                            🧑‍💼 Agente: {{ $selectedAgent?->name ?? ('utente #' . $selectedAgentId) }}
+                            <a href="{{ route('admin.users.index', collect($allParams)->except('agent_id')->all()) }}" title="Rimuovi filtro" style="color:inherit;text-decoration:none;font-weight:800;">✕</a>
                         </span>
                     @endif
                     @if($sortField)      <span class="chip">{{ $sortField }} {{ $sortDir === 'desc' ? '↓' : '↑' }}</span> @endif
@@ -313,6 +322,7 @@
                             <th>Conto</th>
                             <th>{!! $sortLink('balance', 'Saldo') !!}</th>
                             <th>Stato</th>
+                            <th>Agente di riferimento</th>
                             <th>{!! $sortLink('created_at', 'Registrato') !!}</th>
                             <th style="min-width:85px;"></th>
                         </tr>
@@ -365,6 +375,15 @@
                                         @endif
                                     </div>
                                 </td>
+                                <td style="font-size:12px;">
+                                    @if($user->mlmClientAgent)
+                                        <a href="{{ route('admin.users.index', array_merge($allParams, ['agent_id' => $user->mlmClientAgent->id])) }}" style="color:inherit;text-decoration:none;font-weight:600;">
+                                            {{ $user->mlmClientAgent->name }}
+                                        </a>
+                                    @else
+                                        <span class="table-muted">—</span>
+                                    @endif
+                                </td>
                                 <td class="table-muted" style="font-size:11px;white-space:nowrap;">
                                     {{ $user->created_at->format('d/m/Y') }}
                                 </td>
@@ -395,7 +414,13 @@
                             @endif
                         @endforeach
                         <label class="table-muted" style="font-size:11px;">Per pagina</label>
-                        <select name="per_page" class="users-perpage-select" onchange="this.form.submit()">
+                        {{-- 13/08: data-no-search obbligatorio qui — senza, lo script globale
+                             in layouts/portal.blade.php sostituisce questa <select> nativa con
+                             un widget TomSelect (ricerca testuale), che impediva di fatto di
+                             scegliere un valore diverso da quello di default (25): stesso bug
+                             già documentato/risolto in admin/listings.blade.php per il <select>
+                             status con onchange="submit()" su un elenco breve di valori fissi. --}}
+                        <select name="per_page" class="users-perpage-select" onchange="this.form.submit()" data-no-search>
                             @foreach ($perPageOptions as $opt)
                                 <option value="{{ $opt }}" @selected($perPage === $opt)>{{ $opt }}</option>
                             @endforeach
