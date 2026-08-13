@@ -451,6 +451,18 @@
         .content-shell {
             padding: 14px; background: var(--bg);
             transition: background .28s ease;
+            /* Prevent horizontal overflow without creating a scroll container on <main>.
+               overflow-x:hidden on <main> would trigger the CSS spec rule that computes
+               overflow-y as 'auto', turning the element into a scroll container and
+               breaking page-level scrolling on iOS. Use overflow-x:clip instead (no BFC).
+               Applied at ALL breakpoints (not just mobile): the grid track already uses
+               minmax(0, 1fr) so it can't grow, but a wide child (long text, a table) can
+               still spill out and enlarge the document's scrollable width. Since .sidebar
+               is only position:fixed on mobile — on tablet/desktop it's position:sticky,
+               which only pins vertically — that extra document width let the whole page
+               (sidebar included) scroll horizontally, so the sidebar appeared to "shift
+               too far left" whenever that overflow occurred. */
+            overflow-x: clip;
         }
 
         /* ── TOPBAR ─────────────────────────────────────────────────── */
@@ -874,6 +886,13 @@
             overflow: hidden;
             border-radius: var(--radius-sm);
             border: 1px solid var(--line);
+            /* display:block lets a table wider than its column (many columns, long
+               unbreakable values) scroll horizontally INSIDE itself instead of
+               growing past .content-shell and forcing the whole page to scroll —
+               which used to be the case above 720px and is what dragged the sticky
+               sidebar off-screen to the left (see .content-shell overflow-x: clip). */
+            display: block;
+            overflow-x: auto;
         }
         .transactions-table th, .transactions-table td,
         .admin-table th, .admin-table td {
@@ -1068,7 +1087,8 @@
             .topbar-tools, .quick-actions, .page-actions, .form-actions { width: 100%; }
             .cta, .logout-btn { width: 100%; }
             .field-inline { grid-template-columns: 1fr; }
-            .transactions-table, .admin-table { display: block; overflow-x: auto; }
+            /* display:block/overflow-x:auto for .transactions-table, .admin-table
+               is now set at the base rule above, applying at every breakpoint. */
         }
 
         /* ── MOBILE HAMBURGER + SIDEBAR OVERLAY ────────────────────── */
@@ -1282,11 +1302,8 @@
             .page-actions, .form-actions, .quick-actions { flex-direction: column !important; }
             .page-actions .cta, .form-actions .cta, .form-actions .btn { width: 100% !important; }
 
-            /* Prevent horizontal overflow without creating a scroll container on <main>.
-               overflow-x:hidden on <main> would trigger the CSS spec rule that computes
-               overflow-y as 'auto', turning the element into a scroll container and
-               breaking page-level scrolling on iOS. Use overflow-x:clip instead (no BFC). */
-            .content-shell { overflow-x: clip; }
+            /* overflow-x: clip on .content-shell is now set at the base rule above,
+               applying to every breakpoint (see comment there). */
         }
 
         /* Pill nascosto su schermi molto piccoli (< 400px) */
