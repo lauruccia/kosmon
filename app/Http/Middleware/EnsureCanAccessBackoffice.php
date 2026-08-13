@@ -61,6 +61,11 @@ class EnsureCanAccessBackoffice
         'listings.read' => [
             'admin.listings.index',
             'admin.listing-categories.index',
+            // "Offerte della settimana" (2026-08-13): stessa lettura di
+            // 'listings.read' per moderazione/categorie — il ruolo "Gestore
+            // Aziende e Prodotti" deve poter vedere l'elenco delle offerte
+            // senza avere backoffice.full.
+            'admin.listing-offers.index',
         ],
         'listings.manage' => [
             'admin.listings.create',
@@ -70,6 +75,12 @@ class EnsureCanAccessBackoffice
             'admin.listing-categories.update',
             'admin.listing-categories.toggle',
             'admin.listing-categories.destroy',
+            // "Offerte della settimana" (2026-08-13): stessa gestione di
+            // 'listings.manage' per creare/pubblicare prodotti — l'offerta è
+            // parte della gestione prodotto, non una funzione admin separata.
+            'admin.listing-offers.create',
+            'admin.listing-offers.store',
+            'admin.listing-offers.destroy',
         ],
     ];
 

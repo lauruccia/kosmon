@@ -2,6 +2,7 @@
 
 @section('page-actions')
 <a class="cta" href="{{ route('admin.listings.create') }}">+ Nuovo prodotto per azienda</a>
+<a class="cta secondary" href="{{ route('admin.listing-offers.index') }}">🔥 Offerte della settimana</a>
 <a class="cta secondary" href="{{ route('admin.listings.orders') }}">Ordini</a>
 <a class="cta secondary" href="{{ route('portal.shop') }}">Vista portale</a>
 @endsection

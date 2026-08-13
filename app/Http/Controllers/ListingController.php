@@ -67,7 +67,7 @@ class ListingController extends Controller
         $ownCompanyId = $user->company_id;
 
         $listingsQuery = Listing::query()
-            ->with('company.plan')
+            ->with(['company.plan', 'activeOffer'])
             ->where(function ($query) use ($ownCompanyId) {
                 $query->active();
                 if ($ownCompanyId) {
@@ -91,7 +91,7 @@ class ListingController extends Controller
         // (2 prodotti "orfani"). 15 = multiplo di 5, riempie sempre l'intera
         // griglia su ogni pagina piena.
         $listings = $listingsQuery->paginate(15)->withQueryString();
-        $featuredListings = Listing::query()->with('company.plan')->active()->featured()->latest()->take(4)->get();
+        $featuredListings = Listing::query()->with(['company.plan', 'activeOffer'])->active()->featured()->latest()->take(4)->get();
 
         return view('portal.shop', [
             'pageTitle'       => 'Shop del circuito',
@@ -157,6 +157,43 @@ class ListingController extends Controller
         ]);
     }
 
+    // ── Portale: "Offerte della settimana" ────────────────────────────────────
+
+    /**
+     * Vetrina pubblica dei prodotti con un'offerta attualmente in corso
+     * (2026-08-13, richiesta di Laura) — vedi Listing::scopeOnOffer()/
+     * activeOffer() e ListingOffer per come un'offerta "scade" da sola,
+     * senza bisogno di alcun job schedulato. Elenco tipicamente piccolo
+     * (curato a mano dall'admin settimana per settimana), quindi niente
+     * paginazione: ordinati per scadenza più vicina prima, stile
+     * e-commerce "finisce tra poco".
+     */
+    public function offers(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        $currentAccount = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
+            return $redirect;
+        }
+
+        $listings = Listing::query()
+            ->with(['company.plan', 'activeOffer'])
+            ->active()
+            ->onOffer()
+            ->get()
+            ->sortBy(fn (Listing $listing) => $listing->activeOffer?->expires_at)
+            ->values();
+
+        return view('portal.shop-offers', [
+            'pageTitle'      => 'Offerte della settimana — Shop KMoney',
+            'currentAccount' => $currentAccount,
+            'currentUser'    => $user,
+            'listings'       => $listings,
+            'activeNav'      => 'shop-offers',
+        ]);
+    }
+
     // ── Portale: dettaglio prodotto ───────────────────────────────────────────
 
     public function show(Request $request, Listing $listing): View|RedirectResponse
@@ -179,8 +216,8 @@ class ListingController extends Controller
             'pageTitle'      => $listing->title . ' — Shop KMoney',
             'currentAccount' => $currentAccount,
             'currentUser'    => $user,
-            'listing'        => $listing->load('company.plan'),
-            'related'        => Listing::query()->with('company.plan')->active()
+            'listing'        => $listing->load(['company.plan', 'activeOffer']),
+            'related'        => Listing::query()->with(['company.plan', 'activeOffer'])->active()
                                     ->inCategory($listing->category)
                                     ->whereKeyNot($listing->id)
                                     ->latest()->take(3)->get(),
@@ -231,7 +268,10 @@ class ListingController extends Controller
         // metodo di pagamento attivo e configurato: controllo PRIMA di
         // addebitare i KY, per non lasciare l'acquirente con un ordine KY
         // pagato ma senza modo di saldare la quota EUR.
-        if ($listing->ky_percentage < 100) {
+        // 2026-08-13: effective_ky_percentage (non ky_percentage) — se il
+        // prodotto ha un'offerta attiva, il mix da controllare è quello
+        // dell'offerta (in genere 100%), non quello normale del prodotto.
+        if ($listing->effective_ky_percentage < 100) {
             $hasUsableGateway = PaymentGateway::query()
                 ->where('company_id', $listing->company_id)
                 ->active()
@@ -274,8 +314,11 @@ class ListingController extends Controller
                     ->whereNull('parent_account_id')
                     ->firstOrFail();
 
-                $unitKyAmount = $lockedListing->ky_amount;
-                $unitEuroAmount = $lockedListing->euro_amount;
+                // effective_ky_amount/effective_euro_amount (non ky_amount/euro_amount,
+                // 2026-08-13): addebita il prezzo dell'offerta attiva se presente,
+                // altrimenti il prezzo pieno normale — vedi Listing::activeOffer().
+                $unitKyAmount = $lockedListing->effective_ky_amount;
+                $unitEuroAmount = $lockedListing->effective_euro_amount;
 
                 // Costo di spedizione: UNA sola volta per ordine (non moltiplicato
                 // per la quantità, coerente con un ordine reale spedito in un unico
@@ -289,6 +332,7 @@ class ListingController extends Controller
                 $totalEuroAmount = ($unitEuroAmount * $quantity) + $shippingEuroAmount;
 
                 $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '')
+                    . ($lockedListing->is_on_offer ? ' [offerta]' : '')
                     . ($shippingKyAmount > 0 || $shippingEuroAmount > 0 ? ' + spedizione' : '');
 
                 $transfer = $bookingService->book([

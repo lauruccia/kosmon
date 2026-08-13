@@ -59,6 +59,9 @@
             <a href="{{ route('portal.shop') }}" class="cta secondary">✕ Reset</a>
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
+                 stessa visibilità del link nella sidebar (layouts/portal.blade.php). --}}
+            <a class="cta secondary" href="{{ route('portal.shop.offers') }}" style="white-space:nowrap;">🔥 Offerte della settimana</a>
             @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
                 <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">Pubblica un prodotto</a>
             @endif
@@ -90,7 +93,10 @@
                 @else
                     <div class="product-media-placeholder"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                 @endif
-                @if($listing->ky_percentage === 100)
+                @if($listing->is_on_offer)
+                    <span class="product-badge product-badge--offer">-{{ $listing->offer_discount_percent }}%</span>
+                @endif
+                @if($listing->effective_ky_percentage === 100)
                     <span class="product-badge product-badge--full-ky">100% KY</span>
                 @endif
                 <span class="product-badge product-badge--featured">★</span>
@@ -106,9 +112,12 @@
                     <span class="chip">{{ $listing->company->name }}</span>
                 </div>
                 <div class="product-price-row">
-                    <span class="product-price">{{ ky_format($listing->price_ky) }} <small>KY</small></span>
-                    @if($listing->ky_percentage !== 100)
-                        <span class="mix-badge" style="{{ $listing->ky_badge_color }}">{{ $listing->ky_badge_label }}</span>
+                    <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
+                    @if($listing->is_on_offer)
+                        <span style="text-decoration:line-through;color:var(--ink-muted);font-size:12px;">{{ ky_format($listing->price_ky) }} KY</span>
+                    @endif
+                    @if($listing->effective_ky_percentage !== 100)
+                        <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                     @endif
                 </div>
                 <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
@@ -143,7 +152,10 @@
                     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
             @endif
-            @if($listing->ky_percentage === 100)
+            @if($listing->is_on_offer)
+                <span class="product-badge product-badge--offer">-{{ $listing->offer_discount_percent }}%</span>
+            @endif
+            @if($listing->effective_ky_percentage === 100)
                 <span class="product-badge product-badge--full-ky">100% KY</span>
             @endif
             @if($listing->featured)<span class="product-badge product-badge--featured">★</span>@endif
@@ -169,9 +181,12 @@
                 <span class="chip">{{ $listing->company->name }}</span>
             </div>
             <div class="product-price-row">
-                <span class="product-price">{{ ky_format($listing->price_ky) }} <small>KY</small></span>
-                @if($listing->ky_percentage !== 100)
-                    <span class="mix-badge" style="{{ $listing->ky_badge_color }}">{{ $listing->ky_badge_label }}</span>
+                <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
+                @if($listing->is_on_offer)
+                    <span style="text-decoration:line-through;color:var(--ink-muted);font-size:12px;">{{ ky_format($listing->price_ky) }} KY</span>
+                @endif
+                @if($listing->effective_ky_percentage !== 100)
+                    <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                 @endif
             </div>
             <div class="page-actions" style="margin-top:2px;">
@@ -302,6 +317,14 @@
         left: 10px; background: #059669; color: #fff; font-weight: 800;
         box-shadow: 0 2px 8px rgba(5,150,105,.35);
     }
+    /* Badge sconto "-X%" (2026-08-13, offerta della settimana): stesso angolo
+       del badge "In evidenza" (right:10px) — se un prodotto è ENTRAMBI in
+       evidenza e in offerta, il selettore sotto sposta giù la stella per non
+       sovrapporsi (l'offerta, più urgente, resta in alto). L'ordine nel markup
+       (badge offerta renderizzato PRIMA di quello "In evidenza") è quello che
+       fa funzionare il combinatore ~ qui sotto. */
+    .product-badge--offer { right: 10px; background: #dc2626; color: #fff; font-weight: 800; box-shadow: 0 2px 8px rgba(220,38,38,.35); }
+    .product-badge--offer ~ .product-badge--featured { top: 40px; }
     .product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
     .product-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
     .product-title a { color: var(--ink); text-decoration: none; }

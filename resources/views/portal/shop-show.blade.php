@@ -23,9 +23,14 @@
                         · {{ $listing->views_count }} visualizzazioni
                     </div>
                 </div>
-                @if($listing->featured)
-                    <span class="pill warn">★ In evidenza</span>
-                @endif
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    @if($listing->is_on_offer)
+                        <span class="pill" style="background:#fee2e2;color:#991b1b;">🔥 -{{ $listing->offer_discount_percent }}% offerta</span>
+                    @endif
+                    @if($listing->featured)
+                        <span class="pill warn">★ In evidenza</span>
+                    @endif
+                </div>
             </div>
 
             {{-- Galleria immagini --}}
@@ -89,6 +94,17 @@
                 ⏱ <strong>Offerta valida fino al:</strong> {{ $listing->expires_at->locale('it')->isoFormat('D MMMM YYYY') }}
             </div>
             @endif
+
+            {{-- "Offerta della settimana" (2026-08-13): NON va confusa col box sopra
+                 (quello è la scadenza generica del prodotto, listings.expires_at) —
+                 questo è lo sconto a tempo su prezzo/percentuale KY, vedi
+                 Listing::activeOffer()/ListingOffer. --}}
+            @if($listing->is_on_offer)
+            <div style="margin-top:12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:8px;padding:12px 16px;font-size:14px;color:#7f1d1d;">
+                🔥 <strong>Offerta della settimana:</strong> -{{ $listing->offer_discount_percent }}% rispetto al prezzo pieno,
+                scade il {{ $listing->activeOffer->expires_at->locale('it')->isoFormat('D MMMM YYYY, HH:mm') }}.
+            </div>
+            @endif
         </section>
 
         @if($related->isNotEmpty())
@@ -104,7 +120,7 @@
                         <div class="subtle">{{ $rel->company->name }}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <strong style="color:#0c4a86;">{{ ky_format($rel->price_ky) }} KY</strong>
+                        <strong style="color:#0c4a86;">{{ ky_format($rel->effective_price_ky) }} KY</strong>
                         <a href="{{ route('portal.shop.show', $rel) }}" class="cta secondary" style="padding:6px 14px;font-size:13px;">Vedi</a>
                     </div>
                 </article>
@@ -133,31 +149,41 @@
         // Il saldo minimo necessario include anche l'eventuale quota KY di
         // spedizione (una sola volta, non moltiplicata per quantità) —
         // per coerenza con quanto viene poi realmente addebitato in buy().
-        $requiredKy   = $listing->ky_amount + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
+        // effective_ky_amount (non ky_amount, 2026-08-13): se il prodotto ha
+        // un'offerta attiva, il prezzo/percentuale da considerare sono quelli
+        // dell'offerta — vedi Listing::activeOffer().
+        $requiredKy   = $listing->effective_ky_amount + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
         $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
     @endphp
     <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
-            <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;margin:16px 0 4px;">
-                {{ ky_format($listing->price_ky) }}
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:16px 0 4px;">
+                <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;">
+                    {{ ky_format($listing->effective_price_ky) }}
+                </div>
+                @if($listing->is_on_offer)
+                    <div style="font-size:16px;color:rgba(255,255,255,.55);text-decoration:line-through;">
+                        {{ ky_format($listing->price_ky) }}
+                    </div>
+                @endif
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
                 <span style="font-size:14px;color:#64748b;">KY (KMoney)</span>
-                <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $listing->ky_badge_color }}">
-                    {{ $listing->ky_badge_label }}
+                <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $listing->effective_ky_badge_color }}">
+                    {{ $listing->effective_ky_badge_label }}
                 </span>
                 <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $inStock ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;' }}">
                     {{ $listing->stock_label }}
                 </span>
             </div>
-            @if($listing->ky_percentage < 100)
+            @if($listing->effective_ky_percentage < 100)
             <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0369a1;">
                 <strong>Pagamento misto:</strong>
-                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->ky_amount) }} KY nel circuito
+                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->effective_ky_amount) }} KY nel circuito
                 {{-- euro_amount = price_ky - ky_amount, quindi anche questo è in centesimi:
                      number_format() diretto lo mostrava grezzo (senza /100), stesso bug ×100. --}}
-                (per unità); il restante {{ 100 - $listing->ky_percentage }}% ({{ ky_format($listing->euro_amount) }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
+                (per unità); il restante {{ 100 - $listing->effective_ky_percentage }}% ({{ ky_format($listing->effective_euro_amount) }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
             </div>
             @endif
 
@@ -227,7 +253,7 @@
                         @endif
                         <button type="submit" class="cta" style="width:100%;text-align:center;"
                             onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
-                            Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->ky_percentage < 100 ? ' + quota EUR' : '' }}
+                            Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
                         </button>
                     </form>
                 @endif

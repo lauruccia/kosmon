@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -188,6 +189,32 @@ class Listing extends Model
         return $this->hasMany(Transfer::class, 'listing_id');
     }
 
+    /**
+     * Storico completo delle offerte "della settimana" di questo prodotto
+     * (attive, terminate manualmente e scadute — vedi ListingOffer).
+     */
+    public function offers(): HasMany
+    {
+        return $this->hasMany(ListingOffer::class);
+    }
+
+    /**
+     * Offerta "della settimana" attualmente in corso per questo prodotto, se
+     * presente (2026-08-13). Nessun job schedulato: quando expires_at passa,
+     * questa relazione smette semplicemente di ritornare risultati e il
+     * prodotto torna in automatico al prezzo/percentuale normali ovunque
+     * venga mostrato o acquistato — vedi gli accessor effective_* sotto, da
+     * usare SEMPRE al posto di price_ky/ky_percentage nelle view e
+     * nell'acquisto.
+     */
+    public function activeOffer(): HasOne
+    {
+        return $this->hasOne(ListingOffer::class)
+            ->whereNull('cancelled_at')
+            ->where('expires_at', '>', now())
+            ->latestOfMany();
+    }
+
     // ── Scopes ────────────────────────────────────────────────────────────────
 
     public function scopeActive(Builder $query): Builder
@@ -201,6 +228,17 @@ class Listing extends Model
     public function scopeFeatured(Builder $query): Builder
     {
         return $query->where('featured', true);
+    }
+
+    /**
+     * Prodotti con un'offerta "della settimana" attualmente in corso — usato
+     * dalla pagina pubblica /shop/offerte (ListingController::offers()).
+     */
+    public function scopeOnOffer(Builder $query): Builder
+    {
+        return $query->whereHas('offers', function (Builder $q) {
+            $q->whereNull('cancelled_at')->where('expires_at', '>', now());
+        });
     }
 
     public function scopeInCategory(Builder $query, string $category): Builder
@@ -376,6 +414,84 @@ class Listing extends Model
             $this->ky_percentage >= 50   => 'background:#dbeafe;color:#1e40af;',
             $this->ky_percentage > 0     => 'background:#fef3c7;color:#92400e;',
             default                      => 'background:#f1f5f9;color:#475569;',
+        };
+    }
+
+    // ---- Offerta della settimana ---------------------------------------------
+
+    /**
+     * true se questo prodotto ha un'offerta "della settimana" attualmente in
+     * corso — vedi activeOffer().
+     */
+    public function getIsOnOfferAttribute(): bool
+    {
+        return $this->activeOffer !== null;
+    }
+
+    /**
+     * Prezzo da mostrare/addebitare ADESSO: quello dell'offerta attiva se
+     * presente, altrimenti il prezzo pieno normale. Usare SEMPRE questo (e i
+     * fratelli sotto) al posto di price_ky/ky_percentage nelle view e
+     * nell'acquisto (ListingController::buy()), così un'offerta attiva si
+     * riflette automaticamente ovunque il prodotto viene mostrato o pagato,
+     * senza dover duplicare la logica "se c'è un'offerta...".
+     */
+    public function getEffectivePriceKyAttribute(): int
+    {
+        return $this->activeOffer?->offer_price_ky ?? $this->price_ky;
+    }
+
+    public function getEffectiveKyPercentageAttribute(): int
+    {
+        return $this->activeOffer?->offer_ky_percentage ?? $this->ky_percentage;
+    }
+
+    public function getEffectiveKyAmountAttribute(): int
+    {
+        return (int) round($this->effective_price_ky * $this->effective_ky_percentage / 100);
+    }
+
+    public function getEffectiveEuroAmountAttribute(): int
+    {
+        return $this->effective_price_ky - $this->effective_ky_amount;
+    }
+
+    /**
+     * Percentuale di sconto dell'offerta attiva, o null se non in offerta —
+     * per le view (badge "-20%" ecc.).
+     */
+    public function getOfferDiscountPercentAttribute(): ?int
+    {
+        return $this->activeOffer?->discount_percent;
+    }
+
+    /**
+     * Equivalenti "effettivi" di ky_badge_label/ky_badge_color sopra, basati
+     * su effective_ky_percentage invece che sul ky_percentage "di listino" —
+     * da usare nelle view al posto degli originali ovunque si mostri il
+     * prezzo pagabile ora (che con un'offerta attiva può avere un mix
+     * KY/EUR diverso da quello normale del prodotto).
+     */
+    public function getEffectiveKyBadgeLabelAttribute(): string
+    {
+        $pct = $this->effective_ky_percentage;
+        if ($pct === 100) {
+            return '100% KY';
+        }
+        if ($pct === 0) {
+            return '100% EUR';
+        }
+        return "{$pct}% KY + " . (100 - $pct) . '% EUR';
+    }
+
+    public function getEffectiveKyBadgeColorAttribute(): string
+    {
+        $pct = $this->effective_ky_percentage;
+        return match(true) {
+            $pct === 100 => 'background:#d1fae5;color:#065f46;',
+            $pct >= 50   => 'background:#dbeafe;color:#1e40af;',
+            $pct > 0     => 'background:#fef3c7;color:#92400e;',
+            default      => 'background:#f1f5f9;color:#475569;',
         };
     }
 

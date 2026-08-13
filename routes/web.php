@@ -7,6 +7,7 @@ use App\Http\Controllers\SubAccountLimitRequestController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSectorController;
 use App\Http\Controllers\AdminListingCategoryController;
+use App\Http\Controllers\AdminListingOfferController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\CashbackRuleController;
 use App\Http\Controllers\AuthController;
@@ -465,6 +466,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // un listing_id e risponderebbe 404 (stesso motivo per cui /shop/crea è
     // già sopra a /shop/{listing}).
     Route::get('/shop/i-miei-prodotti', [ListingController::class, 'mine'])->name('portal.shop.mine');
+    // "Offerte della settimana" (2026-08-13): stesso motivo di cui sopra,
+    // route statica /shop/offerte registrata PRIMA di /shop/{listing}.
+    Route::get('/shop/offerte', [ListingController::class, 'offers'])->name('portal.shop.offers');
     Route::get('/shop/{listing}', [ListingController::class, 'show'])->name('portal.shop.show');
     Route::post('/shop/{listing}/acquista', [ListingController::class, 'buy'])->name('portal.shop.buy')->middleware('throttle:payments');
     Route::get('/shop/{listing}/modifica', [ListingController::class, 'edit'])->name('portal.shop.edit');
@@ -905,6 +909,12 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::put('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'update'])->name('admin.listing-categories.update')->middleware('backoffice');
     Route::patch('/admin/listings/categorie/{listingCategory}/toggle', [AdminListingCategoryController::class, 'toggle'])->name('admin.listing-categories.toggle')->middleware('backoffice');
     Route::delete('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'destroy'])->name('admin.listing-categories.destroy')->middleware('backoffice');
+
+    // Admin "Offerte della settimana" (2026-08-13, richiesta di Laura) — vedi AdminListingOfferController.
+    Route::get('/admin/listings/offerte', [AdminListingOfferController::class, 'index'])->name('admin.listing-offers.index')->middleware('backoffice');
+    Route::get('/admin/listings/offerte/crea', [AdminListingOfferController::class, 'create'])->name('admin.listing-offers.create')->middleware('backoffice');
+    Route::post('/admin/listings/offerte', [AdminListingOfferController::class, 'store'])->name('admin.listing-offers.store')->middleware('backoffice');
+    Route::delete('/admin/listings/offerte/{listingOffer}', [AdminListingOfferController::class, 'destroy'])->name('admin.listing-offers.destroy')->middleware('backoffice');
 
     Route::get('/admin/announcements', [AnnouncementController::class, 'adminIndex'])->name('admin.announcements.index')->middleware('backoffice');
     Route::post('/admin/announcements/{announcement}/status', [AnnouncementController::class, 'adminUpdateStatus'])->name('admin.announcements.status')->middleware('backoffice');

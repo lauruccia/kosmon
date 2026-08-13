@@ -1392,13 +1392,18 @@
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'companies' ? 'active' : '' }}" href="{{ route('admin.companies.index') }}"><span class="subnav-icon">DR</span><span>Directory</span></a>
                             </div>
-                            <a class="sidebar-link {{ in_array($activeNav ?? '', ['admin-listings', 'admin-listing-orders', 'admin-listing-categories']) ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
+                            <a class="sidebar-link {{ in_array($activeNav ?? '', ['admin-listings', 'admin-listing-orders', 'admin-listing-categories', 'admin-listing-offers']) ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listings' ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="subnav-icon">MD</span><span>Moderazione</span></a>
                                 @if($isFullBackoffice)
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-orders' ? 'active' : '' }}" href="{{ route('admin.listings.orders') }}"><span class="subnav-icon">OR</span><span>Ordini</span></a>
                                 @endif
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-categories' ? 'active' : '' }}" href="{{ route('admin.listing-categories.index') }}"><span class="subnav-icon">CT</span><span>Categorie</span></a>
+                                {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso
+                                     livello di visibilità di Moderazione/Categorie (niente gate
+                                     $isFullBackoffice — il ruolo "Gestore Aziende e Prodotti" la vede
+                                     anche lui, vedi EnsureCanAccessBackoffice::ALLOWED_ROUTES_BY_PERMISSION). --}}
+                                <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-offers' ? 'active' : '' }}" href="{{ route('admin.listing-offers.index') }}"><span class="subnav-icon">OF</span><span>Offerte</span></a>
                             </div>
                             @if($isFullBackoffice)
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
@@ -1629,6 +1634,11 @@
                                 @if($mv('shop') && ($currentUser??$authUser)?->canAccessMarketplace())
                                 <a class="sidebar-link {{ $an === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}">
                                     <span class="nav-icon">🛒</span><span>Shop</span>
+                                </a>
+                                {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stessa
+                                     visibilità del link Shop sopra. --}}
+                                <a class="sidebar-link {{ $an === 'shop-offers' ? 'active' : '' }}" href="{{ route('portal.shop.offers') }}">
+                                    <span class="nav-icon">🔥</span><span>Offerte della settimana</span>
                                 </a>
                                 @endif
                                 @if((($currentUser??$authUser)?->canAccessMarketplace() || ($currentUser??$authUser)?->is_super_admin) && ($currentUser??$authUser)?->company_id)
