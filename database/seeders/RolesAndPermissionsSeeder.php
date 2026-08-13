@@ -28,6 +28,14 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'Publish announcements', 'slug' => 'announcements.publish'],
             ['name' => 'Buy in marketplace', 'slug' => 'marketplace.buy'],
             ['name' => 'Sell in marketplace', 'slug' => 'marketplace.sell'],
+            // 2026-08-12 (richiesta di Laura): ruolo "Gestore Aziende e Prodotti" — operatore di
+            // backoffice ristretto a sole aziende/prodotti. backoffice.full segna chi ha accesso
+            // pieno a TUTTE le sezioni del backoffice (vedi EnsureCanAccessBackoffice); chi ha solo
+            // backoffice.access ma non backoffice.full viene filtrato in base ai permessi granulari
+            // che possiede (companies.*, listings.*) — tutto il resto resta bloccato.
+            ['name' => 'Full backoffice access', 'slug' => 'backoffice.full'],
+            ['name' => 'Read shop listings', 'slug' => 'listings.read'],
+            ['name' => 'Manage shop listings', 'slug' => 'listings.manage'],
         ])->mapWithKeys(fn (array $permission) => [
             $permission['slug'] => Permission::updateOrCreate(['slug' => $permission['slug']], $permission),
         ]);
@@ -60,16 +68,34 @@ class RolesAndPermissionsSeeder extends Seeder
             ['slug' => 'company-viewer'],
             ['name' => 'Company Viewer', 'scope' => 'company', 'description' => 'Profilo aziendale sola lettura']
         );
+        // 2026-08-12 (richiesta di Laura): operatore di backoffice ristretto a sole aziende/prodotti
+        // — puo' creare/modificare aziende (anagrafica, indirizzo, stato, piano, % KY, gateway di
+        // pagamento, integrazione e-commerce, verifica KYC) e prodotti shop per conto delle aziende
+        // (creazione, moderazione/sospensione, categorie), nient'altro a livello amministrativo
+        // (niente utenti, ruoli, conti, movimenti, MLM, audit, impostazioni...). Vedi
+        // EnsureCanAccessBackoffice per l'enforcement lato rotte.
+        $companyListingsOperatorRole = Role::updateOrCreate(
+            ['slug' => 'company-listings-operator'],
+            ['name' => 'Gestore Aziende e Prodotti', 'scope' => 'system', 'description' => 'Operatore di backoffice limitato a gestione aziende e prodotti per conto delle aziende']
+        );
 
         $superAdminRole->permissions()->sync($permissions->pluck('id')->all());
         $backofficeRole->permissions()->sync([
             $permissions['backoffice.access']->id,
+            $permissions['backoffice.full']->id,
             $permissions['users.read']->id,
             $permissions['roles.read']->id,
             $permissions['companies.read']->id,
             $permissions['accounts.read']->id,
             $permissions['movements.read']->id,
             $permissions['movements.manage']->id,
+        ]);
+        $companyListingsOperatorRole->permissions()->sync([
+            $permissions['backoffice.access']->id,
+            $permissions['companies.read']->id,
+            $permissions['companies.manage']->id,
+            $permissions['listings.read']->id,
+            $permissions['listings.manage']->id,
         ]);
         $companyMemberRole->permissions()->sync([
             $permissions['payments.send']->id,

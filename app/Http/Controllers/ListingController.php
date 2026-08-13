@@ -885,9 +885,26 @@ class ListingController extends Controller
             ? ky_to_cents($validated['shipping_cost'])
             : null;
 
-        // Override di sicurezza lato server: se obbligatorio, forza 100%
+        // Override di sicurezza lato server: se obbligatorio, forza 100%.
+        //
+        // 13/08/2026 (richiesta di Laura): desired_ky_percentage è la
+        // percentuale "vera", scelta liberamente dal negozio quando il conto
+        // NON è in debito — viene ripristinata automaticamente su
+        // ky_percentage non appena il saldo torna >= 0 (vedi
+        // Account::syncListingsKyPercentage(), agganciato al salvataggio del
+        // conto). Se il conto è in debito proprio ora, il form permette solo
+        // 100% comunque: non c'è una scelta libera più recente da registrare,
+        // quindi NON tocchiamo desired_ky_percentage per un prodotto già
+        // esistente (resta quella salvata prima di andare in debito). Per un
+        // prodotto nuovo, in assenza di storico, ripieghiamo sul valore
+        // forzato.
         if ($requiredPercentage !== null) {
             $validated['ky_percentage'] = $requiredPercentage;
+            if ($listing === null) {
+                $validated['desired_ky_percentage'] = $requiredPercentage;
+            }
+        } else {
+            $validated['desired_ky_percentage'] = $validated['ky_percentage'];
         }
 
         // stock_mode e' solo un campo di UI: non e' una colonna di Listing.
