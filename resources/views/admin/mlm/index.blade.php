@@ -8,6 +8,7 @@
             <p style="margin:0;color:var(--ink-muted);font-size:13px;">Albero agenti, punti, qualifiche e bonus. Vedi <code>MLM_PROPOSAL.md</code> per i dettagli del piano.</p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
+            <a href="{{ route('admin.mlm.clients.assign-form') }}" class="btn btn-secondary">Assegna clienti</a>
             <a href="{{ route('admin.mlm.tree.roots') }}" class="btn btn-secondary">Albero agenti</a>
             <a href="{{ route('admin.mlm.payouts.index') }}" class="btn btn-secondary">Liquidazioni EUR</a>
             <a href="{{ route('admin.mlm.simulator.show') }}" class="btn btn-secondary">Simulatore compensi</a>
@@ -26,10 +27,10 @@
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Clienti totali</span>
         <strong style="font-size:22px;">{{ $clientsCount }}</strong>
     </div>
-    <div class="card card-pad">
+    <a href="{{ route('admin.mlm.clients.assign-form', ['agent' => 'none']) }}" class="card card-pad" style="text-decoration:none;">
         <span style="display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Clienti senza agente</span>
         <strong style="font-size:22px;{{ $unattachedClientsCount > 0 ? 'color:#c9313e;' : '' }}">{{ $unattachedClientsCount }}</strong>
-    </div>
+    </a>
 </div>
 
 <form method="GET" action="{{ route('admin.mlm.index') }}" style="margin-bottom:10px;">

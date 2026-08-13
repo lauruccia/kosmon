@@ -1385,6 +1385,12 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'mlm' ? 'active' : '' }}" href="{{ route('admin.mlm.index') }}"><span class="nav-icon">MLM</span><span>MLM Agenti</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.tree.roots') }}"><span class="subnav-icon">AB</span><span>Albero</span></a>
+                                <a class="sidebar-sublink" href="{{ route('admin.mlm.clients.assign-form') }}"><span class="subnav-icon">AC</span><span>Assegna clienti</span>
+                                    @php $unattachedClientsSidebarCount = \App\Models\User::where('mlm_role', 'cliente')->whereNull('mlm_client_agent_id')->count(); @endphp
+                                    @if($unattachedClientsSidebarCount > 0)
+                                        <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $unattachedClientsSidebarCount }}</span>
+                                    @endif
+                                </a>
                                 <a class="sidebar-sublink" href="{{ route('admin.mlm.requests.index') }}"><span class="subnav-icon">RQ</span><span>Richieste agente</span>
                                     @php $pendingAgentRequests = \App\Models\User::where('mlm_agent_request_status', 'pending')->count(); @endphp
                                     @if($pendingAgentRequests > 0)

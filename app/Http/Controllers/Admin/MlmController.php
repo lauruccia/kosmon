@@ -9,8 +9,10 @@ use App\Models\MlmAgentClosure;
 use App\Models\User;
 use App\Services\MlmRankEngine;
 use App\Services\MlmTreeService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -360,5 +362,141 @@ class MlmController extends Controller
 
         return redirect($redirectTo)
             ->with('portal_success', $user->name . ' e\' stato riassegnato' . ($newAgent ? ' a ' . $newAgent->name . '.' : ': ora non e\' attribuito a nessun agente.'));
+    }
+
+    // ── Assegnazione clienti in blocco ────────────────────────────────────
+    // (2026-08-13, richiesta di Laura: dopo l'importazione di tutti i clienti
+    // e conti da un altro sistema, servono modi rapidi per assegnarli
+    // manualmente ai rispettivi agenti invece di riassegnarli uno alla volta
+    // da reassignClient() sopra.)
+
+    /**
+     * GET /admin/mlm/assegnazione-clienti
+     * Elenco clienti filtrabile (per nome/email/azienda e per agente attuale,
+     * con scorciatoia "non assegnati") con selezione multipla per
+     * l'assegnazione in blocco.
+     */
+    public function clientAssignments(Request $request): View
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $filters = $this->clientAssignmentFilters($request);
+
+        $clients = $this->clientAssignmentQuery($filters)
+            ->with(['company:id,name', 'mlmClientAgent:id,name,email'])
+            ->orderBy('name')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('admin.mlm.client-assignments', [
+            'pageTitle'       => 'Assegnazione clienti agli agenti',
+            'clients'         => $clients,
+            'agents'          => User::where('mlm_role', 'agente')->orderBy('name')->get(['id', 'name', 'email']),
+            'filters'         => $filters,
+            'unattachedCount' => User::where('mlm_role', 'cliente')->whereNull('mlm_client_agent_id')->count(),
+            'activeNav'       => 'mlm',
+        ]);
+    }
+
+    /**
+     * POST /admin/mlm/assegnazione-clienti
+     * Assegna in blocco un agente ai clienti selezionati (scope=selected)
+     * oppure a tutti i clienti che rispettano i filtri correnti
+     * (scope=all_filtered) — stessa struttura di CompanyController::bulkAction().
+     * Ogni assegnazione elementare passa da MlmTreeService::reassignClient()
+     * (che gia' scrive il proprio AuditLog "mlm.client_reassigned" per
+     * cliente); qui in piu' scriviamo un unico AuditLog di riepilogo per
+     * l'operazione in blocco.
+     */
+    public function bulkAssignClients(Request $request, MlmTreeService $treeService): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        $validated = $request->validate([
+            'new_agent_id'  => ['required', 'integer', 'exists:users,id'],
+            'scope'         => ['required', 'in:selected,all_filtered'],
+            'client_ids'    => ['array'],
+            'client_ids.*'  => ['integer'],
+        ]);
+
+        $newAgent = User::findOrFail($validated['new_agent_id']);
+        abort_unless($newAgent->isMlmAgent(), 422, 'Il destinatario selezionato non e\' un agente MLM.');
+
+        if ($validated['scope'] === 'all_filtered') {
+            $query = $this->clientAssignmentQuery($this->clientAssignmentFilters($request));
+        } else {
+            $ids = $validated['client_ids'] ?? [];
+            if ($ids === []) {
+                return back()->with('portal_error', 'Nessun cliente selezionato.');
+            }
+            $query = User::query()->where('mlm_role', 'cliente')->whereKey($ids);
+        }
+
+        $clients = $query->get();
+
+        if ($clients->isEmpty()) {
+            return back()->with('portal_error', 'Nessun cliente da assegnare (controlla i filtri).');
+        }
+
+        $actor = $request->user();
+        $count = 0;
+
+        DB::transaction(function () use ($clients, $newAgent, $treeService, $actor, &$count): void {
+            foreach ($clients as $client) {
+                if ((int) $client->mlm_client_agent_id !== $newAgent->id) {
+                    $treeService->reassignClient($client, $newAgent, $actor);
+                    $count++;
+                }
+            }
+        });
+
+        if ($count > 0) {
+            AuditLog::create([
+                'actor_user_id'  => $actor->id,
+                'event'          => 'admin.mlm.clients_bulk_assigned',
+                'auditable_type' => User::class,
+                'auditable_id'   => $newAgent->id,
+                'context'        => [
+                    'new_agent_id' => $newAgent->id,
+                    'client_ids'   => $clients->pluck('id')->all(),
+                    'count'        => $count,
+                ],
+            ]);
+        }
+
+        return back()->with('portal_success', $count > 0
+            ? ($count === 1
+                ? '1 cliente assegnato a ' . $newAgent->name . '.'
+                : "{$count} clienti assegnati a " . $newAgent->name . '.')
+            : 'Nessuna modifica: i clienti selezionati erano gia\' assegnati a ' . $newAgent->name . '.');
+    }
+
+    /** Filtri della pagina di assegnazione clienti, letti dalla query string. */
+    private function clientAssignmentFilters(Request $request): array
+    {
+        return [
+            'q'     => trim((string) $request->query('q', '')),
+            // '' = tutti, 'none' = solo non assegnati, altrimenti id agente.
+            'agent' => trim((string) $request->query('agent', '')),
+        ];
+    }
+
+    /** Query clienti (mlm_role=cliente) con i filtri della pagina applicati. */
+    private function clientAssignmentQuery(array $filters): Builder
+    {
+        return User::query()
+            ->where('mlm_role', 'cliente')
+            ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
+                $s = $filters['q'];
+                $query->where(fn (Builder $q) => $q
+                    ->where('name', 'like', "%{$s}%")
+                    ->orWhere('email', 'like', "%{$s}%")
+                    ->orWhereHas('company', fn (Builder $c) => $c->where('name', 'like', "%{$s}%")));
+            })
+            ->when($filters['agent'] === 'none', fn (Builder $q) => $q->whereNull('mlm_client_agent_id'))
+            ->when(
+                $filters['agent'] !== '' && $filters['agent'] !== 'none' && ctype_digit($filters['agent']),
+                fn (Builder $q) => $q->where('mlm_client_agent_id', (int) $filters['agent'])
+            );
     }
 }

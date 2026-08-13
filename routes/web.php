@@ -949,6 +949,14 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::get('/admin/mlm', [MlmController::class, 'index'])->name('admin.mlm.index')->middleware('backoffice');
         // NB: registrata PRIMA di /admin/mlm/{user}, altrimenti "richieste" viene catturato come {user} -> 404
         Route::get('/admin/mlm/richieste', [AdminMlmAgentRequestController::class, 'index'])->name('admin.mlm.requests.index')->middleware('backoffice');
+
+        // Assegnazione clienti in blocco (2026-08-13, richiesta di Laura: dopo
+        // l'import di tutti i clienti/conti da un altro sistema, servono modi
+        // rapidi per assegnarli manualmente ai rispettivi agenti, invece di uno
+        // alla volta con /riassegna qui sotto). NB: registrata PRIMA di
+        // /admin/mlm/{user}, stessa accortezza di "richieste" sopra.
+        Route::get('/admin/mlm/assegnazione-clienti', [MlmController::class, 'clientAssignments'])->name('admin.mlm.clients.assign-form')->middleware('backoffice');
+        Route::post('/admin/mlm/assegnazione-clienti', [MlmController::class, 'bulkAssignClients'])->name('admin.mlm.clients.assign')->middleware('backoffice');
         // Segnalazioni aziende (2026-07-29): l'admin vede TUTTE le segnalazioni
         // di tutti gli agenti. AGGIORNAMENTO 30/07/2026: l'admin e' anche
         // l'unico che puo' segnare "contratto firmato"/"non riuscita" (prima
