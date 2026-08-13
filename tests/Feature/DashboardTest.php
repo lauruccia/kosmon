@@ -38,7 +38,7 @@ class DashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Panificio Canale', false)
             ->assertSee('Azienda Agricola Selene', false)
-            ->assertSee('Settori', false);
+            ->assertSee('Settore', false);
     }
 
     public function test_private_user_can_open_companies_directory(): void

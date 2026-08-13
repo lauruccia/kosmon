@@ -124,11 +124,16 @@ class ListingAnnouncementControllerTest extends TestCase
 
     public function test_company_user_not_in_directory_is_redirected_from_shop_create(): void
     {
-        // Un'azienda non ancora approvata KYC (quindi non presente in
-        // directory) non puo' pubblicare prodotti, anche con un piano
-        // Ecommerce attivo.
+        // Un'azienda sospesa (quindi non piu' presente in directory, vedi
+        // Company::isInDirectory()) non puo' pubblicare prodotti, anche con
+        // un piano Ecommerce attivo. Usiamo 'status' => 'suspended' (non
+        // kyc_status => 'pending'): un'azienda con KYC non ancora approvato
+        // verrebbe intercettata prima dal middleware 'onboarding'
+        // (EnsureOnboardingComplete), che la reindirizzerebbe al wizard di
+        // onboarding invece di arrivare al controller — qui vogliamo invece
+        // testare il controllo isInDirectory() del controller stesso.
         [$user, $company] = $this->makeCompanyUser();
-        $company->update(['kyc_status' => 'pending']);
+        $company->update(['status' => 'suspended']);
         $ecommercePlan = \App\Models\Plan::where('can_sell_products', true)->first()
             ?? \App\Models\Plan::factory()->create(['can_sell_products' => true]);
         $company->update(['plan_id' => $ecommercePlan->id]);
@@ -208,7 +213,9 @@ class ListingAnnouncementControllerTest extends TestCase
                 'title'       => 'Cerco fornitore alimentare',
                 'body'        => 'Siamo alla ricerca di un fornitore di prodotti biologici per la nostra azienda.',
                 'type'        => 'request',
-                'sector'      => 'alimentari',
+                // 'alimentari' era un vecchio slug pre-rename del 12/08 (vedi
+                // Announcement::SECTORS) e non e' piu' una chiave valida.
+                'sector'      => 'mangiare-e-bere',
             ])
             ->assertRedirect();
 
