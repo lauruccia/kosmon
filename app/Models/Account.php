@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\BalanceAlert;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\SubAccountInvitation;
 
@@ -146,6 +147,25 @@ class Account extends Model
             // Limite giornaliero di default 500 KY per i conti non-sistema
             if (! $account->is_system_account && $account->daily_outgoing_limit === null) {
                 $account->daily_outgoing_limit = 50000;
+            }
+        });
+
+        // 13/08/2026 (richiesta di Laura): quando il saldo di un conto business
+        // principale cambia, riallinea automaticamente il mix KY/EUR dei
+        // prodotti shop dell'azienda — 100% forzato appena si va in debito,
+        // ripristino della percentuale scelta dal negozio appena se ne esce.
+        // Agganciato qui sull'evento Eloquent `saved`, e non dentro
+        // TransferBookingService, per coprire TUTTI i punti che toccano
+        // available_balance (book, confirmRequest, refundMerchant,
+        // issueCreditNote, netting, bookFee, ...) da un solo posto, senza
+        // rischiare di modificare il motore finanziario. Gira nella STESSA
+        // transazione DB del movimento che ha causato il cambio saldo (ogni
+        // save() di Account in TransferBookingService avviene dentro
+        // DB::transaction()), quindi se il movimento viene rollback-ato lo è
+        // anche questo. Vedi Account::syncListingsKyPercentage().
+        static::saved(function (Account $account): void {
+            if ($account->wasChanged('available_balance')) {
+                $account->syncListingsKyPercentage();
             }
         });
     }
@@ -494,6 +514,64 @@ class Account extends Model
             return 100;
         }
         return null;
+    }
+
+    /**
+     * Questo conto è il conto business principale di un'azienda (stesso
+     * filtro di Company::primaryBusinessAccount())? Solo per questi conti
+     * hanno senso le regole commerciali (isInDebit/allowedKyPercentages) sui
+     * prodotti shop dell'azienda — i sottoconti e il conto sistema non
+     * vendono prodotti propri.
+     */
+    public function isPrimaryBusinessAccount(): bool
+    {
+        return ! $this->is_system_account
+            && $this->owner_type === 'company'
+            && $this->parent_account_id === null
+            && $this->company_id !== null;
+    }
+
+    /**
+     * Riallinea il mix KY/EUR (ky_percentage) dei prodotti shop dell'azienda
+     * allo stato commerciale corrente del conto — chiamato automaticamente
+     * da booted() ogni volta che available_balance cambia (vedi sopra).
+     *
+     * - In debito (isInDebit()): forza ky_percentage a 100 su tutti i
+     *   prodotti dell'azienda, salvando il valore precedente in
+     *   desired_ky_percentage (solo per i prodotti non già a 100, così non
+     *   sovrascriviamo un 100% genuino con se stesso).
+     * - Fuori dal debito: ripristina ky_percentage al valore desiderato
+     *   (desired_ky_percentage), cioè l'ultima percentuale scelta
+     *   liberamente dal negozio mentre non era in debito.
+     *
+     * Il caso "tetto massimo raggiunto" (isAtCeiling()) NON viene toccato
+     * qui, volutamente: è un comportamento preesistente e fuori scope,
+     * la richiesta di Laura del 13/08/2026 riguarda solo il ciclo
+     * debito/non-debito.
+     */
+    public function syncListingsKyPercentage(): void
+    {
+        if (! $this->isPrimaryBusinessAccount()) {
+            return;
+        }
+
+        if ($this->isInDebit()) {
+            Listing::query()
+                ->where('company_id', $this->company_id)
+                ->where('ky_percentage', '!=', 100)
+                ->update([
+                    'desired_ky_percentage' => DB::raw('ky_percentage'),
+                    'ky_percentage'         => 100,
+                ]);
+            return;
+        }
+
+        Listing::query()
+            ->where('company_id', $this->company_id)
+            ->whereColumn('ky_percentage', '!=', 'desired_ky_percentage')
+            ->update([
+                'ky_percentage' => DB::raw('desired_ky_percentage'),
+            ]);
     }
 
     /**

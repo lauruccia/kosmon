@@ -547,6 +547,7 @@ class User extends Authenticatable implements MustVerifyEmail
             ],
             'backoffice-operator' => [
                 'backoffice.access',
+                'backoffice.full',
                 'users.read',
                 'roles.read',
                 'companies.read',

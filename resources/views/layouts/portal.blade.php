@@ -1333,6 +1333,10 @@
         $authUser = auth()->user();
         $viewer = $currentUser ?? $authUser;
         $isBackoffice = (bool) ($authUser?->canAccessBackoffice());
+        // Operatore di backoffice ristretto (es. "Gestore Aziende e Prodotti", 2026-08-12): vede
+        // solo le voci di menu delle sezioni per cui ha un permesso — vedi EnsureCanAccessBackoffice
+        // per l'enforcement lato rotte (qui e' solo la visibilità del menu).
+        $isFullBackoffice = $isBackoffice && ($authUser?->is_super_admin || $authUser?->hasPermission('backoffice.full'));
         $companyName = $isBackoffice ? 'Sala controllo' : (($currentAccount ?? null)?->display_name ?? $authUser?->company?->name ?? 'KMoney');
         $companyInitials = strtoupper(substr($companyName, 0, 2));
         $userInitials = strtoupper(substr($authUser?->name ?? 'KM', 0, 2));
@@ -1354,7 +1358,7 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="sidebar-inner">
-                <a href="{{ $isBackoffice ? route('admin.dashboard') : route('portal.dashboard') }}" class="brand-lockup">
+                <a href="{{ $isBackoffice ? ($isFullBackoffice ? route('admin.dashboard') : route('admin.companies.index')) : route('portal.dashboard') }}" class="brand-lockup">
                     <span class="brand-mark"><span class="brand-k">@include('partials.brand-k')</span></span>
                     <span class="brand-copy">
                         <strong>KMoney</strong>
@@ -1365,6 +1369,7 @@
                     <p class="sidebar-section-label">Navigazione</p>
                     <nav class="sidebar-nav">
                         @if ($isBackoffice)
+                            @if($isFullBackoffice)
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin' ? 'active' : '' }}" href="{{ route('admin.dashboard') }}"><span class="nav-icon">SA</span><span>Bacheca</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin' ? 'active' : '' }}" href="{{ route('admin.dashboard') }}"><span class="subnav-icon">OV</span><span>Panoramica</span></a>
@@ -1382,6 +1387,7 @@
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'roles' ? 'active' : '' }}" href="{{ route('admin.roles.index') }}#create-role"><span class="subnav-icon">PM</span><span>Permessi</span></a>
                             </div>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'accounts' ? 'active' : '' }}" href="{{ route('admin.accounts.index') }}"><span class="nav-icon">AC</span><span>Conti</span></a>
+                            @endif
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'companies' ? 'active' : '' }}" href="{{ route('admin.companies.index') }}"><span class="nav-icon">AZ</span><span>Aziende</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'companies' ? 'active' : '' }}" href="{{ route('admin.companies.index') }}"><span class="subnav-icon">DR</span><span>Directory</span></a>
@@ -1389,9 +1395,12 @@
                             <a class="sidebar-link {{ in_array($activeNav ?? '', ['admin-listings', 'admin-listing-orders', 'admin-listing-categories']) ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="nav-icon">🛒</span><span>Shop</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listings' ? 'active' : '' }}" href="{{ route('admin.listings.index') }}"><span class="subnav-icon">MD</span><span>Moderazione</span></a>
+                                @if($isFullBackoffice)
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-orders' ? 'active' : '' }}" href="{{ route('admin.listings.orders') }}"><span class="subnav-icon">OR</span><span>Ordini</span></a>
+                                @endif
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-categories' ? 'active' : '' }}" href="{{ route('admin.listing-categories.index') }}"><span class="subnav-icon">CT</span><span>Categorie</span></a>
                             </div>
+                            @if($isFullBackoffice)
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="nav-icon">MV</span><span>Movimenti</span></a>
                             <div class="sidebar-nav-group">
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'transfers' ? 'active' : '' }}" href="{{ route('admin.transfers.index') }}"><span class="subnav-icon">ST</span><span>Storni</span></a>
@@ -1452,6 +1461,7 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-contract' ? 'active' : '' }}" href="{{ route('admin.contract-settings') }}"><span class="nav-icon">&#x1F4DC;</span><span>Contratto</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-menu-visibility' ? 'active' : '' }}" href="{{ route('admin.menu-visibility.index') }}"><span class="nav-icon">&#x1F441;</span><span>Menu utenti</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}"><span class="nav-icon">BR</span><span>Operatori</span></a>
+                            @endif
                         @else
                         @php
                             $an = $activeNav ?? '';

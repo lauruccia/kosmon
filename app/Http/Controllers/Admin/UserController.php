@@ -284,7 +284,13 @@ class UserController extends Controller
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'password' => $validated['password'],
-            'role' => $validated['role_label'] ?? ($isSuperAdmin ? 'system-superadmin' : 'backoffice-operator'),
+            // NIENTE default automatico a 'backoffice-operator' (2026-08-12): quella stringa
+            // legacy si porta dietro permessi impliciti extra (vedi User::legacyPermissions(),
+            // incluso backoffice.full) — assegnarla a QUALSIASI nuovo utente backoffice non
+            // super admin, indipendentemente dai ruoli davvero spuntati sotto, faceva bypassare
+            // ruoli ristretti come "Gestore Aziende e Prodotti". I permessi veri arrivano solo
+            // dai ruoli spuntati (vedi $user->roles()->sync(...) poco sotto).
+            'role' => $validated['role_label'] ?? ($isSuperAdmin ? 'system-superadmin' : ''),
             'is_active' => true,
             'is_super_admin' => $isSuperAdmin,
         ]);

@@ -217,6 +217,12 @@ class AuthController extends Controller
         $user = $request->user()->loadMissing('roles.permissions', 'company.accounts.creditLimits', 'managedAccount');
 
         if ($user->canAccessBackoffice()) {
+            // Operatore ristretto (es. "Gestore Aziende e Prodotti", 2026-08-12): niente bacheca
+            // generale (mostra dati su tutte le sezioni), atterra direttamente sulla sua sezione.
+            if (! $user->is_super_admin && ! $user->hasPermission('backoffice.full')) {
+                return redirect()->route('admin.companies.index');
+            }
+
             return redirect()->route('admin.dashboard');
         }
 

@@ -30,6 +30,7 @@ use Illuminate\Support\Str;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int $ky_percentage
+ * @property int|null $desired_ky_percentage
  * @property-read \App\Models\Company $company
  * @property-read \App\Models\User $createdByUser
  * @property-read string $category_label
@@ -127,6 +128,7 @@ class Listing extends Model
         'subcategory',
         'price_ky',
         'ky_percentage',
+        'desired_ky_percentage',
         'stock_quantity',
         'images',
         'status',
@@ -145,6 +147,7 @@ class Listing extends Model
         'expires_at' => 'datetime',
         'price_ky'      => 'integer',
         'ky_percentage' => 'integer',
+        'desired_ky_percentage' => 'integer',
         'stock_quantity' => 'integer',
         'views_count' => 'integer',
         'shipping_cost' => 'integer',
@@ -154,6 +157,13 @@ class Listing extends Model
     {
         static::creating(function (Listing $listing): void {
             $listing->uuid ??= (string) Str::uuid();
+
+            // 13/08/2026: "percentuale desiderata" (vedi Account::syncListingsKyPercentage())
+            // usata per ripristinare il mix scelto dal negozio quando il conto
+            // torna fuori dal debito. Se non è stata impostata esplicitamente
+            // (es. Factory/seeder, o creazione fuori dal form standard) parte
+            // allineata alla percentuale effettiva, così non resta mai NULL.
+            $listing->desired_ky_percentage ??= $listing->ky_percentage;
         });
     }
 
