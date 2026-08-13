@@ -55,10 +55,10 @@
             background: var(--surface); color: var(--ink);
         }
         .ufb-input--wide { min-width: 160px; }
-        .ufb-select      { min-width: 90px; }
-        .ufb-select--sm  { min-width: 110px; }
-        .ufb-select--xs  { min-width: 54px; max-width: 60px; }
-        .ufb-actions     { display: flex; gap: 5px; align-items: flex-end; padding-bottom: 0; }
+        .ufb-select      { min-width: 90px; width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ufb-select--sm  { min-width: 110px; width: 110px; }
+        .ufb-select--xs  { min-width: 54px; max-width: 60px; width: 54px; }
+        .ufb-actions     { display: flex; gap: 5px; align-items: flex-end; padding-bottom: 0; margin-left: auto; }
         .users-directory-meta { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 
         /* ── Compact CTA ─────────────────────────────────────────────────────── */
