@@ -1,9 +1,11 @@
 @extends('layouts.portal')
 
 @section('content')
-@php
-    $isSeller = auth()->user()->company_id === $payment->company_id;
-@endphp
+{{-- $isSeller arriva dal controller (PaymentController::show), stessa regola
+     usata per autorizzare la conferma del bonifico — non ricalcolarla qui
+     solo sul company_id, altrimenti un utente aziendale senza permesso
+     marketplace vedrebbe il bottone "Conferma ricezione bonifico" e otterrebbe
+     un 403 al click. --}}
 <div style="max-width:640px;">
 
     <div style="margin-bottom:20px;">
@@ -105,6 +107,14 @@
                 Se hai già completato il pagamento, ricarica questa pagina tra qualche istante.
             </div>
             <a href="{{ route('portal.shop.orders.pay', $payment) }}" class="cta secondary" style="justify-content:center;">Ricarica</a>
+        </div>
+
+    @elseif($isSeller)
+        {{-- ── Venditore: nessun metodo ancora scelto dall'acquirente, nulla da fare qui ── --}}
+        <div class="card" style="padding:24px;text-align:center;">
+            <div style="font-size:14px;color:var(--ink-soft);">
+                In attesa che l'acquirente scelga un metodo di pagamento per la quota in euro.
+            </div>
         </div>
 
     @else

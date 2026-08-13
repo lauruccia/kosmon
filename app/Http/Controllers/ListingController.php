@@ -342,7 +342,7 @@ class ListingController extends Controller
         $sellerOwner = $listing->company->primaryBusinessAccount()?->ownerUser;
         if ($sellerOwner) {
             try {
-                $sellerOwner->notify(new NewMarketplaceOrderNotification($transfer, $listing->title, $quantity));
+                $sellerOwner->notify(new NewMarketplaceOrderNotification($transfer, $listing->title, $quantity, $payment));
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('marketplace_order.notify_failed', [
                     'transfer_id' => $transfer->id,

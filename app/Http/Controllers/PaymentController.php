@@ -31,20 +31,54 @@ class PaymentController extends Controller
     private function authorizeBuyer(Request $request, MarketplaceOrderPayment $payment): void
     {
         $user = $request->user();
+
+        abort_unless($this->isBuyer($user, $payment) || $user->is_super_admin, 403);
+    }
+
+    private function isBuyer($user, MarketplaceOrderPayment $payment): bool
+    {
         $buyerAccount = $payment->transfer?->fromAccount;
 
-        $isBuyer = $buyerAccount && (
+        return (bool) ($buyerAccount && (
             $buyerAccount->owner_user_id === $user->id
             || ($buyerAccount->company_id && $buyerAccount->company_id === $user->company_id)
-        );
+        ));
+    }
 
-        abort_unless($isBuyer || $user->is_super_admin, 403);
+    /**
+     * L'azienda venditrice del prodotto — con permesso marketplace, stessa
+     * regola usata in confirmBankTransfer() per confermare un bonifico.
+     */
+    private function isSeller($user, MarketplaceOrderPayment $payment): bool
+    {
+        return $payment->company_id === $user->company_id
+            && ($user->canAccessMarketplace() || $user->is_super_admin);
+    }
+
+    /**
+     * Verifica che l'utente possa VEDERE questo ordine: acquirente o
+     * venditore. Le azioni che avviano/verificano un pagamento restano
+     * riservate al solo acquirente (vedi authorizeBuyer()) — questo metodo
+     * serve solo per la pagina di riepilogo/stato, da cui il venditore deve
+     * poter arrivare per confermare un bonifico ricevuto (2026-08-13,
+     * altrimenti non aveva alcun modo di raggiungere quel bottone: la mail
+     * di notifica non linkava qui e questa show() dava 403 a chiunque non
+     * fosse l'acquirente).
+     */
+    private function authorizeViewer(Request $request, MarketplaceOrderPayment $payment): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $this->isBuyer($user, $payment) || $this->isSeller($user, $payment) || $user->is_super_admin,
+            403
+        );
     }
 
     /** GET /shop/ordini/{payment} */
     public function show(Request $request, MarketplaceOrderPayment $payment): View|RedirectResponse
     {
-        $this->authorizeBuyer($request, $payment);
+        $this->authorizeViewer($request, $payment);
 
         if ($payment->isPaid()) {
             return redirect()->route('portal.shop.show', $payment->listing_id ?? 0)
@@ -66,6 +100,7 @@ class PaymentController extends Controller
             'activeGateways'  => $activeGateways,
             'providers'       => PaymentGateway::PROVIDERS,
             'activeNav'       => 'shop',
+            'isSeller'        => $this->isSeller($request->user(), $payment),
         ]);
     }
 
@@ -124,8 +159,7 @@ class PaymentController extends Controller
     {
         $user = $request->user();
 
-        $isSeller = $payment->company_id === $user->company_id && ($user->canAccessMarketplace() || $user->is_super_admin);
-        abort_unless($isSeller || $user->canAccessBackoffice(), 403);
+        abort_unless($this->isSeller($user, $payment) || $user->canAccessBackoffice(), 403);
 
         abort_unless($payment->provider === PaymentGateway::PROVIDER_BANK_TRANSFER, 400);
 
