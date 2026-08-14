@@ -259,14 +259,25 @@
 
 <section class="card light-card" style="margin-bottom:14px;">
     <div style="padding:14px 16px 0;">
-        <h3 style="margin:0 0 4px;font-size:15px;">Bonus di struttura ricevuti</h3>
-        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">Generati istantaneamente quando un agente in downline diventa BasiQ, accredito EUR previsto il mercoledi' della settimana indicata.</p>
+        {{-- 2026-08-14: il titolo diceva "Bonus di struttura ricevuti" ma la
+             tabella elenca TUTTI i mlm_bonus_payouts dell'agente — struttura
+             (cascata BasiQ), Bonus Diretti KNM (soglie punti, senza evento
+             BasiQ collegato) ed Extra Bonus di grado. Chiarito perche' i
+             Bonus Diretti, che mostrano "—" nella colonna BasiQ, sembravano
+             bonus di struttura generati dal nulla. --}}
+        <h3 style="margin:0 0 4px;font-size:15px;">Bonus ricevuti</h3>
+        <p style="margin:0 0 10px;color:var(--ink-muted);font-size:12.5px;">
+            Accredito EUR previsto il mercoledi' della settimana indicata. Tre tipi diversi:
+            <strong>bonus di struttura</strong> (qualifica nella colonna "Tipo", generati quando un agente in downline diventa BasiQ — solo questi hanno un nome nella colonna "Generato da");
+            <strong>Bonus diretto</strong> (soglie 4/6/12 punti attivi dell'agente stesso, nessun BasiQ coinvolto);
+            <strong>Extra Bonus</strong> (premio una tantum alla prima promozione a quel grado).
+        </p>
     </div>
     <table class="admin-table transactions-table">
         <thead>
             <tr>
                 <th>Generato da (BasiQ)</th>
-                <th>Qualifica al momento</th>
+                <th>Tipo / qualifica al momento</th>
                 <th>Importo</th>
                 <th>Settimana (mercoledi')</th>
                 <th>Stato</th>

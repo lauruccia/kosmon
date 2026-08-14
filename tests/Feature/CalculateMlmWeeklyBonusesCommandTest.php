@@ -28,6 +28,18 @@ class CalculateMlmWeeklyBonusesCommandTest extends TestCase
     {
         parent::setUp();
         $this->tree = new MlmTreeService();
+
+        // Bonus Diretti KNM spenti di default dal 2026-08-14: qui servono
+        // accesi per verificare il cablaggio del comando. Il caso "spento"
+        // ha un test dedicato piu' sotto.
+        $this->setDirectBonuses(true);
+    }
+
+    private function setDirectBonuses(bool $enabled): void
+    {
+        \App\Models\SystemSetting::mlmSettings()
+            ->forceFill(['mlm_direct_bonuses_enabled' => $enabled])
+            ->save();
     }
 
     private function makeAgent(string $rank = 'start'): User
@@ -96,6 +108,39 @@ class CalculateMlmWeeklyBonusesCommandTest extends TestCase
             2,
             MlmBonusPayout::where('beneficiary_user_id', $directAgent->id)->where('kind', 'diretto')->count(),
             'I Bonus Diretti (soglie 4 e 6) devono essere valutati per ogni agente dal comando settimanale.'
+        );
+    }
+
+    /**
+     * Interruttore Bonus Diretti spento (2026-08-14): il comando settimanale
+     * deve continuare a fare tutto il resto — in particolare la cascata dei
+     * bonus di STRUTTURA, che non c'entra nulla con l'interruttore.
+     */
+    public function test_command_skips_direct_bonuses_when_switch_is_off_but_still_runs_the_cascade(): void
+    {
+        $this->setDirectBonuses(false);
+
+        $senior = $this->makeAgent('senior');
+        $basiqChild = $this->makeAgent('basic');
+        $this->tree->attachAgent($senior, null);
+        $this->tree->attachAgent($basiqChild, $senior);
+        app(\App\Services\MlmBonusService::class)->recordBasiqEvent($basiqChild);
+
+        $directAgent = $this->makeAgent();
+        $this->givePoints($directAgent, 12);
+
+        $this->artisan('mlm:calculate-weekly-bonuses')->assertSuccessful();
+
+        $this->assertSame(
+            0,
+            MlmBonusPayout::where('kind', 'diretto')->count(),
+            'Con l\'interruttore spento non deve nascere nessun Bonus Diretto.'
+        );
+
+        $this->assertSame(
+            11_000,
+            (int) MlmBonusPayout::where('beneficiary_user_id', $senior->id)->sum('amount_eur_cents'),
+            'La cascata dei bonus di struttura non e\' toccata dall\'interruttore.'
         );
     }
 

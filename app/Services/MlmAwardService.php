@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\MlmBonusPayout;
 use App\Models\MlmPendingRankAward;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -16,6 +17,10 @@ use Carbon\Carbon;
  *    Cumulativi (chi arriva a 12 punti incassa nel tempo tutte e tre le
  *    soglie), ma ogni soglia paga UNA SOLA VOLTA nella vita dell'agente —
  *    anche se i punti poi scadono e la soglia viene ri-superata.
+ *    DISATTIVATI DI DEFAULT dal 2026-08-14 (richiesta di Laura): l'erogazione
+ *    passa dall'interruttore admin SystemSetting::mlmDirectBonusesEnabled()
+ *    (/admin/mlm-impostazioni). Il codice resta, cosi' si possono riaccendere
+ *    senza rimetterci mano. Gli EXTRA BONUS qui sotto NON sono toccati.
  *
  *  - EXTRA BONUS KNM (slide "Extra Bonus"): premio alla PRIMA promozione a
  *    senior (300), top (3.000), supervisor (5.000), manager (20.000 EUR).
@@ -70,9 +75,21 @@ class MlmAwardService
      * Verifica le soglie dei Bonus Diretti sui punti ATTIVI dell'agente
      * (reali + omaggio, vedi docblock di classe) e paga le soglie raggiunte
      * non ancora premiate. Restituisce il numero di nuovi bonus creati.
+     *
+     * DISATTIVABILE DA ADMIN (2026-08-14): se l'interruttore
+     * system_settings.mlm_direct_bonuses_enabled e' spento (default, vedi
+     * SystemSetting::mlmDirectBonusesEnabled()) questo metodo e' un no-op e
+     * restituisce 0 — nessun payout, nessun accredito nel cassetto kmoney.
+     * L'interruttore vale SOLO per i Bonus Diretti: bonus di struttura
+     * (MlmBonusService) ed Extra Bonus di grado (grantRankAward) continuano
+     * a funzionare come prima.
      */
     public function grantDirectPointBonuses(User $agent): int
     {
+        if (! SystemSetting::mlmSettings()->mlmDirectBonusesEnabled()) {
+            return 0;
+        }
+
         $activePoints = $agent->mlmActivePoints();
         $granted = 0;
 

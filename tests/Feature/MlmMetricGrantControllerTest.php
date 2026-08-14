@@ -159,6 +159,11 @@ class MlmMetricGrantControllerTest extends TestCase
         $admin = $this->makeAdmin();
         $agent = $this->makeAgent();
 
+        // I Bonus Diretti KNM sono spenti di default dal 2026-08-14: qui
+        // servono accesi, perche' e' proprio la loro generazione da punti
+        // omaggio che questo test verifica.
+        \App\Models\SystemSetting::mlmSettings()->forceFill(['mlm_direct_bonuses_enabled' => true])->save();
+
         $this->makeRegisteredClients($agent, 6); // requisito clienti di Basic (22/07)
         $this->assertSame(0, $agent->mlmActivePoints());
 

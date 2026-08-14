@@ -991,6 +991,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
         Route::post('/admin/mlm-impostazioni/ricalcola', [MlmSettingsController::class, 'recalculateNow'])->name('admin.mlm.settings.recalculate')->middleware('backoffice');
         // Backfill una tantum cassetto kmoney (2026-07-30) — niente terminale su kosmopay.it, vedi MlmSettingsController::backfillWalletLedger().
         Route::post('/admin/mlm-impostazioni/backfill-cassetto', [MlmSettingsController::class, 'backfillWalletLedger'])->name('admin.mlm.settings.backfill-wallet-ledger')->middleware('backoffice');
+        // Annullamento dei Bonus Diretti KNM gia' generati + storno KY (2026-08-14) — vedi MlmSettingsController::cancelDirectBonuses().
+        Route::post('/admin/mlm-impostazioni/annulla-bonus-diretti', [MlmSettingsController::class, 'cancelDirectBonuses'])->name('admin.mlm.settings.cancel-direct-bonuses')->middleware('backoffice');
 
         // Radice unica del sistema MLM (2026-07-15) — vedi MlmTreeService::setSystemRootAgent().
         Route::get('/admin/mlm-impostazioni/radice', [MlmSettingsController::class, 'rootAgentForm'])->name('admin.mlm.settings.root-agent')->middleware('backoffice');

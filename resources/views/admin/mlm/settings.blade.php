@@ -173,6 +173,28 @@
         </div>
     </section>
 
+    {{-- ── Interruttore Bonus Diretti KNM (2026-08-14) ── --}}
+    <section class="card card-pad" style="margin-bottom:14px;">
+        <h3 style="margin:0 0 6px;font-size:15px;">Bonus Diretti KNM</h3>
+        <p style="margin:0 0 14px;color:var(--ink-muted);font-size:13px;">
+            Premi una tantum sui punti attivi dell'agente: <strong>4 punti &rarr; 200 €</strong>, <strong>6 punti &rarr; 300 €</strong>, <strong>12 punti &rarr; 400 €</strong>.
+            Ogni soglia paga una sola volta nella vita dell'agente e contano anche i punti omaggio assegnati da admin.
+            <br>
+            Non riguarda i <strong>bonus di struttura</strong> (cascata quando un agente in downline diventa BasiQ), gli <strong>Extra Bonus</strong> di promozione grado, né i <strong>compensi diretti/indiretti</strong>: quelli restano attivi comunque.
+        </p>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+            <input type="hidden" name="direct_bonuses_enabled" value="0">
+            <input type="checkbox" name="direct_bonuses_enabled" value="1" style="margin-top:3px;width:16px;height:16px;"
+                @checked(old('direct_bonuses_enabled', $directBonusesEnabled))>
+            <span style="font-size:13.5px;">
+                <strong>Eroga i Bonus Diretti KNM</strong>
+                <span style="display:block;color:var(--ink-muted);font-size:12px;margin-top:2px;">
+                    Se lasciato spento nessun nuovo Bonus Diretto viene generato. Riaccendendolo, al primo ricalcolo bonus vengono premiate in blocco <em>tutte</em> le soglie già superate dagli agenti, comprese quelle raggiunte mentre era spento.
+                </span>
+            </span>
+        </label>
+    </section>
+
     {{-- ── Requisiti per grado ── --}}
     <section class="card light-card" style="margin-bottom:14px;">
         <div style="padding:14px 16px 0;">
@@ -244,4 +266,22 @@
         <button type="submit" class="btn btn-secondary">Esegui backfill</button>
     </div>
 </form>
+
+{{-- ── Annullamento Bonus Diretti gia' generati (2026-08-14) ── --}}
+@if($pendingDirectBonuses > 0)
+    <form method="POST" action="{{ route('admin.mlm.settings.cancel-direct-bonuses') }}" style="margin-top:14px;" onsubmit="return confirm('Annullare {{ $pendingDirectBonuses }} Bonus Diretti pendenti e stornare il KY gia\' accreditato nel cassetto kmoney degli agenti? Operazione registrata nell\'audit log e non reversibile dal pannello.');">
+        @csrf
+        <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-left:3px solid var(--danger, #b91c1c);">
+            <div>
+                <strong style="display:block;font-size:14px;">Annulla i Bonus Diretti già generati</strong>
+                <span style="color:var(--ink-muted);font-size:12px;">
+                    Ci sono <strong>{{ $pendingDirectBonuses }}</strong> Bonus Diretti non ancora liquidati, per <strong>€ {{ number_format($pendingDirectBonusesEurCents / 100, 2, ',', '.') }}</strong>.
+                    Spegnere l'interruttore qui sopra blocca solo i bonus futuri: questo pulsante annulla quelli già creati e riporta alla Cassa Circuito il KY corrispondente già accreditato nel cassetto kmoney degli agenti.
+                    I bonus già approvati o pagati non vengono toccati (si gestiscono da <a href="{{ route('admin.mlm.payouts.index') }}">Liquidazioni EUR</a>).
+                </span>
+            </div>
+            <button type="submit" class="btn btn-secondary">Annulla e storna</button>
+        </div>
+    </form>
+@endif
 @endsection

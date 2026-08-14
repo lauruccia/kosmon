@@ -103,6 +103,7 @@ class SystemSetting extends Model
         'mlm_knm_margin_percent',
         'mlm_root_agent_id',
         'mlm_payout_threshold_eur_cents',
+        'mlm_direct_bonuses_enabled',
     ];
 
     protected function casts(): array
@@ -110,6 +111,9 @@ class SystemSetting extends Model
         return [
             'contract_force_sign'    => 'boolean',
             'contract_required_from' => 'date',
+            // Interruttore Bonus Diretti KNM (2026-08-14): NULL sulle righe
+            // pre-migrazione = disattivati, vedi mlmDirectBonusesEnabled().
+            'mlm_direct_bonuses_enabled' => 'boolean',
         ];
     }
 
@@ -545,6 +549,9 @@ HTML;
                 'mlm_knm_margin_percent' => self::MLM_KNM_MARGIN_DEFAULT_PERCENT,
                 'mlm_root_agent_id' => null,
                 'mlm_payout_threshold_eur_cents' => 0,
+                // Bonus Diretti KNM SPENTI di default (2026-08-14, decisione
+                // di Laura): vedi mlmDirectBonusesEnabled().
+                'mlm_direct_bonuses_enabled' => false,
             ]
         );
     }
@@ -584,6 +591,36 @@ HTML;
     public function mlmPayoutThresholdEurCents(): int
     {
         return max(0, (int) ($this->mlm_payout_threshold_eur_cents ?? 0));
+    }
+
+    /**
+     * Interruttore globale dei BONUS DIRETTI KNM (2026-08-14, richiesta di
+     * Laura: "i bonus diretti sono da disattivare").
+     *
+     * Sono i premi una tantum sulle soglie di punti attivi 4/6/12 =>
+     * 200/300/400 EUR (MlmAwardService::DIRECT_BONUS_TIERS_EUR_CENTS), da
+     * non confondere con:
+     *   - i BONUS DI STRUTTURA (cascata upline quando un agente diventa
+     *     BasiQ, MlmBonusService) — NON toccati da questo interruttore;
+     *   - gli EXTRA BONUS di promozione grado (MlmAwardService::grantRankAward)
+     *     — NON toccati da questo interruttore;
+     *   - i COMPENSI diretti/indiretti (MlmCommissionEngine, il campo
+     *     "diretta" delle provvigioni) — NON toccati da questo interruttore.
+     *
+     * SPENTO di default, sia sulle righe nuove (mlmSettings()) sia su quelle
+     * gia' esistenti in produzione (colonna NULL dopo l'ALTER TABLE => false
+     * grazie al ?? qui sotto): disattivarli e' esattamente il motivo per cui
+     * l'interruttore e' stato introdotto, quindi il default "sicuro" e' 0.
+     * ATTENZIONE se lo riaccendi da /admin/mlm-impostazioni: al primo
+     * `mlm:calculate-weekly-bonuses` successivo TUTTE le soglie gia'
+     * superate vengono premiate in blocco, comprese quelle raggiunte mentre
+     * l'interruttore era spento — grantDirectPointBonuses() guarda i punti
+     * ATTIVI di adesso, non la storia, e l'idempotency_key impedisce solo di
+     * pagare due volte la stessa soglia allo stesso agente.
+     */
+    public function mlmDirectBonusesEnabled(): bool
+    {
+        return (bool) ($this->mlm_direct_bonuses_enabled ?? false);
     }
 
     public function logoUrl(): ?string

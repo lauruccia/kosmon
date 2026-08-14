@@ -65,6 +65,13 @@ class MlmSettingsController extends Controller
             // Soglia minima di prelievo self-service (2026-07-29): in EUR
             // centesimi nel DB, mostrata in EUR nel form (ky_input()/ky_to_cents()).
             'payoutThresholdEurCents' => SystemSetting::mlmSettings()->mlmPayoutThresholdEurCents(),
+            // Interruttore Bonus Diretti KNM (2026-08-14): spento = le soglie
+            // 4/6/12 punti non generano piu' i premi 200/300/400 €.
+            'directBonusesEnabled' => SystemSetting::mlmSettings()->mlmDirectBonusesEnabled(),
+            // Quanti Bonus Diretti gia' generati sono ancora annullabili
+            // (pendenti): serve a decidere se mostrare il pulsante di storno.
+            'pendingDirectBonuses' => \App\Models\MlmBonusPayout::where('kind', 'diretto')->where('status', 'pending')->count(),
+            'pendingDirectBonusesEurCents' => (int) \App\Models\MlmBonusPayout::where('kind', 'diretto')->where('status', 'pending')->sum('amount_eur_cents'),
             'currentRootAgent' => $treeService->systemRootAgent(),
             'activeNav' => 'mlm',
         ]);
@@ -96,6 +103,9 @@ class MlmSettingsController extends Controller
             // Soglia minima di prelievo self-service (2026-07-29), in EUR
             // (convertita in centesimi qui sotto). 0/vuoto = nessuna soglia.
             'payout_threshold_eur' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            // Interruttore Bonus Diretti KNM (2026-08-14). Checkbox: assente
+            // dal POST = spento, per questo e' 'nullable' e non 'required'.
+            'direct_bonuses_enabled' => ['nullable', 'boolean'],
         ];
         foreach ($ranks as $rank) {
             foreach (self::REQUIREMENT_FIELDS as $field) {
@@ -137,10 +147,14 @@ class MlmSettingsController extends Controller
             ? ky_to_cents($validated['payout_threshold_eur'])
             : 0;
 
+        $directBonusesBefore = $settings->mlmDirectBonusesEnabled();
+        $directBonusesAfter = (bool) ($validated['direct_bonuses_enabled'] ?? false);
+
         $settings->forceFill([
             'mlm_points_validity_override_minutes' => $after,
             'mlm_knm_margin_percent' => $marginAfter,
             'mlm_payout_threshold_eur_cents' => $thresholdAfter,
+            'mlm_direct_bonuses_enabled' => $directBonusesAfter,
         ])->save();
 
         AuditLog::create([
@@ -156,6 +170,8 @@ class MlmSettingsController extends Controller
                 'knm_margin_percent_after' => $marginAfter,
                 'payout_threshold_eur_cents_before' => $thresholdBefore,
                 'payout_threshold_eur_cents_after' => $thresholdAfter,
+                'direct_bonuses_enabled_before' => $directBonusesBefore,
+                'direct_bonuses_enabled_after' => $directBonusesAfter,
                 'point_rules' => MlmPointRule::orderBy('event_type')
                     ->get(['event_type', 'points', 'duration_days'])
                     ->toArray(),
@@ -229,6 +245,36 @@ class MlmSettingsController extends Controller
 
         return redirect()->route('admin.mlm.settings.edit')
             ->with('portal_success', 'Backfill cassetto kmoney eseguito. ' . $output);
+    }
+
+    /**
+     * Esegue `mlm:cancel-direct-bonuses --force` (2026-08-14): annulla i
+     * Bonus Diretti KNM gia' generati e ancora pendenti e storna il KY
+     * accreditato nel cassetto kmoney. Spegnere l'interruttore blocca solo i
+     * bonus FUTURI: questo pulsante chiude quelli gia' creati.
+     *
+     * Stesso pattern di backfillWalletLedger()/recalculateNow(): su
+     * kosmopay.it non c'e' SSH per lanciare artisan a mano, quindi il
+     * pannello admin e' l'unico modo di eseguirlo in produzione.
+     * Idempotente: rilanciarlo non annulla ne' storna due volte.
+     */
+    public function cancelDirectBonuses(Request $request): RedirectResponse
+    {
+        $this->authorizeBackoffice($request->user());
+
+        Artisan::call('mlm:cancel-direct-bonuses', ['--force' => true]);
+        $output = trim(Artisan::output());
+
+        AuditLog::create([
+            'actor_user_id' => $request->user()->id,
+            'event' => 'admin.mlm.cancel_direct_bonuses',
+            'auditable_type' => User::class,
+            'auditable_id' => $request->user()->id,
+            'context' => ['output' => $output],
+        ]);
+
+        return redirect()->route('admin.mlm.settings.edit')
+            ->with('portal_success', 'Bonus Diretti pendenti annullati. ' . $output);
     }
 
     /**

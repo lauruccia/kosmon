@@ -155,7 +155,78 @@ class MlmWalletService
         $this->moveReservation($agent, $amountCents, fromAgent: false, sourceType: 'withdrawal_release', idempotencyKey: $idempotencyKey, description: $description);
     }
 
-    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description): void
+    /**
+     * STORNO di un bonus annullato (2026-08-14, introdotto per la
+     * disattivazione dei Bonus Diretti KNM — vedi CancelMlmDirectBonuses):
+     * riporta alla Cassa Circuito il KY accreditato a suo tempo da
+     * creditFromBonusPayout() e scrive la riga negativa corrispondente nel
+     * cassetto, cosi' il "prelevabile" dell'agente torna al valore corretto.
+     *
+     * Coppia esatta di creditFromBonusPayout(): stesso importo, verso
+     * opposto. Idempotente sull'id del payout (idempotency_key dedicata):
+     * rilanciare lo storno non toglie il KY due volte.
+     *
+     * NO-OP se l'accredito originale non e' mai avvenuto (nessuna riga
+     * `bonus_payout` per quel payout: es. l'agente non aveva un conto attivo
+     * quando il bonus e' stato creato, caso previsto e loggato da credit()) —
+     * cosi' non si toglie KY che non era mai stato dato.
+     *
+     * Come reserveForPayout(), il movimento passa da un super admin e quindi
+     * IGNORA fido e massimale: se nel frattempo l'agente ha gia' speso quel
+     * KY in negozio, il suo saldo puo' andare in negativo. E' voluto — lo
+     * storno deve completarsi comunque, il recupero e' poi una questione
+     * commerciale, non tecnica.
+     *
+     * @return bool true se lo storno e' stato eseguito ORA, false se non
+     *              c'era nulla da stornare o era gia' stato fatto.
+     */
+    public function reverseBonusPayout(MlmBonusPayout $bonus): bool
+    {
+        $creditEntry = MlmWalletLedgerEntry::where('source_type', 'bonus_payout')
+            ->where('source_id', $bonus->id)
+            ->where('amount_cents', '>', 0)
+            ->first();
+
+        if (! $creditEntry) {
+            return false; // mai accreditato: niente da stornare
+        }
+
+        $idempotencyKey = "mlm_wallet_reverse_bonus_{$bonus->id}";
+        if (MlmWalletLedgerEntry::where('idempotency_key', $idempotencyKey)->exists()) {
+            return false; // gia' stornato
+        }
+
+        $agent = User::find($bonus->beneficiary_user_id);
+        if (! $agent) {
+            return false;
+        }
+
+        $amountCents = (int) $creditEntry->amount_cents;
+
+        $this->moveReservation(
+            $agent,
+            $amountCents,
+            fromAgent: true,
+            sourceType: 'bonus_payout_reversal',
+            idempotencyKey: $idempotencyKey,
+            description: 'Storno bonus ' . $bonus->kind . ' annullato — cassetto kmoney',
+            // A differenza delle righe di riserva/rilascio prelievo (che sono
+            // un movimento interno e restano senza categoria), lo storno deve
+            // scalare il contatore "bonus" mostrato all'agente: altrimenti
+            // continuerebbe a vedere fra i suoi guadagni un bonus annullato.
+            category: self::CATEGORY_BONUS,
+        );
+
+        return true;
+    }
+
+    /**
+     * $category: null per le righe di riserva/rilascio prelievo (movimento
+     * interno, non un guadagno — comportamento storico); valorizzata solo
+     * dagli storni (2026-08-14, reverseBonusPayout()), che devono invece
+     * scalare il contatore della categoria corrispondente.
+     */
+    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description, ?string $category = null): void
     {
         if ($amountCents <= 0) {
             return;
@@ -184,7 +255,7 @@ class MlmWalletService
             throw new \RuntimeException('Impossibile elaborare il prelievo: nessun super admin disponibile per autorizzare il movimento.');
         }
 
-        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description): void {
+        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description, $category): void {
             $transfer = app(TransferBookingService::class)->book([
                 'initiated_by'    => $superAdmin->id,
                 'from_account_id' => $fromAgent ? $agentAccount->id : $systemAccount->id,
@@ -197,7 +268,7 @@ class MlmWalletService
 
             MlmWalletLedgerEntry::create([
                 'agent_user_id'   => $agent->id,
-                'category'        => null,
+                'category'        => $category,
                 'amount_cents'    => $fromAgent ? -$amountCents : $amountCents,
                 'source_type'     => $sourceType,
                 'source_id'       => null,

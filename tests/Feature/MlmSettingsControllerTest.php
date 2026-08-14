@@ -247,6 +247,88 @@ class MlmSettingsControllerTest extends TestCase
         $this->assertSame(0, SystemSetting::mlmSettings()->fresh()->mlmPayoutThresholdEurCents());
     }
 
+    /**
+     * Interruttore Bonus Diretti KNM (2026-08-14): checkbox nel form, spento
+     * di default. Il campo hidden a 0 fa sì che togliere la spunta invii
+     * comunque il valore, invece di lasciare il campo assente dal POST.
+     */
+    public function test_admin_can_toggle_direct_bonuses(): void
+    {
+        $admin = $this->makeAdmin();
+        $payload = $this->requirementsPayload();
+
+        $this->assertFalse(SystemSetting::mlmSettings()->mlmDirectBonusesEnabled(), 'Devono nascere spenti.');
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'direct_bonuses_enabled' => '1',
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertTrue(SystemSetting::mlmSettings()->fresh()->mlmDirectBonusesEnabled());
+
+        // Checkbox tolta: il form invia 0 (hidden) e i bonus tornano spenti.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'direct_bonuses_enabled' => '0',
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertFalse(SystemSetting::mlmSettings()->fresh()->mlmDirectBonusesEnabled());
+
+        // Campo del tutto assente dal POST: spento, non errore di validazione.
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.update'), [
+            'points_validity_override_minutes' => null,
+            'requirements' => $payload,
+        ] + $this->pointRulesPayload())->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertFalse(SystemSetting::mlmSettings()->fresh()->mlmDirectBonusesEnabled());
+    }
+
+    /**
+     * Il pulsante "Annulla e storna" compare solo se ci sono davvero Bonus
+     * Diretti pendenti, e lancia il comando (2026-08-14).
+     */
+    public function test_cancel_direct_bonuses_button_appears_only_when_there_is_something_to_cancel(): void
+    {
+        $admin = $this->makeAdmin();
+        $agent = $this->makeAgent();
+
+        $this->actingAsWithSession($admin)->get(route('admin.mlm.settings.edit'))
+            ->assertOk()
+            ->assertDontSee('Annulla i Bonus Diretti già generati', false);
+
+        \App\Models\MlmBonusPayout::create([
+            'mlm_bonus_event_id'  => null,
+            'beneficiary_user_id' => $agent->id,
+            'rank_at_time'        => null,
+            'kind'                => 'diretto',
+            'amount_eur_cents'    => 20_000,
+            'week_ending'         => now()->toDateString(),
+            'status'              => 'pending',
+            'idempotency_key'     => 'mlm_direct_bonus_' . $agent->id . '_pts4',
+        ]);
+
+        $this->actingAsWithSession($admin)->get(route('admin.mlm.settings.edit'))
+            ->assertOk()
+            ->assertSee('Annulla i Bonus Diretti già generati', false)
+            ->assertSee('200,00', false);
+
+        $this->actingAsWithSession($admin)->post(route('admin.mlm.settings.cancel-direct-bonuses'))
+            ->assertRedirect(route('admin.mlm.settings.edit'));
+
+        $this->assertSame('cancelled', \App\Models\MlmBonusPayout::firstOrFail()->status);
+    }
+
+    public function test_cancel_direct_bonuses_requires_backoffice_access(): void
+    {
+        $user = $this->makeRegularUser();
+
+        $this->actingAsWithSession($user)
+            ->post(route('admin.mlm.settings.cancel-direct-bonuses'))
+            ->assertForbidden();
+    }
+
     public function test_recalculate_now_runs_the_nightly_command_synchronously(): void
     {
         $admin = $this->makeAdmin();

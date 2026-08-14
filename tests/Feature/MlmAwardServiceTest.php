@@ -39,6 +39,21 @@ class MlmAwardServiceTest extends TestCase
         $this->awards = new MlmAwardService();
         $this->tree = new MlmTreeService();
         $this->engine = new MlmRankEngine($this->tree, $this->awards);
+
+        // Dal 2026-08-14 i Bonus Diretti KNM sono SPENTI di default
+        // (SystemSetting::mlmDirectBonusesEnabled(), richiesta di Laura). I
+        // test qui sotto verificano la meccanica dei bonus, quindi accendono
+        // l'interruttore; il comportamento a interruttore spento e' coperto
+        // da test_direct_bonuses_are_disabled_by_default() e
+        // test_direct_bonuses_are_skipped_when_switch_is_off().
+        $this->enableDirectBonuses();
+    }
+
+    private function enableDirectBonuses(bool $enabled = true): void
+    {
+        \App\Models\SystemSetting::mlmSettings()
+            ->forceFill(['mlm_direct_bonuses_enabled' => $enabled])
+            ->save();
     }
 
     private function makeAgent(string $rank = 'start'): User
@@ -95,6 +110,57 @@ class MlmAwardServiceTest extends TestCase
                 'mlm_client_agent_id'  => $agent->id,
             ]);
         }
+    }
+
+    /**
+     * 2026-08-14: l'interruttore nasce spento, sia sulle installazioni nuove
+     * sia in produzione (colonna NULL sulle righe pre-migrazione). Questo
+     * test NON usa enableDirectBonuses() di proposito: verifica lo stato di
+     * partenza reale, cioe' che una riga MLM appena creata non paghi nulla.
+     */
+    public function test_direct_bonuses_are_disabled_by_default(): void
+    {
+        \App\Models\SystemSetting::query()->where('code', 'mlm')->delete();
+
+        $this->assertFalse(
+            \App\Models\SystemSetting::mlmSettings()->mlmDirectBonusesEnabled(),
+            'Una riga impostazioni MLM appena creata deve avere i Bonus Diretti spenti.'
+        );
+
+        $agent = $this->makeAgent();
+        $this->givePoints($agent, 12);
+
+        $this->assertSame(0, $this->awards->grantDirectPointBonuses($agent));
+        $this->assertSame(0, MlmBonusPayout::where('kind', 'diretto')->count());
+    }
+
+    /**
+     * Interruttore spento: nessun payout, nessun accredito nel cassetto — ma
+     * gli EXTRA BONUS di grado devono continuare a funzionare (l'interruttore
+     * vale solo per i Bonus Diretti).
+     */
+    public function test_direct_bonuses_are_skipped_when_switch_is_off(): void
+    {
+        $this->enableDirectBonuses(false);
+
+        $agent = $this->makeAgent();
+        $this->givePoints($agent, 12);
+
+        $this->assertSame(0, $this->awards->grantDirectPointBonuses($agent));
+        $this->assertSame(0, MlmBonusPayout::where('beneficiary_user_id', $agent->id)->count());
+
+        // Extra Bonus non toccato dall'interruttore.
+        $this->assertTrue($this->awards->grantRankAward($agent, 'senior'));
+        $this->assertSame(
+            30_000,
+            (int) MlmBonusPayout::where('beneficiary_user_id', $agent->id)->where('kind', 'extra')->sum('amount_eur_cents')
+        );
+
+        // Riaccendendo l'interruttore le soglie gia' superate vengono
+        // premiate al primo passaggio successivo (comportamento documentato
+        // in SystemSetting::mlmDirectBonusesEnabled()).
+        $this->enableDirectBonuses(true);
+        $this->assertSame(3, $this->awards->grantDirectPointBonuses($agent));
     }
 
     public function test_direct_bonuses_are_cumulative_across_thresholds(): void
