@@ -1504,7 +1504,9 @@
                         </div>
 
                         {{-- ── PAGA ── --}}
-                        @php $showPaga = $mv('incasso-qr')||$mv('paga-sonic')||$mv('paga-codice')||$mv('rate')||$mv('scheduled-payments')||$mv('netting'); @endphp
+                        {{-- 14/08/2026: il gruppo si basava su $mv('incasso-qr') (chiave del gruppo
+                             Incassa, copia-incolla) invece che sulla chiave 'paga' di "Invia KY". --}}
+                        @php $showPaga = $mv('paga')||$mv('paga-sonic')||$mv('paga-codice')||$mv('rate')||$mv('scheduled-payments')||$mv('netting'); @endphp
                         @if($showPaga)
                         <div class="nav-group" data-group="paga">
                             <button class="nav-group-btn {{ $grpPaga ? 'open' : '' }}" onclick="toggleGroup(this)">
@@ -1513,7 +1515,7 @@
                                 <span class="nav-group-arrow">▶</span>
                             </button>
                             <div class="nav-group-items {{ $grpPaga ? 'open' : '' }}">
-                                @if($mv('rate'))
+                                @if($mv('paga'))
                                 <a class="sidebar-link {{ $an === 'paga' ? 'active' : '' }}" href="{{ route('portal.pay.form') }}">
                                     <span class="nav-icon">💸</span><span>Invia KY</span>
                                 </a>
@@ -1616,8 +1618,22 @@
                         @endif
 
                         {{-- ── CIRCUITO ── --}}
-                        {{-- "Segnala un'azienda" (29/07/2026): sempre visibile a tutti i clienti, anche se le altre voci del gruppo Circuito sono nascoste da menu-visibility. --}}
-                        @php $showCircuito = ($mv('aziende')&&($currentUser??$authUser)?->canViewCompaniesDirectory())||($mv('shop')&&($currentUser??$authUser)?->canAccessMarketplace())||($mv('annunci')&&($currentUser??$authUser)?->canAccessAnnouncements())||$mv('invita')||(($currentUser??$authUser)?->account_holder_type === 'private'); @endphp
+                        {{-- "Segnala un'azienda" (29/07/2026): visibile a tutti i clienti per default.
+                             Dal 14/08/2026 ha una sua chiave menu-visibility ('company-reports', ON di
+                             default) invece di essere legata al solo account_holder_type === 'private':
+                             così resta visibile anche alle aziende con le altre voci Circuito spente,
+                             e l'admin può comunque nasconderla. --}}
+                        @php
+                            $cuViewer = $currentUser ?? $authUser;
+                            $canMkt   = (bool) $cuViewer?->canAccessMarketplace();
+                            $canPlan  = ($canMkt || $cuViewer?->is_super_admin) && $cuViewer?->company_id;
+                            $showCircuito = ($mv('aziende') && $cuViewer?->canViewCompaniesDirectory())
+                                || (($mv('shop') || $mv('shop-offers')) && $canMkt)
+                                || ($mv('plan') && $canPlan)
+                                || ($mv('annunci') && $cuViewer?->canAccessAnnouncements())
+                                || $mv('invita')
+                                || $mv('company-reports');
+                        @endphp
                         @if($showCircuito)
                         <div class="nav-group" data-group="circuito">
                             <button class="nav-group-btn {{ $grpCircuito ? 'open' : '' }}" onclick="toggleGroup(this)">
@@ -1626,27 +1642,30 @@
                                 <span class="nav-group-arrow">▶</span>
                             </button>
                             <div class="nav-group-items {{ $grpCircuito ? 'open' : '' }}">
-                                @if($mv('aziende') && ($currentUser??$authUser)?->canViewCompaniesDirectory())
+                                @if($mv('aziende') && $cuViewer?->canViewCompaniesDirectory())
                                 <a class="sidebar-link {{ $an === 'aziende' ? 'active' : '' }}" href="{{ route('portal.companies') }}">
                                     <span class="nav-icon">🏢</span><span>Directory</span>
                                 </a>
                                 @endif
-                                @if($mv('shop') && ($currentUser??$authUser)?->canAccessMarketplace())
+                                @if($mv('shop') && $canMkt)
                                 <a class="sidebar-link {{ $an === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}">
                                     <span class="nav-icon">🛒</span><span>Shop</span>
                                 </a>
-                                {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stessa
-                                     visibilità del link Shop sopra. --}}
+                                @endif
+                                {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso
+                                     requisito di accesso del link Shop, ma dal 14/08/2026 con chiave
+                                     menu-visibility propria ('shop-offers') così si può spegnere da sola. --}}
+                                @if($mv('shop-offers') && $canMkt)
                                 <a class="sidebar-link {{ $an === 'shop-offers' ? 'active' : '' }}" href="{{ route('portal.shop.offers') }}">
                                     <span class="nav-icon">🔥</span><span>Offerte della settimana</span>
                                 </a>
                                 @endif
-                                @if((($currentUser??$authUser)?->canAccessMarketplace() || ($currentUser??$authUser)?->is_super_admin) && ($currentUser??$authUser)?->company_id)
+                                @if($mv('plan') && $canPlan)
                                 <a class="sidebar-link {{ $an === 'plan' ? 'active' : '' }}" href="{{ route('portal.plan.index') }}">
                                     <span class="nav-icon">💎</span><span>Il mio piano</span>
                                 </a>
                                 @endif
-                                @if($mv('annunci') && ($currentUser??$authUser)?->canAccessAnnouncements())
+                                @if($mv('annunci') && $cuViewer?->canAccessAnnouncements())
                                 <a class="sidebar-link {{ $an === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}">
                                     <span class="nav-icon">📣</span><span>Annunci</span>
                                 </a>
@@ -1656,9 +1675,11 @@
                                     <span class="nav-icon">🎁</span><span>Invita un amico</span>
                                 </a>
                                 @endif
+                                @if($mv('company-reports'))
                                 <a class="sidebar-link {{ $an === 'company-reports' ? 'active' : '' }}" href="{{ route('portal.company-reports.index') }}">
                                     <span class="nav-icon">&#127970;</span><span>Segnala un'azienda</span>
                                 </a>
+                                @endif
                             </div>
                         </div>
                         @endif
@@ -1671,7 +1692,16 @@
                             // agente sotto — poteva restare completamente nascosto a un cliente che
                             // avesse tutte le altre voci (report, webhook, help, ecc.) disattivate da
                             // menu-visibility, impedendogli di trovare il percorso "diventa agente".
-                            $showStrumenti = $mv('report-merchant')||($mv('webhooks')&&$canDev)||($mv('api-tokens')&&$canDev)||($mv('docs-api')&&$canDev)||($mv('operatore')&&(($currentUser??$authUser)?->hasRole('broker')||$isBackoffice))||$mv('help')||config('kmoney.mlm_enabled');
+                            // 14/08/2026: le voci MLM hanno ora una chiave menu-visibility ciascuna,
+                            // quindi il gruppo si apre solo se ne resta almeno una accesa (prima
+                            // bastava mlm_enabled e il gruppo poteva restare vuoto).
+                            $mlmOn         = (bool) config('kmoney.mlm_enabled');
+                            $viewerIsAgent = $mlmOn && (bool) $cuViewer?->isMlmAgent();
+                            $mlmKeys       = $viewerIsAgent
+                                ? ['mlm-agent-contract','mlm-struttura','mlm-clienti','mlm-company-reports','mlm-invitati','mlm-registra-agente','mlm-guadagni','mlm-prelievi','mlm-payment-details']
+                                : ['mlm-agent-request'];
+                            $showMlm = $mlmOn && collect($mlmKeys)->contains(fn($k) => $mv($k));
+                            $showStrumenti = $mv('report-merchant')||($mv('webhooks')&&$canDev)||($mv('api-tokens')&&$canDev)||($mv('docs-api')&&$canDev)||($mv('operatore')&&(($currentUser??$authUser)?->hasRole('broker')||$isBackoffice))||$mv('help')||$showMlm;
                         @endphp
                         @if($showStrumenti)
                         <div class="nav-group" data-group="strumenti">
@@ -1706,17 +1736,24 @@
                                     <span class="nav-icon">BR</span><span>Operatore</span>
                                 </a>
                                 @endif
-                                @if(config('kmoney.mlm_enabled'))
-                                @if(($currentUser??$authUser)?->isMlmAgent())
+                                @if($mlmOn)
+                                @if($viewerIsAgent)
+                                @if($mv('mlm-agent-contract'))
                                 <a class="sidebar-link {{ $an === 'mlm-agent-contract' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-contract.view') }}">
                                     <span class="nav-icon">&#128220;</span><span>Il mio contratto</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-struttura'))
                                 <a class="sidebar-link {{ $an === 'mlm-struttura' ? 'active' : '' }}" href="{{ route('portal.mlm.struttura') }}">
                                     <span class="nav-icon">&#127795;</span><span>La mia struttura</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-clienti'))
                                 <a class="sidebar-link {{ $an === 'mlm-clienti' ? 'active' : '' }}" href="{{ route('portal.mlm.clienti') }}">
                                     <span class="nav-icon">&#128101;</span><span>I miei clienti</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-company-reports'))
                                 <a class="sidebar-link {{ $an === 'mlm-company-reports' ? 'active' : '' }}" href="{{ route('portal.mlm.company-reports.index') }}">
                                     <span class="nav-icon">&#127970;</span><span>Segnalazioni aziende</span>
                                     @php $pendingMyCompanyReports = \App\Models\CompanyReport::where('agent_user_id', ($currentUser??$authUser)?->id)->where('status', 'pending')->count(); @endphp
@@ -1724,30 +1761,43 @@
                                         <span class="pill" style="background:rgba(217,119,6,.15);color:#b45309;margin-left:6px;font-size:10px;padding:1px 7px;">{{ $pendingMyCompanyReports }}</span>
                                     @endif
                                 </a>
+                                @endif
+                                @if($mv('mlm-invitati'))
                                 <a class="sidebar-link {{ $an === 'mlm-invitati' ? 'active' : '' }}" href="{{ route('portal.mlm.invitati') }}">
                                     <span class="nav-icon">&#9993;</span><span>I miei inviti</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-registra-agente'))
                                 <a class="sidebar-link {{ $an === 'mlm-registra-agente' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-create.show') }}">
                                     <span class="nav-icon">&#128100;</span><span>Registra agente</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-guadagni'))
                                 <a class="sidebar-link {{ $an === 'mlm-guadagni' ? 'active' : '' }}" href="{{ route('portal.mlm.earnings') }}">
                                     <span class="nav-icon">&#128200;</span><span>I miei guadagni</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-prelievi'))
                                 <a class="sidebar-link {{ $an === 'mlm-prelievi' ? 'active' : '' }}" href="{{ route('portal.mlm.prelievi') }}">
                                     <span class="nav-icon">&euro;</span><span>Prelievi</span>
                                 </a>
+                                @endif
+                                @if($mv('mlm-payment-details'))
                                 <a class="sidebar-link {{ $an === 'mlm-payment-details' ? 'active' : '' }}" href="{{ route('portal.mlm.payment-details.edit') }}">
                                     <span class="nav-icon">KY</span><span>Dati bancari KNM</span>
                                 </a>
+                                @endif
                                 @else
                                 {{-- "Lavora con noi" (punto 2, 2026-07-29, richiesta di Laura): visibile
                                      solo a chi è già cliente registrato (questo blocco sidebar esiste solo
                                      nel portale, quindi dopo login) e SOLO se non è già agente/in attesa di
                                      firma contratto (vedi MlmAgentRequestController::show). Porta alla
                                      spiegazione + richiesta di adesione come agente KNM. --}}
+                                @if($mv('mlm-agent-request'))
                                 <a class="sidebar-link {{ $an === 'mlm-agent-request' ? 'active' : '' }}" href="{{ route('portal.mlm.agent-request.show') }}">
                                     <span class="nav-icon">&#128188;</span><span>Lavora con noi</span>
                                 </a>
+                                @endif
                                 @endif
                                 @endif
                                 @if($mv('help'))
@@ -1791,7 +1841,7 @@
                         @endif
                     </a>
                     @endif
-                    @if(!$isBackoffice && ($currentAccount ?? null)?->owner_type === 'private')
+                    @if(!$isBackoffice && $mv('profilo-personale') && ($currentAccount ?? null)?->owner_type === 'private')
                     <a class="sidebar-link {{ ($activeNav ?? '') === 'profilo' ? 'active' : '' }}" href="{{ route('portal.personal-profile.edit') }}" style="margin-bottom:2px;">
                         <span class="nav-icon">👤</span><span>Il mio profilo</span>
                     </a>
