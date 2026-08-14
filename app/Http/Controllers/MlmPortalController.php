@@ -323,7 +323,7 @@ ol,ul{padding-left:20px;}
 li{margin-bottom:6px;}
 .footer{margin-top:40px;border-top:2px solid #0f766e;padding-top:16px;font-size:11px;color:#555;}
 </style></head><body>
-<h1>Contratto di nomina ad Agente KNM — bozza da firmare</h1>
+<h1>Contratto di nomina ad Agente Kosmos — bozza da firmare</h1>
 <div class="meta">
 <strong>Candidato Incaricato:</strong> ' . e($newAgent->name) . ' (' . e($newAgent->email) . ') &nbsp;|&nbsp;
 <strong>Generato il:</strong> ' . now()->format('d/m/Y H:i') . '
