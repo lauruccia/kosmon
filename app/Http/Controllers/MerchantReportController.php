@@ -22,9 +22,11 @@ class MerchantReportController extends Controller
         [$from, $to, $period] = $this->parsePeriod($request);
 
         // ── KPI principali ────────────────────────────────────────────────────
-        $baseIn  = Transfer::query()->where('to_account_id', $account->id)->where('status', 'booked')
+        // excludeTechnicalCorrections(): fuori dai KPI le scritture tecniche
+        // (apertura ledger, storni di bonus MLM annullati) — vedi Transfer.
+        $baseIn  = Transfer::query()->excludeTechnicalCorrections()->where('to_account_id', $account->id)->where('status', 'booked')
             ->whereBetween('booked_at', [$from, $to]);
-        $baseOut = Transfer::query()->where('from_account_id', $account->id)->where('status', 'booked')
+        $baseOut = Transfer::query()->excludeTechnicalCorrections()->where('from_account_id', $account->id)->where('status', 'booked')
             ->whereBetween('booked_at', [$from, $to]);
 
         $incomeTotal     = (clone $baseIn)->whereNotIn('kind', ['portal_fee', 'portal_cashback'])->sum('amount');
@@ -41,11 +43,11 @@ class MerchantReportController extends Controller
 
             return [
                 'label'   => $month->translatedFormat('M Y'),
-                'income'  => (int) Transfer::query()
+                'income'  => (int) Transfer::query()->excludeTechnicalCorrections()
                     ->where('to_account_id', $account->id)->where('status', 'booked')
                     ->whereNotIn('kind', ['portal_fee', 'portal_cashback'])
                     ->whereBetween('booked_at', [$start, $end])->sum('amount'),
-                'expense' => (int) Transfer::query()
+                'expense' => (int) Transfer::query()->excludeTechnicalCorrections()
                     ->where('from_account_id', $account->id)->where('status', 'booked')
                     ->whereNotIn('kind', ['portal_fee', 'portal_cashback'])
                     ->whereBetween('booked_at', [$start, $end])->sum('amount'),
@@ -54,6 +56,7 @@ class MerchantReportController extends Controller
 
         // ── Top 5 pagatori (chi mi ha pagato di più nel periodo) ─────────────
         $topPayers = Transfer::query()
+            ->excludeTechnicalCorrections()
             ->with('fromAccount.company', 'fromAccount.ownerUser')
             ->where('to_account_id', $account->id)
             ->where('status', 'booked')
@@ -67,6 +70,7 @@ class MerchantReportController extends Controller
 
         // ── Ultimi movimenti ──────────────────────────────────────────────────
         $recentTransfers = Transfer::query()
+            ->excludeTechnicalCorrections()
             ->with('fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser')
             ->where(fn ($q) => $q->where('from_account_id', $account->id)->orWhere('to_account_id', $account->id))
             ->where('status', 'booked')
@@ -105,6 +109,7 @@ class MerchantReportController extends Controller
         [$from, $to] = $this->parsePeriod($request);
 
         $transfers = Transfer::query()
+            ->excludeTechnicalCorrections()
             ->with('fromAccount.company', 'fromAccount.ownerUser', 'toAccount.company', 'toAccount.ownerUser')
             ->where(fn ($q) => $q->where('from_account_id', $account->id)->orWhere('to_account_id', $account->id))
             ->where('status', 'booked')

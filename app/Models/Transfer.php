@@ -127,17 +127,63 @@ class Transfer extends Model
     public const LEDGER_OPENING_FILTER = '__ledger_opening__';
 
     /**
-     * Esclude le correzioni tecniche di apertura ledger dalle viste rivolte al cliente
-     * E, dal 2026-07-02, anche dalle liste/KPI generali del backoffice admin. Restano
-     * consultabili nel backoffice solo tramite il filtro dedicato "Correzioni tecniche"
-     * (vedi AdminController::transfers() e Transfer::LEDGER_OPENING_FILTER).
+     * Marker (admin_action) della coppia accredito + storno di un bonus MLM annullato
+     * (2026-08-14, richiesta di Laura). Quando un bonus generato per errore viene
+     * annullato, MlmWalletService::reverseBonusPayout() riporta il KY alla Cassa
+     * Circuito e marca con questo valore SIA il movimento di storno SIA l'accredito
+     * originale: le due righe si annullano a vicenda, quindi mostrarle significa solo
+     * far ricomparire nelle liste un bonus che non esiste piu'.
+     *
+     * Le righe restano nel database e continuano a comporre i saldi dei conti: il
+     * circuito resta chiuso, cambia solo la loro visibilita' nelle liste.
      */
-    public function scopeExcludeLedgerCorrections(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    public const MLM_BONUS_REVERSAL_ACTION = 'mlm_bonus_reversal';
+
+    /**
+     * Tutti i marker admin_action che identificano una scrittura TECNICA, cioe' non un
+     * movimento reale del circuito: sono esclusi da ogni lista/KPI, sia lato cliente
+     * sia nel backoffice (vedi scopeExcludeTechnicalCorrections()).
+     *
+     * @var list<string>
+     */
+    public const TECHNICAL_ACTIONS = [
+        self::LEDGER_OPENING_ACTION,
+        self::MLM_BONUS_REVERSAL_ACTION,
+    ];
+
+    /**
+     * Esclude le scritture tecniche (apertura ledger 17/06/2026 e storni di bonus MLM
+     * annullati) dalle viste rivolte al cliente E, dal 2026-07-02, anche dalle
+     * liste/KPI generali del backoffice admin. Nel backoffice restano consultabili con
+     * la spunta "Mostra movimenti tecnici" di /admin/movimenti (e, per le sole
+     * correzioni di apertura, con il filtro dedicato Transfer::LEDGER_OPENING_FILTER).
+     *
+     * ATTENZIONE: e' un filtro di VISUALIZZAZIONE. I saldi dei conti non si calcolano
+     * da qui (colonna accounts.balance aggiornata da TransferBookingService), quindi
+     * nascondere una riga non sbilancia mai il circuito.
+     */
+    public function scopeExcludeTechnicalCorrections(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where(function (\Illuminate\Database\Eloquent\Builder $q): void {
             $q->whereNull('admin_action')
-              ->orWhere('admin_action', '!=', self::LEDGER_OPENING_ACTION);
+              ->orWhereNotIn('admin_action', self::TECHNICAL_ACTIONS);
         });
+    }
+
+    /**
+     * @deprecated 2026-08-14 Alias storico di scopeExcludeTechnicalCorrections(),
+     *   mantenuto perche' usato in decine di query: da quella data esclude tutte le
+     *   scritture tecniche, non solo l'apertura ledger.
+     */
+    public function scopeExcludeLedgerCorrections(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $this->scopeExcludeTechnicalCorrections($query);
+    }
+
+    /** True se questo movimento e' una scrittura tecnica nascosta dalle liste. */
+    public function isTechnicalCorrection(): bool
+    {
+        return in_array($this->admin_action, self::TECHNICAL_ACTIONS, true);
     }
 
     protected static function booted(): void

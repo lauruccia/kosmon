@@ -34,6 +34,7 @@ class TransferController extends Controller
 
         $transfers = Transfer::query()
             ->with(['fromAccount.company', 'toAccount.company'])
+            ->excludeTechnicalCorrections()
             ->where(fn ($q) => $q
                 ->where('from_account_id', $account->id)
                 ->orWhere('to_account_id', $account->id)

@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\MlmBonusPayout;
 use App\Models\MlmCommission;
 use App\Models\MlmWalletLedgerEntry;
+use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -215,7 +216,20 @@ class MlmWalletService
             // scalare il contatore "bonus" mostrato all'agente: altrimenti
             // continuerebbe a vedere fra i suoi guadagni un bonus annullato.
             category: self::CATEGORY_BONUS,
+            // Lo storno e' una scrittura tecnica: non deve comparire nelle liste
+            // movimenti (vedi Transfer::MLM_BONUS_REVERSAL_ACTION).
+            adminAction: Transfer::MLM_BONUS_REVERSAL_ACTION,
         );
+
+        // ...e insieme allo storno sparisce anche l'accredito originale: la coppia
+        // si annulla, lasciare a vista il solo accredito farebbe credere che il
+        // bonus annullato sia ancora valido. Nessuna riga viene cancellata e i
+        // saldi non cambiano — il circuito resta chiuso.
+        if ($creditEntry->transfer_id) {
+            Transfer::whereKey($creditEntry->transfer_id)
+                ->whereNull('admin_action')
+                ->update(['admin_action' => Transfer::MLM_BONUS_REVERSAL_ACTION]);
+        }
 
         return true;
     }
@@ -225,8 +239,13 @@ class MlmWalletService
      * interno, non un guadagno — comportamento storico); valorizzata solo
      * dagli storni (2026-08-14, reverseBonusPayout()), che devono invece
      * scalare il contatore della categoria corrispondente.
+     *
+     * $adminAction: marker scritto sul transfer generato. Usato dagli storni per
+     * marcarli come scrittura tecnica e toglierli dalle liste movimenti (vedi
+     * Transfer::MLM_BONUS_REVERSAL_ACTION); null per riserva/rilascio prelievo,
+     * che sono movimenti veri e restano visibili.
      */
-    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description, ?string $category = null): void
+    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description, ?string $category = null, ?string $adminAction = null): void
     {
         if ($amountCents <= 0) {
             return;
@@ -255,7 +274,7 @@ class MlmWalletService
             throw new \RuntimeException('Impossibile elaborare il prelievo: nessun super admin disponibile per autorizzare il movimento.');
         }
 
-        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description, $category): void {
+        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description, $category, $adminAction): void {
             $transfer = app(TransferBookingService::class)->book([
                 'initiated_by'    => $superAdmin->id,
                 'from_account_id' => $fromAgent ? $agentAccount->id : $systemAccount->id,
@@ -265,6 +284,10 @@ class MlmWalletService
                 'kind'            => 'mlm_wallet_withdrawal',
                 'idempotency_key' => $idempotencyKey . '_transfer',
             ]);
+
+            if ($adminAction !== null) {
+                $transfer->update(['admin_action' => $adminAction]);
+            }
 
             MlmWalletLedgerEntry::create([
                 'agent_user_id'   => $agent->id,

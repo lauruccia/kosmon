@@ -128,6 +128,17 @@ class PortalController extends Controller
                 $monthStart = $now->startOfMonth();
                 $monthEnd   = $now->endOfMonth();
 
+                // Le scritture tecniche (apertura ledger, storni di bonus MLM
+                // annullati) non sono movimenti reali e non devono entrare nei KPI:
+                // vedi Transfer::TECHNICAL_ACTIONS. Placeholder costruiti a runtime
+                // cosi' aggiungere un marker non richiede di toccare la query.
+                $technicalPlaceholders = [];
+                $technicalBindings = [];
+                foreach (array_values(\App\Models\Transfer::TECHNICAL_ACTIONS) as $i => $marker) {
+                    $technicalPlaceholders[] = ':tech' . $i;
+                    $technicalBindings['tech' . $i] = $marker;
+                }
+
                 // Unica query: tutti gli aggregati sui movimenti in un colpo solo
                 $row = DB::selectOne("
                     SELECT
@@ -140,7 +151,7 @@ class PortalController extends Controller
                     FROM transfers
                     WHERE status = 'booked'
                       AND booked_at >= :cutoff_global
-                      AND (admin_action IS NULL OR admin_action <> :ledger_marker)
+                      AND (admin_action IS NULL OR admin_action NOT IN (" . implode(', ', $technicalPlaceholders) . "))
                       AND (to_account_id = :a7 OR from_account_id = :a8)
                 ", [
                     'a1' => $acctId, 'c30a' => $cutoff30,
@@ -150,9 +161,8 @@ class PortalController extends Controller
                     'a5' => $acctId, 'td_s' => $todayStart, 'td_e' => $todayEnd,
                     'a6' => $acctId, 'tm_s' => $monthStart, 'tm_e' => $monthEnd,
                     'cutoff_global' => $cutoff60,
-                    'ledger_marker' => \App\Models\Transfer::LEDGER_OPENING_ACTION,
                     'a7' => $acctId, 'a8' => $acctId,
-                ]);
+                ] + $technicalBindings);
 
                 // KyCard: due aggregati, una query
                 $kyCard = DB::selectOne("

@@ -105,11 +105,17 @@ class AdminController extends Controller
 
         // Filtro per tipo di movimento (kind). Il valore sentinella LEDGER_OPENING_FILTER
         // seleziona la vista dedicata alle correzioni tecniche di apertura ledger, normalmente
-        // escluse da tutte le liste del backoffice (vedi Transfer::excludeLedgerCorrections()).
+        // escluse da tutte le liste del backoffice (vedi Transfer::excludeTechnicalCorrections()).
         $kind = trim((string) $request->query('kind', ''));
         $isLedgerCorrectionsView = $kind === Transfer::LEDGER_OPENING_FILTER;
 
-        $transfersQuery = $this->movementQuery($isLedgerCorrectionsView);
+        // Spunta "Mostra movimenti tecnici" (richiesta di Laura del 14/08/2026): rimette
+        // in elenco TUTTE le scritture tecniche — storni di bonus MLM annullati con il
+        // loro accredito originale, e correzioni di apertura ledger — che di default
+        // sono nascoste sia qui sia nelle viste cliente.
+        $showTechnical = $request->boolean('show_technical');
+
+        $transfersQuery = $this->movementQuery($isLedgerCorrectionsView || $showTechnical);
         $this->applyMovementDateFilters($transfersQuery, $movementFilters);
 
         if ($isLedgerCorrectionsView) {
@@ -158,6 +164,7 @@ class AdminController extends Controller
             'movementKindOptions' => $this->movementKindOptions(),
             'canDeleteMovements' => (bool) $request->user()->is_super_admin,
             'isLedgerCorrectionsView' => $isLedgerCorrectionsView,
+            'showTechnical' => $showTechnical,
         ]);
     }
 
@@ -1181,7 +1188,7 @@ class AdminController extends Controller
                   ->where('transfers.booked_at', '>=', $from)
                   ->where(function ($q) {
                       $q->whereNull('transfers.admin_action')
-                        ->orWhere('transfers.admin_action', '!=', \App\Models\Transfer::LEDGER_OPENING_ACTION);
+                        ->orWhereNotIn('transfers.admin_action', \App\Models\Transfer::TECHNICAL_ACTIONS);
                   });
             })
             ->whereHas('company', function ($q) {

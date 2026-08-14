@@ -22,6 +22,12 @@
         <article class="stat-card"><div class="eyebrow">Storni</div><div class="section-title">{{ $movementTotals['refunds'] }}</div></article>
     </section>
 
+    @if (($showTechnical ?? false) && ! ($isLedgerCorrectionsView ?? false))
+        <section class="card light-card" style="border-left:4px solid #b58900;margin-bottom:12px;">
+            <strong>Movimenti tecnici inclusi</strong> — l'elenco mostra anche le scritture tecniche, normalmente nascoste ovunque: storni di bonus MLM annullati (con l'accredito originale che annullano) e correzioni di apertura ledger. Sono coppie che si annullano a vicenda: restano nel database e nei saldi, ma non sono movimenti reali del circuito. Togli la spunta per tornare alla vista normale.
+        </section>
+    @endif
+
     @if ($isLedgerCorrectionsView ?? false)
         <section class="card light-card" style="border-left:4px solid #b58900;margin-bottom:12px;">
             <strong>Correzioni tecniche di apertura ledger</strong> — questi movimenti (rif. <code>TRX-OPEN-*</code>, tutti datati 17/06/2026) non sono transazioni reali: allineano il ledger ai saldi importati dal vecchio sito usando il conto sistema come contropartita. Sono esclusi da tutte le altre viste (liste, KPI, grafici, export) e dalle viste cliente.
@@ -35,7 +41,7 @@
         </div>
 
         <form method="get" action="{{ route('admin.transfers.index') }}" style="margin-bottom:10px;">
-            <div style="display:grid;grid-template-columns:120px 138px 138px 150px 110px 1fr auto;gap:8px;align-items:end;">
+            <div style="display:grid;grid-template-columns:120px 138px 138px 150px 110px 1fr auto auto;gap:8px;align-items:end;">
                 <div class="field">
                     <label>Periodo</label>
                     <select name="period">
@@ -68,6 +74,13 @@
                 <div class="field">
                     <label>Cerca utente / azienda</label>
                     <input type="text" name="search" value="{{ $search }}" placeholder="Nome mittente o destinatario…">
+                </div>
+                <div class="field" style="padding-bottom:7px;">
+                    <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-size:12px;"
+                           title="Storni di bonus annullati e correzioni di apertura ledger: nascosti da tutte le liste, saldi inclusi.">
+                        <input type="checkbox" name="show_technical" value="1" onchange="this.form.submit()" @checked($showTechnical ?? false)>
+                        Movimenti tecnici
+                    </label>
                 </div>
                 <div style="padding-bottom:1px;"><button type="submit" class="cta secondary">Filtra</button></div>
             </div>
@@ -122,6 +135,7 @@
             <input type="hidden" name="from_date" value="{{ $movementFilters['from_date'] }}">
             <input type="hidden" name="to_date" value="{{ $movementFilters['to_date'] }}">
             <input type="hidden" name="kind" value="{{ $kindFilter }}">
+            <input type="hidden" name="show_technical" value="{{ ($showTechnical ?? false) ? '1' : '' }}">
             <input type="hidden" name="status" value="{{ $statusFilter }}">
             <input type="hidden" name="search" value="{{ $search }}">
             <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
@@ -239,7 +253,12 @@
                     <td style="padding:5px 10px;text-align:right;white-space:nowrap;font-weight:700;">
                         {{ ky_format($transfer->amount) }} <span style="font-size:11px;font-weight:400;">{{ $transfer->currency_code }}</span>
                     </td>
-                    <td style="padding:5px 10px;white-space:nowrap;font-size:12px;">{{ $causale }}</td>
+                    <td style="padding:5px 10px;white-space:nowrap;font-size:12px;">
+                        {{ $causale }}
+                        @if ($transfer->isTechnicalCorrection())
+                            <div style="font-size:10px;font-weight:700;color:#b58900;letter-spacing:.3px;">TECNICO · nascosto</div>
+                        @endif
+                    </td>
                     <td style="padding:5px 10px;white-space:nowrap;">
                         <span class="chip {{ $statoChip }}" style="font-size:11px;padding:2px 7px;">{{ $statoLabel }}</span>
                         @if ($supportsTransferRefunds && $transfer->admin_action === 'refund')
@@ -308,6 +327,7 @@
                 <input type="hidden" name="from_date" value="{{ $movementFilters['from_date'] }}">
                 <input type="hidden" name="to_date" value="{{ $movementFilters['to_date'] }}">
                 <input type="hidden" name="kind" value="{{ $kindFilter }}">
+                <input type="hidden" name="show_technical" value="{{ ($showTechnical ?? false) ? '1' : '' }}">
                 <input type="hidden" name="status" value="{{ $statusFilter }}">
                 <input type="hidden" name="search" value="{{ $search }}">
                 <div style="display:flex;gap:8px;justify-content:flex-end;">

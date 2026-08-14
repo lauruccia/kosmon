@@ -33,6 +33,7 @@ class AccountController extends Controller
             ->get()
             ->map(function (Account $subaccount) {
                 $latestTransfer = Transfer::query()
+                    ->excludeTechnicalCorrections()
                     ->where(function ($query) use ($subaccount) {
                         $query->where('from_account_id', $subaccount->id)
                             ->orWhere('to_account_id', $subaccount->id);
