@@ -711,6 +711,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
         Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
         Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');
         Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
+        // 2026-08-14 (richiesta di Laura): compilazione dei dati anagrafici
+        // che il contratto di nomina stampa (CF, nascita, residenza) e che
+        // nessun altro passaggio chiede a chi arriva dalla richiesta classica
+        // — obbligatoria prima di poter chiedere l'OTP e firmare.
+        Route::post('/mlm/contratto-agente/dati', [MlmAgentContractController::class, 'updateData'])->name('portal.mlm.agent-contract.data')->middleware('throttle:20,1');
         Route::post('/mlm/contratto-agente/otp', [MlmAgentContractController::class, 'sendOtp'])->name('portal.mlm.agent-contract.send-otp')->middleware('throttle:3,10');
         Route::post('/mlm/contratto-agente/firma', [MlmAgentContractController::class, 'sign'])->name('portal.mlm.agent-contract.sign')->middleware('throttle:10,1');
         // 2026-08-07 (richiesta di Laura): pagina di sola lettura per

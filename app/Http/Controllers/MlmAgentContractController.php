@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\MlmAgentContractSignature;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Notifications\MlmAgentActivatedNotification;
 use App\Notifications\MlmAgentContractOtpNotification;
 use App\Services\MlmTreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -48,8 +50,81 @@ class MlmAgentContractController extends Controller
             'contractVer'    => $contractVer,
             'directivesHtml' => $directivesHtml,
             'directivesVer'  => $directivesVer,
+            // 2026-08-14: campi anagrafici del "modulo di adesione" ancora da
+            // compilare — finche' ce n'e' almeno uno la view mostra il form e
+            // nasconde la firma OTP (vedi missingAgentContractFields()).
+            'missingFields'  => $user->missingAgentContractFields(),
             'activeNav'      => 'mlm-agent-request',
         ]);
+    }
+
+    /**
+     * POST /portale/mlm/contratto-agente/dati — 2026-08-14 (richiesta di
+     * Laura): l'aspirante agente compila qui i dati che il contratto stampa
+     * ma che nessuno gli ha mai chiesto (chi arriva dalla richiesta classica
+     * o da una promozione admin non li ha: li raccoglie solo il form
+     * "Registra agente"). Senza questo passo il modulo di adesione ex art. 19
+     * D. Lgs. 114/98 veniva firmato — e congelato nello snapshot — con le
+     * caselle anagrafiche vuote.
+     *
+     * Stesse regole di MlmPortalController::registraAgenteStore(), cosi' i
+     * due percorsi producono contratti equivalenti; l'unica differenza e' che
+     * l'unicita' del codice fiscale ignora l'utente stesso (potrebbe gia'
+     * averlo inserito in registrazione).
+     */
+    public function updateData(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user->mlmAgentAwaitingContract(), 403);
+
+        $minBirthDate = now()->subYears(18)->toDateString();
+
+        $validated = $request->validate([
+            'phone'              => ['nullable', 'string', 'max:30'],
+            'fiscal_code'        => ['required', 'string', 'size:16', 'regex:/^[A-Za-z0-9]{16}$/', Rule::unique('users', 'fiscal_code')->ignore($user->id)],
+            'birth_date'         => ['required', 'date', 'before_or_equal:' . $minBirthDate],
+            'birth_place'        => ['required', 'string', 'max:100'],
+            'residence_address'  => ['required', 'string', 'max:190'],
+            'residence_zip'      => ['required', 'string', 'max:10'],
+            'residence_city'     => ['required', 'string', 'max:100'],
+            'residence_province' => ['required', 'string', 'size:2', 'alpha'],
+        ], [
+            'fiscal_code.size'           => 'Il codice fiscale deve essere di 16 caratteri alfanumerici.',
+            'fiscal_code.regex'          => 'Il codice fiscale deve essere di 16 caratteri alfanumerici.',
+            'fiscal_code.unique'         => 'Questo codice fiscale risulta già registrato su KMoney.',
+            'birth_date.before_or_equal' => 'Per diventare incaricato di vendita devi avere almeno 18 anni (art. 6 delle Condizioni Generali).',
+            'residence_province.size'    => 'Indica la provincia con la sigla di 2 lettere (es. RM).',
+            'residence_province.alpha'   => 'Indica la provincia con la sigla di 2 lettere (es. RM).',
+        ], [
+            'phone' => 'telefono', 'fiscal_code' => 'codice fiscale', 'birth_date' => 'data di nascita',
+            'birth_place' => 'luogo di nascita', 'residence_address' => 'indirizzo di residenza',
+            'residence_zip' => 'CAP', 'residence_city' => 'comune di residenza',
+            'residence_province' => 'provincia di residenza',
+        ]);
+
+        $validated['fiscal_code']        = mb_strtoupper(trim($validated['fiscal_code']));
+        $validated['residence_province'] = mb_strtoupper(trim($validated['residence_province']));
+
+        // Un OTP eventualmente gia' richiesto si riferisce al testo del
+        // contratto PRIMA di questa modifica: lo invalidiamo, cosi' l'utente
+        // rilegge il modulo compilato e richiede un codice nuovo. Evita che
+        // si firmi uno snapshot diverso da quello effettivamente letto.
+        $user->forceFill($validated + [
+            'mlm_agent_contract_otp'            => null,
+            'mlm_agent_contract_otp_expires_at' => null,
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $user->id,
+            'event'          => 'mlm.agent_contract.data_completed',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'context'        => ['fields' => array_keys($validated)],
+        ]);
+
+        return redirect()->route('portal.mlm.agent-contract.show')
+            ->with('data_saved', true);
     }
 
     /**
@@ -94,6 +169,13 @@ class MlmAgentContractController extends Controller
 
         abort_unless($user->mlmAgentAwaitingContract(), 403);
 
+        // Niente OTP finche' il modulo non e' compilato: la view nasconde gia'
+        // il pulsante, questa e' la guardia lato server (2026-08-14).
+        if (! $user->hasCompleteAgentContractData()) {
+            return redirect()->route('portal.mlm.agent-contract.show')
+                ->withErrors(['general' => 'Completa prima i tuoi dati anagrafici: sono parte integrante del contratto da firmare.']);
+        }
+
         $otp     = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $expires = now()->addMinutes(15);
 
@@ -123,6 +205,13 @@ class MlmAgentContractController extends Controller
         $user = $request->user();
 
         abort_unless($user->mlmAgentAwaitingContract(), 403);
+
+        // Ultima barriera prima di congelare lo snapshot: mai una firma su un
+        // modulo di adesione con le caselle anagrafiche vuote (2026-08-14).
+        if (! $user->hasCompleteAgentContractData()) {
+            return redirect()->route('portal.mlm.agent-contract.show')
+                ->withErrors(['general' => 'Completa prima i tuoi dati anagrafici: sono parte integrante del contratto da firmare.']);
+        }
 
         if (
             ! $user->mlm_agent_contract_otp

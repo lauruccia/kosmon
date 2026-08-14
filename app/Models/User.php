@@ -740,6 +740,70 @@ class User extends Authenticatable implements MustVerifyEmail
             && ! $this->mlm_agent_contract_signed_at;
     }
 
+    /**
+     * Campi anagrafici che il contratto di nomina ad agente stampa nel
+     * riquadro "Dati del candidato Incaricato" (vedi
+     * SystemSetting::defaultAgentContractText()): senza questi il modulo di
+     * adesione ex art. 19 D. Lgs. 114/98 verrebbe firmato con le caselle
+     * vuote — e lo snapshot congelato alla firma resterebbe vuoto per
+     * sempre. Chiave = colonna, valore = etichetta mostrata all'utente.
+     *
+     * @var array<string,string>
+     */
+    public const AGENT_CONTRACT_REQUIRED_FIELDS = [
+        'fiscal_code'        => 'Codice fiscale',
+        'birth_date'         => 'Data di nascita',
+        'birth_place'        => 'Luogo di nascita',
+        'residence_address'  => 'Indirizzo di residenza',
+        'residence_zip'      => 'CAP di residenza',
+        'residence_city'     => 'Comune di residenza',
+        'residence_province' => 'Provincia di residenza',
+    ];
+
+    /**
+     * 2026-08-14 (richiesta di Laura): "quando un agente deve firmare il
+     * contratto dovrebbe anche essere obbligato a compilare i campi mancanti
+     * dal contratto". Solo il percorso "un agente ne registra un altro"
+     * (MlmPortalController::registraAgenteStore()) raccoglie questi dati; chi
+     * arriva dalla richiesta classica o da una promozione admin li ha vuoti,
+     * perche' ne' la registrazione (AuthController) ne' l'onboarding li
+     * chiedono.
+     *
+     * Oltre al campo vuoto consideriamo "da compilare" anche i due casi in
+     * cui il dato presente non e' utilizzabile nel modulo: codice fiscale non
+     * di 16 caratteri alfanumerici (la registrazione lo accetta libero,
+     * max:50) e data di nascita sotto i 18 anni (art. 6 delle Condizioni
+     * Generali) — stesse regole di registraAgenteStore().
+     *
+     * @return array<string,string> colonna => etichetta dei campi da compilare
+     */
+    public function missingAgentContractFields(): array
+    {
+        $missing = [];
+
+        foreach (self::AGENT_CONTRACT_REQUIRED_FIELDS as $field => $label) {
+            if (blank($this->{$field})) {
+                $missing[$field] = $label;
+            }
+        }
+
+        if (! isset($missing['fiscal_code']) && ! preg_match('/^[A-Za-z0-9]{16}$/', (string) $this->fiscal_code)) {
+            $missing['fiscal_code'] = self::AGENT_CONTRACT_REQUIRED_FIELDS['fiscal_code'];
+        }
+
+        if (! isset($missing['birth_date']) && $this->birth_date && $this->birth_date->isAfter(now()->subYears(18))) {
+            $missing['birth_date'] = self::AGENT_CONTRACT_REQUIRED_FIELDS['birth_date'];
+        }
+
+        return $missing;
+    }
+
+    /** True se l'anagrafica basta a compilare il contratto di nomina agente. */
+    public function hasCompleteAgentContractData(): bool
+    {
+        return $this->missingAgentContractFields() === [];
+    }
+
     public function mlmAgentReviewedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(self::class, 'mlm_agent_reviewed_by');

@@ -51,10 +51,27 @@
         .btn:disabled  { opacity: .45; cursor: not-allowed; }
         .actions { display: flex; flex-direction: column; gap: 14px; }
         .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+        /* 2026-08-14 — form dei dati anagrafici mancanti che il contratto stampa.
+           Regole scoped: gli input generici sopra sono tarati sul campo OTP. */
+        .banner-data { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        .banner-saved { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .data-note { font-size: 13px; color: #64748b; line-height: 1.6; margin: 0 0 20px; }
+        .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 20px; margin-bottom: 22px; }
+        .data-grid .span-2 { grid-column: span 2; }
+        .data-form input[type="text"], .data-form input[type="date"], .data-form input[type="tel"] {
+            width: 100%; max-width: none; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+            font-size: 13.5px; letter-spacing: normal; text-align: left; font-weight: 500; font-family: inherit;
+        }
+        .data-form input:focus { outline: none; border-color: #0f766e; }
+        .data-form input.is-invalid { border-color: #ef4444; }
+        .data-form .upper { text-transform: uppercase; }
+        .data-form label { font-size: 12.5px; }
+        .locked-note { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 16px 18px; font-size: 13.5px; color: #475569; line-height: 1.6; }
         @media (max-width: 600px) {
             .card-header, .card-body { padding: 18px 18px; }
             .contract-body { padding: 18px 18px; }
             input[type="text"] { max-width: 100%; }
+            .data-grid .span-2 { grid-column: span 1; }
         }
     </style>
 </head>
@@ -81,10 +98,27 @@
         </div>
     @endif
 
+    @if(session('data_saved'))
+        <div class="banner banner-saved">
+            <span class="banner-icon">✅</span>
+            <div>Dati salvati: il contratto qui sotto è ora compilato con la tua anagrafica. Rileggilo e procedi con la firma.</div>
+        </div>
+    @endif
+
     @if(session('otp_sent'))
         <div class="banner banner-otp-sent">
             <span class="banner-icon">✉️</span>
             <div>Codice OTP inviato a <strong>{{ session('otp_email') }}</strong> — valido 15 minuti.</div>
+        </div>
+    @endif
+
+    @if(! empty($missingFields))
+        <div class="banner banner-data">
+            <span class="banner-icon">📝</span>
+            <div>
+                Per firmare devi prima completare i dati che compaiono nel contratto:
+                <strong>{{ implode(', ', $missingFields) }}</strong>.
+            </div>
         </div>
     @endif
 
@@ -94,6 +128,88 @@
             <p>Versione {{ $contractVer }} — la tua richiesta è stata approvata. Leggi entrambi i documenti e firma per attivare il tuo profilo agente.</p>
         </div>
         <div class="card-body">
+
+            {{-- 2026-08-14: i dati anagrafici sono parte del modulo di adesione
+                 (art. 19 D. Lgs. 114/98). Se mancano li chiediamo QUI, prima
+                 di qualunque firma: il contratto sotto viene ricompilato con i
+                 valori salvati e solo allora compare la sezione OTP. --}}
+            @if(! empty($missingFields))
+                <div class="sign-section" style="border-top:none;padding-top:0;margin-bottom:8px;">
+                    <p class="sign-title">📝 Completa i tuoi dati per il contratto</p>
+                    <p class="data-note">
+                        Questi dati compaiono nel riquadro <em>“Dati del candidato Incaricato”</em> del contratto
+                        qui sotto e vengono congelati nel documento firmato: devono quindi essere corretti e
+                        completi prima della firma. Per legge l'incaricato di vendita deve avere almeno 18 anni
+                        ed essere residente in Italia (art. 6 delle Condizioni Generali).
+                    </p>
+
+                    <form method="POST" action="{{ route('portal.mlm.agent-contract.data') }}" class="data-form">
+                        @csrf
+                        <div class="data-grid">
+                            <div>
+                                <label for="fiscal_code">Codice fiscale *</label>
+                                <input type="text" id="fiscal_code" name="fiscal_code" required maxlength="16" minlength="16"
+                                       class="upper {{ $errors->has('fiscal_code') ? 'is-invalid' : '' }}"
+                                       value="{{ old('fiscal_code', $user->fiscal_code) }}" placeholder="RSSMRA85M01H501Z">
+                                @error('fiscal_code')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="birth_date">Data di nascita *</label>
+                                <input type="date" id="birth_date" name="birth_date" required
+                                       class="{{ $errors->has('birth_date') ? 'is-invalid' : '' }}"
+                                       value="{{ old('birth_date', $user->birth_date?->toDateString()) }}">
+                                @error('birth_date')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="birth_place">Luogo di nascita *</label>
+                                <input type="text" id="birth_place" name="birth_place" required maxlength="100"
+                                       class="{{ $errors->has('birth_place') ? 'is-invalid' : '' }}"
+                                       value="{{ old('birth_place', $user->birth_place) }}" placeholder="Roma">
+                                @error('birth_place')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="span-2">
+                                <label for="residence_address">Indirizzo di residenza *</label>
+                                <input type="text" id="residence_address" name="residence_address" required maxlength="190"
+                                       class="{{ $errors->has('residence_address') ? 'is-invalid' : '' }}"
+                                       value="{{ old('residence_address', $user->residence_address) }}" placeholder="Via Roma, 10">
+                                @error('residence_address')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="residence_zip">CAP *</label>
+                                <input type="text" id="residence_zip" name="residence_zip" required maxlength="10"
+                                       class="{{ $errors->has('residence_zip') ? 'is-invalid' : '' }}"
+                                       value="{{ old('residence_zip', $user->residence_zip) }}" placeholder="00100">
+                                @error('residence_zip')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="residence_city">Comune di residenza *</label>
+                                <input type="text" id="residence_city" name="residence_city" required maxlength="100"
+                                       class="{{ $errors->has('residence_city') ? 'is-invalid' : '' }}"
+                                       value="{{ old('residence_city', $user->residence_city) }}" placeholder="Roma">
+                                @error('residence_city')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="residence_province">Provincia *</label>
+                                <input type="text" id="residence_province" name="residence_province" required maxlength="2" minlength="2"
+                                       class="upper {{ $errors->has('residence_province') ? 'is-invalid' : '' }}"
+                                       value="{{ old('residence_province', $user->residence_province) }}" placeholder="RM">
+                                @error('residence_province')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                            <div>
+                                <label for="phone">Telefono</label>
+                                <input type="tel" id="phone" name="phone" maxlength="30"
+                                       class="{{ $errors->has('phone') ? 'is-invalid' : '' }}"
+                                       value="{{ old('phone', $user->phone) }}" placeholder="+39 333 1234567">
+                                @error('phone')<div class="error-msg">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">💾 Salva i dati e prosegui</button>
+                    </form>
+                </div>
+
+                <hr class="divider">
+            @endif
 
             <div class="contract-wrapper">
                 <div class="contract-toolbar">
@@ -120,7 +236,15 @@
             <div class="sign-section">
                 <p class="sign-title">✍️ Firma digitale con OTP email</p>
 
-                @if(! session('otp_sent'))
+                @if(! empty($missingFields))
+                    {{-- Firma non disponibile finche' il modulo non e' completo:
+                         sendOtp()/sign() rifiutano comunque lato server. --}}
+                    <div class="locked-note">
+                        🔒 La firma si sblocca dopo aver compilato i tuoi dati anagrafici nel riquadro in alto
+                        (<strong>{{ implode(', ', $missingFields) }}</strong>). Il contratto verrà ricompilato
+                        con i dati salvati e potrai firmarlo subito dopo.
+                    </div>
+                @elseif(! session('otp_sent'))
                     <p class="sign-subtitle">
                         Dichiaro di aver letto e accettato integralmente il contratto di nomina ad agente KNM e le Direttive e Procedure Kosmos riportate sopra.<br>
                         Clicca il pulsante per ricevere un codice di conferma su <strong>{{ $user->email }}</strong>.

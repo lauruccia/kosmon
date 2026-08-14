@@ -59,6 +59,17 @@ class MlmAgentContractGateTest extends TestCase
             'mlm_role'                 => 'cliente',
             'mlm_agent_request_status' => 'approved',
             'mlm_agent_reviewed_at'    => now(),
+            // 2026-08-14: senza anagrafica completa la firma è bloccata
+            // (User::missingAgentContractFields()). Qui si testa il gate del
+            // middleware, non la compilazione dei dati: quella è coperta da
+            // MlmAgentRequestFlowTest.
+            'fiscal_code'              => strtoupper(Str::random(16)),
+            'birth_date'               => '1985-08-01',
+            'birth_place'              => 'Roma',
+            'residence_address'        => 'Via Roma 10',
+            'residence_zip'            => '00100',
+            'residence_city'           => 'Roma',
+            'residence_province'       => 'RM',
         ]);
         $user->forceFill(['email_verified_at' => now()])->save();
         $this->makeAccountFor($user);
