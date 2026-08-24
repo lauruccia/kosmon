@@ -422,7 +422,7 @@ Ogni fase è rilasciabile da sola: in nessun momento il sito resta rotto.
 |---|---|---|---|
 | **0a** | ~~Test di regressione sull'acquisto attuale~~ — **FATTA** (23/08): `tests/Feature/ShopPurchaseRegressionTest.php`, 19 test | kmoney-app | piccola |
 | **0b** | ~~Snapshot ordini sui `transfers`, allentare la FK `listing_id`~~ — **FATTA** (24/08): migrazione + backfill + `Transfer::order_label`, 10 test | kmoney-app | piccola |
-| **1** | Passport + "Accedi con KMoney" + pagina consenso | kmoney-app | media |
+| **1** | ~~SSO "Accedi con KMoney" + pagina consenso~~ — **FATTA** (24/08): server OAuth2 **fatto in casa** invece di Passport (vedi `FASE1_MOTORE_OAUTH.md`), 2 tabelle, `users.uuid`, `/userinfo`, 58 test | kmoney-app | media |
 | **2** | `PaymentMandate`, endpoint charge, pagina "App collegate", webhook stato azienda | kmoney-app | media |
 | **3** | Nuova app kshop: catalogo, varianti, immagini, **carrelli per venditore**, checkout, quota EUR, resi | kshop | **grande** |
 | **4** | Export/import dati + doppio binario (shop interno in sola lettura) | entrambe | media |
@@ -463,21 +463,57 @@ Senza gruppo pilota, il doppio binario diventa l'unica protezione che hai.
 
 ---
 
+### Nota alla fase 1: perché non Passport (24/08)
+
+Il piano diceva "Laravel Passport". La scelta è stata cambiata dopo aver
+guardato **come si deploya davvero** questa produzione: `vendor/` non è nel
+repo e `.cpanel.yml` non esegue mai `composer install`, quindi ogni libreria
+nuova va caricata a mano su due server, e su kmoney.it non c'è né SSH né
+Terminale. Per Passport servivano **9 pacchetti nuovi**, 5 tabelle e le chiavi
+RSA; e siccome lì il checkout git *è* la cartella viva, un deploy fuori ordine
+avrebbe buttato giù **il sito intero**, non solo lo shop.
+
+Il motore scritto in casa fa una cosa sola — `authorization_code` con PKCE,
+più il rinnovo — e tiene il deploy com'è oggi: solo codice. La scelta resta
+**reversibile**: gli endpoint hanno i nomi e le risposte dello standard, quindi
+kshop userà una libreria client normale e non saprà mai cosa c'è dietro.
+Il confronto completo, con i numeri, è in `FASE1_MOTORE_OAUTH.md`.
+
+Cosa esiste ora in kmoney-app, pronto per kshop:
+
+| | |
+|---|---|
+| `GET /oauth/authorize` | schermata di consenso, dietro tutta la catena del portale |
+| `POST /api/oauth/token` | scambio codice→token e rinnovo (PKCE S256 obbligatorio) |
+| `POST /api/oauth/token/revoke` | revoca: spegne l'intera catena di token |
+| `GET /api/v1/userinfo` | chi è l'utente: uuid, azienda, numero di conto, stato commerciale. **Mai il saldo.** |
+
+Scope: `profile`, `account.read`, `orders.write`, `mandate`.
+Configurazione: `config/oauth.php` + quattro variabili nel `.env` di ciascun
+server. Finché `OAUTH_KSHOP_CLIENT_ID` è vuoto, non esiste nessun client e non
+può collegarsi nessuno — ed è anche l'interruttore per spegnere tutto.
+
+---
+
 ## 11. Stato del piano
 
 **Tutte le decisioni di progetto sono chiuse** (le 11 in cima al documento).
 Non restano domande bloccanti.
 
-**La fase 0 è chiusa.** 0a (test di regressione sull'acquisto, 23/08) e 0b
+**Le fasi 0 e 1 sono chiuse.** 0a (test di regressione sull'acquisto, 23/08) e 0b
 (snapshot ordini sui movimenti, 24/08) sono fatte: la banca ha ora sia la rete
 di sicurezza per accorgersi se qualcosa si rompe, sia uno storico ordini che
 sopravvive alla sparizione del catalogo. Nessuna delle due ha cambiato il
 comportamento visibile del sito.
 
-Il prossimo passo è una scelta fra **fase 1** (Passport + "Accedi con KMoney") e
-**fase 2** (mandato di pagamento). L'ordine naturale è 1 → 2, perché il mandato
-si concede a un client OAuth e senza Passport non c'è un client a cui
-concederlo. Farle in ordine inverso significherebbe scrivere il mandato contro
-un'identità provvisoria e poi rifarlo.
+Anche la **fase 1** è fatta (24/08): l'identità c'è, e con essa il client a cui
+un domani si concederà il mandato.
+
+Il prossimo passo è la **fase 2**: `PaymentMandate`, l'endpoint di addebito, la
+pagina "App collegate" nel portale e il webhook sullo stato dell'azienda. Tutti
+i pezzi su cui poggia esistono già: gli scope (`mandate` è previsto e validato),
+lo step-up a 15 minuti per concederlo, e `TransferBookingService` che continuerà
+a fare il lavoro vero — cashback, commissioni, MLM e partita doppia restano
+identici a oggi.
 
 Da qui in poi non si decide più architettura, ma quando partire.

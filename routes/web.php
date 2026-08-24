@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\OAuth\AuthorizationController as OAuthAuthorizationController;
 use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\SubAccountLimitRequestController;
@@ -377,6 +378,21 @@ Route::middleware(['auth', 'verified', 'twofactor'])->prefix('contratto')->name(
     Route::get('/mio-contratto', [ContractController::class, 'viewSigned'])->name('view');
     Route::get('/scarica',       [ContractController::class, 'downloadSigned'])->name('download');
 });
+
+// ── "Accedi con KMoney" — schermata di consenso OAuth2 ──────────────────────
+// Sta dietro alla stessa catena del portale, con in più `not.suspended`: se
+// l'azienda è sospesa, l'email non è verificata, il 2FA non è passato o il
+// contratto non è firmato, l'utente non arriva nemmeno a vedere il consenso —
+// e quindi non entra nell'applicazione collegata. Nessun controllo duplicato
+// dall'altra parte. Il throttle è basso di proposito: è una pagina che una
+// persona vera visita qualche volta in tutto.
+Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract', 'not.suspended', 'throttle:20,1'])
+    ->prefix('oauth')
+    ->group(function () {
+        Route::get('/authorize', [OAuthAuthorizationController::class, 'show'])->name('oauth.authorize');
+        Route::post('/authorize', [OAuthAuthorizationController::class, 'approve'])->name('oauth.authorize.approve');
+        Route::delete('/authorize', [OAuthAuthorizationController::class, 'deny'])->name('oauth.authorize.deny');
+    });
 
 Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contract', 'contract'])->group(function () {
 

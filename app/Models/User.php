@@ -203,6 +203,20 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
     ];
 
+    /**
+     * Identificativo pubblico dell'utente.
+     *
+     * Serve da quando l'identità esce dall'applicazione con "Accedi con
+     * KMoney": nel token che legge un'altra app va l'uuid, mai l'id numerico.
+     * Vale per tutti gli utenti, non solo per chi usa l'SSO.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            $user->uuid ??= (string) \Illuminate\Support\Str::uuid();
+        });
+    }
+
     protected function casts(): array
     {
         return [

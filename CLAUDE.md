@@ -96,6 +96,7 @@ app/
 | `not.suspended` | EnsureCompanyNotSuspended |
 | `step.up` | RequireStepUp |
 | `contract` | EnsureContractSigned |
+| `oauth.token` | OAuthTokenAuth ("Accedi con KMoney", scope: `oauth.token:orders.write`) |
 
 ### Stack middleware portale autenticato
 
@@ -285,6 +286,28 @@ POST /api/v1/accounts/{account}/transfer
 GET  /api/v1/accounts/{account}
 GET  /api/openapi.json   (spec pubblica, no auth)
 ```
+
+### "Accedi con KMoney" — SSO OAuth2 (fase 1 dello shop esterno)
+
+Server OAuth2 **scritto in casa** (niente Passport: `vendor/` non è nel repo e il
+deploy cPanel non lancia `composer install` — vedi `FASE1_MOTORE_OAUTH.md`).
+Un solo flusso: `authorization_code` + **PKCE S256 obbligatorio**, con rinnovo a
+rotazione.
+
+```
+GET  /oauth/authorize            consenso (web, catena middleware del portale)
+POST /api/oauth/token            codice -> token, e refresh_token
+POST /api/oauth/token/revoke     revoca (spegne l'intera catena)
+GET  /api/v1/userinfo            identità dell'utente collegato (mai il saldo)
+```
+
+- Client in `config/oauth.php` + `.env` (`OAUTH_KSHOP_*`), **non a database**.
+- Scope: `profile`, `account.read`, `orders.write`, `mandate`.
+- Codici e token salvati **solo come SHA-256**, come `api_tokens`.
+- `chain_uuid`: riusare un codice o un refresh già speso revoca tutta la catena.
+- Tabelle: `oauth_authorization_codes`, `oauth_access_tokens`.
+- Motore: `app/Services/OAuthService.php` (le regole di sicurezza sono elencate
+  in cima al file, e ognuna ha il suo test).
 
 ---
 

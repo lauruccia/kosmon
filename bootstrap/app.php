@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
             'twofactor'  => \App\Http\Middleware\TwoFactorChallenge::class,
             'api.token'  => \App\Http\Middleware\ApiTokenAuth::class,
+            'oauth.token' => \App\Http\Middleware\OAuthTokenAuth::class,
             'not.suspended' => \App\Http\Middleware\EnsureCompanyNotSuspended::class,
             'step.up'       => \App\Http\Middleware\RequireStepUp::class,
             'contract'      => \App\Http\Middleware\EnsureContractSigned::class,
