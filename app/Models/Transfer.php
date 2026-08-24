@@ -87,6 +87,13 @@ class Transfer extends Model
         'related_transfer_id',
         'listing_id',
         'quantity',
+        // Snapshot dell'ordine (PIANO_SHOP_ESTERNO.md §3.1, migrazione
+        // 2026_08_24_140000): il movimento si porta dietro il titolo di cosa e'
+        // stato comprato, cosi' resta leggibile anche quando il catalogo non
+        // vivra' piu' qui. La quantita' e' quella gia' presente in `quantity`.
+        'external_order_uuid',
+        'order_title',
+        'order_source',
         'refunded_at',
         'admin_action',
         'description',
@@ -109,6 +116,18 @@ class Transfer extends Model
         'quantity' => 'integer',
         'shipping_ky_amount' => 'integer',
     ];
+
+    /**
+     * Provenienza di un ordine shop (colonna `order_source`).
+     *
+     * - INTERNAL: lo shop dentro kmoney-app, quello di oggi.
+     * - KSHOP: il negozio esterno su kosmoshop.it (PIANO_SHOP_ESTERNO.md).
+     *
+     * NULL = movimento precedente allo snapshot, oppure non un ordine.
+     */
+    public const ORDER_SOURCE_INTERNAL = 'internal_shop';
+
+    public const ORDER_SOURCE_KSHOP = 'kshop';
 
     /**
      * Marker (admin_action) dei transfer tecnici di "apertura ledger" generati dal
@@ -253,6 +272,25 @@ class Transfer extends Model
     public function listing(): BelongsTo
     {
         return $this->belongsTo(Listing::class);
+    }
+
+    /**
+     * Come si chiama la cosa comprata, per mostrarla in lista o su una ricevuta.
+     *
+     * Vince sempre lo snapshot (`order_title`), perche' e' il titolo com'era il
+     * giorno dell'acquisto: se il venditore rinomina il prodotto, un ordine di
+     * sei mesi fa non deve cambiare nome sotto gli occhi del cliente. Il join su
+     * `listings` resta solo come rete di sicurezza per i movimenti anteriori
+     * alla migrazione 2026_08_24_140000, e sparira' con lo shop interno.
+     *
+     * ATTENZIONE nelle liste: il fallback tocca la relazione `listing`, quindi
+     * va eager-loaded (`->with('listing')`) o diventa una query per riga.
+     */
+    public function getOrderLabelAttribute(): ?string
+    {
+        $snapshot = trim((string) $this->order_title);
+
+        return $snapshot !== '' ? $snapshot : $this->listing?->title;
     }
 
     /**

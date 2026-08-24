@@ -344,6 +344,12 @@ class ListingController extends Controller
                     'description'     => $description,
                     'listing_id'      => $lockedListing->id,
                     'quantity'        => $quantity,
+                    // Snapshot dell'ordine (PIANO_SHOP_ESTERNO.md §3.1): il titolo
+                    // viene congelato qui, così il movimento resta leggibile anche
+                    // se il prodotto viene rinominato o cancellato — e domani anche
+                    // senza la tabella `listings`.
+                    'order_title'     => $lockedListing->title,
+                    'order_source'    => Transfer::ORDER_SOURCE_INTERNAL,
                     // Snapshot indirizzo al momento dell'acquisto: se il cliente
                     // cambia poi l'indirizzo sul profilo, l'ordine già fatto resta
                     // storicamente corretto (stesso ragionamento del prezzo).
@@ -773,7 +779,10 @@ class ListingController extends Controller
         $baseQuery = Transfer::query()
             ->where('kind', 'portal_marketplace_order')
             ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
-                $scope->whereHas('listing', fn ($l) => $l->where('title', 'like', "%{$q}%"))
+                // order_title per primo: è lo snapshot, l'unico campo che
+                // continuerà a esistere quando il catalogo sarà fuori da qui.
+                $scope->where('order_title', 'like', "%{$q}%")
+                      ->orWhereHas('listing', fn ($l) => $l->where('title', 'like', "%{$q}%"))
                       ->orWhereHas('fromAccount.ownerUser', fn ($u) => $u->where('name', 'like', "%{$q}%"))
                       ->orWhereHas('fromAccount.company', fn ($c) => $c->where('name', 'like', "%{$q}%"))
                       ->orWhereHas('toAccount.company', fn ($c) => $c->where('name', 'like', "%{$q}%"));

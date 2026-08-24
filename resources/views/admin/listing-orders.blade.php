@@ -112,10 +112,16 @@
                         <span style="font-size:11px;color:var(--ink-muted);">{{ $order->booked_at?->format('H:i') }}</span>
                     </td>
                     <td>
+                        {{-- Il nome mostrato è sempre lo snapshot dell'ordine
+                             (Transfer::order_label): il link al prodotto c'è solo
+                             finché il prodotto esiste ancora a catalogo. --}}
                         @if($order->listing)
                             <a href="{{ route('portal.shop.show', $order->listing) }}" target="_blank" style="font-weight:700;color:var(--primary);text-decoration:none;">
-                                {{ $order->listing->title }}
+                                {{ $order->order_label }}
                             </a>
+                        @elseif($order->order_label)
+                            <span style="font-weight:700;">{{ $order->order_label }}</span>
+                            <div style="font-size:11px;color:var(--ink-muted);">non più a catalogo</div>
                         @else
                             <span style="color:var(--ink-muted);">Prodotto rimosso</span>
                         @endif
@@ -209,7 +215,7 @@
         <dialog id="refund-modal-{{ $order->id }}" style="border:none;border-radius:16px;padding:28px 32px;max-width:440px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.15);">
             <h4 style="margin:0 0 6px;">Storno ordine</h4>
             <p style="margin:0 0 16px;font-size:13px;color:var(--ink-soft);">
-                {{ $order->listing->title ?? 'Prodotto rimosso' }} —
+                {{ $order->order_label ?? 'Prodotto rimosso' }} —
                 {{ ky_format($order->amount) }} {{ $order->currency_code }}<br>
                 Cliente <strong>{{ $order->fromAccount?->ownerUser?->name ?? $order->fromAccount?->company?->name ?? 'N/D' }}</strong>
                 → azienda <strong>{{ $order->toAccount?->company?->name ?? 'N/D' }}</strong>

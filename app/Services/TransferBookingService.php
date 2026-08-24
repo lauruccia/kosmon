@@ -663,6 +663,10 @@ class TransferBookingService
                 'description'     => $attributes['description'] ?? null,
                 'listing_id'      => $attributes['listing_id'] ?? null,
                 'quantity'        => $attributes['quantity'] ?? null,
+                // Snapshot ordine — pass-through come listing_id/quantity.
+                'external_order_uuid' => $attributes['external_order_uuid'] ?? null,
+                'order_title'         => $attributes['order_title'] ?? null,
+                'order_source'        => $attributes['order_source'] ?? null,
                 'shipping_recipient_name' => $attributes['shipping_recipient_name'] ?? null,
                 'shipping_address'        => $attributes['shipping_address'] ?? null,
                 'shipping_city'           => $attributes['shipping_city'] ?? null,
@@ -775,6 +779,10 @@ class TransferBookingService
             'description' => $attributes['description'] ?? null,
             'listing_id' => $attributes['listing_id'] ?? null,
             'quantity' => $attributes['quantity'] ?? null,
+            // Snapshot ordine — pass-through come listing_id/quantity.
+            'external_order_uuid' => $attributes['external_order_uuid'] ?? null,
+            'order_title'         => $attributes['order_title'] ?? null,
+            'order_source'        => $attributes['order_source'] ?? null,
             'shipping_recipient_name' => $attributes['shipping_recipient_name'] ?? null,
             'shipping_address'        => $attributes['shipping_address'] ?? null,
             'shipping_city'           => $attributes['shipping_city'] ?? null,
