@@ -483,6 +483,59 @@ class VariantsPhaseDTest extends TestCase
         $this->assertStringContainsString('25,00 KY', $html, 'La XL costa il prezzo base più il suo delta.');
     }
 
+    public function test_col_saldo_insufficiente_le_varianti_si_vedono_lo_stesso(): void
+    {
+        // Segnalato da Laura il 25/08/2026 su /shop/123: il selettore stava
+        // SOLO dentro il form di acquisto, e quel form compare solo se il
+        // saldo basta. Chi aveva 71 KY su un prodotto da 100 vedeva
+        // "Ricarica il tuo conto" e un "Aggiungi al carrello" nudo — delle
+        // taglie nemmeno l'ombra.
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 1000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['M', 'XL']);
+        $media  = $this->makeVariante($listing, [$taglie['M']]);
+        $this->makeVariante($listing, [$taglie['XL']], deltaKy: 1000);
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Saldo insufficiente', $html, 'Con 10,00 KY su un prodotto da 100,00 il saldo non basta davvero.');
+        $this->assertStringContainsString('name="variant_id"', $html, 'E le taglie si devono vedere lo stesso.');
+        $this->assertStringContainsString('110,00 KY', $html, 'Anche quella che costa di più.');
+
+        // E il bottone del carrello dev'essere davvero utilizzabile: prima
+        // partiva senza variante e sbatteva contro "Scegli una variante".
+        $this->actingAs($buyer)
+            ->post(route('portal.cart.add', $listing), ['variant_id' => $media->id, 'quantity' => 1])
+            ->assertSessionMissing('portal_error');
+
+        $this->assertSame(1, Cart::attivoPer($buyerAccount)->items()->count());
+    }
+
+    public function test_il_saldo_richiesto_si_misura_sulla_variante_piu_economica(): void
+    {
+        // Il prezzo base non è quello che si paga: se la S costa meno del
+        // prodotto, chiedere il prezzo base vorrebbe dire negare l'acquisto a
+        // chi la S se la può permettere.
+        [$buyer] = $this->makeBuyer(saldo: 9000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 100);
+
+        $taglie  = $this->makeAttributo('Taglia', ['S', 'XL']);
+        $this->makeVariante($listing, [$taglie['S']], deltaKy: -2000);   // 80,00
+        $this->makeVariante($listing, [$taglie['XL']], deltaKy: 2000);   // 120,00
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Saldo insufficiente', $html, '90,00 bastano per la S da 80,00.');
+        $this->assertStringContainsString('Acquista la variante scelta', $html);
+        // Il prezzo in cima dev'essere "da 80,00", non "100,00" secchi: su un
+        // prodotto in cui la S costa 80 e la XL 120, il prezzo base non lo
+        // paga nessuno.
+        $this->assertMatchesRegularExpression('/>da<\/div>\s*<div[^>]*>\s*80,00\s*<\/div>/', $html);
+    }
+
     public function test_una_combinazione_esaurita_si_vede_ma_non_si_sceglie(): void
     {
         [$buyer] = $this->makeBuyer(saldo: 100000);

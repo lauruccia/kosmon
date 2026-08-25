@@ -154,9 +154,6 @@
         // effective_ky_amount (non ky_amount, 2026-08-13): se il prodotto ha
         // un'offerta attiva, il prezzo/percentuale da considerare sono quelli
         // dell'offerta — vedi Listing::activeOffer().
-        $requiredKy   = $listing->effective_ky_amount + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
-        $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
-
         // Prodotti variabili (fase D, 25/08/2026): se il prodotto ha
         // combinazioni, il prezzo mostrato in cima e' quello della piu'
         // economica ancora disponibile, e il bottone resta spento finche' non
@@ -165,13 +162,37 @@
             ? $listing->variantiAttive->sortBy(fn ($v) => $v->prezzoEffettivo())->values()
             : collect();
         $variantiDisponibili = $varianti->filter(fn ($v) => $v->isDisponibile());
+        // Le varianti sono gia' ordinate per prezzo: la prima disponibile e' la
+        // piu' economica che si puo' davvero comprare.
+        $variantePiuEconomica = $variantiDisponibili->first();
+
+        // Il saldo che serve DAVVERO. Su un prodotto variabile il prezzo base
+        // non e' quello che si paga: se la S costa meno del prezzo del
+        // prodotto, chiedere il prezzo base vorrebbe dire dire "saldo
+        // insufficiente" a chi la S se la puo' permettere (25/08/2026).
+        $prezzoDiIngresso = $variantePiuEconomica
+            ? $variantePiuEconomica->prezzoEffettivo()
+            : $listing->effective_price_ky;
+        $requiredKy = ($variantePiuEconomica
+                ? $variantePiuEconomica->quotaKy()
+                : $listing->effective_ky_amount)
+            + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
+        $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
     @endphp
     <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
             <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:16px 0 4px;">
-                <div style="font-size:36px;font-weight:300;color:#0c4a86;letter-spacing:.06em;">
-                    {{ ky_format($listing->effective_price_ky) }}
+                {{-- "da" davanti al prezzo quando le combinazioni costano
+                     diverso: 100,00 secchi su un prodotto in cui la S costa 90
+                     e la XL 110 e' un'informazione sbagliata. --}}
+                @if($varianti->count() > 1)
+                    <div style="font-size:14px;color:rgba(255,255,255,.65);">da</div>
+                @endif
+                {{-- Il pannello e' scuro (account-hero): il blu #0c4a86 di prima
+                     ci spariva dentro (segnalato da Laura il 25/08/2026). --}}
+                <div style="font-size:36px;font-weight:300;color:#fff;letter-spacing:.06em;">
+                    {{ ky_format($prezzoDiIngresso) }}
                 </div>
                 @if($listing->is_on_offer)
                     <div style="font-size:16px;color:rgba(255,255,255,.55);text-decoration:line-through;">
@@ -180,7 +201,7 @@
                 @endif
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-                <span style="font-size:14px;color:#64748b;">KY (KMoney)</span>
+                <span style="font-size:14px;color:rgba(255,255,255,.7);">KY (KMoney)</span>
                 <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $listing->effective_ky_badge_color }}">
                     {{ $listing->effective_ky_badge_label }}
                 </span>
@@ -252,9 +273,16 @@
                         Ricarica il tuo conto
                     </a>
                     {{-- Il carrello resta possibile anche senza saldo: si mette
-                         da parte adesso e si ricarica con calma. --}}
+                         da parte adesso e si ricarica con calma. Il selettore
+                         della variante DEVE stare anche qui: senza, chi non ha
+                         abbastanza KY non vedeva le taglie da nessuna parte e
+                         il bottone finiva contro "Scegli una variante prima di
+                         aggiungere il prodotto al carrello" (25/08/2026). --}}
                     <form method="POST" action="{{ route('portal.cart.add', $listing) }}">
                         @csrf
+                        @if($varianti->isNotEmpty())
+                            @include('portal.partials.variant-select', ['varianti' => $varianti])
+                        @endif
                         <input type="hidden" name="quantity" value="1">
                         <button type="submit" class="cta-outline">Aggiungi al carrello</button>
                     </form>
@@ -263,22 +291,7 @@
                         @csrf
 
                         @if($varianti->isNotEmpty())
-                        {{-- Prodotto variabile: si sceglie la combinazione prima
-                             di tutto. Le combinazioni esaurite restano in
-                             elenco, barrate: chi cerca la M vuole sapere che la
-                             M esiste ma e' finita, non credere che non la fai. --}}
-                        <div class="qty-field">
-                            <label>Scegli la variante</label>
-                            <select name="variant_id" class="variant-select" required>
-                                <option value="">— seleziona —</option>
-                                @foreach($varianti as $variante)
-                                    <option value="{{ $variante->id }}" @disabled(! $variante->isDisponibile())>
-                                        {{ $variante->etichetta_corta }}
-                                        — {{ ky_format($variante->prezzoEffettivo()) }} KY{{ $variante->isDisponibile() ? '' : ' (esaurita)' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                            @include('portal.partials.variant-select', ['varianti' => $varianti])
                         @endif
 
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
