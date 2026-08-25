@@ -167,6 +167,19 @@ class Account extends Model
             if ($account->wasChanged('available_balance')) {
                 $account->syncListingsKyPercentage();
             }
+
+            // 25/08/2026 (fase 2b, §3.2 del piano): la stessa notizia che qui
+            // sopra viene scritta a mano nel catalogo interno va detta anche
+            // alle applicazioni del circuito, che il catalogo ce l'hanno a casa
+            // loro. Il calcolo resta qui — chi riceve esegue soltanto.
+            //
+            // Tre cose cambiano lo stato commerciale, non una: il saldo (un
+            // movimento), il tetto massimo (l'admin che lo alza o lo abbassa) e
+            // lo stato del conto (una sospensione). Guardare solo il saldo
+            // lascerebbe kshop convinto che un'azienda sospesa possa vendere.
+            if ($account->wasChanged(['available_balance', 'max_balance', 'status'])) {
+                $account->notifyTradingStatusChanged();
+            }
         });
     }
 
@@ -572,6 +585,90 @@ class Account extends Model
             ->update([
                 'ky_percentage' => DB::raw('desired_ky_percentage'),
             ]);
+    }
+
+    // ---- Stato commerciale, detto in una parola sola ----------------------
+
+    /** Vende come vuole: sceglie il mix KY fra 25, 50, 75 e 100. */
+    public const TRADING_STATUS_FREE = 'free';
+
+    /** Saldo sotto zero: può vendere, ma solo al 100% KY. */
+    public const TRADING_STATUS_IN_DEBIT = 'in_debit';
+
+    /** Tetto massimo raggiunto: può solo comprare. */
+    public const TRADING_STATUS_AT_CEILING = 'at_ceiling';
+
+    /** Conto non attivo: non vende e non incassa. */
+    public const TRADING_STATUS_SUSPENDED = 'suspended';
+
+    /**
+     * Le tre regole commerciali (`isInDebit`, `isAtCeiling`, conto sospeso)
+     * ridotte a una parola sola, perché è quello che serve a chi il catalogo
+     * ce l'ha altrove: non può chiamare `isInDebit()` da un'altra applicazione.
+     *
+     * L'ordine di precedenza è lo stesso di `commercialStatusBadge()`, e non è
+     * arbitrario: un conto sospeso non vende comunque, e chi ha toccato il
+     * tetto non vende nemmeno al 100% KY.
+     */
+    public function tradingStatus(): string
+    {
+        return self::tradingStatusFor(
+            (string) $this->status,
+            (int) $this->available_balance,
+            $this->max_balance === null ? null : (int) $this->max_balance,
+        );
+    }
+
+    /**
+     * Lo stesso calcolo su valori sciolti, per poterlo fare anche sul PASSATO:
+     * `getOriginal()` restituisce i valori di prima del salvataggio, ed è così
+     * che si capisce se lo stato è davvero cambiato invece di spedire un
+     * webhook a ogni singolo movimento.
+     */
+    public static function tradingStatusFor(string $status, int $availableBalance, ?int $maxBalance): string
+    {
+        if ($status !== 'active') {
+            return self::TRADING_STATUS_SUSPENDED;
+        }
+
+        if ($maxBalance !== null && $availableBalance >= $maxBalance) {
+            return self::TRADING_STATUS_AT_CEILING;
+        }
+
+        if ($availableBalance < 0) {
+            return self::TRADING_STATUS_IN_DEBIT;
+        }
+
+        return self::TRADING_STATUS_FREE;
+    }
+
+    /**
+     * Avvisa le applicazioni del circuito che questa azienda ha cambiato stato
+     * commerciale — ma solo se è cambiato davvero.
+     *
+     * Il filtro non è un'ottimizzazione: senza, ogni movimento di ogni azienda
+     * genererebbe un webhook, e un canale che grida sempre è un canale che
+     * nessuno ascolta.
+     */
+    public function notifyTradingStatusChanged(): void
+    {
+        if (! $this->isPrimaryBusinessAccount()) {
+            return;
+        }
+
+        $precedente = self::tradingStatusFor(
+            (string) ($this->getOriginal('status') ?? $this->status),
+            (int) ($this->getOriginal('available_balance') ?? 0),
+            $this->getOriginal('max_balance') === null ? null : (int) $this->getOriginal('max_balance'),
+        );
+
+        $attuale = $this->tradingStatus();
+
+        if ($precedente === $attuale) {
+            return;
+        }
+
+        app(\App\Services\TradingStatusNotifier::class)->announce($this, $precedente, $attuale);
     }
 
     /**

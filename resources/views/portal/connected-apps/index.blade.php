@@ -16,6 +16,12 @@
         </div>
     @endif
 
+    @if(session('portal_error'))
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#b91c1c;">
+            {{ session('portal_error') }}
+        </div>
+    @endif
+
     @if($errors->has('max_per_transaction'))
         <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#b91c1c;">
             {{ $errors->first('max_per_transaction') }}
@@ -41,6 +47,17 @@
                         @endif
                     </div>
                 </div>
+                @if($mandate->isSuspended() && ! $mandate->isRevoked() && ! $mandate->isExpired())
+                    {{-- Sospeso dall'antifurto: senza questo bottone l'unica via
+                         d'uscita sarebbe revocare e rifare tutto da capo. --}}
+                    <form method="POST" action="{{ route('portal.connected-apps.reactivate', $mandate->uuid) }}" style="margin:0;">
+                        @csrf
+                        <button type="submit"
+                                style="padding:8px 16px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;font-size:13px;font-weight:600;color:#047857;cursor:pointer;">
+                            Riattiva
+                        </button>
+                    </form>
+                @endif
                 @if(! $mandate->isRevoked())
                     <form method="POST" action="{{ route('portal.connected-apps.revoke', $mandate->uuid) }}" style="margin:0;">
                         @csrf
@@ -62,7 +79,11 @@
                     <div style="font-weight:700;">{{ count($mandate->authorized_sellers ?? []) }}</div>
                 </div>
                 <div>
-                    <div style="color:var(--text-muted);margin-bottom:2px;">Pagamenti automatici</div>
+                    {{-- Non più "automatici": da quando c'è il ramo della
+                         conferma, questo contatore comprende anche gli acquisti
+                         che l'utente ha confermato a mano. L'elenco qui sotto
+                         distingue i due casi uno per uno. --}}
+                    <div style="color:var(--text-muted);margin-bottom:2px;">Addebiti</div>
                     <div style="font-weight:700;">{{ $mandate->charges_count }}</div>
                 </div>
                 <div>
@@ -103,9 +124,9 @@
 
     @if($charges->isNotEmpty())
         <section class="card card-pad" style="margin-top:24px;">
-            <div style="font-weight:700;font-size:15px;margin-bottom:4px;">Ultimi pagamenti automatici</div>
+            <div style="font-weight:700;font-size:15px;margin-bottom:4px;">Ultimi addebiti</div>
             <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;">
-                Solo quelli eseguiti senza conferma: gli acquisti che hai confermato tu stanno nei movimenti.
+                Quelli eseguiti in un clic e quelli che hai confermato tu, distinti riga per riga.
             </p>
 
             <div style="overflow-x:auto;">
@@ -127,6 +148,11 @@
                                     {{ $charge->order_title ?? 'Acquisto' }}
                                     @if($charge->quantity > 1)
                                         <span style="color:var(--text-muted);">(x{{ $charge->quantity }})</span>
+                                    @endif
+                                    @if($charge->mandatePaymentRequest)
+                                        <span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:600;">confermato da te</span>
+                                    @else
+                                        <span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:600;">in un clic</span>
                                     @endif
                                 </td>
                                 <td style="padding:10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;">

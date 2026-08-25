@@ -6,8 +6,10 @@ use App\Exceptions\Financial\FinancialException;
 use App\Exceptions\MandateException;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\MandatePaymentRequest;
 use App\Models\PaymentMandate;
 use App\Models\PaymentMandateCharge;
+use App\Models\PaymentRequest;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Notifications\MandateChargedNotification;
@@ -96,6 +98,43 @@ class PaymentMandateService
 
             return $mandate;
         });
+    }
+
+    /**
+     * Riaccende un mandato che l'antifurto aveva sospeso da solo.
+     *
+     * Non è il gemello della revoca: revocare è spegnere e resta senza
+     * cerimonie, riaccendere è ridare un permesso e sta dietro allo step-up,
+     * come alzare il tetto. È la stessa asimmetria di sempre.
+     *
+     * Un mandato revocato o scaduto non si riaccende: quelli si rifanno.
+     */
+    public function reactivate(PaymentMandate $mandate, ?string $ip = null): void
+    {
+        if ($mandate->isRevoked()) {
+            throw new RuntimeException('Un\'autorizzazione revocata non si riattiva: va concessa di nuovo dall\'applicazione.');
+        }
+
+        if ($mandate->isExpired()) {
+            throw new RuntimeException('Questa autorizzazione è scaduta: va concessa di nuovo dall\'applicazione.');
+        }
+
+        if (! $mandate->isSuspended()) {
+            return;
+        }
+
+        // `reactivated_at` non è un doppione dell'AuditLog: fa ripartire da qui
+        // la finestra dell'antifurto. Senza, i dieci addebiti che hanno fatto
+        // scattare la sospensione sarebbero ancora nell'ora appena passata, e
+        // il primo acquisto dopo la riattivazione la farebbe scattare di nuovo.
+        $mandate->forceFill([
+            'suspended_at'   => null,
+            'reactivated_at' => now(),
+        ])->save();
+
+        $this->audit('mandate.reactivated', $mandate->user_id, $mandate, $ip, [
+            'client_id' => $mandate->client_id,
+        ]);
     }
 
     public function revoke(PaymentMandate $mandate, ?string $ip = null, string $reason = 'user_request'): void
@@ -323,6 +362,251 @@ class PaymentMandateService
             'transfer' => $transfer,
             'repeated' => false,
         ];
+    }
+
+    // =========================================================================
+    // Il ramo della conferma (fase 2b)
+    // =========================================================================
+
+    /**
+     * L'addebito automatico non si poteva fare: prepara la richiesta di
+     * pagamento che l'utente confermerà a mano.
+     *
+     * Questo metodo è il motivo per cui il 402 di fase 2a diceva "chiediglielo"
+     * e non "rifiutato". Da qui esce un link, non un errore.
+     *
+     * Tre proprietà che vale la pena tenere a mente leggendo il codice:
+     *
+     *  - **una sola richiesta per ordine.** Se kshop ritenta l'addebito dieci
+     *    volte perché la rete va e viene, l'utente non riceve dieci link da
+     *    pagare per lo stesso carrello: la chiave di idempotenza è unica per
+     *    mandato e la seconda chiamata ritrova la prima richiesta.
+     *  - **una richiesta scaduta si rifà, la riga no.** Se il link è scaduto
+     *    senza essere pagato, la riga resta e punta a una richiesta nuova:
+     *    l'identità dell'ordine è la chiave di kshop, non il link.
+     *  - **l'indirizzo di ritorno è verificato prima di entrare qui dentro.**
+     *    È la stessa regola della pagina di consenso: finché non è nella lista
+     *    chiusa del client non si rimanda niente a nessuno.
+     *
+     * @param array{seller_account_number: string, amount: int, external_order_uuid?: ?string, order_title?: ?string, quantity?: int, idempotency_key: string} $payload
+     */
+    public function requestConfirmation(
+        PaymentMandate $mandate,
+        array $payload,
+        string $reason,
+        ?string $returnUrl = null,
+        ?string $ip = null,
+    ): MandatePaymentRequest {
+        $sellerNumber  = (string) $payload['seller_account_number'];
+        $sellerAccount = $this->resolveSellerAccount($sellerNumber);
+
+        if ($sellerAccount->id === $mandate->account_id) {
+            throw MandateException::badRequest(
+                'self_purchase',
+                'Non si può addebitare un acquisto sul conto del venditore stesso.'
+            );
+        }
+
+        $returnUrl = $this->validatedReturnUrl($mandate->client_id, $returnUrl);
+
+        $idempotencyKey = (string) $payload['idempotency_key'];
+        $amount         = (int) $payload['amount'];
+
+        if ($amount <= 0) {
+            throw MandateException::badRequest('invalid_amount', 'L\'importo deve essere maggiore di zero.');
+        }
+
+        $existing = MandatePaymentRequest::query()
+            ->where('payment_mandate_id', $mandate->id)
+            ->where('idempotency_key', $idempotencyKey)
+            ->with('paymentRequest')
+            ->first();
+
+        if ($existing !== null) {
+            $richiesta = $existing->paymentRequest;
+
+            // Già confermata, o ancora in piedi: si riusa. Non si genera mai un
+            // secondo link per lo stesso ordine.
+            if ($richiesta !== null && ($richiesta->isPaid() || $richiesta->isPending())) {
+                return $existing;
+            }
+
+            // Scaduta o annullata: l'ordine è lo stesso, il link no.
+            $nuova = $this->createConfirmationRequest($mandate, $sellerAccount, $payload, $returnUrl);
+
+            $existing->forceFill([
+                'payment_request_id' => $nuova->id,
+                'reason'             => $reason,
+                'return_url'         => $returnUrl,
+            ])->save();
+
+            return $existing->fresh(['paymentRequest']);
+        }
+
+        $richiesta = $this->createConfirmationRequest($mandate, $sellerAccount, $payload, $returnUrl);
+
+        $riga = MandatePaymentRequest::create([
+            'payment_mandate_id'    => $mandate->id,
+            'payment_request_id'    => $richiesta->id,
+            'client_id'             => $mandate->client_id,
+            'seller_account_number' => $sellerNumber,
+            'amount'                => $amount,
+            'external_order_uuid'   => $payload['external_order_uuid'] ?? null,
+            'order_title'           => $payload['order_title'] ?? null,
+            'quantity'              => max(1, (int) ($payload['quantity'] ?? 1)),
+            'idempotency_key'       => $idempotencyKey,
+            'reason'                => $reason,
+            'return_url'            => $returnUrl,
+        ]);
+
+        $this->audit('mandate.confirmation_requested', $mandate->user_id, $mandate, $ip, [
+            'client_id'            => $mandate->client_id,
+            'reason'               => $reason,
+            'amount'               => $amount,
+            'seller'               => $sellerNumber,
+            'payment_request_uuid' => $richiesta->uuid,
+        ]);
+
+        return $riga->setRelation('paymentRequest', $richiesta);
+    }
+
+    /**
+     * L'utente ha confermato: registra l'addebito come se fosse passato dal
+     * mandato, perché a tutti gli effetti è successo quello.
+     *
+     * La `PaymentMandateCharge` porta la STESSA `idempotency_key` che aveva
+     * chiesto kshop, e questo non è un dettaglio contabile: è ciò che permette
+     * al primo retry di kshop dopo la conferma di ricevere **200 con il
+     * movimento** invece di un secondo addebito o di un errore. Kshop non ha
+     * bisogno di sapere che c'è stata una conferma di mezzo.
+     */
+    public function recordConfirmedCharge(
+        MandatePaymentRequest $riga,
+        Transfer $transfer,
+        bool $authorizeSeller,
+        ?string $ip = null,
+    ): PaymentMandateCharge {
+        $mandate = $riga->mandate;
+
+        return DB::transaction(function () use ($riga, $mandate, $transfer, $authorizeSeller, $ip) {
+            $charge = PaymentMandateCharge::query()
+                ->where('payment_mandate_id', $mandate->id)
+                ->where('idempotency_key', $riga->idempotency_key)
+                ->first();
+
+            if ($charge === null) {
+                $charge = PaymentMandateCharge::create([
+                    'payment_mandate_id'    => $mandate->id,
+                    'transfer_id'           => $transfer->id,
+                    'amount'                => (int) $riga->amount,
+                    'seller_account_number' => $riga->seller_account_number,
+                    'external_order_uuid'   => $riga->external_order_uuid,
+                    'order_title'           => $riga->order_title,
+                    'quantity'              => (int) $riga->quantity,
+                    'idempotency_key'       => $riga->idempotency_key,
+                    'created_ip'            => $ip,
+                ]);
+
+                $mandate->forceFill([
+                    'charges_count' => $mandate->charges_count + 1,
+                    'last_used_at'  => now(),
+                ])->save();
+            }
+
+            $riga->forceFill([
+                'confirmed_at'              => $riga->confirmed_at ?? now(),
+                'payment_mandate_charge_id' => $charge->id,
+            ])->save();
+
+            // Il venditore entra fra gli autorizzati SOLO adesso, e solo se
+            // l'utente non ha tolto la spunta: è la protezione che sostituisce
+            // il plafond di periodo, e non deve poter crescere dal flusso di
+            // addebito. Su un mandato revocato o scaduto non si aggiunge
+            // niente: quel permesso non c'è più, e l'utente ha appena pagato
+            // una volta sola, a mano.
+            if ($authorizeSeller && $mandate->isActive()) {
+                $mandate->authorizeSeller($riga->seller_account_number);
+            }
+
+            $this->audit('mandate.charge_confirmed', $mandate->user_id, $mandate, $ip, [
+                'client_id'        => $mandate->client_id,
+                'reason'           => $riga->reason,
+                'amount'           => (int) $riga->amount,
+                'seller'           => $riga->seller_account_number,
+                'transfer_uuid'    => $transfer->uuid,
+                'seller_authorized' => $authorizeSeller && $mandate->isActive(),
+            ]);
+
+            return $charge;
+        });
+    }
+
+    /**
+     * La chiave di idempotenza che vede la banca per un ordine di kshop.
+     *
+     * Pubblica di proposito: la conferma a mano deve poter prenotare il
+     * movimento con **la stessa chiave** che userebbe l'addebito automatico,
+     * altrimenti lo stesso ordine potrebbe essere pagato due volte — una dalla
+     * conferma e una dal retry che arriva un attimo dopo.
+     */
+    public function transferKeyFor(PaymentMandate $mandate, string $idempotencyKey): string
+    {
+        return $this->transferIdempotencyKey($mandate, $idempotencyKey);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function createConfirmationRequest(
+        PaymentMandate $mandate,
+        Account $sellerAccount,
+        array $payload,
+        ?string $returnUrl,
+    ): PaymentRequest {
+        $minuti = (int) config('oauth.mandate.confirmation_ttl_minutes', 30);
+
+        return PaymentRequest::create([
+            'kind'               => PaymentRequest::KIND_KSHOP_ORDER,
+            'created_by_user_id' => $mandate->user_id,
+            'to_account_id'      => $sellerAccount->id,
+            'amount'             => (int) $payload['amount'],
+            'description'        => $this->describe(
+                $payload['order_title'] ?? null,
+                max(1, (int) ($payload['quantity'] ?? 1)),
+            ),
+            'external_reference' => $payload['external_order_uuid'] ?? null,
+            'return_url'         => $returnUrl,
+            'status'             => 'pending',
+            'expires_at'         => now()->addMinutes($minuti),
+        ]);
+    }
+
+    /**
+     * Stessa regola della pagina di consenso: l'indirizzo di ritorno o è nella
+     * lista chiusa del client, o non esiste. Un indirizzo non verificato non
+     * viene "ripulito" né accettato con riserva — viene rifiutato, perché è da
+     * lì che nascono gli open redirect.
+     */
+    private function validatedReturnUrl(string $clientId, ?string $returnUrl): ?string
+    {
+        if ($returnUrl === null || $returnUrl === '') {
+            return null;
+        }
+
+        try {
+            $client = app(OAuthService::class)->client($clientId);
+        } catch (\Throwable) {
+            throw MandateException::badRequest('unknown_client', 'Applicazione sconosciuta.');
+        }
+
+        if (! app(OAuthService::class)->isRedirectUriAllowed($client, $returnUrl)) {
+            throw MandateException::badRequest(
+                'return_url_not_allowed',
+                'L\'indirizzo di ritorno non è fra quelli autorizzati per questa applicazione.'
+            );
+        }
+
+        return $returnUrl;
     }
 
     // =========================================================================

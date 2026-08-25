@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 /**
@@ -50,5 +51,21 @@ class PaymentMandateCharge extends Model
     public function transfer(): BelongsTo
     {
         return $this->belongsTo(Transfer::class);
+    }
+
+    /**
+     * Presente solo se questo addebito è nato da una conferma dell'utente
+     * invece che dal "un clic e paghi". È quello che distingue i due casi
+     * ovunque serva: nell'antifurto (che conta solo gli automatici) e
+     * nell'elenco che l'utente vede in "App collegate".
+     */
+    public function mandatePaymentRequest(): HasOne
+    {
+        return $this->hasOne(MandatePaymentRequest::class, 'payment_mandate_charge_id');
+    }
+
+    public function wasConfirmedByUser(): bool
+    {
+        return $this->mandatePaymentRequest()->exists();
     }
 }

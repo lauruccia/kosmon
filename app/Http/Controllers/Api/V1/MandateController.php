@@ -9,6 +9,7 @@ use App\Models\PaymentMandate;
 use App\Services\PaymentMandateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Gli endpoint che l'applicazione collegata usa per pagare in KY senza
@@ -66,6 +67,11 @@ class MandateController extends Controller
             'order_title'           => ['nullable', 'string', 'max:255'],
             'quantity'              => ['nullable', 'integer', 'min:1', 'max:999999'],
             'idempotency_key'       => ['required', 'string', 'max:100'],
+
+            // Dove riportare l'utente su kshop se l'acquisto va confermato a
+            // mano. Confrontato con l'elenco chiuso del client prima di essere
+            // salvato da qualsiasi parte: non è un campo libero.
+            'return_url'            => ['nullable', 'string', 'max:500'],
         ]);
 
         // Il mandato deve essere di QUESTO utente e di QUESTA applicazione:
@@ -87,7 +93,7 @@ class MandateController extends Controller
         try {
             $esito = $this->mandates->charge($mandate, $validated, $request->ip());
         } catch (MandateException $e) {
-            return response()->json($e->toArray(), $e->status)->header('Cache-Control', 'no-store');
+            return $this->confirmationResponse($e, $mandate, $validated, $request);
         }
 
         return response()->json([
@@ -99,6 +105,80 @@ class MandateController extends Controller
             'booked_at'     => optional($esito['transfer']->booked_at)->toIso8601String(),
             'mandate'       => $this->present($mandate->fresh()),
         ])->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Il 402 di fase 2a diceva soltanto "chiediglielo". Adesso dice anche
+     * *dove*: `payment_request_uuid` e l'URL su cui mandare l'utente.
+     *
+     * Il contratto per chi integra non cambia — è lo stesso `if` di prima, con
+     * due campi in più — e non cambia nemmeno se qui qualcosa va storto: se la
+     * richiesta di conferma non si riesce a creare, la risposta resta il 402
+     * nudo di fase 2a. Meglio un client che ripiega sul redirect classico di
+     * uno che riceve un 500 in mezzo a un checkout.
+     *
+     * I 422 non passano di qui: quelli non sono cose che una conferma
+     * dell'utente possa aggiustare.
+     *
+     * @param array<string, mixed> $validated
+     * @return array<string, mixed>
+     */
+    private function confirmationResponse(
+        MandateException $e,
+        PaymentMandate $mandate,
+        array $validated,
+        Request $request,
+    ): JsonResponse {
+        $body = $e->toArray();
+
+        if ($e->status !== 402) {
+            return $this->jsonNoStore($body, $e->status);
+        }
+
+        try {
+            $riga = $this->mandates->requestConfirmation(
+                $mandate,
+                $validated,
+                $e->reason,
+                $validated['return_url'] ?? null,
+                $request->ip(),
+            );
+        } catch (MandateException $inner) {
+            // La richiesta di conferma non sta in piedi (venditore inesistente,
+            // indirizzo di ritorno non autorizzato): quello è un errore di chi
+            // chiama, e va detto come tale — con il suo stato — invece di
+            // essere nascosto dentro un 402 che l'utente non potrebbe comunque
+            // risolvere.
+            return $this->jsonNoStore($inner->toArray(), $inner->status);
+        } catch (\Throwable $inner) {
+            Log::error('mandate.confirmation_request_failed', [
+                'mandate_uuid' => $mandate->uuid,
+                'reason'       => $e->reason,
+                'error'        => $inner->getMessage(),
+            ]);
+
+            return $this->jsonNoStore($body, 402);
+        }
+
+        $richiesta = $riga->paymentRequest;
+
+        if ($richiesta === null) {
+            return $this->jsonNoStore($body, 402);
+        }
+
+        $body['payment_request_uuid']    = $richiesta->uuid;
+        $body['confirmation_url']        = $richiesta->payUrl();
+        $body['confirmation_expires_at'] = $richiesta->expires_at->toIso8601String();
+
+        return $this->jsonNoStore($body, 402);
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private function jsonNoStore(array $body, int $status): JsonResponse
+    {
+        return response()->json($body, $status)->header('Cache-Control', 'no-store');
     }
 
     /**

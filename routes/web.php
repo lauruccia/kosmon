@@ -426,6 +426,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/profilo/app-collegate/{uuid}/tetto', [ConnectedAppsController::class, 'updateLimit'])
         ->middleware('step.up')
         ->name('portal.connected-apps.limit');
+    // Riaccendere un'autorizzazione sospesa dall'antifurto è ridare un
+    // permesso: stessa cerimonia dell'aumento del tetto.
+    Route::post('/profilo/app-collegate/{uuid}/riattiva', [ConnectedAppsController::class, 'reactivate'])
+        ->middleware('step.up')
+        ->name('portal.connected-apps.reactivate');
     Route::get('/sessioni', [LoginLogController::class, 'index'])->name('portal.login-logs');
     Route::post('/sessioni/logout-all', [LoginLogController::class, 'logoutAll'])->name('portal.login-logs.logout-all');
     Route::delete('/sessioni/{sessionId}', [LoginLogController::class, 'logoutSession'])->name('portal.login-logs.logout-session');
@@ -884,6 +889,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/netting/{proposal}/cancel', [CompanyController::class, 'cancelNettingProposal'])->name('admin.netting.cancel')->middleware('backoffice');
     Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries')->middleware('backoffice');
     Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry')->middleware('backoffice');
+    // Consegne verso le APPLICAZIONI del circuito (kshop), non verso le aziende.
+    Route::get('/admin/webhooks/applicazioni', [AdminWebhookController::class, 'clientDeliveries'])->name('admin.client-webhook-deliveries')->middleware('backoffice');
+    Route::post('/admin/webhooks/applicazioni/{delivery}/riprova', [AdminWebhookController::class, 'retryClientDelivery'])->name('admin.client-webhook-deliveries.retry')->middleware('backoffice');
 
     Route::get('/admin/accounts', [AdminAccountController::class, 'accounts'])->name('admin.accounts.index')->middleware('backoffice');
     Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show')->middleware('backoffice');

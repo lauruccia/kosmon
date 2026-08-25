@@ -35,7 +35,10 @@ class ConnectedAppsController extends Controller
 
         $charges = PaymentMandateCharge::query()
             ->whereIn('payment_mandate_id', $mandates->pluck('id'))
-            ->with('transfer')
+            // `mandatePaymentRequest` è presente solo sugli acquisti confermati
+            // a mano: è così che l'elenco distingue i due casi senza una
+            // seconda query per riga.
+            ->with(['transfer', 'mandatePaymentRequest'])
             ->latest('id')
             ->limit(20)
             ->get();
@@ -63,6 +66,30 @@ class ConnectedAppsController extends Controller
 
         return redirect()->route('portal.connected-apps.index')
             ->with('status', 'Autorizzazione revocata: da adesso ogni pagamento andrà confermato da te.');
+    }
+
+    /**
+     * Riaccende un'autorizzazione che l'antifurto aveva sospeso da solo
+     * (route protetta da step.up).
+     *
+     * Prima della 2b da quella sospensione non si usciva: si poteva solo
+     * revocare e rifare tutto da capo, magari per un allarme che aveva fatto
+     * scattare l'utente stesso comprando otto regali in mezz'ora. Sta dietro
+     * allo step-up perché riaccendere è ridare un permesso, non toglierlo.
+     */
+    public function reactivate(Request $request, string $uuid): RedirectResponse
+    {
+        $mandate = $this->findOwned($request, $uuid);
+
+        try {
+            $this->mandates->reactivate($mandate, $request->ip());
+        } catch (\RuntimeException $e) {
+            return redirect()->route('portal.connected-apps.index')
+                ->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('portal.connected-apps.index')
+            ->with('status', 'Autorizzazione riattivata: i pagamenti in un clic sono di nuovo possibili entro il tuo tetto.');
     }
 
     /**

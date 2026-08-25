@@ -11,7 +11,7 @@ class WebhookService
     /**
      * Dispatcha i webhook attivi per una company che ascoltano l'evento dato.
      */
-    public function dispatch(string $event, array $payload, Company $company): void
+    public function dispatch(string $event, array $payload, Company $company, bool $afterCommit = false): void
     {
         $webhooks = Webhook::query()
             ->where('company_id', $company->id)
@@ -20,7 +20,17 @@ class WebhookService
 
         foreach ($webhooks as $webhook) {
             if ($webhook->listensTo($event)) {
-                SendWebhookJob::dispatch($webhook, $event, $payload);
+                $job = SendWebhookJob::dispatch($webhook, $event, $payload);
+
+                // Gli eventi che nascono DENTRO una transazione (il cambio di
+                // stato commerciale nasce da un movimento) vanno messi in coda
+                // solo dopo il commit: altrimenti si rischia di spedire la
+                // notizia di un saldo che il rollback ha poi cancellato.
+                // I chiamanti storici non passano niente e si comportano
+                // esattamente come prima.
+                if ($afterCommit) {
+                    $job->afterCommit();
+                }
             }
         }
     }

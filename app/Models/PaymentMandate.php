@@ -28,6 +28,7 @@ class PaymentMandate extends Model
         'expires_at',
         'suspended_at',
         'revoked_at',
+        'reactivated_at',
         'charges_count',
         'last_used_at',
         'created_ip',
@@ -40,6 +41,7 @@ class PaymentMandate extends Model
         'expires_at'          => 'datetime',
         'suspended_at'        => 'datetime',
         'revoked_at'          => 'datetime',
+        'reactivated_at'      => 'datetime',
         'last_used_at'        => 'datetime',
     ];
 
@@ -134,15 +136,36 @@ class PaymentMandate extends Model
     // =========================================================================
 
     /**
-     * Quanti addebiti automatici nella finestra dell'antifurto.
+     * Quanti addebiti AUTOMATICI nella finestra dell'antifurto.
+     *
+     * Due esclusioni, e nessuna delle due è un dettaglio:
+     *
+     * - **gli acquisti confermati a mano non contano.** L'antifurto esiste
+     *   perché dieci addebiti in un'ora *senza che l'utente li veda* non sono
+     *   un comportamento umano. Un acquisto che l'utente ha confermato lui, con
+     *   la sua password, lo ha visto per definizione: contarlo vorrebbe dire
+     *   far scattare un allarme antifurto per colpa del proprietario.
+     * - **la finestra riparte dalla riattivazione.** Altrimenti riattivare non
+     *   servirebbe a niente: i dieci addebiti sarebbero ancora nell'ora appena
+     *   passata e il primo acquisto dopo farebbe scattare tutto da capo.
      */
     public function recentChargesCount(): int
     {
         $minutes = (int) config('oauth.mandate.rate_limit.window_minutes', 60);
 
-        return $this->charges()
+        $query = $this->charges()
             ->where('created_at', '>=', now()->subMinutes($minutes))
-            ->count();
+            ->whereDoesntHave('mandatePaymentRequest');
+
+        if ($this->reactivated_at !== null) {
+            // Strettamente DOPO, non "da": gli addebiti che hanno fatto
+            // scattare l'allarme sono quelli fino a quel momento, e l'utente ha
+            // appena detto che era lui. Contarli ancora vorrebbe dire
+            // ri-sospendere il mandato al primo acquisto successivo.
+            $query->where('created_at', '>', $this->reactivated_at);
+        }
+
+        return $query->count();
     }
 
     public function hasHitRateLimit(): bool

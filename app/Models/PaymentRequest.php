@@ -113,11 +113,30 @@ class PaymentRequest extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
+    /**
+     * Un ordine di un'applicazione del circuito (oggi Kosmoshop) che l'utente
+     * deve confermare a mano, perché il mandato non poteva addebitarlo da solo:
+     * sopra il tetto, primo acquisto da quel venditore, mandato sospeso, saldo
+     * insufficiente. Vedi `MandatePaymentRequest` e §5 del piano.
+     *
+     * Non è un tipo di pagamento diverso: stessa pagina, stessa scadenza,
+     * stesso webhook delle richieste QR. Per questo `kind` cambiano due cose
+     * soltanto — il movimento nasce come acquisto shop
+     * (`portal_marketplace_order`, così cashback, commissioni e MLM restano
+     * quelli di sempre) e a pagare può essere solo il proprietario del mandato.
+     */
+    public const KIND_KSHOP_ORDER = 'kshop_order';
+
     // ─── Helper ───────────────────────────────────────────────────────────────
 
     public function isLink(): bool
     {
         return $this->kind === 'link';
+    }
+
+    public function isKshopOrder(): bool
+    {
+        return $this->kind === self::KIND_KSHOP_ORDER;
     }
 
     public function isPending(): bool

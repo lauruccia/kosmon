@@ -67,6 +67,7 @@ class Webhook extends Model
         'payment_plan.approved'           => 'Piano rateale approvato',
         'netting.accepted'                => 'Compensazione accettata',
         'kyc.approved'                    => 'KYC approvato',
+        'company.trading_status_changed'  => 'Stato commerciale cambiato (debito, tetto massimo, sospensione)',
     ];
 
     protected static function booted(): void

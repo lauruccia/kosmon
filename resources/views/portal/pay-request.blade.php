@@ -37,8 +37,18 @@
             {{-- Scaduta --}}
             <section class="card card-pad" style="text-align:center;">
                 <div style="font-size:56px;margin-bottom:12px;">⏰</div>
-                <h3 style="margin-bottom:8px;">QR scaduto</h3>
-                <p style="color:var(--text-muted);margin-bottom:24px;">Questo QR non è più valido. Chiedi al commerciante di generarne uno nuovo.</p>
+                <h3 style="margin-bottom:8px;">{{ ($mandateOrder ?? null) ? 'Conferma scaduta' : 'QR scaduto' }}</h3>
+                @if($mandateOrder ?? null)
+                    <p style="color:var(--text-muted);margin-bottom:24px;">
+                        Questa conferma non è più valida e <strong>non è stato addebitato niente</strong>.
+                        Torna su {{ $appName ?? 'l\'applicazione' }} e riprova l'acquisto.
+                    </p>
+                    @if($pr->return_url)
+                        <a href="{{ $pr->return_url }}" class="cta">Torna a {{ $appName ?? 'il negozio' }}</a>
+                    @endif
+                @else
+                    <p style="color:var(--text-muted);margin-bottom:24px;">Questo QR non è più valido. Chiedi al commerciante di generarne uno nuovo.</p>
+                @endif
                 <a href="{{ route('portal.dashboard') }}" class="cta secondary">Vai al conto</a>
             </section>
 
@@ -54,7 +64,24 @@
         @else
             {{-- Pagabile --}}
             <section class="card card-pad">
-                <div class="k-tag" style="margin-bottom:20px;">Riepilogo pagamento</div>
+                @if($mandateOrder ?? null)
+                    {{-- Un ordine di un'applicazione del circuito. Prima di
+                         qualsiasi cifra, l'utente deve sapere DUE cose: chi sta
+                         chiedendo, e perché gliela stiamo chiedendo invece di
+                         addebitare in automatico come al solito. Senza la
+                         seconda, la richiesta sembra un guasto. --}}
+                    <div style="background:rgba(109,40,217,.06);border:1px solid rgba(109,40,217,.15);border-radius:10px;padding:14px;margin-bottom:20px;">
+                        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">
+                            {{ $appName ?? 'Un\'applicazione del circuito' }} chiede di addebitarti questo acquisto
+                        </div>
+                        <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+                            {{ $mandateOrder->reasonLabel() }}
+                            Per questo te lo stiamo chiedendo invece di pagarlo in un clic.
+                        </div>
+                    </div>
+                @endif
+
+                <div class="k-tag" style="margin-bottom:20px;">{{ ($mandateOrder ?? null) ? 'Conferma acquisto' : 'Riepilogo pagamento' }}</div>
 
                 {{-- Importo in evidenza --}}
                 <div style="text-align:center;padding:24px 0;border-bottom:1px solid var(--border);margin-bottom:24px;">
@@ -94,7 +121,7 @@
 
                 {{-- Scadenza --}}
                 <div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;" id="expiry-note">
-                    QR valido fino alle {{ $pr->expires_at->format('H:i:s') }}
+                    {{ ($mandateOrder ?? null) ? 'Conferma valida fino alle' : 'QR valido fino alle' }} {{ $pr->expires_at->format('H:i:s') }}
                     (<span id="expiry-countdown">caricamento...</span>)
                 </div>
 
@@ -102,6 +129,24 @@
                 @if($fromAccount->saldoDisponibile() >= $pr->amount)
                     <form method="POST" action="{{ route('portal.pay-request.pay', $pr->token) }}" id="pay-form">
                         @csrf
+
+                        @if(($mandateOrder ?? null) && $mandateOrder->mandate?->isActive())
+                            {{-- Già spuntata (decisione di Laura, 25/08/2026):
+                                 il "un clic e paghi" deve restare un clic, ma il
+                                 permesso che si sta dando dev'essere visibile e
+                                 togliibile prima di darlo — non scoperto dopo,
+                                 nella pagina "App collegate". --}}
+                            <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;font-size:13px;line-height:1.5;cursor:pointer;">
+                                <input type="checkbox" name="authorize_seller" value="1" checked style="margin-top:2px;flex:0 0 auto;">
+                                <span>
+                                    Non chiedermelo più per gli acquisti da
+                                    <strong>{{ $pr->toAccount->company?->name ?? $pr->toAccount->display_name }}</strong>
+                                    entro il tetto di {{ ky_format($mandateOrder->mandate->max_per_transaction) }} KY.
+                                    <span style="color:var(--text-muted);">Puoi tornare indietro quando vuoi da "App collegate".</span>
+                                </span>
+                            </label>
+                        @endif
+
                         <button
                             type="submit"
                             class="cta"

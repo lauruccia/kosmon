@@ -35,6 +35,17 @@ return [
 
             // Scope che questo client può chiedere. Chiederne altri = errore.
             'scopes'        => ['profile', 'account.read', 'orders.write', 'mandate'],
+
+            // Il canale con cui KMoney avvisa l'applicazione degli eventi che
+            // non nascono da una sua richiesta: un ordine confermato a mano
+            // dall'utente, un'azienda che entra o esce dal debito. Stesso
+            // interruttore del resto: URL vuoto = canale spento. E senza
+            // segreto non si spedisce comunque, perché un webhook non firmato
+            // non è verificabile da chi lo riceve.
+            'webhook'       => [
+                'url'    => env('OAUTH_KSHOP_WEBHOOK_URL'),
+                'secret' => env('OAUTH_KSHOP_WEBHOOK_SECRET'),
+            ],
         ],
 
     ],
@@ -97,6 +108,12 @@ return [
 
         // Scadenza di sicurezza del mandato.
         'expires_months' => 12,
+
+        // Quanto vive il link con cui l'utente conferma a mano un acquisto che
+        // il mandato non poteva addebitare da solo (fase 2b). È un checkout: o
+        // si conferma subito o si riparte dal carrello. Scaduto il link, kshop
+        // ne chiede semplicemente un altro. Decisione di Laura, 25/08/2026.
+        'confirmation_ttl_minutes' => 30,
 
         // Antifurto: non è un limite di spesa che l'utente deve capire, è una
         // soglia tecnica. Dieci addebiti automatici in un'ora da un solo
