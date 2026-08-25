@@ -573,8 +573,23 @@
                     $anns         = $entry['announcements_count'];
                     $bizAccount   = $entry['biz_account'] ?? null;
                     $allowedKyPct = $entry['allowed_ky_pct'] ?? [];
-                    $isInDebit    = $entry['is_in_debit'] ?? false;
-                    $isAtCeiling  = $entry['is_at_ceiling'] ?? false;
+                    // Stato commerciale del conto (sottozero / al massimale):
+                    // dal 25/08 e' visibile SOLO sulla propria card e all'admin.
+                    // Il controller azzera gia' i due flag per tutte le altre
+                    // aziende (vedi PortalController::buildCompanyDirectoryData),
+                    // qui teniamo comunque la condizione esplicita.
+                    $canSeeTradingStatus = $entry['can_see_trading_status'] ?? false;
+                    $isInDebit    = $canSeeTradingStatus && ($entry['is_in_debit'] ?? false);
+                    $isAtCeiling  = $canSeeTradingStatus && ($entry['is_at_ceiling'] ?? false);
+                    // Sulla propria card il badge parla in seconda persona;
+                    // nel backoffice resta impersonale.
+                    $statusIsMine = ($directoryMode ?? '') !== 'admin';
+                    $debitTitle   = $statusIsMine
+                        ? 'Il tuo conto è sottozero: puoi accettare solo pagamenti al 100% Kmoney'
+                        : 'Conto sottozero: accetta solo 100% Kmoney';
+                    $ceilingTitle = $statusIsMine
+                        ? 'Il tuo conto è al massimale: non puoi ricevere KY al momento'
+                        : 'Saldo al massimale: non può ricevere KY al momento';
                     $effectiveKyPct = $entry['effective_ky_pct'] ?? null;
                     $plan         = $company->plan;
 
@@ -692,9 +707,9 @@
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Questa azienda ha saldo negativo: accetta solo 100% Kmoney">⚡ 100% KY</span>
+                                <span class="ky-badge ky-badge--debit" title="{{ $debitTitle }}">⚡ 100% KY</span>
                             @elseif($isAtCeiling)
-                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale: non può ricevere KY al momento">⛔ Massimale</span>
+                                <span class="ky-badge ky-badge--ceil" title="{{ $ceilingTitle }}">⛔ Massimale</span>
                             @elseif($effectiveKyPct === 100)
                                 <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% KY</span>
                             @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
@@ -707,7 +722,10 @@
                                 <span>SHOP</span>
                             </a>
                         @endif
-                        @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
+                        {{-- "Paga" resta visibile anche verso un'azienda al massimale: il tetto non
+                             blocca gli incassi nel motore, e farlo sparire era gia' una spia
+                             dello stato di quel conto (25/08). --}}
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             <a href="{{ route('portal.invia') }}?to={{ $bizAccount->id }}" class="dir-btn dir-btn-primary">💸 Paga</a>
                         @else
                             <a href="{{ route('portal.companies.show', $company->slug) }}" class="dir-btn dir-btn-primary">
@@ -813,9 +831,9 @@
                     <div class="dir-footer" style="flex-wrap:wrap;gap:6px;">
                         @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             @if($isInDebit)
-                                <span class="ky-badge ky-badge--debit" title="Accetta solo 100% Kmoney — ha bisogno di vendere">⚡ 100% KY</span>
+                                <span class="ky-badge ky-badge--debit" title="{{ $debitTitle }}">⚡ 100% KY</span>
                             @elseif($isAtCeiling)
-                                <span class="ky-badge ky-badge--ceil" title="Saldo al massimale">⛔ Massimale</span>
+                                <span class="ky-badge ky-badge--ceil" title="{{ $ceilingTitle }}">⛔ Massimale</span>
                             @elseif($effectiveKyPct === 100)
                                 <span class="ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% KY</span>
                             @elseif($effectiveKyPct !== null && $effectiveKyPct > 0)
@@ -830,7 +848,10 @@
                         @endif
                         <a href="{{ route('portal.companies.show', $company->slug) }}"
                            class="dir-btn dir-btn-ghost">Profilo</a>
-                        @if($bizAccount && ($directoryMode ?? '') === 'portal' && !$isAtCeiling)
+                        {{-- "Paga" resta visibile anche verso un'azienda al massimale: il tetto non
+                             blocca gli incassi nel motore, e farlo sparire era gia' una spia
+                             dello stato di quel conto (25/08). --}}
+                        @if($bizAccount && ($directoryMode ?? '') === 'portal')
                             <a href="{{ route('portal.invia') }}?to={{ $bizAccount->id }}"
                                class="dir-btn dir-btn-primary">💸 Paga</a>
                         @endif
@@ -943,6 +964,9 @@
         });
     }
 
+    // is_in_debit / is_at_ceiling arrivano dal server gia' a false per tutte
+    // le aziende che non sono la propria (25/08): qui non c'e' nulla da
+    // filtrare, il pin altrui mostra al massimo la percentuale Kmoney.
     function kyBadgeHtml(c) {
         if (c.is_in_debit) {
             return '<span class="ky-badge ky-badge--debit">⚡ 100% KY</span>';

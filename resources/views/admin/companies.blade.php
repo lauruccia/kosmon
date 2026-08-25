@@ -273,7 +273,7 @@
                         <th>Stato</th>
                         <th>KYC</th>
                         <th>Settore</th>
-                        <th style="text-align:center;">% Kmoney</th>
+                        <th style="text-align:center;">% Kmoney<br><span style="font-weight:500;opacity:.7;">e stato conto</span></th>
                         <th style="text-align:center;">Prodotti</th>
                         <th style="text-align:center;">Annunci</th>
                         <th style="text-align:center;">Utenti</th>
@@ -338,8 +338,9 @@
 
                         <td style="text-align:center;">
                             @php
+                                $kyAccount = $company->accounts->first();
                                 $effectiveKyPct = $company->computeEffectiveKyPercentage(
-                                    $company->accounts->first(),
+                                    $kyAccount,
                                     $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null
                                 );
                             @endphp
@@ -349,6 +350,18 @@
                                 <span class="badge" style="{{ $effectiveKyPct === 100 ? 'background:linear-gradient(135deg,#fef9c3,#fde047);color:#854d0e;' : 'background:#dbeafe;color:#1e40af;' }}">
                                     {{ $effectiveKyPct }}%
                                 </span>
+                            @endif
+                            {{-- Stato commerciale del conto: dal 25/08 e' visibile solo qui
+                                 (backoffice) e all'azienda stessa sulla propria card della
+                                 directory. Ai clienti del circuito non viene piu' mostrato. --}}
+                            @if($kyAccount && $kyAccount->isInDebit())
+                                <div style="margin-top:4px;">
+                                    <span class="badge badge-yellow" title="Saldo sottozero: accetta solo pagamenti al 100% Kmoney">⚡ Sottozero</span>
+                                </div>
+                            @elseif($kyAccount && $kyAccount->isAtCeiling())
+                                <div style="margin-top:4px;">
+                                    <span class="badge badge-gray" title="Saldo al massimale: non puo' ricevere KY al momento">⛔ Massimale</span>
+                                </div>
                             @endif
                         </td>
 

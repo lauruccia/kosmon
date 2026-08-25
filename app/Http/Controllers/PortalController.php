@@ -247,7 +247,13 @@ class PortalController extends Controller
         // le altre non hanno profilo visitabile e non sono utili agli utenti.
         $filters['status']     = 'active';
         $filters['kyc_status'] = 'approved';
-        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions, $mapCompanies] = $this->buildCompanyDirectoryData($filters);
+        // L'azienda di chi sta guardando: e' l'unica di cui vedra' lo stato
+        // del conto sulla card (richiesta 25/08).
+        $viewerCompanyId = $currentAccount->company_id ?? $currentUser->company_id;
+        [$directoryCompanies, $directoryStats, $sectorOptions, $sectorBuckets, $cityOptions, $mapCompanies] = $this->buildCompanyDirectoryData(
+            $filters,
+            $viewerCompanyId !== null ? (int) $viewerCompanyId : null
+        );
 
         return view('portal.companies', [
             'pageTitle' => 'Aziende del circuito',
@@ -1878,7 +1884,21 @@ class PortalController extends Controller
         ];
     }
 
-    protected function buildCompanyDirectoryData(array $filters): array
+    /**
+     * Dataset della directory aziende (lista + mappa).
+     *
+     * Lo stato commerciale del conto (sottozero / al massimale) e' un dato
+     * RISERVATO: dal 25/08 non compare piu' sulle card delle altre aziende.
+     * I flag vengono azzerati qui, nel controller, e non solo nascosti in
+     * Blade, perche' il dataset della mappa finisce serializzato nel sorgente
+     * della pagina: nasconderli solo a video li avrebbe lasciati leggibili.
+     *
+     * @param  int|null  $viewerCompanyId  azienda di chi guarda: solo sulla SUA
+     *                                     card lo stato resta visibile.
+     * @param  bool  $exposeTradingStatus  backoffice (directoryMode 'admin'):
+     *                                     l'admin vede lo stato di tutte.
+     */
+    protected function buildCompanyDirectoryData(array $filters, ?int $viewerCompanyId = null, bool $exposeTradingStatus = false): array
     {
         $sectorBuckets = Company::query()
             ->selectRaw('sector, COUNT(*) as total')
@@ -1945,8 +1965,13 @@ class PortalController extends Controller
             ->orderByRaw($randomExpression)
             ->paginate(48)
             ->withQueryString()
-            ->through(function (Company $company) {
+            ->through(function (Company $company) use ($viewerCompanyId, $exposeTradingStatus) {
             $bizAccount = $company->accounts->first();
+            // Vedi il PHPDoc del metodo: fuori dalla propria card (o dal
+            // backoffice) lo stato del conto non esce da qui.
+            $showTradingStatus = $exposeTradingStatus
+                || ($viewerCompanyId !== null && (int) $company->id === $viewerCompanyId);
+
             return [
                 'company'             => $company,
                 'listings_count'      => (int) $company->listings_count,
@@ -1968,8 +1993,9 @@ class PortalController extends Controller
                 // 2026-07-29): solo quando lo shop offre di piu' della % dichiarata
                 // dall'azienda nel profilo.
                 'best_listing_ky_pct' => $company->best_listing_ky_pct !== null ? (int) $company->best_listing_ky_pct : null,
-                'is_in_debit'         => $bizAccount ? $bizAccount->isInDebit() : false,
-                'is_at_ceiling'       => $bizAccount ? $bizAccount->isAtCeiling() : false,
+                'can_see_trading_status' => $showTradingStatus,
+                'is_in_debit'         => $showTradingStatus && $bizAccount ? $bizAccount->isInDebit() : false,
+                'is_at_ceiling'       => $showTradingStatus && $bizAccount ? $bizAccount->isAtCeiling() : false,
             ];
         });
 
@@ -1989,12 +2015,13 @@ class PortalController extends Controller
         $mapCompanies = $directoryStatsCompanies
             ->filter(fn (Company $company) => $company->hasCoordinates())
             ->take(500)
-            ->map(function (Company $company) {
+            ->map(function (Company $company) use ($viewerCompanyId, $exposeTradingStatus) {
                 $bizAccount = $company->accounts->first();
                 // Stesso criterio del badge in lista (vedi sopra): % del profilo,
                 // non quella "gonfiata" dallo shop.
                 $effectiveKyPct = $company->computeEffectiveKyPercentage($bizAccount, null);
-                $isAtCeiling = $bizAccount ? $bizAccount->isAtCeiling() : false;
+                $showTradingStatus = $exposeTradingStatus
+                    || ($viewerCompanyId !== null && (int) $company->id === $viewerCompanyId);
 
                 return [
                     'id'               => $company->id,
@@ -2008,10 +2035,13 @@ class PortalController extends Controller
                     'logo_url'         => $company->logo_url,
                     'listings_count'   => (int) $company->listings_count,
                     'effective_ky_pct' => $effectiveKyPct,
-                    'is_in_debit'      => $bizAccount ? $bizAccount->isInDebit() : false,
-                    'is_at_ceiling'    => $isAtCeiling,
+                    'is_in_debit'      => $showTradingStatus && $bizAccount ? $bizAccount->isInDebit() : false,
+                    'is_at_ceiling'    => $showTradingStatus && $bizAccount ? $bizAccount->isAtCeiling() : false,
                     'profile_url'      => route('portal.companies.show', $company->slug),
-                    'pay_url'          => ($bizAccount && ! $isAtCeiling)
+                    // Il pulsante "Paga" c'e' sempre: il massimale non blocca gli
+                    // incassi (TransferBookingService non lo controlla), e farlo
+                    // sparire era di per se' una spia dello stato del conto.
+                    'pay_url'          => $bizAccount
                         ? route('portal.invia', ['to' => $bizAccount->id])
                         : null,
                 ];
