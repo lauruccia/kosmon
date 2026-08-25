@@ -10,6 +10,12 @@
 
 <section class="card light-card shop-toolbar-card">
     <form method="GET" action="{{ route('portal.shop') }}" class="shop-toolbar">
+        {{-- Filtro venditore: chi arriva dal pulsante "SHOP" della directory
+             aziende deve restare dentro il negozio di quell'azienda anche
+             dopo aver cercato o cambiato categoria (2026-08-25). --}}
+        @if($selectedCompany)
+            <input type="hidden" name="company" value="{{ $selectedCompany->id }}">
+        @endif
         <div class="shop-toolbar-field" style="flex:1;min-width:220px;">
             <label>Cerca</label>
             <div class="shop-search-input">
@@ -56,7 +62,7 @@
         </div>
         <button type="submit" class="cta">Filtra</button>
         @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
-            <a href="{{ route('portal.shop') }}" class="cta secondary">✕ Reset</a>
+            <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary">✕ Reset</a>
         @endif
         <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
@@ -78,6 +84,21 @@
         </div>
     </form>
 </section>
+
+@if($selectedCompany)
+<section class="card light-card shop-seller-banner">
+    <div>
+        <span class="eyebrow">Stai vedendo solo</span>
+        <h3 class="section-title" style="margin:0;">Prodotti di {{ $selectedCompany->name }}</h3>
+    </div>
+    <div class="shop-seller-banner-actions">
+        @if($selectedCompany->slug)
+            <a class="cta secondary" href="{{ route('portal.companies.show', $selectedCompany->slug) }}">Scheda azienda</a>
+        @endif
+        <a class="cta secondary" href="{{ route('portal.shop') }}">✕ Vedi tutto lo shop</a>
+    </div>
+</section>
+@endif
 
 @if($featuredListings->isNotEmpty() && !$searchQuery && !$selectedCategory)
 <section class="card light-card" style="margin-top:18px;">
@@ -213,9 +234,18 @@
     @empty
     <div class="shop-empty">
         <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <p class="subtle">Nessun prodotto trovato nel catalogo.</p>
+        <p class="subtle">
+            @if($selectedCompany)
+                {{ $selectedCompany->name }} non ha prodotti in vendita al momento.
+            @else
+                Nessun prodotto trovato nel catalogo.
+            @endif
+        </p>
         @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
-            <a href="{{ route('portal.shop') }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Rimuovi filtri</a>
+            <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Rimuovi filtri</a>
+        @endif
+        @if($selectedCompany)
+            <a href="{{ route('portal.shop') }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Vedi tutto lo shop</a>
         @endif
     </div>
     @endforelse
@@ -228,6 +258,12 @@
 @endif
 
 <style>
+    .shop-seller-banner {
+        margin-top: 18px; display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; flex-wrap: wrap;
+    }
+    .shop-seller-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
     /* ── Toolbar shop: ricerca con icona + select coerenti col design system ── */
     .shop-toolbar-card { padding: 18px 22px; }
     /* Niente a capo (2026-07-29 sera): la barra filtri resta su un'unica

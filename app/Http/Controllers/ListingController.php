@@ -39,6 +39,18 @@ class ListingController extends Controller
         $subcategory = $request->query('subcategory', '');
         $q = trim((string) $request->query('q', ''));
 
+        // Filtro per venditore (2026-08-25, richiesta di Laura): i pulsanti
+        // "SHOP" della directory aziende e del profilo azienda linkavano gia'
+        // /shop?company={id} (companies.blade.php, company-show.blade.php) ma
+        // il parametro veniva IGNORATO qui — si finiva sul catalogo intero del
+        // circuito invece che sui prodotti di quell'azienda. Ora la griglia
+        // mostra i soli prodotti del venditore scelto, con un banner per
+        // tornare al catalogo completo.
+        $companyId = (int) $request->query('company', 0);
+        $selectedCompany = $companyId > 0
+            ? Company::query()->select(['id', 'name', 'slug'])->find($companyId)
+            : null;
+
         // Filtro % Kmoney nello shop, su Listing::ky_percentage (colonna
         // diretta, niente subquery: qui e' il prodotto stesso, non serve
         // calcolare una percentuale "effettiva" come per Company). Un'unica
@@ -74,6 +86,7 @@ class ListingController extends Controller
                     $query->orWhere('company_id', $ownCompanyId);
                 }
             })
+            ->when($selectedCompany !== null, fn ($query) => $query->where('company_id', $selectedCompany->id))
             ->when($category !== '', fn ($query) => $query->inCategory($category))
             ->when($subcategory !== '', fn ($query) => $query->inSubcategory($subcategory))
             ->when($q !== '', fn ($query) => $query->where(function ($scope) use ($q) {
@@ -91,10 +104,15 @@ class ListingController extends Controller
         // (2 prodotti "orfani"). 15 = multiplo di 5, riempie sempre l'intera
         // griglia su ogni pagina piena.
         $listings = $listingsQuery->paginate(15)->withQueryString();
-        $featuredListings = Listing::query()->with(['company.plan', 'activeOffer'])->active()->featured()->latest()->take(4)->get();
+        // Con il filtro venditore attivo la fascia "in primo piano" (che pesca
+        // da TUTTO il circuito) contraddirebbe la pagina: si sta guardando un
+        // solo negozio. Niente query inutile: collection vuota.
+        $featuredListings = $selectedCompany !== null
+            ? collect()
+            : Listing::query()->with(['company.plan', 'activeOffer'])->active()->featured()->latest()->take(4)->get();
 
         return view('portal.shop', [
-            'pageTitle'       => 'Shop del circuito',
+            'pageTitle'       => $selectedCompany !== null ? 'Shop di '.$selectedCompany->name : 'Shop del circuito',
             'currentAccount'  => $currentAccount,
             'currentUser'     => $user,
             'listings'        => $listings,
@@ -106,6 +124,7 @@ class ListingController extends Controller
             'searchQuery'     => $q,
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
+            'selectedCompany' => $selectedCompany,
             'activeNav'       => 'shop',
         ]);
     }
