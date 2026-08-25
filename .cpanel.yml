@@ -54,8 +54,19 @@ deployment:
     - "if [ -d /home2/kmoney/kosmon_git ]; then cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" /home2/kmoney/public_html/; fi; done; cd ..; fi"
 
     # 2. Svuota le cache cancellando i file compilati (senza dipendere da php/composer).
-    - /bin/rm -f $DEPLOYPATH/bootstrap/cache/config.php
-    - /bin/rm -f $DEPLOYPATH/bootstrap/cache/routes-*.php
-    - /bin/rm -f $DEPLOYPATH/bootstrap/cache/packages.php
-    - /bin/rm -f $DEPLOYPATH/bootstrap/cache/services.php
-    - /bin/rm -f $DEPLOYPATH/storage/framework/views/*.php
+    #
+    # FIX 25/08/2026 — queste erano CINQUE righe separate che usavano
+    # "$DEPLOYPATH", la variabile esportata dal task di rilevamento qui sopra.
+    # Ma cPanel esegue ogni task in una shell propria: una variabile non
+    # sopravvive al task che l'ha creata, quindi i comandi diventavano
+    # "/bin/rm -f /bootstrap/cache/config.php" — un percorso assoluto sbagliato
+    # che, grazie a -f, falliva in SILENZIO senza far fallire il deploy.
+    # Risultato: la cache compilata non e' mai stata svuotata da un deploy, in
+    # nessuna versione di questo file, e il sito poteva continuare a servire
+    # config, route e viste vecchie dopo una pubblicazione andata "a buon fine".
+    #
+    # Ora e' un unico task autosufficiente: il percorso se lo ricalcola da solo
+    # e la variabile vive dentro la stessa riga. REGOLA per il futuro: ogni
+    # task di questo file deve funzionare da solo, senza ereditare niente dai
+    # task precedenti.
+    - "if [ -d /home2/kosmopay/kosmon ]; then D=/home2/kosmopay/kosmon; elif [ -d /home2/kmoney/kosmon_git ]; then D=/home2/kmoney/kosmon_git; else echo 'ERRORE: nessuna cartella live nota trovata: cache non svuotate.' >&2; exit 1; fi; /bin/rm -f \"$D\"/bootstrap/cache/config.php \"$D\"/bootstrap/cache/routes-*.php \"$D\"/bootstrap/cache/packages.php \"$D\"/bootstrap/cache/services.php; /bin/rm -f \"$D\"/storage/framework/views/*.php; echo \"Cache compilate svuotate in $D\""
