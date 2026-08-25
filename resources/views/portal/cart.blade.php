@@ -146,9 +146,9 @@
         </div>
 
         {{-- ── Il riepilogo e la cassa ──────────────────────────────────── --}}
-        <section class="card">
-            <span class="eyebrow">Riepilogo</span>
-            <h3 style="font-size:19px;font-weight:700;margin:6px 0 18px;">
+        <section class="card account-hero card-pad">
+            <div class="k-tag">Riepilogo</div>
+            <h3 style="font-size:19px;font-weight:700;margin:10px 0 18px;color:#fff;">
                 {{ $cart->totalePezzi() }} {{ $cart->totalePezzi() === 1 ? 'pezzo' : 'pezzi' }}
                 @if($gruppi->count() > 1)
                     <span style="font-weight:500;opacity:.75;">da {{ $gruppi->count() }} venditori</span>
@@ -167,15 +167,26 @@
             </div>
             @endif
 
+            @php $spedizioniKy = (int) $gruppi->sum('spedizione_ky'); @endphp
+            @if($spedizioniKy > 0)
+            <div class="metric">
+                <div class="metric-label">
+                    Di cui spedizione{{ $gruppi->count() > 1 ? ' (' . $gruppi->count() . ' venditori)' : '' }}
+                </div>
+                <div class="metric-value">{{ ky_format($spedizioniKy) }} KY</div>
+            </div>
+            @endif
+
             <div class="metric">
                 <div class="metric-label">Il tuo saldo</div>
                 <div class="metric-value">{{ ky_format($saldoDisponibile) }} KY</div>
             </div>
 
             @if($gruppi->count() > 1)
-            <p class="subtle" style="font-size:12px;line-height:1.5;margin:14px 0 0;">
-                I prodotti vengono da {{ $gruppi->count() }} venditori diversi: si paga una volta sola, e
-                il circuito genera un ordine e un movimento per ciascuno.
+            <p style="font-size:12px;line-height:1.5;margin:14px 0 0;color:rgba(255,255,255,.68);">
+                I prodotti vengono da {{ $gruppi->count() }} venditori diversi: paghi una volta sola, ma
+                il circuito genera un ordine e un movimento per ciascuno — e <strong>una spedizione per
+                venditore</strong>, perché sono pacchi diversi.
             </p>
             @endif
 

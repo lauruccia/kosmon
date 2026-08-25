@@ -1947,9 +1947,11 @@
                     {{-- Carrello (2026-08-25, fase C): sta qui, accanto alle altre
                          icone, perche' e' l'unico posto visibile da OGNI pagina
                          del portale. Il numerino arriva dal view composer in
-                         AppServiceProvider. Stessa condizione delle voci shop
-                         nel menu: chi non puo' comprare non lo vede. --}}
-                    @if (!$isBackoffice && auth()->user()?->canAccessMarketplace())
+                         AppServiceProvider. Nessuna condizione sul permesso
+                         marketplace: se uno non compra, il carrello sara'
+                         semplicemente vuoto — nasconderlo a chi invece serve
+                         sarebbe l'errore piu' costoso dei due. --}}
+                    @if (!$isBackoffice)
                     <a href="{{ route('portal.cart') }}" class="cart-bell" title="Carrello">
                         🛒
                         @if (($cartCount ?? 0) > 0)

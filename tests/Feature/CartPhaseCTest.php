@@ -354,6 +354,41 @@ class CartPhaseCTest extends TestCase
         $this->assertSame(3700, Order::where('company_id', $secondaAzienda->id)->sole()->total_ky);
     }
 
+    public function test_venditori_diversi_vogliono_dire_spedizioni_diverse(): void
+    {
+        // Regola ribadita da Laura il 25/08: una spedizione per VENDITORE, non
+        // una per carrello. Sono pacchi diversi, partono da magazzini diversi.
+        // Nello stesso ordine invece si paga una volta sola, anche con dieci
+        // prodotti dentro.
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        [$primaAzienda] = $this->makeSeller(saldo: 0);
+        [$secondaAzienda] = $this->makeSeller(saldo: 0);
+
+        $a1 = $this->makeListing($primaAzienda, prezzo: 1000, kyPercentage: 100, extra: [
+            'delivery_type' => Listing::DELIVERY_TYPE_SPEDIZIONE, 'shipping_cost' => 1000,
+        ]);
+        $a2 = $this->makeListing($primaAzienda, prezzo: 1000, kyPercentage: 100, extra: [
+            'delivery_type' => Listing::DELIVERY_TYPE_SPEDIZIONE, 'shipping_cost' => 1000,
+        ]);
+        $b1 = $this->makeListing($secondaAzienda, prezzo: 1000, kyPercentage: 100, extra: [
+            'delivery_type' => Listing::DELIVERY_TYPE_SPEDIZIONE, 'shipping_cost' => 1000,
+        ]);
+
+        // Due prodotti dal primo venditore, uno dal secondo.
+        $this->actingAs($buyer)->post(route('portal.cart.add', $a1));
+        $this->actingAs($buyer)->post(route('portal.cart.add', $a2));
+        $this->actingAs($buyer)->post(route('portal.cart.add', $b1));
+
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+
+        // 3 prodotti da 10,00 = 30,00, più DUE spedizioni da 10,00 (non tre,
+        // non una): 50,00 in tutto.
+        $this->assertSame(5000, (int) Order::query()->sum('total_ky'));
+        $this->assertSame(2000, (int) Order::query()->sum('shipping_ky'), 'Due venditori, due spedizioni.');
+        $this->assertSame(1000, Order::where('company_id', $primaAzienda->id)->sole()->shipping_ky, 'Due prodotti dallo stesso venditore: una spedizione sola.');
+        $this->assertSame(1000, Order::where('company_id', $secondaAzienda->id)->sole()->shipping_ky);
+    }
+
     public function test_il_totale_mostrato_nel_carrello_e_esattamente_quello_che_si_paga(): void
     {
         // La spedizione viene calcolata in DUE posti: Cart::perVenditore() per
@@ -518,7 +553,6 @@ class CartPhaseCTest extends TestCase
         // guardano i prodotti — che e' esattamente il difetto segnalato da
         // Laura il 25/08.
         [$buyer] = $this->makeBuyer(saldo: 100000);
-        $this->abilitaMarketplace($buyer);
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
 
@@ -532,15 +566,18 @@ class CartPhaseCTest extends TestCase
         }
     }
 
-    public function test_chi_non_puo_comprare_non_vede_l_icona_del_carrello(): void
+    public function test_l_icona_c_e_anche_senza_il_permesso_marketplace(): void
     {
-        // Stessa condizione delle voci shop nel menu: senza il permesso
-        // marketplace l'icona non deve comparire.
+        // Scelta esplicita: l'icona non dipende dal permesso `marketplace.buy`.
+        // Chi non compra trovera' un carrello vuoto, mentre nasconderla a chi
+        // invece serve e' l'errore piu' costoso dei due — ed e' successo il
+        // 25/08, quando la prima versione la mostrava solo a chi aveva il
+        // permesso e Laura non la vedeva.
         [$buyer] = $this->makeBuyer(saldo: 100000);
 
         $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('class="cart-bell"', $html);
+        $this->assertStringContainsString('class="cart-bell"', $html);
     }
 
     // =========================================================================
