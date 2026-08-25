@@ -126,6 +126,9 @@ class ListingController extends Controller
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
             'selectedCompany' => $selectedCompany,
+            // Quanti pezzi ci sono nel carrello, per il pulsante in cima alla
+            // pagina (fase C, 25/08/2026).
+            'cartCount'       => \App\Models\Cart::pezziDi($currentAccount),
             'activeNav'       => 'shop',
         ]);
     }

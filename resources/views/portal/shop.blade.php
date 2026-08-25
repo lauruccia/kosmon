@@ -8,6 +8,18 @@
     <div class="alert-banner error">{{ session('portal_error') }}</div>
 @endif
 
+{{-- Il carrello (fase C, 2026-08-25). Sta qui e non nel menu laterale
+     perche' l'elenco delle voci di menu e' hardcoded in
+     MenuVisibility::menuItems() e va gestito a parte: questo pulsante e' dove
+     serve davvero, cioe' mentre si guardano i prodotti. --}}
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <a href="{{ route('portal.cart') }}" class="cart-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        Carrello
+        @if($cartCount > 0)<span class="cart-badge">{{ $cartCount }}</span>@endif
+    </a>
+</div>
+
 <section class="card light-card shop-toolbar-card">
     <form method="GET" action="{{ route('portal.shop') }}" class="shop-toolbar">
         {{-- Filtro venditore: chi arriva dal pulsante "SHOP" della directory
@@ -407,6 +419,21 @@
         .shop-toolbar { flex-direction: column; align-items: stretch; }
         .shop-toolbar > div { width: 100%; }
         .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    }
+
+    /* Pulsante carrello in cima allo shop (fase C). */
+    .cart-link {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 8px 16px; border-radius: 999px;
+        background: #fff; border: 1px solid #dbe3ec;
+        color: #10263d; font-size: 13.5px; font-weight: 600; text-decoration: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .cart-link:hover { border-color: #0c4a86; box-shadow: 0 2px 8px rgba(12,74,134,.12); }
+    .cart-badge {
+        min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+        background: #0c4a86; color: #fff; font-size: 11.5px; font-weight: 700;
+        display: inline-flex; align-items: center; justify-content: center;
     }
 </style>
 

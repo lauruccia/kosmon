@@ -240,6 +240,13 @@
                     <a href="{{ route('portal.ky-cards.index', ['redirect_to' => route('portal.shop.show', $listing)]) }}" class="cta" style="width:100%;text-align:center;display:block;">
                         Ricarica il tuo conto
                     </a>
+                    {{-- Il carrello resta possibile anche senza saldo: si mette
+                         da parte adesso e si ricarica con calma. --}}
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}">
+                        @csrf
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit" class="cta-outline">Aggiungi al carrello</button>
+                    </form>
                 @else
                     <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
                         @csrf
@@ -254,6 +261,16 @@
                         <button type="submit" class="cta" style="width:100%;text-align:center;"
                             onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
                             Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
+                        </button>
+
+                        {{-- Carrello (2026-08-25, fase C). Stesso form del bottone
+                             qui sopra, cambia solo la destinazione: cosi' la
+                             quantita' scelta vale per entrambi. "Compra ora"
+                             resta la strada principale — chi vuole un pezzo solo
+                             non deve passare da tre pagine. --}}
+                        <button type="submit" class="cta-outline"
+                                formaction="{{ route('portal.cart.add', $listing) }}">
+                            Aggiungi al carrello
                         </button>
                     </form>
                 @endif
@@ -354,6 +371,18 @@
         outline: none; transition: border-color .15s, box-shadow .15s;
     }
     .qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
+    /* Bottone secondario dentro il box scuro dell'acquisto: stessa forma del
+       .cta ma vuoto, per non mettere in concorrenza "Acquista" e "Aggiungi al
+       carrello". */
+    .cta-outline {
+        display: block; width: 100%; margin-top: 10px; min-height: 42px;
+        padding: 10px 16px; text-align: center; font-size: 14px; font-weight: 600;
+        border-radius: 9px; cursor: pointer;
+        background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.45);
+        transition: background .15s, border-color .15s;
+    }
+    .cta-outline:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.75); }
 
     @media (max-width: 900px) {
         .product-detail-grid { grid-template-columns: 1fr !important; }

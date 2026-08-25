@@ -36,6 +36,7 @@ use App\Http\Controllers\PaymentLinkController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\PaymentRequestController;
 use App\Http\Controllers\KycController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentGatewayController;
@@ -511,8 +512,17 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // "Offerte della settimana" (2026-08-13): stesso motivo di cui sopra,
     // route statica /shop/offerte registrata PRIMA di /shop/{listing}.
     Route::get('/shop/offerte', [ListingController::class, 'offers'])->name('portal.shop.offers');
+    // Carrello (2026-08-25, fase C): tutte route STATICHE sotto /shop, quindi
+    // registrate PRIMA di /shop/{listing} — altrimenti "carrello" verrebbe
+    // scambiato per lo slug di un prodotto, come già successo con /shop/crea.
+    Route::get('/shop/carrello', [CartController::class, 'index'])->name('portal.cart');
+    Route::post('/shop/carrello/svuota', [CartController::class, 'clear'])->name('portal.cart.clear');
+    Route::post('/shop/carrello/cassa', [CartController::class, 'checkout'])->name('portal.cart.checkout')->middleware('throttle:payments');
+    Route::patch('/shop/carrello/righe/{item}', [CartController::class, 'update'])->name('portal.cart.item.update');
+    Route::delete('/shop/carrello/righe/{item}', [CartController::class, 'remove'])->name('portal.cart.item.remove');
     Route::get('/shop/{listing}', [ListingController::class, 'show'])->name('portal.shop.show');
     Route::post('/shop/{listing}/acquista', [ListingController::class, 'buy'])->name('portal.shop.buy')->middleware('throttle:payments');
+    Route::post('/shop/{listing}/carrello', [CartController::class, 'add'])->name('portal.cart.add');
     Route::get('/shop/{listing}/modifica', [ListingController::class, 'edit'])->name('portal.shop.edit');
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');
     Route::delete('/shop/{listing}', [ListingController::class, 'destroy'])->name('portal.shop.destroy');
