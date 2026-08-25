@@ -116,6 +116,12 @@
                     </td>
                     <td style="text-align:center;white-space:nowrap;">
                         <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary" style="font-size:11px;padding:3px 10px;">Modifica</a>
+                        {{-- Varianti (2026-08-25, fase D): si gestiscono su un prodotto
+                             che esiste gia', quindi il collegamento sta qui e non nel
+                             form di creazione. --}}
+                        <a href="{{ route('portal.shop.variants', $listing) }}" class="cta secondary" style="font-size:11px;padding:3px 10px;margin-left:4px;">
+                            Varianti{{ $listing->has_variants ? ' ✓' : '' }}
+                        </a>
                         <form method="POST" action="{{ route('portal.shop.destroy', $listing) }}" style="display:inline;" onsubmit="return confirm('Eliminare questo prodotto?')">
                             @csrf
                             @method('DELETE')

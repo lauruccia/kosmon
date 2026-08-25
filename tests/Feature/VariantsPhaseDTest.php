@@ -501,6 +501,41 @@ class VariantsPhaseDTest extends TestCase
         $this->assertStringContainsString('disabled', $html);
     }
 
+    public function test_dagli_elenchi_prodotti_si_arriva_alle_varianti(): void
+    {
+        // Le varianti si gestiscono su un prodotto che ESISTE gia', quindi non
+        // stanno nel form di creazione: il collegamento deve esserci negli
+        // elenchi, che è il posto dove uno va a cercarlo (segnalato da Laura il
+        // 25/08, dopo il primo deploy: aveva creato gli attributi e non trovava
+        // dove usarli).
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        // Il venditore, da "I miei prodotti".
+        $this->actingAs($sellerUser)->get(route('portal.shop.mine'))
+            ->assertOk()
+            ->assertSee(route('portal.shop.variants', $listing));
+
+        // L'admin, dall'elenco prodotti del backoffice.
+        [$admin] = $this->makeBuyer(saldo: 1000);
+        $admin->forceFill(['is_super_admin' => true])->save();
+
+        $this->actingAs($admin)->get(route('admin.listings.index'))
+            ->assertOk()
+            ->assertSee(route('portal.shop.variants', $listing));
+
+        // E il form di creazione dice dove sono, invece di lasciare cercare.
+        $this->actingAs($admin)->get(route('admin.listings.create'))
+            ->assertOk()
+            ->assertSee('Si aggiungono', false);
+
+        // Anche il form di MODIFICA porta alle varianti: è il primo posto dove
+        // uno va a cercarle.
+        $this->actingAs($sellerUser)->get(route('portal.shop.edit', $listing))
+            ->assertOk()
+            ->assertSee(route('portal.shop.variants', $listing));
+    }
+
     public function test_il_venditore_genera_le_combinazioni_dai_valori_spuntati(): void
     {
         [$company, $sellerUser] = $this->makeSeller();
@@ -579,6 +614,41 @@ class VariantsPhaseDTest extends TestCase
 
         $this->assertNull($media->fresh()->stock_quantity);
         $this->assertFalse($media->fresh()->hasLimitedStock());
+    }
+
+    public function test_l_admin_gestisce_le_varianti_dei_prodotti_di_qualsiasi_azienda(): void
+    {
+        // Richiesta di Laura (25/08): dal backoffice si deve poter mettere mano
+        // alle varianti dei prodotti delle aziende, non solo dei propri —
+        // esattamente come si fa già con "Nuovo prodotto per conto azienda".
+        [$admin] = $this->makeBuyer(saldo: 1000);
+        $admin->forceFill(['is_super_admin' => true])->save();
+
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M']);
+
+        // Genera le combinazioni...
+        $this->actingAs($admin)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id],
+        ])->assertSessionHas('portal_success');
+
+        $this->assertSame(2, $listing->variants()->count());
+
+        // ...e ne imposta prezzo e giacenza.
+        $variante = $listing->variants()->first();
+        $this->actingAs($admin)->put(route('portal.shop.variants.update', $listing), [
+            'varianti' => [$variante->id => ['prezzo' => '23,00', 'scorte' => 4]],
+        ])->assertSessionHas('portal_success');
+
+        $variante->refresh();
+        $this->assertSame(300, $variante->price_delta_ky);
+        $this->assertSame(4, $variante->stock_quantity);
+
+        // E la pagina si apre normalmente.
+        $this->actingAs($admin)->get(route('portal.shop.variants', $listing))
+            ->assertOk()
+            ->assertSee('Taglia');
     }
 
     public function test_nessuno_gestisce_le_varianti_dei_prodotti_di_un_altro(): void

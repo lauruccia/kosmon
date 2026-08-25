@@ -92,6 +92,10 @@
             </div>
             <div class="page-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
                 <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">Modifica</a>
+                {{-- Varianti (2026-08-25, fase D): taglie, colori, formati. --}}
+                <a href="{{ route('portal.shop.variants', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">
+                    Varianti{{ $listing->has_variants ? ' ✓' : '' }}
+                </a>
                 @if(in_array($listing->status, ['active', 'suspended'], true))
                 <form method="POST" action="{{ route('portal.shop.status', $listing) }}" style="flex:1;">
                     @csrf

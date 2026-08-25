@@ -172,6 +172,16 @@
 
             </div>
 
+            {{-- Varianti (2026-08-25, fase D): non stanno in questo form perche'
+                 le combinazioni si appendono a un prodotto che esiste gia'. Chi
+                 le cerca qui deve sapere dove trovarle. --}}
+            <p class="subtle" style="font-size:12.5px;line-height:1.55;margin:22px 0 0;padding:12px 14px;background:var(--surface-soft);border-radius:9px;">
+                <strong>Taglie, colori o formati?</strong> Si aggiungono <em>dopo</em> aver salvato il
+                prodotto: dall'elenco prodotti, con il pulsante «Varianti» accanto a «Modifica».
+                Prima però servono gli attributi, che si creano in
+                <a href="{{ route('admin.listing-attributes.index') }}">Shop → Attributi</a>.
+            </p>
+
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px;">
                 <a href="{{ route('admin.listings.index') }}" class="cta secondary">Annulla</a>
                 <button type="submit" class="cta">Pubblica prodotto</button>

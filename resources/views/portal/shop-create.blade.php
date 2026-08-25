@@ -240,6 +240,34 @@
                 <div id="new-images-preview" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;"></div>
             </div>
 
+            {{-- ── Varianti (2026-08-25, fase D) ────────────────────────────
+                 Le combinazioni si appendono a un prodotto che esiste gia', per
+                 questo vivono in una pagina loro e non in questo form. Ma e' qui
+                 che uno le cerca — segnalato da Laura il 25/08, che le cercava
+                 nel form di modifica. In creazione si dice solo dove saranno. --}}
+            @if($editingListing)
+            <div style="margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div>
+                    <div style="font-size:13.5px;font-weight:700;color:var(--ink);">Taglie, colori, formati</div>
+                    <div class="subtle" style="font-size:12.5px;margin-top:3px;">
+                        @if($editingListing->has_variants)
+                            Questo prodotto ha già delle varianti: prezzi e giacenze si gestiscono da lì.
+                        @else
+                            Vendi questo prodotto in più versioni? Puoi creare le combinazioni e dare a ognuna prezzo e giacenza.
+                        @endif
+                    </div>
+                </div>
+                <a href="{{ route('portal.shop.variants', $editingListing) }}" class="btn-outline" style="white-space:nowrap;">
+                    {{ $editingListing->has_variants ? 'Gestisci varianti' : 'Aggiungi varianti' }}
+                </a>
+            </div>
+            @else
+            <p class="subtle" style="font-size:12.5px;line-height:1.55;margin:14px 0 0;">
+                <strong>Taglie, colori o formati?</strong> Si aggiungono dopo aver salvato il prodotto,
+                dal pulsante «Varianti» che troverai qui e in «I miei prodotti».
+            </p>
+            @endif
+
             {{-- ── Pulsante submit ─────────────────────────────────────────── --}}
             <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:8px;">
                 <a href="{{ route('portal.shop') }}" class="btn-outline">Annulla</a>
