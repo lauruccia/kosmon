@@ -11,6 +11,7 @@ use App\Models\MarketplaceOrderPayment;
 use App\Models\PaymentGateway;
 use App\Models\Transfer;
 use App\Notifications\NewMarketplaceOrderNotification;
+use App\Services\OrderService;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -261,7 +262,7 @@ class ListingController extends Controller
      * configurato, l'acquisto viene bloccato PRIMA di addebitare i KY: non ha
      * senso completare la parte KY se poi non c'è modo di pagare la parte EUR.
      */
-    public function buy(Request $request, Listing $listing, TransferBookingService $bookingService): RedirectResponse
+    public function buy(Request $request, Listing $listing, OrderService $orderService): RedirectResponse
     {
         $user = $request->user();
         $currentAccount = $this->resolveAccount($user);
@@ -283,128 +284,23 @@ class ListingController extends Controller
         ]);
         $quantity = (int) ($validated['quantity'] ?? 1);
 
-        // Se il prodotto ha una quota EUR, il venditore deve avere almeno un
-        // metodo di pagamento attivo e configurato: controllo PRIMA di
-        // addebitare i KY, per non lasciare l'acquirente con un ordine KY
-        // pagato ma senza modo di saldare la quota EUR.
-        // 2026-08-13: effective_ky_percentage (non ky_percentage) — se il
-        // prodotto ha un'offerta attiva, il mix da controllare è quello
-        // dell'offerta (in genere 100%), non quello normale del prodotto.
-        if ($listing->effective_ky_percentage < 100) {
-            $hasUsableGateway = PaymentGateway::query()
-                ->where('company_id', $listing->company_id)
-                ->active()
-                ->get()
-                ->contains(fn (PaymentGateway $g) => $g->is_configured);
-
-            if (! $hasUsableGateway) {
-                return back()->with('portal_error', 'Questo venditore non ha ancora configurato un metodo di pagamento per la quota in euro: riprova più tardi o contattalo direttamente.');
-            }
-        }
-
-        // Prodotti "da spedire" (2026-07-29): l'indirizzo si compila una volta
-        // sola nel profilo (vedi Account::hasShippingAddress()), non ad ogni
-        // acquisto — se manca, blocchiamo PRIMA di addebitare qualsiasi cosa
-        // e mandiamo il cliente a completarlo.
-        if ($listing->requiresShippingAddress() && ! $currentAccount->hasShippingAddress()) {
-            return back()->with('portal_error', 'Questo prodotto va spedito: prima di acquistarlo, completa il tuo indirizzo di spedizione nella sezione "Indirizzo di spedizione" del tuo profilo.');
-        }
-
+        // Da qui in poi il lavoro lo fa OrderService (fase B, 25/08/2026): i
+        // controlli su scorte, quota in euro e indirizzo, l'addebito, l'ordine
+        // e le sue righe. "Compra ora" è semplicemente un carrello con una riga
+        // sola, e passa esattamente per la stessa strada che userà il carrello.
         try {
-            $result = DB::transaction(function () use ($listing, $currentAccount, $user, $quantity, $bookingService, $request) {
-                // Lock della riga prodotto per verificare/scalare lo stock in modo atomico.
-                $lockedListing = Listing::query()->lockForUpdate()->findOrFail($listing->id);
-
-                if ($lockedListing->status !== 'active') {
-                    throw new \RuntimeException('Questo prodotto non è più disponibile.');
-                }
-
-                if ($lockedListing->hasLimitedStock() && $lockedListing->stock_quantity < $quantity) {
-                    throw new \RuntimeException(
-                        $lockedListing->stock_quantity <= 0
-                            ? 'Prodotto esaurito.'
-                            : "Disponibili solo {$lockedListing->stock_quantity} pezzi."
-                    );
-                }
-
-                $sellerAccount = $lockedListing->company->accounts()
-                    ->where('is_system_account', false)
-                    ->where('owner_type', 'company')
-                    ->whereNull('parent_account_id')
-                    ->firstOrFail();
-
-                // effective_ky_amount/effective_euro_amount (non ky_amount/euro_amount,
-                // 2026-08-13): addebita il prezzo dell'offerta attiva se presente,
-                // altrimenti il prezzo pieno normale — vedi Listing::activeOffer().
-                $unitKyAmount = $lockedListing->effective_ky_amount;
-                $unitEuroAmount = $lockedListing->effective_euro_amount;
-
-                // Costo di spedizione: UNA sola volta per ordine (non moltiplicato
-                // per la quantità, coerente con un ordine reale spedito in un unico
-                // pacco), diviso KY/EUR con la STESSA percentuale del prodotto
-                // (scelta di Laura, 2026-07-29).
-                $requiresShipping = $lockedListing->requiresShippingAddress();
-                $shippingKyAmount = $requiresShipping ? $lockedListing->shipping_ky_amount : 0;
-                $shippingEuroAmount = $requiresShipping ? $lockedListing->shipping_euro_amount : 0;
-
-                $totalAmount     = ($unitKyAmount * $quantity) + $shippingKyAmount;
-                $totalEuroAmount = ($unitEuroAmount * $quantity) + $shippingEuroAmount;
-
-                $description = 'Acquisto shop: ' . $lockedListing->title . ($quantity > 1 ? " (x{$quantity})" : '')
-                    . ($lockedListing->is_on_offer ? ' [offerta]' : '')
-                    . ($shippingKyAmount > 0 || $shippingEuroAmount > 0 ? ' + spedizione' : '');
-
-                $transfer = $bookingService->book([
-                    'initiated_by'    => $user->id,
-                    'from_account_id' => $currentAccount->id,
-                    'to_account_id'   => $sellerAccount->id,
-                    'amount'          => $totalAmount,
-                    'kind'            => 'portal_marketplace_order',
-                    'description'     => $description,
-                    'listing_id'      => $lockedListing->id,
-                    'quantity'        => $quantity,
-                    // Snapshot dell'ordine (PIANO_SHOP_ESTERNO.md §3.1): il titolo
-                    // viene congelato qui, così il movimento resta leggibile anche
-                    // se il prodotto viene rinominato o cancellato — e domani anche
-                    // senza la tabella `listings`.
-                    'order_title'     => $lockedListing->title,
-                    'order_source'    => Transfer::ORDER_SOURCE_INTERNAL,
-                    // Snapshot indirizzo al momento dell'acquisto: se il cliente
-                    // cambia poi l'indirizzo sul profilo, l'ordine già fatto resta
-                    // storicamente corretto (stesso ragionamento del prezzo).
-                    'shipping_recipient_name' => $requiresShipping ? $currentAccount->shipping_recipient_name : null,
-                    'shipping_address'        => $requiresShipping ? $currentAccount->shipping_address : null,
-                    'shipping_city'           => $requiresShipping ? $currentAccount->shipping_city : null,
-                    'shipping_postal_code'    => $requiresShipping ? $currentAccount->shipping_postal_code : null,
-                    'shipping_province'       => $requiresShipping ? $currentAccount->shipping_province : null,
-                    'shipping_phone'          => $requiresShipping ? $currentAccount->shipping_phone : null,
-                    'shipping_ky_amount'      => $requiresShipping ? $shippingKyAmount : null,
-                    'idempotency_key' => (string) Str::uuid(),
-                    'ip_address'      => $request->ip(),
-                ]);
-
-                if ($lockedListing->hasLimitedStock()) {
-                    $lockedListing->decrement('stock_quantity', $quantity);
-                }
-
-                $payment = null;
-                if ($totalEuroAmount > 0) {
-                    $payment = MarketplaceOrderPayment::create([
-                        'transfer_id' => $transfer->id,
-                        'listing_id'  => $lockedListing->id,
-                        'company_id'  => $lockedListing->company_id,
-                        'amount'      => $totalEuroAmount,
-                        'status'      => MarketplaceOrderPayment::STATUS_PENDING,
-                    ]);
-                }
-
-                return [$transfer, $payment];
-            });
+            $order = $orderService->place(
+                buyerAccount: $currentAccount,
+                user: $user,
+                righe: [['listing' => $listing, 'quantity' => $quantity]],
+                ipAddress: $request->ip(),
+            );
         } catch (\RuntimeException $e) {
             return back()->with('portal_error', $e->getMessage());
         }
 
-        [$transfer, $payment] = $result;
+        $transfer = $order->transfer;
+        $payment  = $order->payment;
 
         // La transazione è già committata a questo punto: notifica il venditore
         // fuori dalla transazione, senza far fallire l'acquisto se la notifica ha problemi.

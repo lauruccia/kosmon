@@ -663,6 +663,10 @@ class TransferBookingService
                 'description'     => $attributes['description'] ?? null,
                 'listing_id'      => $attributes['listing_id'] ?? null,
                 'quantity'        => $attributes['quantity'] ?? null,
+                // L'ordine a cui questo movimento appartiene (fase B, 25/08/2026).
+                // Pass-through puro come listing_id: la banca non legge la
+                // tabella `orders`, si limita a portarsi dietro il riferimento.
+                'order_id'        => $attributes['order_id'] ?? null,
                 // Snapshot ordine — pass-through come listing_id/quantity.
                 'external_order_uuid' => $attributes['external_order_uuid'] ?? null,
                 'order_title'         => $attributes['order_title'] ?? null,
@@ -779,6 +783,10 @@ class TransferBookingService
             'description' => $attributes['description'] ?? null,
             'listing_id' => $attributes['listing_id'] ?? null,
             'quantity' => $attributes['quantity'] ?? null,
+            // L'ordine a cui questo movimento appartiene (fase B, 25/08/2026).
+            // Pass-through puro come listing_id: la banca non legge la tabella
+            // `orders`, si limita a portarsi dietro il riferimento.
+            'order_id' => $attributes['order_id'] ?? null,
             // Snapshot ordine — pass-through come listing_id/quantity.
             'external_order_uuid' => $attributes['external_order_uuid'] ?? null,
             'order_title'         => $attributes['order_title'] ?? null,

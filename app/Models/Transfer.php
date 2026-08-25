@@ -86,6 +86,7 @@ class Transfer extends Model
         'reversed_transfer_id',
         'related_transfer_id',
         'listing_id',
+        'order_id',
         'quantity',
         // Snapshot dell'ordine (PIANO_SHOP_ESTERNO.md §3.1, migrazione
         // 2026_08_24_140000): il movimento si porta dietro il titolo di cosa e'

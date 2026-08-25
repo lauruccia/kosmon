@@ -55,6 +55,7 @@ class MarketplaceOrderPayment extends Model
     protected $fillable = [
         'uuid',
         'transfer_id',
+        'order_id',
         'listing_id',
         'company_id',
         'payment_gateway_id',
@@ -77,6 +78,15 @@ class MarketplaceOrderPayment extends Model
         static::creating(function (MarketplaceOrderPayment $payment): void {
             $payment->uuid ??= (string) Str::uuid();
         });
+    }
+
+    /**
+     * L'ordine a cui questa quota in euro appartiene (fase B, 25/08/2026).
+     * Puo' essere null solo sui pagamenti piu' vecchi del backfill.
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Order::class);
     }
 
     public function transfer(): BelongsTo
