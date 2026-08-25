@@ -126,9 +126,6 @@ class ListingController extends Controller
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
             'selectedCompany' => $selectedCompany,
-            // Quanti pezzi ci sono nel carrello, per il pulsante in cima alla
-            // pagina (fase C, 25/08/2026).
-            'cartCount'       => \App\Models\Cart::pezziDi($currentAccount),
             'activeNav'       => 'shop',
         ]);
     }
@@ -915,13 +912,7 @@ class ListingController extends Controller
      */
     private function resolveAccount($user): ?Account
     {
-        if ($user->managed_account_id) {
-            return Account::query()->with(['company', 'ownerUser'])->find($user->managed_account_id);
-        }
-        if ($user->company_id) {
-            return Account::query()->with(['company'])->where('company_id', $user->company_id)->whereNull('parent_account_id')->first();
-        }
-        return Account::query()->with(['ownerUser'])->where('owner_user_id', $user->id)->whereNull('parent_account_id')->first();
+        return Account::operativoPer($user);
     }
 
     /**

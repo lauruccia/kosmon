@@ -356,6 +356,7 @@
     }
     .shop-back-link:hover { color: var(--primary); }
 
+
     /* Campo quantità nel box acquisto (card scura .account-hero):
        non esisteva CSS per .field-label/.field-input, l'input era
        completamente privo di stile. */

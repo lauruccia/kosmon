@@ -522,8 +522,9 @@
         }
         .theme-toggle:hover { background: var(--surface-hover); transform: scale(1.08); }
 
-        /* Notification bell */
-        .notif-bell {
+        /* Notification bell — e la stessa forma la usa l'icona del carrello */
+        .notif-bell,
+        .cart-bell {
             position: relative;
             width: 36px; height: 36px;
             border-radius: var(--radius-sm);
@@ -534,7 +535,8 @@
             transition: background .16s, transform .12s;
             text-decoration: none;
         }
-        .notif-bell:hover { background: var(--surface-hover); transform: scale(1.08); }
+        .notif-bell:hover,
+        .cart-bell:hover { background: var(--surface-hover); transform: scale(1.08); }
         .notif-badge {
             position: absolute; top: -5px; right: -5px;
             min-width: 18px; height: 18px; padding: 0 4px;
@@ -1942,6 +1944,19 @@
                 </div>
                 @endif
                 <div class="topbar-tools">
+                    {{-- Carrello (2026-08-25, fase C): sta qui, accanto alle altre
+                         icone, perche' e' l'unico posto visibile da OGNI pagina
+                         del portale. Il numerino arriva dal view composer in
+                         AppServiceProvider. Stessa condizione delle voci shop
+                         nel menu: chi non puo' comprare non lo vede. --}}
+                    @if (!$isBackoffice && auth()->user()?->canAccessMarketplace())
+                    <a href="{{ route('portal.cart') }}" class="cart-bell" title="Carrello">
+                        🛒
+                        @if (($cartCount ?? 0) > 0)
+                            <span class="notif-badge">{{ $cartCount > 9 ? '9+' : $cartCount }}</span>
+                        @endif
+                    </a>
+                    @endif
                     @if (!$isBackoffice)
                     @php $unreadCount = auth()->user()?->unreadNotifications()->count() ?? 0; @endphp
                     <a href="{{ route('portal.notifications') }}" class="notif-bell" title="Notifiche">

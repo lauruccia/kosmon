@@ -473,7 +473,78 @@ class CartPhaseCTest extends TestCase
     }
 
     // =========================================================================
-    // 5. "Compra ora" continua a esistere e a funzionare
+    // 5. Il carrello si raggiunge da tutto il portale
+    // =========================================================================
+
+    public function test_il_menu_mostra_il_carrello_col_numero_dei_pezzi(): void
+    {
+        // La voce "Carrello" nel menu segue la stessa condizione della voce
+        // "Shop" (permesso marketplace): qui serve quindi un utente che il menu
+        // dello shop lo vede davvero.
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        $this->abilitaMarketplace($buyer);
+
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['quantity' => 3]);
+
+        // Il conteggio arriva da un view composer, quindi compare su QUALSIASI
+        // pagina del portale, non solo nello shop.
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(route('portal.cart'), $html, 'Il menu deve portare al carrello.');
+        $this->assertStringContainsString('<span class="nav-count">3</span>', $html, 'Con tre pezzi dentro, il numerino deve dire 3.');
+    }
+
+    public function test_senza_niente_nel_carrello_il_numerino_non_compare(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        $this->abilitaMarketplace($buyer);
+
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(route('portal.cart'), $html);
+        // Attenzione: la parola "nav-count" da sola compare sempre, e' anche il
+        // nome della classe nel foglio di stile del layout. Si cerca il markup.
+        $this->assertStringNotContainsString('<span class="nav-count">', $html, 'Carrello vuoto: nessun numerino.');
+    }
+
+    public function test_l_icona_del_carrello_e_in_alto_su_ogni_pagina(): void
+    {
+        // L'icona sta nella barra in alto, accanto a campanella e tema: e'
+        // l'unico punto visibile da qualunque pagina del portale. Se sparisse
+        // da li', il carrello diventerebbe di nuovo irraggiungibile mentre si
+        // guardano i prodotti — che e' esattamente il difetto segnalato da
+        // Laura il 25/08.
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        $this->abilitaMarketplace($buyer);
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['quantity' => 2]);
+
+        foreach ([route('portal.shop.show', $listing), route('portal.shop'), route('portal.dashboard')] as $pagina) {
+            $html = $this->actingAs($buyer)->get($pagina)->assertOk()->getContent();
+
+            $this->assertStringContainsString('class="cart-bell"', $html, "Icona carrello assente su {$pagina}");
+            $this->assertStringContainsString('<span class="notif-badge">2</span>', $html, "Numerino assente su {$pagina}");
+        }
+    }
+
+    public function test_chi_non_puo_comprare_non_vede_l_icona_del_carrello(): void
+    {
+        // Stessa condizione delle voci shop nel menu: senza il permesso
+        // marketplace l'icona non deve comparire.
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('class="cart-bell"', $html);
+    }
+
+    // =========================================================================
+    // 6. "Compra ora" continua a esistere e a funzionare
     // =========================================================================
 
     public function test_compra_ora_funziona_ancora_e_non_tocca_il_carrello(): void

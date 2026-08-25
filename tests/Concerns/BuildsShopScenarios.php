@@ -145,6 +145,31 @@ trait BuildsShopScenarios
     }
 
     /**
+     * Da' all'utente il permesso `marketplace.buy`, quello che il menu laterale
+     * richiede per mostrare le voci dello shop (User::canAccessMarketplace()).
+     *
+     * Serve solo ai test che guardano il MENU: le rotte dello shop funzionano
+     * anche senza, ed e' per questo che tutti gli altri test non ne hanno
+     * bisogno.
+     */
+    protected function abilitaMarketplace(User $user): void
+    {
+        $permesso = \App\Models\Permission::firstOrCreate(
+            ['slug' => 'marketplace.buy'],
+            ['name' => 'Buy in marketplace']
+        );
+
+        $ruolo = \App\Models\Role::firstOrCreate(
+            ['slug' => 'compratore-test'],
+            ['name' => 'Compratore', 'scope' => 'portal']
+        );
+
+        $ruolo->permissions()->syncWithoutDetaching([$permesso->id]);
+        $user->roles()->syncWithoutDetaching([$ruolo->id]);
+        $user->load('roles.permissions');
+    }
+
+    /**
      * Somma algebrica di TUTTI i saldi del circuito, conto sistema incluso.
      *
      * Un movimento sposta denaro: non ne crea e non ne distrugge. Qualunque
