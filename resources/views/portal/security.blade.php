@@ -266,6 +266,28 @@
     @endif
 
 
+    {{-- App collegate (fase 2a dello shop esterno): da qui si vedono e si
+         spengono i permessi di pagamento dati alle applicazioni del circuito.
+         Sempre visibile, anche senza nessuna app collegata: è il posto dove
+         l'utente deve sapere di poter guardare. --}}
+    <section class="card card-pad" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">
+                &#x1F517;
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:2px;">App collegate</div>
+                <div style="font-size:13px;color:var(--ink-soft);">
+                    Le applicazioni autorizzate a pagare in KY per tuo conto, con il loro tetto di spesa
+                </div>
+            </div>
+            <a href="{{ route('portal.connected-apps.index') }}"
+               style="padding:8px 16px;background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap;">
+                Gestisci &#x2192;
+            </a>
+        </div>
+    </section>
+
     {{-- Suggerimento app --}}
     @if(!$enabled)
     <section class="card card-pad" style="background:var(--surface-soft);border:1px solid var(--line);">

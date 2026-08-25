@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\OAuth\AuthorizationController as OAuthAuthorizationController;
+use App\Http\Controllers\OAuth\MandateConsentController;
+use App\Http\Controllers\ConnectedAppsController;
 use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\SubAccountLimitRequestController;
@@ -392,6 +394,16 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'contract', 'n
         Route::get('/authorize', [OAuthAuthorizationController::class, 'show'])->name('oauth.authorize');
         Route::post('/authorize', [OAuthAuthorizationController::class, 'approve'])->name('oauth.authorize.approve');
         Route::delete('/authorize', [OAuthAuthorizationController::class, 'deny'])->name('oauth.authorize.deny');
+
+        // ── Mandato di pagamento ("un clic e paghi", fase 2a) ───────────────
+        // In più c'è `step.up`: autorizzare un'app a muovere KY per conto tuo
+        // sta insieme alle altre azioni sensibili (disattivare il 2FA, creare
+        // un token API), non è un checkbox nel checkout.
+        Route::middleware('step.up')->group(function () {
+            Route::get('/mandate', [MandateConsentController::class, 'show'])->name('oauth.mandate');
+            Route::post('/mandate', [MandateConsentController::class, 'store'])->name('oauth.mandate.grant');
+            Route::delete('/mandate', [MandateConsentController::class, 'deny'])->name('oauth.mandate.deny');
+        });
     });
 
 Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contract', 'contract'])->group(function () {
@@ -405,6 +417,15 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/profilo/conferma-identita', [StepUpController::class, 'verify'])->name('portal.step-up.verify');
 
     Route::get('/profilo/sicurezza', [TwoFactorController::class, 'showSetup'])->name('portal.security');
+
+    // ── App collegate (fase 2a dello shop esterno) ─────────────────────────
+    // Revocare NON chiede lo step-up: spegnere un permesso dev'essere sempre
+    // più facile che accenderlo. Alzare il tetto invece sì.
+    Route::get('/profilo/app-collegate', [ConnectedAppsController::class, 'index'])->name('portal.connected-apps.index');
+    Route::post('/profilo/app-collegate/{uuid}/revoca', [ConnectedAppsController::class, 'revoke'])->name('portal.connected-apps.revoke');
+    Route::post('/profilo/app-collegate/{uuid}/tetto', [ConnectedAppsController::class, 'updateLimit'])
+        ->middleware('step.up')
+        ->name('portal.connected-apps.limit');
     Route::get('/sessioni', [LoginLogController::class, 'index'])->name('portal.login-logs');
     Route::post('/sessioni/logout-all', [LoginLogController::class, 'logoutAll'])->name('portal.login-logs.logout-all');
     Route::delete('/sessioni/{sessionId}', [LoginLogController::class, 'logoutSession'])->name('portal.login-logs.logout-session');

@@ -309,6 +309,33 @@ GET  /api/v1/userinfo            identità dell'utente collegato (mai il saldo)
 - Motore: `app/Services/OAuthService.php` (le regole di sicurezza sono elencate
   in cima al file, e ognuna ha il suo test).
 
+### Mandato di pagamento — "un clic e paghi" (fase 2a)
+
+Il permesso che un utente dà a un'applicazione del circuito di addebitargli KY
+senza confermare ogni acquisto. **Non** è un abbonamento e **non** autorizza
+addebiti ricorrenti: l'unico limite è il tetto per singola transazione.
+
+```
+GET  /oauth/mandate              schermata di consenso (web, dietro `step.up`)
+GET  /api/v1/mandates            i mandati vivi dell'utente per questa app
+POST /api/v1/mandates/{uuid}/charge   addebito immediato (scope `mandate`)
+GET  /profilo/app-collegate      pagina utente: tetto, storico, revoca in un clic
+```
+
+- Motore: `app/Services/PaymentMandateService.php` — **non muove denaro da sé**,
+  chiama `TransferBookingService::book()` con `kind = portal_marketplace_order`
+  e `order_source = kshop`.
+- Esiti dell'addebito: **200** fatto, **402** serve la conferma dell'utente
+  (`reason`: `amount_above_limit`, `seller_not_authorized`, `mandate_suspended`,
+  `limit_exceeded`…), **422** richiesta non valida.
+- Tabelle: `payment_mandates`, `payment_mandate_charges` (idempotenza garantita
+  da `UNIQUE(payment_mandate_id, idempotency_key)`).
+- Antifurto: oltre 10 addebiti in un'ora il mandato si sospende da solo.
+- Configurazione: `config/oauth.php` → blocco `mandate` (tetto di default
+  5000 = 50,00 KY, scadenza 12 mesi).
+- **Concedere chiede lo step-up, revocare no**: spegnere dev'essere sempre più
+  facile che accendere.
+
 ---
 
 ## Jobs in coda

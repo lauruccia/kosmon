@@ -72,4 +72,40 @@ return [
         'refresh_token'      => 60 * 60 * 24 * 30, // 30 giorni
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mandato di pagamento ("un clic e paghi")
+    |--------------------------------------------------------------------------
+    |
+    | Il mandato NON è un abbonamento e non autorizza nessun addebito
+    | ricorrente: dice una cosa sola, "da questo negozio non può uscire più di
+    | N KY in un colpo solo". Sopra quella soglia non si rifiuta l'acquisto —
+    | si chiede all'utente di confermarlo a mano.
+    |
+    */
+
+    'mandate' => [
+
+        // Tetto proposto nella schermata di consenso, in centesimi di KY.
+        // 5000 = 50,00 KY (decisione di Laura, 25/08/2026). L'utente può
+        // alzarlo o abbassarlo prima di confermare.
+        'default_max_per_transaction' => 5000,
+
+        // Estremi accettati per il tetto, sempre in centesimi.
+        'min_max_per_transaction' => 100,      //     1,00 KY
+        'max_max_per_transaction' => 100000,   // 1.000,00 KY
+
+        // Scadenza di sicurezza del mandato.
+        'expires_months' => 12,
+
+        // Antifurto: non è un limite di spesa che l'utente deve capire, è una
+        // soglia tecnica. Dieci addebiti automatici in un'ora da un solo
+        // negozio non è un comportamento umano normale: il mandato si sospende
+        // da solo e l'utente riceve una notifica.
+        'rate_limit' => [
+            'max_charges'    => 10,
+            'window_minutes' => 60,
+        ],
+    ],
+
 ];

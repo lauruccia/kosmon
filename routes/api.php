@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\EcommercePairingController;
 use App\Http\Controllers\Api\V1\PaymentPlanController;
 use App\Http\Controllers\Api\V1\PaymentRequestController;
 use App\Http\Controllers\Api\V1\TransferController;
+use App\Http\Controllers\Api\V1\MandateController;
 use App\Http\Controllers\Api\V1\UserInfoController;
 use App\Http\Controllers\OAuth\TokenController as OAuthTokenController;
 use App\Http\Middleware\ApiTokenAuth;
@@ -43,6 +44,15 @@ Route::prefix('oauth')->middleware('throttle:30,1')->group(function () {
 // Identità dell'utente collegato: è ciò che evita a kshop una seconda anagrafica.
 Route::prefix('v1')->middleware(['oauth.token', 'throttle:60,1'])->group(function () {
     Route::get('/userinfo', [UserInfoController::class, 'show'])->name('api.v1.userinfo');
+});
+
+// Mandato di pagamento (fase 2a): l'addebito in un clic. Scope `mandate`
+// obbligatorio — un token con i soli permessi di lettura non muove KY.
+// Il throttle è stretto: sono soldi, e l'antifurto del mandato lavora su una
+// finestra di un'ora, non sul singolo minuto.
+Route::prefix('v1')->middleware(['oauth.token:mandate', 'throttle:30,1'])->group(function () {
+    Route::get('/mandates', [MandateController::class, 'index'])->name('api.v1.mandates.index');
+    Route::post('/mandates/{uuid}/charge', [MandateController::class, 'charge'])->name('api.v1.mandates.charge');
 });
 
 Route::prefix('v1')->middleware([ApiTokenAuth::class, 'throttle:60,1'])->group(function () {

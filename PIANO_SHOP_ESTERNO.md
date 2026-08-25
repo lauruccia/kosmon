@@ -423,7 +423,8 @@ Ogni fase è rilasciabile da sola: in nessun momento il sito resta rotto.
 | **0a** | ~~Test di regressione sull'acquisto attuale~~ — **FATTA** (23/08): `tests/Feature/ShopPurchaseRegressionTest.php`, 19 test | kmoney-app | piccola |
 | **0b** | ~~Snapshot ordini sui `transfers`, allentare la FK `listing_id`~~ — **FATTA** (24/08): migrazione + backfill + `Transfer::order_label`, 10 test | kmoney-app | piccola |
 | **1** | ~~SSO "Accedi con KMoney" + pagina consenso~~ — **FATTA** (24/08): server OAuth2 **fatto in casa** invece di Passport (vedi `FASE1_MOTORE_OAUTH.md`), 2 tabelle, `users.uuid`, `/userinfo`, 58 test | kmoney-app | media |
-| **2** | `PaymentMandate`, endpoint charge, pagina "App collegate", webhook stato azienda | kmoney-app | media |
+| **2a** | ~~`PaymentMandate`, addebito immediato, pagina "App collegate", antifurto~~ — **FATTA** (25/08): 2 tabelle, tetto 50 KY di default, revoca in un clic, 54 test | kmoney-app | media |
+| **2b** | Ramo "serve conferma" (402 → `payment_request` + webhook `payment_request.paid`) e webhook `company.trading_status_changed` | kmoney-app | media |
 | **3** | Nuova app kshop: catalogo, varianti, immagini, **carrelli per venditore**, checkout, quota EUR, resi | kshop | **grande** |
 | **4** | Export/import dati + doppio binario (shop interno in sola lettura) | entrambe | media |
 | **5** | Spegnimento shop interno, redirect 301, rimozione codice | kmoney-app | piccola |
@@ -506,14 +507,21 @@ di sicurezza per accorgersi se qualcosa si rompe, sia uno storico ordini che
 sopravvive alla sparizione del catalogo. Nessuna delle due ha cambiato il
 comportamento visibile del sito.
 
-Anche la **fase 1** è fatta (24/08): l'identità c'è, e con essa il client a cui
-un domani si concederà il mandato.
+Anche la **fase 1** è fatta (24/08) ed è in produzione su entrambi i server:
+l'identità c'è, e con essa il client a cui concedere il mandato.
 
-Il prossimo passo è la **fase 2**: `PaymentMandate`, l'endpoint di addebito, la
-pagina "App collegate" nel portale e il webhook sullo stato dell'azienda. Tutti
-i pezzi su cui poggia esistono già: gli scope (`mandate` è previsto e validato),
-lo step-up a 15 minuti per concederlo, e `TransferBookingService` che continuerà
-a fare il lavoro vero — cashback, commissioni, MLM e partita doppia restano
-identici a oggi.
+**La fase 2 è stata spezzata in due**, e la 2a è fatta (25/08): il mandato
+esiste, l'addebito immediato funziona, l'utente ha una pagina da cui vedere e
+revocare, e l'antifurto è al suo posto. Il motore finanziario non è stato
+toccato: l'addebito passa da `TransferBookingService::book()` come ogni altro
+movimento, quindi cashback, commissioni, MLM e partita doppia restano identici.
+
+Resta la **fase 2b**: il ramo "serve conferma". Oggi quando l'addebito
+automatico non si può fare — sopra il tetto, venditore nuovo, mandato sospeso —
+l'API risponde `402` con il motivo, ma non c'è ancora la pagina su cui mandare
+l'utente a confermare. È lì che il venditore nuovo entra fra quelli autorizzati,
+ed è quello che serve prima di poter aprire kshop davvero. Nella stessa fase va
+il webhook `company.trading_status_changed` (§3.2), senza il quale non si può
+spegnere lo shop interno.
 
 Da qui in poi non si decide più architettura, ma quando partire.
