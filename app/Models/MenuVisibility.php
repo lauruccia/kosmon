@@ -82,6 +82,7 @@ class MenuVisibility extends Model
             'aziende'            => 'Directory aziende',
             'annunci'            => 'Annunci',
             'shop'               => 'Shop',
+            'cart'               => 'Carrello',
             'shop-offers'        => 'Offerte della settimana',
             'plan'               => 'Il mio piano',
             'company-reports'    => "Segnala un'azienda",

@@ -246,6 +246,38 @@ class Account extends Model
      * Restituisce il conto riserva del circuito (Cassa Circuito KMoney).
      * Usato per l'emissione sovrana di KY da parte dell'admin.
      */
+    /**
+     * Il conto su cui questo utente opera nel portale.
+     *
+     * Estratto il 25/08/2026 (fase C): la stessa identica logica viveva in tre
+     * posti diversi come metodo privato di controller, e ora serve anche al
+     * layout per il numerino del carrello. Il comportamento non cambia di una
+     * virgola — e' lo stesso codice, spostato dove si puo' chiamare una volta
+     * sola.
+     */
+    public static function operativoPer($user): ?self
+    {
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->managed_account_id) {
+            return self::query()->with(['company', 'ownerUser'])->find($user->managed_account_id);
+        }
+
+        if ($user->company_id) {
+            return self::query()->with(['company'])
+                ->where('company_id', $user->company_id)
+                ->whereNull('parent_account_id')
+                ->first();
+        }
+
+        return self::query()->with(['ownerUser'])
+            ->where('owner_user_id', $user->id)
+            ->whereNull('parent_account_id')
+            ->first();
+    }
+
     public static function systemAccount(): ?self
     {
         return static::query()->where('is_system_account', true)->first();

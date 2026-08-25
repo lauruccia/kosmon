@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +30,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Numerino del carrello nel menu laterale (fase C, 25/08/2026).
+        //
+        // Il conteggio serve su OGNI pagina del portale, non solo nello shop:
+        // passarlo da ogni controller sarebbe una riga da ricordarsi per
+        // sempre. Il valore viene calcolato una volta sola per richiesta —
+        // once() memoizza — e vale 0 per chi non e' autenticato o non ha un
+        // conto operativo (backoffice puro, sessione scaduta).
+        View::composer(['layouts.portal', 'portal.*'], function ($view): void {
+            $view->with('cartCount', once(function (): int {
+                $account = \App\Models\Account::operativoPer(auth()->user());
+
+                return $account ? \App\Models\Cart::pezziDi($account) : 0;
+            }));
+        });
+
         // Forza HTTPS quando in produzione (necessario dietro reverse proxy)
         if ($this->app->environment('production')) {
             URL::forceScheme('https');

@@ -393,6 +393,14 @@
         .sidebar-sublink { padding: 7px 10px 7px 16px; font-size: 12.5px; color: rgba(255,255,255,.58); }
         .sidebar-link:hover { background: rgba(255,255,255,.08); color: #fff; }
         .sidebar-sublink:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.9); }
+        /* Numerino del carrello nella voce di menu (fase C). */
+        .nav-count {
+            margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px;
+            border-radius: 999px; background: #0c4a86; color: #fff;
+            font-size: 11px; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+
         .sidebar-link.active {
             background: rgba(255,255,255,.12); color: #fff;
             box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
@@ -1650,6 +1658,18 @@
                                 @if($mv('shop') && $canMkt)
                                 <a class="sidebar-link {{ $an === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}">
                                     <span class="nav-icon">🛒</span><span>Shop</span>
+                                </a>
+                                @endif
+                                {{-- Carrello (2026-08-25, fase C). Il numerino arriva da un
+                                     view composer in AppServiceProvider: serve su ogni pagina,
+                                     non solo nello shop. --}}
+                                @if($mv('cart') && $canMkt)
+                                <a class="sidebar-link {{ $an === 'cart' ? 'active' : '' }}" href="{{ route('portal.cart') }}">
+                                    <span class="nav-icon">🧺</span>
+                                    <span>Carrello</span>
+                                    @if(($cartCount ?? 0) > 0)
+                                        <span class="nav-count">{{ $cartCount }}</span>
+                                    @endif
                                 </a>
                                 @endif
                                 {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso
