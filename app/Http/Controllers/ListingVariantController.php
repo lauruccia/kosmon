@@ -100,11 +100,15 @@ class ListingVariantController extends Controller
             ->mapWithKeys(fn (ListingVariant $v) => [implode('-', $v->chiaveValori()) => $v]);
 
         $create = 0;
+        $spente = 0;
 
-        DB::transaction(function () use ($combinazioni, $listing, $esistenti, &$create) {
+        DB::transaction(function () use ($combinazioni, $listing, $esistenti, &$create, &$spente) {
+            $chiaviGenerate = [];
+
             foreach ($combinazioni as $i => $combinazione) {
                 $ids = collect($combinazione)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
                 $chiave = $ids->implode('-');
+                $chiaviGenerate[] = $chiave;
 
                 if ($esistenti->has($chiave)) {
                     continue;  // c'è già: prezzo e giacenza restano suoi
@@ -118,14 +122,56 @@ class ListingVariantController extends Controller
                 $create++;
             }
 
+            // LE COMBINAZIONI RIMASTE INDIETRO.
+            //
+            // Aggiungere un secondo attributo a un prodotto che ne aveva uno
+            // solo lascia orfane le vecchie: chi aveva "S" e "M" e aggiunge il
+            // colore si ritrova "S", "M", "S rosso", "S blu", "M rosso",
+            // "M blu" — e chi compra vedrebbe nel selettore sia "S" sia
+            // "S rosso", senza capire la differenza. Stessa cosa togliendo un
+            // valore: le combinazioni che lo usavano restano appese.
+            //
+            // Vengono SPENTE, non cancellate: possono essere già state vendute,
+            // e il venditore deve poter decidere lui se riaccenderle o
+            // eliminarle. Spente spariscono dal selettore di chi compra, che è
+            // la cosa che conta subito — e se una era già nel carrello di
+            // qualcuno, la cassa la ferma con "Questa combinazione non è più
+            // disponibile" invece di venderla di nascosto (CartItem::
+            // motivoIndisponibilita).
+            //
+            // La regola è una sola, ed è quella che si spiega in una riga: una
+            // combinazione che questa generazione non produce non è più fra
+            // quelle che il venditore ha chiesto.
+            foreach ($esistenti as $chiave => $variante) {
+                // (string): con un attributo solo la chiave è "7", e PHP le
+                // chiavi che sembrano numeri se le tiene come interi — un
+                // in_array stretto contro "7" direbbe di no e spegnerebbe
+                // combinazioni appena generate. Con due attributi ("7-9") non
+                // succede, ed è il motivo per cui sfugge facilmente.
+                if (in_array((string) $chiave, $chiaviGenerate, true) || ! $variante->is_active) {
+                    continue;
+                }
+
+                $variante->update(['is_active' => false]);
+                $spente++;
+            }
+
             if (! $listing->has_variants) {
                 $listing->forceFill(['has_variants' => true])->save();
             }
         });
 
-        return back()->with('portal_success', $create > 0
+        $messaggio = $create > 0
             ? ($create === 1 ? 'Aggiunta 1 combinazione.' : "Aggiunte {$create} combinazioni.")
-            : 'Nessuna combinazione nuova: c\'erano già tutte.');
+            : 'Nessuna combinazione nuova: c\'erano già tutte.';
+
+        if ($spente > 0) {
+            $messaggio .= $spente === 1
+                ? ' Una combinazione non più coerente con i valori scelti è stata disattivata: la trovi qui sotto, puoi riattivarla o eliminarla.'
+                : " {$spente} combinazioni non più coerenti con i valori scelti sono state disattivate: le trovi qui sotto, puoi riattivarle o eliminarle.";
+        }
+
+        return back()->with('portal_success', $messaggio);
     }
 
     /** Prezzo e giacenza di ogni combinazione, salvati in blocco. */

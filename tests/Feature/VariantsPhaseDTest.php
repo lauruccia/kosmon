@@ -578,6 +578,159 @@ class VariantsPhaseDTest extends TestCase
         $this->assertSame(42, $esistente->stock_quantity, 'E nemmeno la sua giacenza.');
     }
 
+    // ── Rigenerare dopo aver cambiato i valori ───────────────────────────────
+    //
+    // Domanda di Laura, 25/08/2026: "se clicco su genera combinazioni e poi
+    // voglio aggiungere una o più varianti cosa succede?". I tre casi che
+    // capitano davvero, messi per iscritto qui perché non si possano rompere
+    // in silenzio.
+
+    public function test_aggiungere_un_valore_allo_stesso_attributo_aggiunge_solo_quello_che_manca(): void
+    {
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M', 'L']);
+
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id],
+        ]);
+
+        // Il venditore mette prezzo e giacenza sulla S, poi ci ripensa e
+        // aggiunge la L.
+        $esse = $listing->variants()->get()->first(fn ($v) => $v->etichetta_corta === 'S');
+        $esse->update(['price_delta_ky' => 300, 'stock_quantity' => 12]);
+
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id, $taglie['L']->id],
+        ])->assertSessionHas('portal_success');
+
+        $attive = $listing->variants()->where('is_active', true)->get();
+        $this->assertSame(
+            ['L', 'M', 'S'],
+            $attive->map(fn ($v) => $v->etichetta_corta)->sort()->values()->all(),
+            'Le due di prima restano, si aggiunge solo la L.'
+        );
+
+        $esse->refresh();
+        $this->assertSame(300, $esse->price_delta_ky, 'Il lavoro già fatto sulla S non si perde.');
+        $this->assertSame(12, $esse->stock_quantity);
+        $this->assertSame(0, $listing->variants()->where('is_active', false)->count(), 'Niente da spegnere.');
+    }
+
+    public function test_aggiungere_un_secondo_attributo_spegne_le_combinazioni_rimaste_a_meta(): void
+    {
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M']);
+        $colori = $this->makeAttributo('Colore', ['rosso', 'blu']);
+
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id],
+        ]);
+        $this->assertSame(2, $listing->variants()->count());
+
+        // Ora aggiunge il colore. Il prodotto cartesiano fa quattro
+        // combinazioni COMPLETE; le due sole-taglia non hanno più senso —
+        // chi compra vedrebbe nel selettore sia "S" sia "S · rosso".
+        $risposta = $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [
+                $taglie['S']->id, $taglie['M']->id,
+                $colori['rosso']->id, $colori['blu']->id,
+            ],
+        ]);
+
+        $attive = $listing->variants()->where('is_active', true)->get();
+        $this->assertSame(
+            ['M · blu', 'M · rosso', 'S · blu', 'S · rosso'],
+            $attive->map(fn ($v) => $v->etichetta_corta)->sort()->values()->all(),
+            'Restano attive solo le quattro combinazioni complete.'
+        );
+
+        $spente = $listing->variants()->where('is_active', false)->get();
+        $this->assertSame(
+            ['M', 'S'],
+            $spente->map(fn ($v) => $v->etichetta_corta)->sort()->values()->all(),
+            'Le due a metà sono spente, NON cancellate: possono già essere state vendute.'
+        );
+
+        // E il venditore deve capire che cosa gli è successo, non trovarsele
+        // spente per conto loro.
+        $this->assertStringContainsString('disattivate', $risposta->getSession()->get('portal_success'));
+    }
+
+    public function test_togliere_un_valore_spegne_le_combinazioni_che_lo_usavano(): void
+    {
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M', 'L']);
+
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id, $taglie['L']->id],
+        ]);
+
+        // Della L non ne vuole più: rigenera senza spuntarla.
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id],
+        ]);
+
+        $this->assertSame(
+            ['M', 'S'],
+            $listing->variants()->where('is_active', true)->get()
+                ->map(fn ($v) => $v->etichetta_corta)->sort()->values()->all()
+        );
+
+        $elle = $listing->variants()->where('is_active', false)->get();
+        $this->assertCount(1, $elle);
+        $this->assertSame('L', $elle->first()->etichetta_corta);
+
+        // Ripensarci è una spunta: la L torna com'era, con le sue righe
+        // d'ordine ancora attaccate.
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id, $taglie['L']->id],
+        ]);
+
+        $this->assertSame(3, $listing->variants()->count(), 'Nessun doppione della L.');
+    }
+
+    public function test_una_combinazione_spenta_dalla_rigenerazione_non_si_vende_dal_carrello(): void
+    {
+        [$company, $sellerUser] = $this->makeSeller();
+        [$buyerUser, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M']);
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['S']->id, $taglie['M']->id],
+        ]);
+
+        $esse = $listing->variants()->get()->first(fn ($v) => $v->etichetta_corta === 'S');
+
+        // refresh(): has_variants l'ha acceso la generazione qui sopra, e
+        // l'istanza del test è ancora quella di prima.
+        $listing->refresh();
+
+        app(\App\Services\CartService::class)->aggiungi($buyerAccount, $listing, 1, $esse);
+
+        // Mentre la S è nel carrello, il venditore deseleziona la S.
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [$taglie['M']->id],
+        ]);
+
+        $prima = $this->sommaSaldiCircuito();
+
+        try {
+            app(\App\Services\CartService::class)->checkout($buyerAccount, $buyerUser);
+            $this->fail('La cassa doveva fermarsi su una combinazione spenta.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('non è più disponibile', $e->getMessage());
+        }
+
+        $this->assertSame($prima, $this->sommaSaldiCircuito(), 'Nessun soldo si è mosso.');
+    }
+
     public function test_il_venditore_scrive_il_prezzo_pieno_e_il_sistema_salva_il_delta(): void
     {
         [$company, $sellerUser] = $this->makeSeller();
