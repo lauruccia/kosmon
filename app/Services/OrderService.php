@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Account;
 use App\Models\Listing;
+use App\Models\ListingVariant;
 use App\Models\MarketplaceOrderPayment;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -44,8 +45,9 @@ class OrderService
     }
 
     /**
-     * @param  array<int, array{listing: Listing, quantity: int}>  $righe
-     *         Tutte righe dello STESSO venditore.
+     * @param  array<int, array{listing: Listing, quantity: int, variant?: ListingVariant|null}>  $righe
+     *         Tutte righe dello STESSO venditore. `variant` e' obbligatoria per
+     *         i prodotti variabili e assente per gli altri.
      *
      * @throws RuntimeException con un messaggio già pronto per l'utente
      */
@@ -86,10 +88,23 @@ class OrderService
                 ->get()
                 ->keyBy('id');
 
-            $quantitaPerListing = [];
+            // La chiave e' "prodotto + combinazione": la M e la L dello stesso
+            // maglione sono due righe distinte dell'ordine, con scorte distinte.
+            $perChiave = [];
             foreach ($righe as $riga) {
-                $id = (int) $riga['listing']->id;
-                $quantitaPerListing[$id] = ($quantitaPerListing[$id] ?? 0) + max(1, (int) $riga['quantity']);
+                $listingId = (int) $riga['listing']->id;
+                $variante  = $riga['variant'] ?? null;
+                $chiave    = $listingId . ':' . ($variante?->id ?? 0);
+
+                if (! isset($perChiave[$chiave])) {
+                    $perChiave[$chiave] = [
+                        'listing_id' => $listingId,
+                        'variant'    => $variante,
+                        'quantita'   => 0,
+                    ];
+                }
+
+                $perChiave[$chiave]['quantita'] += max(1, (int) $riga['quantity']);
             }
 
             $company        = null;
@@ -98,14 +113,41 @@ class OrderService
             $totaleEuro     = 0;
             $serveSpedizione = false;
 
-            foreach ($quantitaPerListing as $listingId => $quantita) {
-                $listing = $bloccati->get($listingId);
+            foreach ($perChiave as $riga) {
+                $listing  = $bloccati->get($riga['listing_id']);
+                $quantita = $riga['quantita'];
 
                 if (! $listing || $listing->status !== 'active') {
                     throw new RuntimeException('Questo prodotto non è più disponibile.');
                 }
 
-                if ($listing->hasLimitedStock() && $listing->stock_quantity < $quantita) {
+                // La combinazione viene ricaricata QUI, bloccata: il prezzo e le
+                // scorte che contano sono quelli di adesso, non quelli che aveva
+                // in mano chi ha riempito il carrello.
+                $variante = null;
+                if ($listing->has_variants || ($riga['variant'] !== null)) {
+                    $variante = $riga['variant']
+                        ? ListingVariant::query()->lockForUpdate()->find($riga['variant']->id)
+                        : null;
+
+                    if (! $variante || (int) $variante->listing_id !== (int) $listing->id) {
+                        throw new RuntimeException('Scegli una variante di questo prodotto prima di acquistarlo.');
+                    }
+
+                    if (! $variante->is_active) {
+                        throw new RuntimeException('Questa combinazione non è più disponibile.');
+                    }
+
+                    $variante->setRelation('listing', $listing);
+
+                    if ($variante->hasLimitedStock() && $variante->stock_quantity < $quantita) {
+                        throw new RuntimeException(
+                            $variante->stock_quantity <= 0
+                                ? 'Combinazione esaurita.'
+                                : "Disponibili solo {$variante->stock_quantity} pezzi di questa combinazione."
+                        );
+                    }
+                } elseif ($listing->hasLimitedStock() && $listing->stock_quantity < $quantita) {
                     throw new RuntimeException(
                         $listing->stock_quantity <= 0
                             ? 'Prodotto esaurito.'
@@ -116,9 +158,11 @@ class OrderService
                 $company ??= $listing->company;
 
                 // effective_* e non i campi grezzi: se c'è un'offerta attiva si
-                // paga il prezzo dell'offerta, col mix dell'offerta.
-                $unitKy   = $listing->effective_ky_amount;
-                $unitEuro = $listing->effective_euro_amount;
+                // paga il prezzo dell'offerta, col mix dell'offerta. Con una
+                // combinazione, al prezzo base si somma il suo delta.
+                $unitPieno = $variante ? $variante->prezzoEffettivo() : (int) $listing->effective_price_ky;
+                $unitKy    = $variante ? $variante->quotaKy() : $listing->effective_ky_amount;
+                $unitEuro  = $variante ? $variante->quotaEuro() : $listing->effective_euro_amount;
 
                 $totaleKy   += $unitKy * $quantita;
                 $totaleEuro += $unitEuro * $quantita;
@@ -129,8 +173,9 @@ class OrderService
 
                 $itemsDaCreare[] = [
                     'listing'         => $listing,
+                    'variant'         => $variante,
                     'quantity'        => $quantita,
-                    'unit_price_ky'   => $listing->effective_price_ky,
+                    'unit_price_ky'   => $unitPieno,
                     'ky_percentage'   => $listing->effective_ky_percentage,
                     'unit_ky_amount'  => $unitKy,
                     'unit_eur_amount' => $unitEuro,
@@ -184,9 +229,14 @@ class OrderService
 
             foreach ($itemsDaCreare as $item) {
                 OrderItem::create([
-                    'order_id'        => $order->id,
-                    'listing_id'      => $item['listing']->id,
-                    'title'           => $item['listing']->title,
+                    'order_id'           => $order->id,
+                    'listing_id'         => $item['listing']->id,
+                    'listing_variant_id' => $item['variant']?->id,
+                    'title'              => $item['listing']->title,
+                    // Snapshot come il titolo: se domani il venditore cancella
+                    // la combinazione o l'admin rinomina "rosso", l'ordine di
+                    // ieri resta leggibile.
+                    'variant_label'      => $item['variant']?->etichetta,
                     'quantity'        => $item['quantity'],
                     'unit_price_ky'   => $item['unit_price_ky'],
                     'ky_percentage'   => $item['ky_percentage'],
@@ -225,7 +275,13 @@ class OrderService
             ]);
 
             foreach ($itemsDaCreare as $item) {
-                if ($item['listing']->hasLimitedStock()) {
+                // Con una combinazione le scorte si scalano SU DI LEI: il
+                // prodotto può restare pieno di magliette e non avere più la M.
+                if ($item['variant']) {
+                    if ($item['variant']->hasLimitedStock()) {
+                        $item['variant']->decrement('stock_quantity', $item['quantity']);
+                    }
+                } elseif ($item['listing']->hasLimitedStock()) {
                     $item['listing']->decrement('stock_quantity', $item['quantity']);
                 }
             }
@@ -307,6 +363,7 @@ class OrderService
         $listing = $primo['listing'];
 
         $testo = 'Acquisto shop: ' . $listing->title
+            . ($primo['variant'] ? ' (' . $primo['variant']->etichetta_corta . ')' : '')
             . ($primo['quantity'] > 1 ? " (x{$primo['quantity']})" : '')
             . ($listing->is_on_offer ? ' [offerta]' : '');
 

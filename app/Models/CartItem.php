@@ -29,6 +29,7 @@ class CartItem extends Model
     protected $fillable = [
         'cart_id',
         'listing_id',
+        'listing_variant_id',
         'quantity',
     ];
 
@@ -46,16 +47,46 @@ class CartItem extends Model
         return $this->belongsTo(Listing::class);
     }
 
+    /** La combinazione scelta, se il prodotto è variabile (fase D). */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ListingVariant::class, 'listing_variant_id');
+    }
+
+    /** Prezzo pieno unitario di adesso: della combinazione se c'è, altrimenti del prodotto. */
+    public function prezzoUnitario(): int
+    {
+        if ($this->variant) {
+            return $this->variant->prezzoEffettivo();
+        }
+
+        return $this->listing ? (int) $this->listing->effective_price_ky : 0;
+    }
+
     /** Quota KY di questa riga, al prezzo di adesso. Spedizione esclusa. */
     public function totaleKy(): int
     {
+        if ($this->variant) {
+            return $this->variant->quotaKy() * $this->quantity;
+        }
+
         return $this->listing ? $this->listing->effective_ky_amount * $this->quantity : 0;
     }
 
     /** Quota in euro di questa riga, al prezzo di adesso. Spedizione esclusa. */
     public function totaleEuro(): int
     {
+        if ($this->variant) {
+            return $this->variant->quotaEuro() * $this->quantity;
+        }
+
         return $this->listing ? $this->listing->effective_euro_amount * $this->quantity : 0;
+    }
+
+    /** "Taglia: M · Colore: rosso", o niente se il prodotto non è variabile. */
+    public function etichettaVariante(): ?string
+    {
+        return $this->variant?->etichetta;
     }
 
     /**
@@ -66,6 +97,12 @@ class CartItem extends Model
     {
         if (! $this->listing || $this->listing->status !== 'active' || $this->listing->is_expired) {
             return false;
+        }
+
+        // Con una combinazione scelta, è la SUA giacenza che conta: il prodotto
+        // può essere pieno di magliette e non avere più la M.
+        if ($this->listing_variant_id) {
+            return $this->variant !== null && $this->variant->isDisponibile($this->quantity);
         }
 
         return ! $this->listing->hasLimitedStock() || $this->listing->stock_quantity >= $this->quantity;
@@ -80,6 +117,20 @@ class CartItem extends Model
 
         if ($this->listing->status !== 'active' || $this->listing->is_expired) {
             return 'Questo prodotto non è più disponibile.';
+        }
+
+        if ($this->listing_variant_id) {
+            if (! $this->variant || ! $this->variant->is_active) {
+                return 'Questa combinazione non è più disponibile.';
+            }
+
+            if ($this->variant->hasLimitedStock() && $this->variant->stock_quantity < $this->quantity) {
+                return $this->variant->stock_quantity <= 0
+                    ? 'Combinazione esaurita.'
+                    : "Ne restano solo {$this->variant->stock_quantity}.";
+            }
+
+            return null;
         }
 
         if ($this->listing->hasLimitedStock() && $this->listing->stock_quantity < $this->quantity) {

@@ -236,7 +236,12 @@ class ListingController extends Controller
             'pageTitle'      => $listing->title . ' — Shop KMoney',
             'currentAccount' => $currentAccount,
             'currentUser'    => $user,
-            'listing'        => $listing->load(['company.plan', 'activeOffer']),
+            'listing'        => $listing->load([
+                'company.plan',
+                'activeOffer',
+                // Le combinazioni acquistabili, coi loro valori (fase D).
+                'variantiAttive.values.attribute',
+            ]),
             'related'        => Listing::query()->with(['company.plan', 'activeOffer'])->active()
                                     ->inCategory($listing->category)
                                     ->whereKeyNot($listing->id)
@@ -280,9 +285,26 @@ class ListingController extends Controller
         }
 
         $validated = $request->validate([
-            'quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'quantity'   => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'variant_id' => ['nullable', 'integer', 'exists:listing_variants,id'],
         ]);
         $quantity = (int) ($validated['quantity'] ?? 1);
+
+        // Prodotto variabile: senza combinazione non si compra (fase D).
+        $variante = null;
+        if (! empty($validated['variant_id'])) {
+            $variante = \App\Models\ListingVariant::query()
+                ->where('listing_id', $listing->id)
+                ->find($validated['variant_id']);
+
+            if (! $variante) {
+                return back()->with('portal_error', 'Questa combinazione non appartiene a questo prodotto.');
+            }
+        }
+
+        if ($listing->isVariabile() && ! $variante) {
+            return back()->with('portal_error', 'Scegli una variante prima di acquistare.');
+        }
 
         // Da qui in poi il lavoro lo fa OrderService (fase B, 25/08/2026): i
         // controlli su scorte, quota in euro e indirizzo, l'addebito, l'ordine
@@ -292,7 +314,7 @@ class ListingController extends Controller
             $order = $orderService->place(
                 buyerAccount: $currentAccount,
                 user: $user,
-                righe: [['listing' => $listing, 'quantity' => $quantity]],
+                righe: [['listing' => $listing, 'variant' => $variante, 'quantity' => $quantity]],
                 ipAddress: $request->ip(),
             );
         } catch (\RuntimeException $e) {

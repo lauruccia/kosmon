@@ -76,12 +76,16 @@
                             {{ $listing->title }}
                         </a>
 
+                        @if($riga->etichettaVariante())
+                            <div style="margin-top:4px;font-size:13px;color:#475569;">{{ $riga->etichettaVariante() }}</div>
+                        @endif
+
                         <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                             <span class="pill" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                             @if($listing->is_on_offer)
                                 <span class="pill" style="background:#fee2e2;color:#991b1b;">🔥 -{{ $listing->offer_discount_percent }}%</span>
                             @endif
-                            <span class="subtle" style="font-size:12px;">{{ ky_format($listing->effective_price_ky) }} KY l'uno</span>
+                            <span class="subtle" style="font-size:12px;">{{ ky_format($riga->prezzoUnitario()) }} KY l'uno</span>
                         </div>
 
                         @if($motivo)
@@ -96,7 +100,8 @@
                                 @method('PATCH')
                                 <label class="subtle" style="font-size:12px;">Quantità</label>
                                 <input type="number" name="quantity" value="{{ $riga->quantity }}" min="1"
-                                       @if($listing->hasLimitedStock()) max="{{ $listing->stock_quantity }}" @endif
+                                       @if($riga->variant && $riga->variant->hasLimitedStock()) max="{{ $riga->variant->stock_quantity }}"
+                                       @elseif(! $riga->variant && $listing->hasLimitedStock()) max="{{ $listing->stock_quantity }}" @endif
                                        style="width:66px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;">
                                 <button type="submit" style="background:none;border:none;color:#0c4a86;font-size:12px;font-weight:600;cursor:pointer;padding:4px 2px;">Aggiorna</button>
                             </form>

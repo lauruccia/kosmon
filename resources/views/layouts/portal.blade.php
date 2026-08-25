@@ -1409,6 +1409,8 @@
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-orders' ? 'active' : '' }}" href="{{ route('admin.listings.orders') }}"><span class="subnav-icon">OR</span><span>Ordini</span></a>
                                 @endif
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-categories' ? 'active' : '' }}" href="{{ route('admin.listing-categories.index') }}"><span class="subnav-icon">CT</span><span>Categorie</span></a>
+                                {{-- Attributi prodotti variabili (2026-08-25, fase D). --}}
+                                <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-attributes' ? 'active' : '' }}" href="{{ route('admin.listing-attributes.index') }}"><span class="subnav-icon">AT</span><span>Attributi</span></a>
                                 {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso
                                      livello di visibilità di Moderazione/Categorie (niente gate
                                      $isFullBackoffice — il ruolo "Gestore Aziende e Prodotti" la vede

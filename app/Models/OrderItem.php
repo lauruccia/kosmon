@@ -43,7 +43,9 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'listing_id',
+        'listing_variant_id',
         'title',
+        'variant_label',
         'quantity',
         'unit_price_ky',
         'ky_percentage',
@@ -71,6 +73,24 @@ class OrderItem extends Model
     public function listing(): BelongsTo
     {
         return $this->belongsTo(Listing::class);
+    }
+
+    /**
+     * La combinazione acquistata. Può essere null anche su un ordine con
+     * varianti, se nel frattempo il venditore l'ha cancellata: per questo il
+     * testo resta congelato in `variant_label`.
+     */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ListingVariant::class, 'listing_variant_id');
+    }
+
+    /** Titolo completo da mostrare: "Maglione — Taglia: M · rosso". */
+    public function getTitoloCompletoAttribute(): string
+    {
+        return $this->variant_label
+            ? $this->title . ' — ' . $this->variant_label
+            : $this->title;
     }
 
     /** Etichetta del mix pagamento di questa riga, come congelato all'acquisto. */

@@ -39,7 +39,7 @@ class CartController extends Controller
         }
 
         $cart = Cart::attivoPer($account);
-        $cart->load('items.listing.company.plan', 'items.listing.activeOffer');
+        $cart->load('items.listing.company.plan', 'items.listing.activeOffer', 'items.variant.values.attribute');
 
         $gruppi = $cart->perVenditore();
 
@@ -67,11 +67,23 @@ class CartController extends Controller
         }
 
         $validated = $request->validate([
-            'quantity' => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'quantity'   => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'variant_id' => ['nullable', 'integer', 'exists:listing_variants,id'],
         ]);
 
+        $variante = empty($validated['variant_id'])
+            ? null
+            : \App\Models\ListingVariant::query()
+                ->where('listing_id', $listing->id)
+                ->find($validated['variant_id']);
+
         try {
-            $this->cartService->aggiungi($account, $listing, (int) ($validated['quantity'] ?? 1));
+            $this->cartService->aggiungi(
+                $account,
+                $listing,
+                (int) ($validated['quantity'] ?? 1),
+                $variante,
+            );
         } catch (\RuntimeException $e) {
             return back()->with('portal_error', $e->getMessage());
         }

@@ -131,6 +131,7 @@ class Listing extends Model
         'ky_percentage',
         'desired_ky_percentage',
         'stock_quantity',
+        'has_variants',
         'images',
         'status',
         'featured',
@@ -143,6 +144,7 @@ class Listing extends Model
     ];
 
     protected $casts = [
+        'has_variants' => 'boolean',
         'images'     => 'array',
         'featured'   => 'boolean',
         'expires_at' => 'datetime',
@@ -339,6 +341,54 @@ class Listing extends Model
     public function hasLimitedStock(): bool
     {
         return $this->stock_quantity !== null;
+    }
+
+    // ── Prodotti variabili (fase D, 25/08/2026) ──────────────────────────────
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ListingVariant::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Solo le combinazioni che il venditore ha lasciato accese. */
+    public function variantiAttive(): HasMany
+    {
+        return $this->variants()->where('is_active', true);
+    }
+
+    /**
+     * È un prodotto variabile? Serve l'interruttore E almeno una combinazione:
+     * un prodotto marcato variabile ma senza varianti non sarebbe comprabile
+     * in nessun modo, e allora tanto vale trattarlo come semplice.
+     */
+    public function isVariabile(): bool
+    {
+        if (! $this->has_variants) {
+            return false;
+        }
+
+        $varianti = $this->relationLoaded('variantiAttive')
+            ? $this->variantiAttive
+            : $this->variantiAttive()->get();
+
+        return $varianti->isNotEmpty();
+    }
+
+    /**
+     * Scorte complessive di un prodotto variabile: la somma delle sue
+     * combinazioni, o null se almeno una è illimitata.
+     */
+    public function scorteVarianti(): ?int
+    {
+        $varianti = $this->relationLoaded('variantiAttive')
+            ? $this->variantiAttive
+            : $this->variantiAttive()->get();
+
+        if ($varianti->contains(fn (ListingVariant $v) => ! $v->hasLimitedStock())) {
+            return null;
+        }
+
+        return (int) $varianti->sum('stock_quantity');
     }
 
     /**

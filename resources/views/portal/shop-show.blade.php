@@ -133,7 +133,9 @@
     {{-- Sidebar acquisto --}}
     @php
         $isOwnCompany = auth()->user()->company_id === $listing->company_id;
-        $inStock      = $listing->isInStock();
+        $inStock      = $listing->isVariabile()
+            ? $listing->variantiAttive->contains(fn ($v) => $v->isDisponibile())
+            : $listing->isInStock();
         $needsShippingAddress = $listing->requiresShippingAddress();
         $hasShippingAddress   = $currentAccount->hasShippingAddress();
         // Link alla sezione indirizzo di spedizione del profilo, con
@@ -154,6 +156,15 @@
         // dell'offerta — vedi Listing::activeOffer().
         $requiredKy   = $listing->effective_ky_amount + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
         $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
+
+        // Prodotti variabili (fase D, 25/08/2026): se il prodotto ha
+        // combinazioni, il prezzo mostrato in cima e' quello della piu'
+        // economica ancora disponibile, e il bottone resta spento finche' non
+        // se ne sceglie una.
+        $varianti = $listing->isVariabile()
+            ? $listing->variantiAttive->sortBy(fn ($v) => $v->prezzoEffettivo())->values()
+            : collect();
+        $variantiDisponibili = $varianti->filter(fn ($v) => $v->isDisponibile());
     @endphp
     <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
@@ -250,6 +261,26 @@
                 @else
                     <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
                         @csrf
+
+                        @if($varianti->isNotEmpty())
+                        {{-- Prodotto variabile: si sceglie la combinazione prima
+                             di tutto. Le combinazioni esaurite restano in
+                             elenco, barrate: chi cerca la M vuole sapere che la
+                             M esiste ma e' finita, non credere che non la fai. --}}
+                        <div class="qty-field">
+                            <label>Scegli la variante</label>
+                            <select name="variant_id" class="variant-select" required>
+                                <option value="">— seleziona —</option>
+                                @foreach($varianti as $variante)
+                                    <option value="{{ $variante->id }}" @disabled(! $variante->isDisponibile())>
+                                        {{ $variante->etichetta_corta }}
+                                        — {{ ky_format($variante->prezzoEffettivo()) }} KY{{ $variante->isDisponibile() ? '' : ' (esaurita)' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
                         <div class="qty-field">
                             <label>Quantità</label>
@@ -258,10 +289,17 @@
                         @else
                         <input type="hidden" name="quantity" value="1">
                         @endif
-                        <button type="submit" class="cta" style="width:100%;text-align:center;"
-                            onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
-                            Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
-                        </button>
+                        @if($varianti->isNotEmpty())
+                            <button type="submit" class="cta" style="width:100%;text-align:center;"
+                                onclick="return confirm('Confermi l\'acquisto della variante scelta?')">
+                                Acquista la variante scelta
+                            </button>
+                        @else
+                            <button type="submit" class="cta" style="width:100%;text-align:center;"
+                                onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
+                                Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
+                            </button>
+                        @endif
 
                         {{-- Carrello (2026-08-25, fase C). Stesso form del bottone
                              qui sopra, cambia solo la destinazione: cosi' la
@@ -278,6 +316,26 @@
         </section>
 
         @if(auth()->user()->company_id === $listing->company_id || auth()->user()->is_super_admin)
+        {{-- Varianti (fase D, 2026-08-25): la gestione sta in una pagina sua. --}}
+        <section class="card light-card" style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div>
+                    <span class="eyebrow">Varianti</span>
+                    <p style="margin:6px 0 0;font-size:13.5px;color:#334155;">
+                        @if($listing->isVariabile())
+                            Questo prodotto ha <strong>{{ $listing->variantiAttive->count() }}</strong>
+                            {{ $listing->variantiAttive->count() === 1 ? 'combinazione in vendita' : 'combinazioni in vendita' }}.
+                        @else
+                            Vendi questo prodotto in più taglie, colori o formati? Puoi crearne le combinazioni.
+                        @endif
+                    </p>
+                </div>
+                <a href="{{ route('portal.shop.variants', $listing) }}" class="cta" style="white-space:nowrap;">
+                    {{ $listing->isVariabile() ? 'Gestisci varianti' : 'Aggiungi varianti' }}
+                </a>
+            </div>
+        </section>
+
         <section class="card light-card">
             <h3 class="card-title">Gestione prodotto</h3>
             <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
@@ -372,6 +430,15 @@
         outline: none; transition: border-color .15s, box-shadow .15s;
     }
     .qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
+    /* Selettore della variante: stessa forma del campo quantita'. */
+    .variant-select {
+        width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
+        border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
+        background: rgba(255,255,255,.95); color: #0d1c30;
+        outline: none; appearance: auto;
+    }
+    .variant-select:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
 
     /* Bottone secondario dentro il box scuro dell'acquisto: stessa forma del
        .cta ma vuoto, per non mettere in concorrenza "Acquista" e "Aggiungi al

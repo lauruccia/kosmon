@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Listing;
+use App\Models\ListingVariant;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -42,8 +43,12 @@ class CartService
      *
      * @throws RuntimeException con un messaggio già pronto per l'utente
      */
-    public function aggiungi(Account $account, Listing $listing, int $quantita = 1): CartItem
-    {
+    public function aggiungi(
+        Account $account,
+        Listing $listing,
+        int $quantita = 1,
+        ?ListingVariant $variante = null,
+    ): CartItem {
         $quantita = max(1, $quantita);
 
         if ($listing->status !== 'active' || $listing->is_expired) {
@@ -54,12 +59,42 @@ class CartService
             throw new RuntimeException('Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
         }
 
+        // Prodotto variabile: la combinazione va scelta, e deve essere una sua.
+        if ($listing->isVariabile()) {
+            if (! $variante) {
+                throw new RuntimeException('Scegli una variante prima di aggiungere il prodotto al carrello.');
+            }
+
+            if ((int) $variante->listing_id !== (int) $listing->id) {
+                throw new RuntimeException('Questa combinazione non appartiene a questo prodotto.');
+            }
+
+            if (! $variante->is_active) {
+                throw new RuntimeException('Questa combinazione non è più disponibile.');
+            }
+        } else {
+            // Prodotto semplice: una variante non c'entra niente.
+            $variante = null;
+        }
+
         $cart = Cart::attivoPer($account);
 
-        $riga = $cart->items()->where('listing_id', $listing->id)->first();
+        $riga = $cart->items()
+            ->where('listing_id', $listing->id)
+            ->where('listing_variant_id', $variante?->id)
+            ->first();
+
         $nuovaQuantita = ($riga?->quantity ?? 0) + $quantita;
 
-        if ($listing->hasLimitedStock() && $listing->stock_quantity < $nuovaQuantita) {
+        if ($variante) {
+            if ($variante->hasLimitedStock() && $variante->stock_quantity < $nuovaQuantita) {
+                throw new RuntimeException(
+                    $variante->stock_quantity <= 0
+                        ? 'Combinazione esaurita.'
+                        : "Disponibili solo {$variante->stock_quantity} pezzi di questa combinazione."
+                );
+            }
+        } elseif ($listing->hasLimitedStock() && $listing->stock_quantity < $nuovaQuantita) {
             throw new RuntimeException(
                 $listing->stock_quantity <= 0
                     ? 'Prodotto esaurito.'
@@ -74,8 +109,9 @@ class CartService
         }
 
         return $cart->items()->create([
-            'listing_id' => $listing->id,
-            'quantity'   => $nuovaQuantita,
+            'listing_id'         => $listing->id,
+            'listing_variant_id' => $variante?->id,
+            'quantity'           => $nuovaQuantita,
         ]);
     }
 
@@ -90,8 +126,18 @@ class CartService
             return;
         }
 
-        $listing = $riga->listing;
-        if ($listing && $listing->hasLimitedStock() && $listing->stock_quantity < $quantita) {
+        $listing  = $riga->listing;
+        $variante = $riga->variant;
+
+        if ($variante) {
+            if ($variante->hasLimitedStock() && $variante->stock_quantity < $quantita) {
+                throw new RuntimeException(
+                    $variante->stock_quantity <= 0
+                        ? 'Combinazione esaurita.'
+                        : "Disponibili solo {$variante->stock_quantity} pezzi di questa combinazione."
+                );
+            }
+        } elseif ($listing && $listing->hasLimitedStock() && $listing->stock_quantity < $quantita) {
             throw new RuntimeException(
                 $listing->stock_quantity <= 0
                     ? 'Prodotto esaurito.'
@@ -125,7 +171,7 @@ class CartService
     public function checkout(Account $account, User $user, ?string $ipAddress = null): Collection
     {
         $cart = Cart::attivoPer($account);
-        $cart->load('items.listing.company', 'items.listing.activeOffer');
+        $cart->load('items.listing.company', 'items.listing.activeOffer', 'items.variant.values.attribute');
 
         if ($cart->isVuoto()) {
             throw new RuntimeException('Il carrello è vuoto.');
@@ -160,6 +206,7 @@ class CartService
                 $righe = $gruppo['righe']
                     ->map(fn (CartItem $r) => [
                         'listing'  => $r->listing,
+                        'variant'  => $r->variant,
                         'quantity' => $r->quantity,
                     ])
                     ->all();

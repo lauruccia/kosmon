@@ -9,6 +9,7 @@ use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\SubAccountLimitRequestController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSectorController;
+use App\Http\Controllers\AdminListingAttributeController;
 use App\Http\Controllers\AdminListingCategoryController;
 use App\Http\Controllers\AdminListingOfferController;
 use App\Http\Controllers\AnnouncementController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\PaymentRequestController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ListingController;
+use App\Http\Controllers\ListingVariantController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\Admin\CompanyPaymentGatewayController;
@@ -535,6 +537,13 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // un 500 (RouteNotFoundException) a chiunque lo cliccasse. Fix (2026-08-12).
     Route::post('/shop/{listing}/status', [ListingController::class, 'updateOwnStatus'])->name('portal.shop.status');
 
+    // Varianti di un prodotto, lato venditore (2026-08-25, fase D).
+    Route::get('/shop/{listing}/varianti', [ListingVariantController::class, 'index'])->name('portal.shop.variants');
+    Route::post('/shop/{listing}/varianti/genera', [ListingVariantController::class, 'generate'])->name('portal.shop.variants.generate');
+    Route::put('/shop/{listing}/varianti', [ListingVariantController::class, 'update'])->name('portal.shop.variants.update');
+    Route::patch('/shop/{listing}/varianti/{variant}/toggle', [ListingVariantController::class, 'toggle'])->name('portal.shop.variants.toggle');
+    Route::delete('/shop/{listing}/varianti/{variant}', [ListingVariantController::class, 'destroy'])->name('portal.shop.variants.destroy');
+
     // Pagamento EUR (quota non-KY) di un ordine shop — vedi PaymentController.
     Route::get('/shop/ordini/{payment}', [PaymentController::class, 'show'])->name('portal.shop.orders.pay');
     Route::post('/shop/ordini/{payment}/stripe', [PaymentController::class, 'initiateStripe'])->name('portal.shop.orders.pay.stripe')->middleware('throttle:payments');
@@ -969,6 +978,18 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::put('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'update'])->name('admin.listing-categories.update')->middleware('backoffice');
     Route::patch('/admin/listings/categorie/{listingCategory}/toggle', [AdminListingCategoryController::class, 'toggle'])->name('admin.listing-categories.toggle')->middleware('backoffice');
     Route::delete('/admin/listings/categorie/{listingCategory}', [AdminListingCategoryController::class, 'destroy'])->name('admin.listing-categories.destroy')->middleware('backoffice');
+
+    // Attributi dei prodotti variabili (2026-08-25, fase D) — li gestisce
+    // l'admin, il venditore sceglie fra questi. Stesso schema delle categorie.
+    Route::get('/admin/listings/attributi', [AdminListingAttributeController::class, 'index'])->name('admin.listing-attributes.index')->middleware('backoffice');
+    Route::post('/admin/listings/attributi', [AdminListingAttributeController::class, 'store'])->name('admin.listing-attributes.store')->middleware('backoffice');
+    Route::put('/admin/listings/attributi/{listingAttribute}', [AdminListingAttributeController::class, 'update'])->name('admin.listing-attributes.update')->middleware('backoffice');
+    Route::patch('/admin/listings/attributi/{listingAttribute}/toggle', [AdminListingAttributeController::class, 'toggle'])->name('admin.listing-attributes.toggle')->middleware('backoffice');
+    Route::delete('/admin/listings/attributi/{listingAttribute}', [AdminListingAttributeController::class, 'destroy'])->name('admin.listing-attributes.destroy')->middleware('backoffice');
+    Route::post('/admin/listings/attributi/{listingAttribute}/valori', [AdminListingAttributeController::class, 'storeValue'])->name('admin.listing-attributes.values.store')->middleware('backoffice');
+    Route::put('/admin/listings/valori/{value}', [AdminListingAttributeController::class, 'updateValue'])->name('admin.listing-attributes.values.update')->middleware('backoffice');
+    Route::patch('/admin/listings/valori/{value}/toggle', [AdminListingAttributeController::class, 'toggleValue'])->name('admin.listing-attributes.values.toggle')->middleware('backoffice');
+    Route::delete('/admin/listings/valori/{value}', [AdminListingAttributeController::class, 'destroyValue'])->name('admin.listing-attributes.values.destroy')->middleware('backoffice');
 
     // Admin "Offerte della settimana" (2026-08-13, richiesta di Laura) — vedi AdminListingOfferController.
     Route::get('/admin/listings/offerte', [AdminListingOfferController::class, 'index'])->name('admin.listing-offers.index')->middleware('backoffice');

@@ -145,6 +145,56 @@ trait BuildsShopScenarios
     }
 
     /**
+     * Un attributo con i suoi valori, come li creerebbe l'admin.
+     * makeAttributo('Taglia', ['S', 'M', 'L']) -> ['S' => Value, 'M' => ..., ...]
+     *
+     * @param  array<int, string>  $valori
+     * @return array<string, \App\Models\ListingAttributeValue>
+     */
+    protected function makeAttributo(string $nome, array $valori): array
+    {
+        $attributo = \App\Models\ListingAttribute::create(['name' => $nome]);
+
+        $creati = [];
+        foreach (array_values($valori) as $i => $valore) {
+            $creati[$valore] = \App\Models\ListingAttributeValue::create([
+                'listing_attribute_id' => $attributo->id,
+                'value'                => $valore,
+                'sort_order'           => $i,
+            ]);
+        }
+
+        return $creati;
+    }
+
+    /**
+     * Una combinazione acquistabile di un prodotto, con il suo delta di prezzo
+     * e le sue scorte. Marca automaticamente il prodotto come variabile.
+     *
+     * @param  array<int, \App\Models\ListingAttributeValue>  $valori
+     */
+    protected function makeVariante(
+        Listing $listing,
+        array $valori,
+        int $deltaKy = 0,
+        ?int $scorte = null,
+    ): \App\Models\ListingVariant {
+        $variante = \App\Models\ListingVariant::create([
+            'listing_id'     => $listing->id,
+            'price_delta_ky' => $deltaKy,
+            'stock_quantity' => $scorte,
+        ]);
+
+        $variante->values()->sync(collect($valori)->pluck('id')->all());
+
+        if (! $listing->has_variants) {
+            $listing->forceFill(['has_variants' => true])->save();
+        }
+
+        return $variante->fresh(['values.attribute', 'listing']);
+    }
+
+    /**
      * Da' all'utente il permesso `marketplace.buy`, quello che il menu laterale
      * richiede per mostrare le voci dello shop (User::canAccessMarketplace()).
      *

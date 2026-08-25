@@ -193,9 +193,10 @@ class Order extends Model
         }
 
         $altri = $items->count() - 1;
+        $titolo = $primo->titolo_completo;
 
         return $altri > 0
-            ? $primo->title . ' + altri ' . $altri
-            : $primo->title;
+            ? $titolo . ' + altri ' . $altri
+            : $titolo;
     }
 }
