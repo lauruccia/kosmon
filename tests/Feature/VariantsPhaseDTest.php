@@ -566,6 +566,39 @@ class VariantsPhaseDTest extends TestCase
         );
     }
 
+    public function test_la_scelta_della_variante_sta_sopra_il_prezzo_e_resta_agganciata_al_form(): void
+    {
+        // Il riquadro sta FUORI dal form, sopra il prezzo (richiesta di Laura,
+        // 25/08/2026): i radio ci arrivano con l'attributo `form` dell'HTML.
+        // È l'aggancio fragile di tutta la sidebar — se qualcuno toglie l'id
+        // al form, i radio smettono di essere inviati e l'acquisto fallisce
+        // con "Scegli una variante" senza che si veda perché.
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['M', 'L']);
+        $media  = $this->makeVariante($listing, [$taglie['M']]);
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="form-acquisto"', $html, 'Il form deve avere l\'id a cui i radio si agganciano.');
+        $this->assertMatchesRegularExpression(
+            '/value="' . $media->id . '"[^>]*\sform="form-acquisto"/',
+            $html,
+            'Ogni radio deve dichiarare a quale form appartiene.'
+        );
+
+        $posSelettore = mb_strpos($html, 'variant-picker');
+        $posPrezzo    = mb_strpos($html, 'KY (KMoney)');
+        $this->assertNotFalse($posSelettore);
+        $this->assertLessThan($posPrezzo, $posSelettore, 'Prima si sceglie la taglia, poi si legge il prezzo.');
+
+        // E l'aggancio deve funzionare davvero: acquisto con la M.
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
+            ->assertSessionMissing('portal_error');
+    }
+
     public function test_le_varianti_sono_pulsanti_finche_non_diventano_troppe(): void
     {
         // Richiesta di Laura, 25/08/2026: la tendina nascondeva l'esistenza

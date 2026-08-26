@@ -178,10 +178,33 @@
                 : $listing->effective_ky_amount)
             + ($needsShippingAddress ? $listing->shipping_ky_amount : 0);
         $canAfford    = $currentAccount->saldoDisponibile() >= $requiredKy;
+
+        // Il selettore delle varianti sta IN CIMA, sopra il prezzo (richiesta
+        // di Laura, 25/08/2026): è la prima decisione che prende chi compra, e
+        // il prezzo lo si legge dopo aver visto quale taglia si sceglie.
+        //
+        // Sta quindi FUORI dal form, e i radio ci si agganciano con
+        // l'attributo `form` dell'HTML — che serve esattamente a questo:
+        // tenere un campo dove ha senso per chi legge, senza spostare il form.
+        // In ogni ramo qui sotto di form ce n'è al massimo uno, quindi un id
+        // solo basta e i radio non possono finire nel posto sbagliato.
+        $formAcquistoId = 'form-acquisto';
+        $mostraSelettoreVarianti = $varianti->isNotEmpty()
+            && ! $isOwnCompany
+            && $inStock
+            && ! ($needsShippingAddress && ! $hasShippingAddress);
     @endphp
     <div class="stack" style="position:sticky;top:20px;">
         <section class="card account-hero card-pad">
             <div class="k-tag">Acquisto nel circuito KMoney</div>
+
+            @if($mostraSelettoreVarianti)
+                @include('portal.partials.variant-select', [
+                    'varianti' => $varianti,
+                    'formId'   => $formAcquistoId,
+                ])
+            @endif
+
             <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:16px 0 4px;">
                 {{-- "da" davanti al prezzo quando le combinazioni costano
                      diverso: 100,00 secchi su un prodotto in cui la S costa 90
@@ -278,21 +301,14 @@
                          abbastanza KY non vedeva le taglie da nessuna parte e
                          il bottone finiva contro "Scegli una variante prima di
                          aggiungere il prodotto al carrello" (25/08/2026). --}}
-                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}">
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}">
                         @csrf
-                        @if($varianti->isNotEmpty())
-                            @include('portal.partials.variant-select', ['varianti' => $varianti])
-                        @endif
                         <input type="hidden" name="quantity" value="1">
                         <button type="submit" class="cta-outline">Aggiungi al carrello</button>
                     </form>
                 @else
-                    <form method="POST" action="{{ route('portal.shop.buy', $listing) }}">
+                    <form method="POST" action="{{ route('portal.shop.buy', $listing) }}" id="{{ $formAcquistoId }}">
                         @csrf
-
-                        @if($varianti->isNotEmpty())
-                            @include('portal.partials.variant-select', ['varianti' => $varianti])
-                        @endif
 
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
                         <div class="qty-field">
@@ -448,10 +464,25 @@
        Pulsanti invece di una tendina (25/08/2026): la tendina nascondeva
        l'esistenza stessa delle taglie dietro un clic. Sono radio veri con la
        label vestita da pulsante — nessuna riga di JavaScript. */
-    .variant-picker { margin: 4px 0 14px; }
+    /* Un riquadro suo, con uno sfondo diverso dal pannello: e' la prima cosa
+       da fare su questa pagina, e deve staccarsi dal resto invece di
+       confondersi con le altre righe (richiesta di Laura, 25/08/2026). */
+    .variant-picker {
+        margin: 16px 0 18px; padding: 13px 15px 15px;
+        background: rgba(255,255,255,.10);
+        border: 1px solid rgba(255,255,255,.22);
+        border-left: 3px solid #7dd3fc;
+        border-radius: 12px;
+    }
     .variant-picker-title {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         font-size: 12.5px; font-weight: 700; color: #fff;
-        text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+        text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px;
+    }
+    .variant-picker-hint {
+        font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+        padding: 2px 7px; border-radius: 999px;
+        background: rgba(125,211,252,.22); color: #bae6fd;
     }
     .variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
 
