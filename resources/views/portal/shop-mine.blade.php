@@ -69,7 +69,7 @@
             @if($listing->featured)<span class="product-badge product-badge--featured">★</span>@endif
         </div>
         <div class="product-body">
-            <h3 class="product-title">
+            <h3 class="product-title" title="{{ $listing->title }}">
                 @if($listing->status === 'active')
                     <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
                 @else
@@ -90,7 +90,7 @@
                 {{ $listing->stock_label }}
                 @if($listing->expires_at) · scade il {{ $listing->expires_at->locale('it')->isoFormat('D MMM YYYY') }} @endif
             </div>
-            <div class="page-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            <div class="page-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:6px;">
                 <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">Modifica</a>
                 {{-- Varianti (2026-08-25, fase D): taglie, colori, formati. --}}
                 <a href="{{ route('portal.shop.variants', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">
@@ -201,7 +201,18 @@
     .mine-status-badge--draft { background: #e2e8f0; color: #475569; }
     .mine-status-badge--expired { background: #fee2e2; color: #991b1b; }
     .product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
-    .product-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
+    /* Titolo bloccato a 2 righe (2026-08-26, richiesta Laura): l'altezza e' FISSA
+       anche quando il titolo sta su una riga sola, cosi' il chip del venditore,
+       il prezzo e il bottone restano allineati su tutta la riga della griglia.
+       min-height in EM e non in px: vale anche per la variante piu' piccola
+       delle card "in evidenza" (13px), senza una seconda regola.
+       I puntini di sospensione scattano solo sui titoli davvero lunghi — il
+       titolo completo resta leggibile passandoci sopra col mouse. */
+    .product-title {
+        margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25;
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+        overflow: hidden; min-height: 2.5em;
+    }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
     .entity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
