@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\Listing;
 use App\Models\ListingVariant;
 use App\Models\Order;
+use App\Models\ShippingAddress;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -168,7 +169,7 @@ class CartService
      *
      * @throws RuntimeException con un messaggio già pronto per l'utente
      */
-    public function checkout(Account $account, User $user, ?string $ipAddress = null, ?string $buyerNote = null): Collection
+    public function checkout(Account $account, User $user, ?string $ipAddress = null, ?string $buyerNote = null, ?ShippingAddress $shippingAddress = null): Collection
     {
         $cart = Cart::attivoPer($account);
         $cart->load('items.listing.company', 'items.listing.activeOffer', 'items.variant.values.attribute');
@@ -199,7 +200,7 @@ class CartService
         // 3. Un gruppo per venditore, un ordine per gruppo, tutto dentro la
         //    stessa transazione: se il terzo venditore fallisce, i primi due
         //    non hanno incassato niente.
-        $ordini = DB::transaction(function () use ($cart, $account, $user, $ipAddress, $buyerNote) {
+        $ordini = DB::transaction(function () use ($cart, $account, $user, $ipAddress, $buyerNote, $shippingAddress) {
             $creati = collect();
 
             foreach ($cart->perVenditore() as $gruppo) {
@@ -219,6 +220,7 @@ class CartService
                             righe: $righe,
                             ipAddress: $ipAddress,
                             buyerNote: $buyerNote,
+                            shippingAddress: $shippingAddress,
                         )
                     );
                 } catch (RuntimeException $e) {

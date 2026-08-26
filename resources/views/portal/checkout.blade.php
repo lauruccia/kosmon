@@ -31,44 +31,68 @@
             {{-- ── 1. Dove arriva ─────────────────────────────────────────── --}}
             @if($serveIndirizzo)
             <section class="card light-card">
-                <span class="eyebrow">Passo 1</span>
-                <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">Indirizzo di spedizione</h3>
-                <p class="subtle" style="font-size:12.5px;margin:0 0 16px;">
-                    Correggilo qui se serve: viene salvato sul tuo conto e riusato ai prossimi acquisti.
-                </p>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                    <div>
+                        <span class="eyebrow">Passo 1</span>
+                        <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">Dove lo spediamo</h3>
+                    </div>
+                    <a href="{{ route('portal.shipping-addresses.index', ['redirect_to' => route('portal.cart.checkout.form', [], false)]) }}"
+                       style="font-size:12.5px;font-weight:600;color:#0c4a86;text-decoration:none;">Gestisci la rubrica</a>
+                </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div style="grid-column:1 / -1;">
-                        <label class="field-label" for="ship-nome">Destinatario</label>
-                        <input class="field-input" id="ship-nome" type="text" name="shipping_recipient_name" required
-                               maxlength="150" value="{{ old('shipping_recipient_name', $currentAccount->shipping_recipient_name) }}">
-                    </div>
-                    <div style="grid-column:1 / -1;">
-                        <label class="field-label" for="ship-via">Indirizzo</label>
-                        <input class="field-input" id="ship-via" type="text" name="shipping_address" required
-                               maxlength="255" placeholder="Via, numero civico, scala, interno"
-                               value="{{ old('shipping_address', $currentAccount->shipping_address) }}">
-                    </div>
-                    <div>
-                        <label class="field-label" for="ship-cap">CAP</label>
-                        <input class="field-input" id="ship-cap" type="text" name="shipping_postal_code" required
-                               maxlength="12" value="{{ old('shipping_postal_code', $currentAccount->shipping_postal_code) }}">
-                    </div>
-                    <div>
-                        <label class="field-label" for="ship-citta">Città</label>
-                        <input class="field-input" id="ship-citta" type="text" name="shipping_city" required
-                               maxlength="100" value="{{ old('shipping_city', $currentAccount->shipping_city) }}">
-                    </div>
-                    <div>
-                        <label class="field-label" for="ship-prov">Provincia <span class="subtle" style="font-weight:400;">(facoltativa)</span></label>
-                        <input class="field-input" id="ship-prov" type="text" name="shipping_province"
-                               maxlength="60" value="{{ old('shipping_province', $currentAccount->shipping_province) }}">
-                    </div>
-                    <div>
-                        <label class="field-label" for="ship-tel">Telefono <span class="subtle" style="font-weight:400;">(facoltativo)</span></label>
-                        <input class="field-input" id="ship-tel" type="text" name="shipping_phone"
-                               maxlength="30" value="{{ old('shipping_phone', $currentAccount->shipping_phone) }}">
-                    </div>
+                <div style="margin-top:14px;">
+                    @foreach($indirizzi as $indirizzo)
+                    <label style="display:flex;gap:11px;align-items:flex-start;padding:12px 14px;border:1px solid #e2e8f0;border-radius:11px;margin-bottom:9px;cursor:pointer;">
+                        <input type="radio" name="indirizzo_scelto" value="{{ $indirizzo->id }}"
+                               style="margin-top:3px;width:16px;height:16px;flex:0 0 auto;cursor:pointer;"
+                               {{ (string) old('indirizzo_scelto', $indirizzo->is_default ? $indirizzo->id : '') === (string) $indirizzo->id ? 'checked' : '' }}
+                               onchange="document.getElementById('blocco-nuovo-indirizzo').style.display='none';">
+                        <span style="min-width:0;">
+                            @if($indirizzo->label)
+                                <strong style="color:#10263d;font-size:14px;">{{ $indirizzo->label }}</strong>
+                                @if($indirizzo->is_default)<span class="pill" style="background:#dcfce7;color:#166534;margin-left:6px;">Predefinito</span>@endif
+                                <br>
+                            @elseif($indirizzo->is_default)
+                                <span class="pill" style="background:#dcfce7;color:#166534;">Predefinito</span><br>
+                            @endif
+                            <span style="font-size:13.5px;color:#334155;line-height:1.6;">
+                                @foreach($indirizzo->righe as $riga){{ $riga }}@if(! $loop->last)<br>@endif @endforeach
+                            </span>
+                        </span>
+                    </label>
+                    @endforeach
+
+                    <label style="display:flex;gap:11px;align-items:center;padding:12px 14px;border:1px dashed #cbd5e1;border-radius:11px;cursor:pointer;">
+                        <input type="radio" name="indirizzo_scelto" value="nuovo"
+                               style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"
+                               {{ old('indirizzo_scelto') === 'nuovo' || $indirizzi->isEmpty() ? 'checked' : '' }}
+                               onchange="document.getElementById('blocco-nuovo-indirizzo').style.display='block';">
+                        <span style="font-size:13.5px;color:#334155;font-weight:600;">Spedisci a un nuovo indirizzo</span>
+                    </label>
+                </div>
+
+                <div id="blocco-nuovo-indirizzo" style="display:{{ old('indirizzo_scelto') === 'nuovo' || $indirizzi->isEmpty() ? 'block' : 'none' }};margin-top:16px;padding-top:16px;border-top:1px solid #eef2f7;">
+                    @include('portal.partials.shipping-address-fields', ['indirizzo' => null, 'prefissoId' => 'cassa'])
+
+                    @if($indirizzi->count() < $tettoIndirizzi)
+                    <label style="display:flex;gap:9px;align-items:center;margin-top:13px;font-size:13px;color:#334155;cursor:pointer;">
+                        <input type="checkbox" name="salva_indirizzo" value="1" style="width:16px;height:16px;cursor:pointer;"
+                               {{ old('salva_indirizzo', '1') ? 'checked' : '' }}>
+                        Salvalo nella mia rubrica ({{ $indirizzi->count() }} di {{ $tettoIndirizzi }} usati)
+                    </label>
+                    @if($indirizzi->isNotEmpty())
+                    <label style="display:flex;gap:9px;align-items:center;margin-top:8px;font-size:13px;color:#334155;cursor:pointer;">
+                        <input type="checkbox" name="rendi_predefinito" value="1" style="width:16px;height:16px;cursor:pointer;"
+                               {{ old('rendi_predefinito') ? 'checked' : '' }}>
+                        E usalo come predefinito d'ora in poi
+                    </label>
+                    @endif
+                    @else
+                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;margin:13px 0 0;">
+                        Hai già {{ $tettoIndirizzi }} indirizzi in rubrica: questo vale solo per l'ordine di adesso.
+                        Per salvarlo, eliminane prima uno dalla rubrica.
+                    </p>
+                    @endif
                 </div>
             </section>
             @endif

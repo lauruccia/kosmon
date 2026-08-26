@@ -280,12 +280,15 @@ class CheckoutPhaseATest extends TestCase
 
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing));
         $this->actingAs($buyer)->post(route('portal.cart.checkout'), $this->payload([
-            'shipping_recipient_name' => 'Luisa Bianchi',
-            'shipping_address'        => 'Corso Italia 42',
-            'shipping_city'           => 'Torino',
-            'shipping_postal_code'    => '10121',
-            'shipping_province'       => 'TO',
-            'shipping_phone'          => '3339998877',
+            'indirizzo_scelto'  => 'nuovo',
+            'salva_indirizzo'   => '1',
+            'rendi_predefinito' => '1',
+            'recipient_name'    => 'Luisa Bianchi',
+            'address'           => 'Corso Italia 42',
+            'city'              => 'Torino',
+            'postal_code'       => '10121',
+            'province'          => 'TO',
+            'phone'             => '3339998877',
         ]));
 
         $conto = $buyerAccount->fresh();
@@ -312,7 +315,8 @@ class CheckoutPhaseATest extends TestCase
 
         $this->actingAs($buyer)
             ->post(route('portal.cart.checkout'), $this->payload([
-                'shipping_city' => 'Napoli',   // solo la citta': indirizzo monco
+                'indirizzo_scelto' => 'nuovo',
+                'city'             => 'Napoli',   // solo la citta': indirizzo monco
             ]))
             ->assertSessionHas('portal_error');
 

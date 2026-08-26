@@ -60,6 +60,22 @@ trait BuildsShopScenarios
                 'shipping_province'       => 'MI',
                 'shipping_phone'          => '3331234567',
             ])->save();
+
+            // Dal 26/08/2026 l'indirizzo vive anche in rubrica, e le colonne
+            // shipping_* del conto ne sono la copia. In produzione ci pensa il
+            // backfill della migrazione; qui lo rifacciamo a mano, cosi' i test
+            // partono dallo stesso stato di un conto reale dopo il deploy.
+            \App\Models\ShippingAddress::create([
+                'account_id'     => $account->id,
+                'label'          => 'Casa',
+                'recipient_name' => 'Mario Rossi',
+                'address'        => 'Via Roma 1',
+                'city'           => 'Milano',
+                'postal_code'    => '20100',
+                'province'       => 'MI',
+                'phone'          => '3331234567',
+                'is_default'     => true,
+            ]);
         }
 
         return [$user->fresh(), $account->fresh()];

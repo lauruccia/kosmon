@@ -207,8 +207,12 @@
                     <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Nel carrello ci sono prodotti da spedire: completa il tuo indirizzo di spedizione per procedere.
                     </p>
-                    <a href="{{ $shippingEditUrl }}" class="cta" style="width:100%;text-align:center;display:block;">
-                        Completa indirizzo di spedizione
+                    {{-- Dal 26/08/2026 l'indirizzo non sta piu' dentro al form del
+                         profilo ma in una rubrica sua, e da li' si torna dritti
+                         alla cassa. --}}
+                    <a href="{{ route('portal.shipping-addresses.index', ['redirect_to' => route('portal.cart.checkout.form', [], false)]) }}"
+                       class="cta" style="width:100%;text-align:center;display:block;">
+                        Aggiungi un indirizzo di spedizione
                     </a>
                 @elseif(! $saldoBasta)
                     <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">

@@ -298,6 +298,16 @@ class Account extends Model
         return $this->belongsTo(self::class, 'parent_account_id');
     }
 
+    /**
+     * La rubrica degli indirizzi di spedizione (fase A-bis, 26/08/2026).
+     * Le colonne `shipping_*` qui sopra restano la COPIA del predefinito:
+     * chi scrive e' sempre e solo ShippingAddressBook.
+     */
+    public function shippingAddresses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ShippingAddress::class);
+    }
+
     public function childAccounts(): HasMany
     {
         return $this->hasMany(self::class, 'parent_account_id');

@@ -9,6 +9,7 @@ use App\Models\MarketplaceOrderPayment;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentGateway;
+use App\Models\ShippingAddress;
 use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,7 @@ class OrderService
         array $righe,
         ?string $ipAddress = null,
         ?string $buyerNote = null,
+        ?ShippingAddress $shippingAddress = null,
     ): Order {
         if ($righe === []) {
             throw new RuntimeException('Non c\'è niente da acquistare.');
@@ -71,7 +73,7 @@ class OrderService
             throw new RuntimeException('Un ordine può contenere prodotti di un solo venditore.');
         }
 
-        return DB::transaction(function () use ($buyerAccount, $user, $righe, $ipAddress, $buyerNote) {
+        return DB::transaction(function () use ($buyerAccount, $user, $righe, $ipAddress, $buyerNote, $shippingAddress) {
             // I lock si prendono SEMPRE in ordine di id crescente. Con una riga
             // sola non cambia niente; col carrello è ciò che evita il blocco
             // incrociato fra due clienti che comprano gli stessi due prodotti
@@ -205,7 +207,12 @@ class OrderService
             }
 
             $this->assertVenditorePuoIncassareEuro($company, $totaleEuro);
-            $this->assertIndirizzoCompleto($buyerAccount, $serveSpedizione);
+            $this->assertIndirizzoCompleto($buyerAccount, $serveSpedizione, $shippingAddress);
+
+            // L'indirizzo dell'ordine: quello scelto in cassa se c'e', altrimenti
+            // il predefinito del conto (che e' la copia tenuta su accounts.*).
+            // Da qui in giu' si legge solo $campiSpedizione, mai piu' il conto.
+            $campiSpedizione = $this->campiSpedizione($buyerAccount, $serveSpedizione, $shippingAddress);
 
             $sellerAccount = $this->contoDelVenditore($company);
 
@@ -219,12 +226,12 @@ class OrderService
                 'total_eur'         => $totaleEuro,
                 'shipping_ky'       => $spedizioneKy,
                 'shipping_eur'      => $spedizioneEuro,
-                'shipping_recipient_name' => $serveSpedizione ? $buyerAccount->shipping_recipient_name : null,
-                'shipping_address'        => $serveSpedizione ? $buyerAccount->shipping_address : null,
-                'shipping_city'           => $serveSpedizione ? $buyerAccount->shipping_city : null,
-                'shipping_postal_code'    => $serveSpedizione ? $buyerAccount->shipping_postal_code : null,
-                'shipping_province'       => $serveSpedizione ? $buyerAccount->shipping_province : null,
-                'shipping_phone'          => $serveSpedizione ? $buyerAccount->shipping_phone : null,
+                'shipping_recipient_name' => $campiSpedizione['shipping_recipient_name'],
+                'shipping_address'        => $campiSpedizione['shipping_address'],
+                'shipping_city'           => $campiSpedizione['shipping_city'],
+                'shipping_postal_code'    => $campiSpedizione['shipping_postal_code'],
+                'shipping_province'       => $campiSpedizione['shipping_province'],
+                'shipping_phone'          => $campiSpedizione['shipping_phone'],
                 // Nota lasciata dal compratore in cassa (fase A, 26/08/2026).
                 // Snapshot come tutto il resto dell'ordine: se domani il
                 // compratore cambia idea, quella che il venditore ha letto
@@ -340,11 +347,54 @@ class OrderService
      * L'indirizzo si compila una volta sola nel profilo, non a ogni acquisto:
      * se manca, si blocca prima di muovere qualsiasi cosa.
      */
-    private function assertIndirizzoCompleto(Account $buyerAccount, bool $serveSpedizione): void
+    private function assertIndirizzoCompleto(Account $buyerAccount, bool $serveSpedizione, ?ShippingAddress $shippingAddress = null): void
     {
-        if ($serveSpedizione && ! $buyerAccount->hasShippingAddress()) {
+        if (! $serveSpedizione) {
+            return;
+        }
+
+        // Difesa in profondita': un indirizzo di un'altra rubrica non deve
+        // poter diventare la destinazione di questo ordine, nemmeno se chi
+        // chiama si e' dimenticato di controllarlo.
+        if ($shippingAddress !== null && (int) $shippingAddress->account_id !== (int) $buyerAccount->id) {
+            throw new RuntimeException('L\'indirizzo scelto non appartiene alla tua rubrica.');
+        }
+
+        if ($shippingAddress === null && ! $buyerAccount->hasShippingAddress()) {
             throw new RuntimeException('Questo prodotto va spedito: prima di acquistarlo, completa il tuo indirizzo di spedizione nella sezione "Indirizzo di spedizione" del tuo profilo.');
         }
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function campiSpedizione(Account $buyerAccount, bool $serveSpedizione, ?ShippingAddress $shippingAddress): array
+    {
+        $vuoti = [
+            'shipping_recipient_name' => null,
+            'shipping_address'        => null,
+            'shipping_city'           => null,
+            'shipping_postal_code'    => null,
+            'shipping_province'       => null,
+            'shipping_phone'          => null,
+        ];
+
+        if (! $serveSpedizione) {
+            return $vuoti;
+        }
+
+        if ($shippingAddress !== null) {
+            return $shippingAddress->comeCampiShipping();
+        }
+
+        return [
+            'shipping_recipient_name' => $buyerAccount->shipping_recipient_name,
+            'shipping_address'        => $buyerAccount->shipping_address,
+            'shipping_city'           => $buyerAccount->shipping_city,
+            'shipping_postal_code'    => $buyerAccount->shipping_postal_code,
+            'shipping_province'       => $buyerAccount->shipping_province,
+            'shipping_phone'          => $buyerAccount->shipping_phone,
+        ];
     }
 
     /**

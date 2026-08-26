@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\OAuth\AuthorizationController as OAuthAuthorizationController;
 use App\Http\Controllers\OAuth\MandateConsentController;
 use App\Http\Controllers\ConnectedAppsController;
+use App\Http\Controllers\ShippingAddressController;
 use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
 use App\Http\Controllers\SubAccountLimitRequestController;
@@ -469,6 +470,14 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
 
     Route::get('/azienda/profilo', [PortalController::class, 'editProfile'])->name('portal.profile.edit');
     Route::post('/azienda/profilo', [PortalController::class, 'updateProfile'])->name('portal.profile.update');
+
+    // Rubrica indirizzi di spedizione (fase A-bis, 26/08/2026): fino a 10 per
+    // conto, uno predefinito. Raggiungibile dal profilo e dalla cassa.
+    Route::get('/profilo/indirizzi', [ShippingAddressController::class, 'index'])->name('portal.shipping-addresses.index');
+    Route::post('/profilo/indirizzi', [ShippingAddressController::class, 'store'])->name('portal.shipping-addresses.store');
+    Route::put('/profilo/indirizzi/{shippingAddress}', [ShippingAddressController::class, 'update'])->name('portal.shipping-addresses.update');
+    Route::post('/profilo/indirizzi/{shippingAddress}/predefinito', [ShippingAddressController::class, 'makeDefault'])->name('portal.shipping-addresses.default');
+    Route::delete('/profilo/indirizzi/{shippingAddress}', [ShippingAddressController::class, 'destroy'])->name('portal.shipping-addresses.destroy');
 
     Route::get('/profilo/personale', [PortalController::class, 'editPersonalProfile'])->name('portal.personal-profile.edit');
     Route::post('/profilo/personale', [PortalController::class, 'updatePersonalProfile'])->name('portal.personal-profile.update');

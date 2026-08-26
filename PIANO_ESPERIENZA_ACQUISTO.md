@@ -331,3 +331,95 @@ php artisan migrate      # senza la colonna buyer_note la cassa va in errore
   `/termini` e `/privacy`, che esistono gia'. Una pagina dedicata alle
   condizioni di vendita e al diritto di recesso va scritta dal tuo legale: il
   link e' pronto, basta cambiargli destinazione.
+
+
+---
+
+## 9. Fase A-bis — la rubrica degli indirizzi (26/08/2026)
+
+Richiesta di Laura subito dopo la fase A: in cassa si poteva correggere
+l'indirizzo, ma restava **uno solo**. Chi spedisce a casa e in ufficio doveva
+riscriverlo ogni volta.
+
+### Come lo fanno gli altri
+
+| | Quanti ne salva | Quanti se ne scelgono in cassa |
+|---|---|---|
+| **Amazon** | rubrica aperta, con etichette e un predefinito; nessun tetto pubblicato | **tutti** |
+| **Shopify** | quanti ne vuoi (l'API non dichiara un massimo) | **solo i 5 piu' recenti** — limite di piattaforma che nemmeno i Plus possono cambiare, e i merchant se ne lamentano da anni |
+| **WooCommerce** | **uno** (un indirizzo di fatturazione e uno di spedizione per cliente) | uno; la rubrica arriva solo dai plugin |
+
+### Che cosa abbiamo fatto
+
+Rubrica alla Amazon, **senza l'errore di Shopify**: il tetto e' **10 indirizzi
+per conto** (scelta di Laura), e **tutti e 10 sono scegliibili in cassa**. Un
+indirizzo salvato che non si puo' usare al momento di pagare non serve a niente.
+
+- **Nuova tabella `shipping_addresses`**: etichetta ("Casa", "Ufficio"),
+  destinatario, via, CAP, citta', provincia, telefono, `is_default`.
+- **Le colonne `accounts.shipping_*` restano** e diventano la **copia del
+  predefinito**. Cosi' `Account::hasShippingAddress()`, `shipping_address_lines`,
+  i form del profilo e "compra ora" dalla pagina prodotto continuano a
+  funzionare senza sapere che la rubrica esiste. La migrazione travasa
+  l'indirizzo di ogni conto in rubrica come primo elemento.
+- **`ShippingAddressBook`** e' l'unico posto da cui si scrive, e tiene due
+  invarianti: il predefinito e' sempre **uno solo**, e la copia sul conto e'
+  sempre allineata. Se divergessero, un ordine potrebbe partire verso un
+  indirizzo che l'utente crede di aver cambiato.
+- **Pagina `/profilo/indirizzi`**: aggiungi, modifica, elimina, rendi
+  predefinito. Dalla cassa ci si arriva e si torna indietro da soli.
+- **In cassa**: elenco di tutti gli indirizzi salvati con il predefinito gia'
+  scelto, piu' "spedisci a un nuovo indirizzo" con la spunta *"salvalo nella
+  mia rubrica"* (accesa di default) e *"usalo come predefinito d'ora in poi"*.
+- **`OrderService::place()`** riceve `?ShippingAddress $shippingAddress = null`:
+  additivo come `buyerNote`, e senza indirizzo si comporta esattamente come
+  prima. Dentro c'e' anche una **difesa in profondita'**: un indirizzo di
+  un'altra rubrica non puo' diventare la destinazione dell'ordine nemmeno se
+  chi chiama si e' dimenticato di controllarlo.
+
+### Due cose che rendono la rubrica sicura
+
+1. **Cancellare un indirizzo non tocca nessun ordine passato.**
+   `orders.shipping_*` e' uno snapshot preso al momento dell'acquisto. C'e' un
+   test apposta.
+2. **Eliminare l'ultimo indirizzo lascia il conto senza indirizzo**, ed e'
+   giusto: da quel momento un prodotto da spedire non si puo' comprare, e la
+   cassa lo dice.
+
+### Verifica
+
+**20 test nuovi**, tutti verdi. Suite shop: **173 passati**. Suite intera:
+**1189 passati, 5 falliti** — sempre gli stessi 5 noti dal 25/08.
+
+**11 mutazioni deliberate**, tutte uccise:
+
+| Rompo apposta | Cade |
+|---|---|
+| tolgo il tetto dei 10 | 1 test |
+| non spengo gli altri predefiniti | 1 |
+| il predefinito non viene copiato sul conto | 1 |
+| modificare il predefinito non riallinea la copia | 1 |
+| eliminando il predefinito non promuovo nessuno | 1 |
+| eliminando l'ultimo non svuoto il conto | 1 |
+| nessun controllo di proprieta' nella rubrica | 2 |
+| l'ordine ignora l'indirizzo scelto | 1 |
+| la spunta "salva" viene ignorata | 1 |
+| in cassa mostro solo i primi 5 (alla Shopify) | 1 |
+
+Una mutazione **e' sopravvissuta di proposito**: togliendo il controllo di
+proprieta' *solo* dal controller, il test passa lo stesso — perche' lo prende
+la difesa in profondita' dentro `OrderService`. Togliendole **entrambe** il
+test cade (verificato). E' esattamente il comportamento voluto da due strati
+di controllo.
+
+### Rimasto fuori
+
+**Spedire righe diverse dello stesso ordine a indirizzi diversi**, come fa
+Amazon. Con il carrello multi-venditore diventerebbe un groviglio (un indirizzo
+per riga, per venditore, per pacco). Per adesso: **un indirizzo per acquisto**.
+
+### Deploy
+
+`migrazione_prod_2026-08-26b_rubrica_indirizzi.sql`, **dopo** quello della fase
+A. Crea la tabella, travasa gli indirizzi esistenti (blocco ri-eseguibile) e
+registra la migration. In locale basta `php artisan migrate`.

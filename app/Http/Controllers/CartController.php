@@ -7,11 +7,12 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Listing;
 use App\Models\Order;
+use App\Models\ShippingAddress;
 use App\Notifications\NewMarketplaceOrderNotification;
 use App\Services\CartService;
+use App\Services\ShippingAddressBook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
@@ -26,6 +27,7 @@ class CartController extends Controller
 {
     public function __construct(
         private readonly CartService $cartService,
+        private readonly ShippingAddressBook $rubrica,
     ) {
     }
 
@@ -191,6 +193,11 @@ class CartController extends Controller
             'totaleEuro'        => $cart->totaleEuro(),
             'saldoDisponibile'  => $account->saldoDisponibile(),
             'serveIndirizzo'    => $gruppi->contains(fn ($g) => $g['richiede_indirizzo']),
+            // Tutti gli indirizzi salvati, non i primi N: un indirizzo che non
+            // si puo' scegliere in cassa non serve a niente (e' l'errore che
+            // fa Shopify mostrandone solo 5).
+            'indirizzi'         => $this->rubrica->elenco($account),
+            'tettoIndirizzi'    => ShippingAddress::MAX_PER_ACCOUNT,
             'activeNav'         => 'cart',
         ]);
     }
@@ -210,22 +217,29 @@ class CartController extends Controller
         $validated = $request->validate([
             // Spuntare le condizioni e' obbligatorio: e' l'unico gesto
             // esplicito rimasto ora che il confirm() del browser non c'e' piu'.
-            'accetto_condizioni'      => ['accepted'],
-            'buyer_note'              => ['nullable', 'string', 'max:500'],
-            // L'indirizzo si puo' correggere dalla cassa senza uscire e
-            // tornare: i campi vivono su Account, come nel profilo.
-            'shipping_recipient_name' => ['nullable', 'string', 'max:150'],
-            'shipping_address'        => ['nullable', 'string', 'max:255'],
-            'shipping_city'           => ['nullable', 'string', 'max:100'],
-            'shipping_postal_code'    => ['nullable', 'string', 'max:12'],
-            'shipping_province'       => ['nullable', 'string', 'max:60'],
-            'shipping_phone'          => ['nullable', 'string', 'max:30'],
+            'accetto_condizioni' => ['accepted'],
+            'buyer_note'         => ['nullable', 'string', 'max:500'],
+            // Quale indirizzo: l'id di uno della rubrica, oppure "nuovo".
+            // Assente = il predefinito del conto, cioe' come si comportava la
+            // cassa prima che la rubrica esistesse.
+            'indirizzo_scelto'   => ['nullable', 'string', 'max:20'],
+            'salva_indirizzo'    => ['nullable', 'boolean'],
+            'rendi_predefinito'  => ['nullable', 'boolean'],
+            'label'              => ['nullable', 'string', 'max:60'],
+            'recipient_name'     => ['nullable', 'string', 'max:150'],
+            'address'            => ['nullable', 'string', 'max:255'],
+            'city'               => ['nullable', 'string', 'max:100'],
+            'postal_code'        => ['nullable', 'string', 'max:12'],
+            'province'           => ['nullable', 'string', 'max:60'],
+            'phone'              => ['nullable', 'string', 'max:30'],
         ], [
             'accetto_condizioni.accepted' => 'Per completare l\'ordine devi accettare le condizioni di vendita.',
         ]);
 
-        if ($errore = $this->salvaIndirizzoSeInviato($account, $validated)) {
-            return back()->withInput()->with('portal_error', $errore);
+        try {
+            $indirizzoScelto = $this->risolviIndirizzo($request, $account, $validated);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('portal_error', $e->getMessage());
         }
 
         try {
@@ -234,6 +248,7 @@ class CartController extends Controller
                 $user,
                 $request->ip(),
                 blank($validated['buyer_note'] ?? null) ? null : trim($validated['buyer_note']),
+                $indirizzoScelto,
             );
         } catch (\RuntimeException $e) {
             return back()->with('portal_error', $e->getMessage());
@@ -332,45 +347,66 @@ class CartController extends Controller
     }
 
     /**
-     * Salva l'indirizzo corretto in cassa, se ne e' stato inviato uno.
+     * Quale indirizzo deve ricevere questo ordine.
      *
-     * Un indirizzo si salva INTERO o non si salva: un invio parziale
-     * cancellerebbe i pezzi di un indirizzo che funzionava. Provincia e
-     * telefono restano facoltativi, come nel profilo.
-     * Ritorna il messaggio d'errore, o null se e' andata.
+     * Tre casi:
+     *   - un id -> uno della rubrica (e dev'essere della TUA rubrica);
+     *   - "nuovo" -> i campi compilati in cassa, salvati in rubrica se richiesto,
+     *     altrimenti usati solo per questo ordine;
+     *   - niente -> null, e OrderService usa il predefinito del conto. E' il
+     *     comportamento che la cassa aveva prima che la rubrica esistesse, ed
+     *     e' quello che tiene in piedi "compra ora" dalla pagina prodotto.
+     *
+     * @param  array<string, mixed>  $validated
+     *
+     * @throws \RuntimeException con un messaggio gia' pronto per l'utente
      */
-    private function salvaIndirizzoSeInviato(Account $account, array $validated): ?string
+    private function risolviIndirizzo(Request $request, Account $account, array $validated): ?ShippingAddress
     {
-        $campi = [
-            'shipping_recipient_name', 'shipping_address', 'shipping_city',
-            'shipping_postal_code', 'shipping_province', 'shipping_phone',
-        ];
+        $scelto = trim((string) ($validated['indirizzo_scelto'] ?? ''));
 
-        $inviati = collect(Arr::only($validated, $campi))
-            ->map(fn ($v) => is_string($v) ? trim($v) : $v)
-            ->filter(fn ($v) => $v !== null && $v !== '');
-
-        if ($inviati->isEmpty()) {
+        if ($scelto === '') {
             return null;
         }
 
-        foreach (['shipping_recipient_name', 'shipping_address', 'shipping_city', 'shipping_postal_code'] as $obbligatorio) {
-            if (! $inviati->has($obbligatorio)) {
-                return 'Per spedire servono almeno nome del destinatario, via, citta\' e CAP.';
+        if ($scelto !== 'nuovo') {
+            $indirizzo = ShippingAddress::query()->find((int) $scelto);
+
+            // Non un 404: chi manovra gli id di un'altra rubrica deve leggere
+            // che non e' sua, e l'ordine non deve partire.
+            if (! $indirizzo || (int) $indirizzo->account_id !== (int) $account->id) {
+                throw new \RuntimeException('L\'indirizzo scelto non è nella tua rubrica.');
+            }
+
+            return $indirizzo;
+        }
+
+        $dati = [
+            'label'          => $validated['label'] ?? null,
+            'recipient_name' => $validated['recipient_name'] ?? null,
+            'address'        => $validated['address'] ?? null,
+            'city'           => $validated['city'] ?? null,
+            'postal_code'    => $validated['postal_code'] ?? null,
+            'province'       => $validated['province'] ?? null,
+            'phone'          => $validated['phone'] ?? null,
+        ];
+
+        foreach (['recipient_name', 'address', 'city', 'postal_code'] as $obbligatorio) {
+            if (blank(is_string($dati[$obbligatorio]) ? trim($dati[$obbligatorio]) : $dati[$obbligatorio])) {
+                throw new \RuntimeException('Per spedire servono almeno nome del destinatario, via, città e CAP.');
             }
         }
 
-        $daSalvare = [];
-        foreach ($campi as $campo) {
-            if (array_key_exists($campo, $validated)) {
-                $valore = is_string($validated[$campo]) ? trim($validated[$campo]) : $validated[$campo];
-                $daSalvare[$campo] = $valore === '' ? null : $valore;
-            }
+        if ($request->boolean('salva_indirizzo')) {
+            // Se la rubrica e' piena, ShippingAddressBook lancia e l'utente
+            // legge che deve liberare un posto o togliere la spunta.
+            return $this->rubrica->aggiungi($account, $dati, $request->boolean('rendi_predefinito'));
         }
 
-        $account->fill($daSalvare)->save();
-
-        return null;
+        // Non salvato: vale solo per questo ordine. L'account_id c'e' lo stesso,
+        // cosi' la difesa in profondita' dentro OrderService lo riconosce come
+        // proprio.
+        return new ShippingAddress(array_merge($dati, ['account_id' => $account->id]));
     }
 
     private function notificaVenditore(Order $ordine): void
