@@ -444,7 +444,56 @@
     }
     .qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
 
-    /* Selettore della variante: stessa forma del campo quantita'. */
+    /* ── Scelta della variante ────────────────────────────────────────────
+       Pulsanti invece di una tendina (25/08/2026): la tendina nascondeva
+       l'esistenza stessa delle taglie dietro un clic. Sono radio veri con la
+       label vestita da pulsante — nessuna riga di JavaScript. */
+    .variant-picker { margin: 4px 0 14px; }
+    .variant-picker-title {
+        font-size: 12.5px; font-weight: 700; color: #fff;
+        text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+    }
+    .variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* Il radio sparisce alla vista ma NON al lettore di schermo e alla
+       tastiera: niente display:none, che lo toglierebbe dal giro del Tab. */
+    .variant-radio {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    .variant-option {
+        display: flex; flex-direction: column; gap: 2px; min-width: 78px;
+        padding: 9px 14px; border-radius: 10px; cursor: pointer;
+        border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08);
+        color: #fff; transition: background .15s, border-color .15s, transform .1s;
+    }
+    .variant-option:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.65); }
+    .variant-option-name  { font-size: 14px; font-weight: 700; line-height: 1.2; }
+    .variant-option-price { font-size: 11.5px; color: rgba(255,255,255,.7); line-height: 1.2; }
+
+    /* Selezionata: si inverte. Il contrasto pieno e' l'unica cosa che si legge
+       davvero a colpo d'occhio su un pannello scuro. */
+    .variant-radio:checked + .variant-option {
+        background: #fff; border-color: #fff; color: #0d1c30;
+    }
+    .variant-radio:checked + .variant-option .variant-option-price { color: #475569; }
+
+    /* Il focus da tastiera deve vedersi: senza, chi naviga col Tab non sa
+       dove si trova. */
+    .variant-radio:focus-visible + .variant-option {
+        box-shadow: 0 0 0 3px rgba(255,255,255,.45);
+    }
+
+    /* Esaurita: resta in elenco, barrata. Sparire sarebbe peggio — chi cerca
+       la M vuole sapere che la M esiste ma e' finita. */
+    .variant-option.is-out {
+        opacity: .45; cursor: not-allowed; text-decoration: line-through;
+        border-style: dashed;
+    }
+    .variant-option.is-out:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.3); }
+
+    /* Tendina di riserva oltre le 12 combinazioni. */
     .variant-select {
         width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
         border-radius: 9px; border: 1px solid rgba(255,255,255,.25);

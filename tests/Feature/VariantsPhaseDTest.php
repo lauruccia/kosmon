@@ -550,8 +550,54 @@ class VariantsPhaseDTest extends TestCase
 
         // Chi cerca la M deve vedere che la M esiste ed è finita, non credere
         // che quel venditore non la faccia.
+        $media = $listing->variants()->get()->first(fn ($v) => $v->etichetta_corta === 'M');
+        $lunga = $listing->variants()->get()->first(fn ($v) => $v->etichetta_corta === 'L');
+
         $this->assertStringContainsString('esaurita', $html);
-        $this->assertStringContainsString('disabled', $html);
+        $this->assertMatchesRegularExpression(
+            '/value="' . $media->id . '"[^>]*\sdisabled/',
+            $html,
+            'La M si vede ma non si può scegliere.'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/value="' . $lunga->id . '"[^>]*\sdisabled/',
+            $html,
+            'La L invece sì.'
+        );
+    }
+
+    public function test_le_varianti_sono_pulsanti_finche_non_diventano_troppe(): void
+    {
+        // Richiesta di Laura, 25/08/2026: la tendina nascondeva l'esistenza
+        // stessa delle taglie dietro un clic. Con pochi valori si vedono tutte
+        // insieme; oltre le 12 combinazioni i pulsanti sarebbero un muro e si
+        // torna alla tendina.
+        [$buyer] = $this->makeBuyer(saldo: 1000000);
+        [$company] = $this->makeSeller(saldo: 0);
+
+        $poche = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M', 'L']);
+        foreach ($taglie as $valore) {
+            $this->makeVariante($poche, [$valore]);
+        }
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $poche))->assertOk()->getContent();
+
+        $this->assertStringContainsString('class="variant-radio"', $html);
+        $this->assertStringNotContainsString('<select name="variant_id"', $html);
+        $this->assertStringContainsString('Scegli taglia', $html, 'Il titolo prende il nome dell\'attributo.');
+
+        // Tredici combinazioni: si passa alla tendina.
+        $tante = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $numeri = $this->makeAttributo('Formato', array_map('strval', range(1, 13)));
+        foreach ($numeri as $valore) {
+            $this->makeVariante($tante, [$valore]);
+        }
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $tante))->assertOk()->getContent();
+
+        $this->assertStringContainsString('<select name="variant_id"', $html);
+        $this->assertStringNotContainsString('class="variant-radio"', $html);
     }
 
     public function test_dagli_elenchi_prodotti_si_arriva_alle_varianti(): void
