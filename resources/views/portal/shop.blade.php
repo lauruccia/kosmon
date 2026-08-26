@@ -365,8 +365,17 @@
     .product-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
+    /* Il blocco venditore + prezzo + bottone e' incollato in fondo alla card
+       (2026-08-26, richiesta Laura): l'unico `margin-top:auto` di tutto il
+       corpo card sta QUI, sulla riga del venditore, cosi' tutto lo spazio che
+       avanza finisce in un punto solo — sotto il titolo. ATTENZIONE: in
+       flexbox lo spazio libero si divide fra TUTTI i margini auto, quindi se
+       si rimette `margin-top:auto` anche su .product-price-row il bianco si
+       spacca in due e il venditore si stacca dal prezzo. */
+    .catalog-card .product-body .entity-meta,
+    .featured-card .product-body .entity-meta { margin-top: auto; }
     .product-price-row {
-        margin-top: auto; padding-top: 2px;
+        margin-top: 0; padding-top: 2px;
         display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
     }
     .product-price {

@@ -90,7 +90,7 @@
                 {{ $listing->stock_label }}
                 @if($listing->expires_at) · scade il {{ $listing->expires_at->locale('it')->isoFormat('D MMM YYYY') }} @endif
             </div>
-            <div class="page-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:6px;">
+            <div class="page-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:0;padding-top:6px;">
                 <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">Modifica</a>
                 {{-- Varianti (2026-08-25, fase D): taglie, colori, formati. --}}
                 <a href="{{ route('portal.shop.variants', $listing) }}" class="cta secondary" style="flex:1;text-align:center;">
@@ -215,7 +215,10 @@
     }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
-    .entity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* Come nello shop pubblico: unico margin-top:auto qui, cosi' meta +
+       prezzo + stock + bottoni restano un blocco unico incollato in fondo e
+       il bianco si raccoglie tutto sotto il titolo (2026-08-26). */
+    .entity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; }
     .product-price-row {
         margin-top: 2px;
         display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
