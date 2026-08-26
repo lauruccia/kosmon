@@ -181,7 +181,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $tre));                    // 30,00
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_success');
 
         // Due venditori, due ordini, due movimenti.
@@ -218,7 +218,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $due));
 
         $prima = $this->sommaSaldiCircuito();
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1']);
 
         $this->assertSame($prima, $this->sommaSaldiCircuito());
     }
@@ -238,7 +238,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $ko));
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count(), 'Nemmeno l\'ordine del venditore a posto deve passare.');
@@ -264,7 +264,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $ko));
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error', fn ($errore) => str_contains((string) $errore, $problematica->name));
     }
 
@@ -283,7 +283,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $due));
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error', fn ($e) => str_contains((string) $e, 'Saldo insufficiente'));
 
         $this->assertSame(3000, $buyerAccount->fresh()->available_balance);
@@ -304,7 +304,7 @@ class CartPhaseCTest extends TestCase
         $listing->forceFill(['status' => 'suspended'])->save();
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());
@@ -316,7 +316,7 @@ class CartPhaseCTest extends TestCase
         [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());
@@ -346,7 +346,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $due));
         $this->actingAs($buyer)->post(route('portal.cart.add', $tre));
 
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1']);
 
         // Primo venditore: 2000 + 1000 + UNA spedizione (la più cara, 500).
         $this->assertSame(3500, Order::where('company_id', $primaAzienda->id)->sole()->total_ky);
@@ -379,7 +379,7 @@ class CartPhaseCTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $a2));
         $this->actingAs($buyer)->post(route('portal.cart.add', $b1));
 
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1']);
 
         // 3 prodotti da 10,00 = 30,00, più DUE spedizioni da 10,00 (non tre,
         // non una): 50,00 in tutto.
@@ -424,7 +424,7 @@ class CartPhaseCTest extends TestCase
         $totaleMostratoKy  = $cart->totaleKy();
         $totaleMostratoEur = $cart->totaleEuro();
 
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1']);
 
         $this->assertSame(
             $totaleMostratoKy,
@@ -446,13 +446,13 @@ class CartPhaseCTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 4000, kyPercentage: 50);
 
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing));
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'));
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1']);
 
         $payment = MarketplaceOrderPayment::query()->sole();
         $this->assertSame(2000, (int) $payment->amount);
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))  // carrello ormai vuoto
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])  // carrello ormai vuoto
             ->assertSessionHas('portal_error');
 
         $this->assertSame(Order::STATUS_PENDING_PAYMENT, Order::query()->sole()->status);

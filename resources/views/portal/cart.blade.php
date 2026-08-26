@@ -218,13 +218,19 @@
                         Ricarica il tuo conto
                     </a>
                 @else
-                    <form method="POST" action="{{ route('portal.cart.checkout') }}">
-                        @csrf
-                        <button type="submit" class="cta" style="width:100%;text-align:center;"
-                                onclick="return confirm('Confermi l\'ordine? Verranno addebitati {{ ky_format($totaleKy) }} KY dal tuo conto{{ $gruppi->count() > 1 ? ', divisi fra ' . $gruppi->count() . ' venditori' : '' }}.')">
-                            Vai alla cassa — {{ ky_format($totaleKy) }} KY{{ $totaleEuro > 0 ? ' + quota EUR' : '' }}
-                        </button>
-                    </form>
+                    {{-- Fase A (26/08/2026): non si paga piu' da qui. Questo
+                         bottone porta alla CASSA, dove si controlla l'indirizzo,
+                         si lascia una nota al venditore e si accettano le
+                         condizioni. Il confirm() del browser che stava qui e'
+                         sparito: non era brandizzato, non era accessibile e su
+                         mobile poteva essere soppresso, trasformando un clic in
+                         un addebito senza conferma. --}}
+                    <a href="{{ route('portal.cart.checkout.form') }}" class="cta" style="width:100%;text-align:center;display:block;">
+                        Vai alla cassa — {{ ky_format($totaleKy) }} KY{{ $totaleEuro > 0 ? ' + quota EUR' : '' }}
+                    </a>
+                    <p class="subtle" style="font-size:11.5px;text-align:center;margin:8px 0 0;">
+                        Non paghi ancora: prima vedi il riepilogo.
+                    </p>
                 @endif
             </div>
         </section>

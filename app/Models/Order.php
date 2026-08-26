@@ -86,6 +86,7 @@ class Order extends Model
         'shipping_postal_code',
         'shipping_province',
         'shipping_phone',
+        'buyer_note',
         'source',
         'placed_at',
         'backfilled_at',

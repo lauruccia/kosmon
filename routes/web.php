@@ -518,6 +518,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // registrate PRIMA di /shop/{listing} — altrimenti "carrello" verrebbe
     // scambiato per lo slug di un prodotto, come già successo con /shop/crea.
     Route::get('/shop/carrello', [CartController::class, 'index'])->name('portal.cart');
+    // Fase A (26/08/2026): fra il carrello e l'addebito ci sono due pagine
+    // nuove — la cassa e il "grazie". Devono restare QUI, sopra a
+    // /shop/{listing}, o "carrello" verrebbe scambiato per uno slug prodotto.
+    Route::get('/shop/carrello/cassa', [CartController::class, 'checkoutForm'])->name('portal.cart.checkout.form');
+    Route::get('/shop/carrello/grazie', [CartController::class, 'thanks'])->name('portal.cart.thanks');
     Route::post('/shop/carrello/svuota', [CartController::class, 'clear'])->name('portal.cart.clear');
     Route::post('/shop/carrello/cassa', [CartController::class, 'checkout'])->name('portal.cart.checkout')->middleware('throttle:payments');
     Route::patch('/shop/carrello/righe/{item}', [CartController::class, 'update'])->name('portal.cart.item.update');

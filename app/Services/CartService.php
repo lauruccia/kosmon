@@ -168,7 +168,7 @@ class CartService
      *
      * @throws RuntimeException con un messaggio già pronto per l'utente
      */
-    public function checkout(Account $account, User $user, ?string $ipAddress = null): Collection
+    public function checkout(Account $account, User $user, ?string $ipAddress = null, ?string $buyerNote = null): Collection
     {
         $cart = Cart::attivoPer($account);
         $cart->load('items.listing.company', 'items.listing.activeOffer', 'items.variant.values.attribute');
@@ -199,7 +199,7 @@ class CartService
         // 3. Un gruppo per venditore, un ordine per gruppo, tutto dentro la
         //    stessa transazione: se il terzo venditore fallisce, i primi due
         //    non hanno incassato niente.
-        $ordini = DB::transaction(function () use ($cart, $account, $user, $ipAddress) {
+        $ordini = DB::transaction(function () use ($cart, $account, $user, $ipAddress, $buyerNote) {
             $creati = collect();
 
             foreach ($cart->perVenditore() as $gruppo) {
@@ -218,6 +218,7 @@ class CartService
                             user: $user,
                             righe: $righe,
                             ipAddress: $ipAddress,
+                            buyerNote: $buyerNote,
                         )
                     );
                 } catch (RuntimeException $e) {

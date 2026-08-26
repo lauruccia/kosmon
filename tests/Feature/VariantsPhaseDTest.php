@@ -374,7 +374,7 @@ class VariantsPhaseDTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['variant_id' => $media->id, 'quantity' => 2]);
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['variant_id' => $lunga->id]);
 
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'))->assertSessionHas('portal_success');
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])->assertSessionHas('portal_success');
 
         // Un ordine solo (stesso venditore) con DUE righe, una per combinazione.
         $order = Order::query()->sole();
@@ -405,7 +405,7 @@ class VariantsPhaseDTest extends TestCase
         $media->update(['stock_quantity' => 1]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'))
+            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());

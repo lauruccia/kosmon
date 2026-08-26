@@ -56,6 +56,7 @@ class OrderService
         User $user,
         array $righe,
         ?string $ipAddress = null,
+        ?string $buyerNote = null,
     ): Order {
         if ($righe === []) {
             throw new RuntimeException('Non c\'è niente da acquistare.');
@@ -70,7 +71,7 @@ class OrderService
             throw new RuntimeException('Un ordine può contenere prodotti di un solo venditore.');
         }
 
-        return DB::transaction(function () use ($buyerAccount, $user, $righe, $ipAddress) {
+        return DB::transaction(function () use ($buyerAccount, $user, $righe, $ipAddress, $buyerNote) {
             // I lock si prendono SEMPRE in ordine di id crescente. Con una riga
             // sola non cambia niente; col carrello è ciò che evita il blocco
             // incrociato fra due clienti che comprano gli stessi due prodotti
@@ -224,6 +225,11 @@ class OrderService
                 'shipping_postal_code'    => $serveSpedizione ? $buyerAccount->shipping_postal_code : null,
                 'shipping_province'       => $serveSpedizione ? $buyerAccount->shipping_province : null,
                 'shipping_phone'          => $serveSpedizione ? $buyerAccount->shipping_phone : null,
+                // Nota lasciata dal compratore in cassa (fase A, 26/08/2026).
+                // Snapshot come tutto il resto dell'ordine: se domani il
+                // compratore cambia idea, quella che il venditore ha letto
+                // resta quella.
+                'buyer_note'              => $buyerNote,
                 'source'                  => Transfer::ORDER_SOURCE_INTERNAL,
             ]);
 
