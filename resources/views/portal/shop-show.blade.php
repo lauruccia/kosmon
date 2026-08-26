@@ -193,8 +193,28 @@
         // In ogni ramo qui sotto di form ce n'è al massimo uno, quindi un id
         // solo basta e i radio non possono finire nel posto sbagliato.
         $formAcquistoId = 'form-acquisto';
-        $mostraSelettoreVarianti = $varianti->isNotEmpty()
-            && ! $isOwnCompany
+
+        // LE TAGLIE SI VEDONO SEMPRE, anche quando non si puo' comprare.
+        //
+        // Prima il riquadro compariva solo se esisteva un form di acquisto, e
+        // cosi' chi non aveva ancora messo l'indirizzo di spedizione vedeva
+        // "completa il tuo indirizzo" e nient'altro: del fatto che quel
+        // prodotto avesse delle taglie non c'era traccia (segnalato da Laura il
+        // 26/08/2026 su /shop/42, utenza azienda senza indirizzo). Stessa cosa
+        // sui prodotti esauriti e su quelli della propria azienda.
+        //
+        // Che cosa c'e' in vendita e' un'informazione che si legge sempre; se
+        // poi si possa comprare o no e' un'altra questione, e la risolvono i
+        // bottoni qui sotto. E' anche una regola piu' semplice da tenere in
+        // testa: "ci sono combinazioni -> si vedono", senza eccezioni da
+        // ricordare.
+        $mostraSelettoreVarianti = $varianti->isNotEmpty();
+
+        // Il form invece c'e' solo quando si puo' davvero fare qualcosa. I
+        // radio ci si agganciano con l'attributo `form` soltanto in quel caso:
+        // altrove restano lì da guardare, e il prezzo grande segue comunque la
+        // taglia scelta.
+        $formAcquistoPresente = ! $isOwnCompany
             && $inStock
             && ! ($needsShippingAddress && ! $hasShippingAddress);
     @endphp
@@ -205,7 +225,7 @@
             @if($mostraSelettoreVarianti)
                 @include('portal.partials.variant-select', [
                     'varianti' => $varianti,
-                    'formId'   => $formAcquistoId,
+                    'formId'   => $formAcquistoPresente ? $formAcquistoId : null,
                     'speseKy'  => $needsShippingAddress ? $listing->shipping_ky_amount : 0,
                 ])
             @endif

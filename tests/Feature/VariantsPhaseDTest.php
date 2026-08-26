@@ -374,7 +374,7 @@ class VariantsPhaseDTest extends TestCase
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['variant_id' => $media->id, 'quantity' => 2]);
         $this->actingAs($buyer)->post(route('portal.cart.add', $listing), ['variant_id' => $lunga->id]);
 
-        $this->actingAs($buyer)->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])->assertSessionHas('portal_success');
+        $this->actingAs($buyer)->post(route('portal.cart.checkout'))->assertSessionHas('portal_success');
 
         // Un ordine solo (stesso venditore) con DUE righe, una per combinazione.
         $order = Order::query()->sole();
@@ -405,7 +405,7 @@ class VariantsPhaseDTest extends TestCase
         $media->update(['stock_quantity' => 1]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.cart.checkout'), ['accetto_condizioni' => '1'])
+            ->post(route('portal.cart.checkout'))
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());
@@ -679,6 +679,58 @@ class VariantsPhaseDTest extends TestCase
         // E l'aggancio deve funzionare davvero: acquisto con la M.
         $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
             ->assertSessionMissing('portal_error');
+    }
+
+    public function test_le_taglie_si_vedono_anche_senza_indirizzo_di_spedizione(): void
+    {
+        // Segnalato da Laura il 26/08/2026 su /shop/42, con un'utenza azienda:
+        // la pagina diceva "completa il tuo indirizzo di spedizione" e delle
+        // taglie non c'era traccia. Il riquadro compariva solo dove esisteva
+        // un form di acquisto, e in quel ramo il form non c'è.
+        //
+        // Che cosa esiste in vendita si legge sempre; se poi si possa comprare
+        // o no lo dicono i bottoni.
+        [$buyer] = $this->makeBuyer(saldo: 100000, conIndirizzo: false);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 1600, kyPercentage: 100, extra: [
+            'delivery_type' => Listing::DELIVERY_TYPE_SPEDIZIONE,
+        ]);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'L']);
+        $lunga  = $this->makeVariante($listing, [$taglie['L']]);
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Completa indirizzo di spedizione', $html, 'Siamo nel ramo giusto.');
+        // class="..." e non solo 'variant-picker': il nome della classe
+        // compare anche nel blocco CSS della pagina, quindi cercarlo da solo
+        // sarebbe un test che passa sempre (scoperto mutando il codice).
+        $this->assertStringContainsString('class="variant-picker"', $html, 'E le taglie si devono vedere lo stesso.');
+        $this->assertStringContainsString('value="' . $lunga->id . '"', $html);
+
+        // Qui però non c'è niente da inviare: i radio non si agganciano a
+        // nessun form, e chiedere una scelta "obbligatoria" sarebbe una
+        // richiesta senza seguito.
+        $this->assertStringNotContainsString('form="form-acquisto"', $html);
+        $this->assertStringNotContainsString('obbligatorio', $html);
+    }
+
+    public function test_le_taglie_si_vedono_anche_a_prodotto_esaurito(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 1600, kyPercentage: 100);
+
+        $taglie = $this->makeAttributo('Taglia', ['S', 'L']);
+        $this->makeVariante($listing, [$taglie['S']], scorte: 0);
+        $this->makeVariante($listing, [$taglie['L']], scorte: 0);
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Prodotto esaurito', $html);
+        $this->assertStringContainsString('class="variant-picker"', $html, 'Si vede quali taglie faceva, tutte barrate.');
+        $this->assertStringContainsString('variant-option is-out', $html);
+        $this->assertStringNotContainsString('form="form-acquisto"', $html);
     }
 
     public function test_sui_pulsanti_c_e_solo_la_taglia_e_il_prezzo_viaggia_nei_dati(): void

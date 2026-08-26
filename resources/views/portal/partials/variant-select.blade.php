@@ -55,7 +55,13 @@
 <div class="variant-picker">
     <div class="variant-picker-title">
         {{ $titoloScelta }}
-        <span class="variant-picker-hint">obbligatorio</span>
+        {{-- "obbligatorio" ha senso solo se c'e' qualcosa da inviare. Dove il
+             riquadro e' li' solo da leggere — prodotto esaurito, indirizzo di
+             spedizione ancora da mettere — sarebbe una richiesta senza
+             seguito. --}}
+        @if($formId)
+            <span class="variant-picker-hint">obbligatorio</span>
+        @endif
     </div>
 
     @if($troppePerIPulsanti)
