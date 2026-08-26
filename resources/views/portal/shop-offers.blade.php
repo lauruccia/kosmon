@@ -47,7 +47,7 @@
                 @endif
             </a>
             <div class="offer-hero-body">
-                <span class="chip">{{ $listing->company->name }}</span>
+                <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
                 <h2 class="offer-hero-title"><a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a></h2>
                 <div class="offer-hero-price-row">
                     <span class="offer-hero-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>

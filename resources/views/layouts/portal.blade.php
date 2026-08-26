@@ -561,6 +561,23 @@
         .k-tag { background: var(--primary-light); color: var(--primary-strong); border: 1px solid rgba(15,82,196,.18); }
         .chip { background: var(--surface-soft); color: var(--ink-soft); border: 1px solid var(--line); }
 
+        /* Chip che contiene un testo di lunghezza imprevedibile — il nome di
+           un negozio, per dire. Senza questo, "'LE CONTRADE' - RISTORANTE
+           PIZZERIA ..." usciva dalla scheda prodotto e finiva tagliato dal
+           bordo (segnalato da Laura il 25/08/2026): il `white-space: nowrap`
+           qui sopra impedisce l'a capo e niente lo tratteneva.
+           Serve tutto e tre: `display:block` perche' l'ellissi non funziona su
+           un contenitore flex, `min-width:0` perche' altrimenti la larghezza
+           minima di un elemento flex e' quella del suo contenuto e il
+           max-width non lo tocca, `max-width:100%` per il limite vero.
+           Metti sempre anche title="" col testo intero: l'ellissi nasconde,
+           e chi legge deve poter recuperare il nome per esteso. */
+        .chip-ellipsis {
+            display: block; min-width: 0; max-width: 100%;
+            overflow: hidden; text-overflow: ellipsis;
+            line-height: 24px;
+        }
+
         /* ── NOTICES ────────────────────────────────────────────────── */
         .notice {
             margin-bottom: 14px; padding: 11px 14px;

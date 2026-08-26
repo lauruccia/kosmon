@@ -135,6 +135,33 @@ class ShopSellerFilterTest extends TestCase
     }
 
     /**
+     * Un nome di negozio lungo usciva dalla scheda prodotto e veniva tagliato
+     * dal bordo — segnalato da Laura il 25/08/2026 su "'LE CONTRADE' -
+     * RISTORANTE PIZZERIA". Il `.chip` del layout ha `white-space: nowrap` e
+     * niente lo tratteneva dentro la scheda.
+     *
+     * Adesso a troncarlo e' il CSS, con i puntini (`.chip-ellipsis`), e il
+     * nome per esteso resta nel `title`: l'ellissi nasconde, e chi legge deve
+     * poter recuperare il nome intero. Il CSS un test non lo vede; quello che
+     * si puo' difendere — ed e' la parte che qualcuno toglie senza
+     * accorgersene — e' che classe e title ci siano.
+     */
+    public function test_un_nome_di_negozio_lungo_non_esce_dalla_scheda(): void
+    {
+        $buyer = $this->makeBuyer();
+        [$venditore] = $this->makeSeller("'LE CONTRADE' - RISTORANTE PIZZERIA BRACERIA");
+        $this->makeListing($venditore, 'Cesto Regalo Artigiale');
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            '<span class="chip chip-ellipsis" title="' . e($venditore->name) . '">',
+            $html,
+            'Il nome del negozio va troncato dal CSS e conservato per intero nel title.'
+        );
+    }
+
+    /**
      * Il filtro venditore deve sopravvivere a una ricerca o a un cambio di
      * categoria: la toolbar e' un form GET, quindi `company` va ripetuto come
      * campo nascosto — altrimenti al primo "Filtra" si tornava al catalogo

@@ -126,11 +126,11 @@
                 @endif
             </a>
             <div class="product-body">
-                <h3 class="product-title" title="{{ $listing->title }}">
+                <h3 class="product-title">
                     <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
                 </h3>
                 <div class="entity-meta">
-                    <span class="chip">{{ $listing->company->name }}</span>
+                    <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
                 </div>
                 <div class="product-price-row">
                     <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
@@ -191,7 +191,7 @@
         </div>
         @endif
         <div class="product-body">
-            <h3 class="product-title" title="{{ $listing->title }}">
+            <h3 class="product-title">
                 @if($listing->status === 'active')
                     <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
                 @else
@@ -199,7 +199,7 @@
                 @endif
             </h3>
             <div class="entity-meta">
-                <span class="chip">{{ $listing->company->name }}</span>
+                <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
             </div>
             <div class="product-price-row">
                 <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
@@ -362,18 +362,7 @@
     .product-badge--offer { right: 10px; background: #dc2626; color: #fff; font-weight: 800; box-shadow: 0 2px 8px rgba(220,38,38,.35); }
     .product-badge--offer ~ .product-badge--featured { top: 40px; }
     .product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
-    /* Titolo bloccato a 2 righe (2026-08-26, richiesta Laura): l'altezza e' FISSA
-       anche quando il titolo sta su una riga sola, cosi' il chip del venditore,
-       il prezzo e il bottone restano allineati su tutta la riga della griglia.
-       min-height in EM e non in px: vale anche per la variante piu' piccola
-       delle card "in evidenza" (13px), senza una seconda regola.
-       I puntini di sospensione scattano solo sui titoli davvero lunghi — il
-       titolo completo resta leggibile passandoci sopra col mouse. */
-    .product-title {
-        margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25;
-        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-        overflow: hidden; min-height: 2.5em;
-    }
+    .product-title { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
     .product-title a { color: var(--ink); text-decoration: none; }
     .product-title a:hover { color: var(--primary); }
     .product-price-row {
