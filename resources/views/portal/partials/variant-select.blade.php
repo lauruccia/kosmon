@@ -12,20 +12,26 @@
     l'attributo `form` dell'HTML, che serve esattamente a questo: tenere un
     campo dove ha senso per chi legge, senza dover spostare il form intorno.
 
+    PULSANTI CON LA SOLA TAGLIA, COME SU AMAZON (25/08/2026, seconda richiesta
+    di Laura, con la pagina di Amazon come riferimento). Il prezzo NON si
+    ripete su ogni pulsante: quello vero è uno solo, quello grande qui sotto,
+    e cambia quando scegli. Ripeterlo sei volte riempiva la colonna di numeri
+    quasi tutti uguali — sui prodotti dove le taglie costano lo stesso, cioè
+    la maggior parte, erano sei volte lo stesso numero.
+
+    Il prezzo grande lo aggiorna una ventina di righe di JavaScript (in
+    shop-show), che leggono i `data-` qui sotto. Senza JavaScript non si rompe
+    niente: resta scritto "da <la più economica>" e il conto vero lo fa
+    comunque il server al momento dell'acquisto.
+
+    Le combinazioni finite restano in elenco, tratteggiate e non cliccabili —
+    come le taglie esaurite di Amazon. Sparire sarebbe peggio: chi cerca la M
+    vuole sapere che la M esiste ma è finita, non credere che quel venditore
+    non la faccia.
+
     @param \Illuminate\Support\Collection<int, \App\Models\ListingVariant> $varianti
-    @param string|null $formId  id del form a cui appartengono i radio
-
-    PULSANTI, NON UNA TENDINA (25/08/2026, sempre su richiesta di Laura). Una
-    <select> nasconde la scelta dietro un clic: chi arriva sulla pagina non vede
-    che esistono una M e una L, vede una riga di testo. Con i pulsanti le taglie
-    sono lì, si contano a colpo d'occhio, e quelle finite si vedono barrate
-    invece di sparire — chi cerca la M vuole sapere che la M esiste ma è finita,
-    non credere che quel venditore non la faccia.
-
-    Sono radio veri (input type=radio + label): niente JavaScript, il campo
-    resta `variant_id` come prima, `required` impedisce l'invio senza scelta e
-    la tastiera funziona da sola. Oltre le 12 combinazioni i pulsanti
-    diventerebbero un muro: lì si torna alla tendina.
+    @param string|null $formId       id del form a cui appartengono i radio
+    @param int         $speseKy      quota KY di spedizione, da sommare al richiesto
 --}}
 @php
     // "Scegli la taglia" dice più di "Scegli la variante", e il nome giusto ce
@@ -42,7 +48,8 @@
 
     $troppePerIPulsanti = $varianti->count() > 12;
     $gruppo = 'var-' . uniqid();
-    $formId = $formId ?? null;
+    $formId  = $formId ?? null;
+    $speseKy = $speseKy ?? 0;
 @endphp
 
 <div class="variant-picker">
@@ -55,9 +62,11 @@
         <select name="variant_id" class="variant-select" required @if($formId) form="{{ $formId }}" @endif>
             <option value="">— seleziona —</option>
             @foreach($varianti as $variante)
-                <option value="{{ $variante->id }}" @disabled(! $variante->isDisponibile())>
-                    {{ $variante->etichetta_corta }}
-                    — {{ ky_format($variante->prezzoEffettivo()) }} KY{{ $variante->isDisponibile() ? '' : ' (esaurita)' }}
+                <option value="{{ $variante->id }}"
+                        data-prezzo="{{ $variante->prezzoEffettivo() }}"
+                        data-richiesto="{{ $variante->quotaKy() + $speseKy }}"
+                        @disabled(! $variante->isDisponibile())>
+                    {{ $variante->etichetta_corta }}{{ $variante->isDisponibile() ? '' : ' (esaurita)' }}
                 </option>
             @endforeach
         </select>
@@ -70,16 +79,15 @@
                        id="{{ $gruppo }}-{{ $variante->id }}"
                        name="variant_id"
                        value="{{ $variante->id }}"
+                       data-prezzo="{{ $variante->prezzoEffettivo() }}"
+                       data-richiesto="{{ $variante->quotaKy() + $speseKy }}"
                        required
                        @if($formId) form="{{ $formId }}" @endif
                        @disabled(! $disponibile)>
                 <label for="{{ $gruppo }}-{{ $variante->id }}"
                        class="variant-option{{ $disponibile ? '' : ' is-out' }}"
-                       @if(! $disponibile) title="Combinazione esaurita" @endif>
-                    <span class="variant-option-name">{{ $variante->etichetta_corta }}</span>
-                    <span class="variant-option-price">
-                        {{ $disponibile ? ky_format($variante->prezzoEffettivo()) . ' KY' : 'esaurita' }}
-                    </span>
+                       title="{{ $variante->etichetta_corta }}{{ $disponibile ? '' : ' — esaurita' }}">
+                    {{ $variante->etichetta_corta }}
                 </label>
             @endforeach
         </div>

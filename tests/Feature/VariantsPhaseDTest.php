@@ -478,9 +478,14 @@ class VariantsPhaseDTest extends TestCase
 
         $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
 
+        // Sui pulsanti c'è solo la taglia — il prezzo è uno solo, quello
+        // grande (stile Amazon, richiesta di Laura del 25/08/2026). Il prezzo
+        // di ogni combinazione viaggia nel data- che il prezzo grande legge
+        // quando si sceglie: è QUELLO il contratto da difendere ora.
         $this->assertStringContainsString('name="variant_id"', $html);
-        $this->assertStringContainsString('20,00 KY', $html);
-        $this->assertStringContainsString('25,00 KY', $html, 'La XL costa il prezzo base più il suo delta.');
+        $this->assertStringContainsString('data-prezzo="2000"', $html);
+        $this->assertStringContainsString('data-prezzo="2500"', $html, 'La XL costa il prezzo base più il suo delta.');
+        $this->assertStringContainsString('20,00', $html, 'In cima il prezzo parte dalla più economica.');
     }
 
     public function test_col_saldo_insufficiente_le_varianti_si_vedono_lo_stesso(): void
@@ -502,7 +507,7 @@ class VariantsPhaseDTest extends TestCase
 
         $this->assertStringContainsString('Saldo insufficiente', $html, 'Con 10,00 KY su un prodotto da 100,00 il saldo non basta davvero.');
         $this->assertStringContainsString('name="variant_id"', $html, 'E le taglie si devono vedere lo stesso.');
-        $this->assertStringContainsString('110,00 KY', $html, 'Anche quella che costa di più.');
+        $this->assertStringContainsString('data-prezzo="11000"', $html, 'Anche quella che costa di più.');
 
         // E il bottone del carrello dev'essere davvero utilizzabile: prima
         // partiva senza variante e sbatteva contro "Scegli una variante".
@@ -528,7 +533,11 @@ class VariantsPhaseDTest extends TestCase
 
         $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('Saldo insufficiente', $html, '90,00 bastano per la S da 80,00.');
+        // "Saldo insufficiente" come parola compare anche nel testo che lo
+        // script tiene pronto per le combinazioni piu' care: quello che conta
+        // e' che la pagina NON sia nel ramo del saldo insufficiente, cioe' che
+        // proponga di comprare e non di ricaricare.
+        $this->assertStringNotContainsString('Ricarica il tuo conto', $html, '90,00 bastano per la S da 80,00.');
         $this->assertStringContainsString('Acquista la variante scelta', $html);
         // Il prezzo in cima dev'essere "da 80,00", non "100,00" secchi: su un
         // prodotto in cui la S costa 80 e la XL 120, il prezzo base non lo
@@ -590,9 +599,14 @@ class VariantsPhaseDTest extends TestCase
 
         $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
 
+        // Si cerca l'id del radio, non l'etichetta: e' l'aggancio stabile
+        // (l'etichetta e' testo dentro una <label>, con a capo e spazi).
+        $perEtichetta = $listing->variantiAttive()->with('values')->get()
+            ->keyBy(fn ($v) => $v->etichetta_corta);
+
         $posizioni = [];
         foreach (['S', 'M', 'L', 'XL'] as $etichetta) {
-            $posizioni[$etichetta] = mb_strpos($html, '>' . $etichetta . '</span>');
+            $posizioni[$etichetta] = mb_strpos($html, 'value="' . $perEtichetta[$etichetta]->id . '"');
             $this->assertNotFalse($posizioni[$etichetta], "La taglia {$etichetta} non compare.");
         }
 
@@ -665,6 +679,47 @@ class VariantsPhaseDTest extends TestCase
         // E l'aggancio deve funzionare davvero: acquisto con la M.
         $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
             ->assertSessionMissing('portal_error');
+    }
+
+    public function test_sui_pulsanti_c_e_solo_la_taglia_e_il_prezzo_viaggia_nei_dati(): void
+    {
+        // Stile Amazon (richiesta di Laura, 25/08/2026): sui pulsanti solo la
+        // taglia, il prezzo è uno solo — quello grande, che cambia quando
+        // scegli. Ripeterlo su ogni pulsante riempiva la colonna di numeri
+        // quasi sempre identici.
+        //
+        // Il prezzo di ogni combinazione deve però arrivare al browser, ed è
+        // il modo in cui il prezzo grande sa cosa scrivere: viaggia nei
+        // `data-prezzo`. Accanto ci va `data-richiesto`, la quota KY che serve
+        // davvero — con il mix EUR già applicato.
+        [$buyer] = $this->makeBuyer(saldo: 1000000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $this->makeGateway($company);
+        $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 50);
+
+        $taglie = $this->makeAttributo('Taglia', ['M', 'XL']);
+        $media  = $this->makeVariante($listing, [$taglie['M']]);
+        $grande = $this->makeVariante($listing, [$taglie['XL']], deltaKy: 2000);
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        // Il prezzo non è più scritto accanto a ogni pulsante...
+        $this->assertStringNotContainsString('variant-option-price', $html);
+
+        // ...ma arriva al browser nei dati, con la quota KY giusta: metà del
+        // prezzo, perché questo prodotto è al 50% KY.
+        $this->assertMatchesRegularExpression(
+            '/value="' . $grande->id . '"[^>]*data-prezzo="12000"[^>]*data-richiesto="6000"/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/value="' . $media->id . '"[^>]*data-prezzo="10000"[^>]*data-richiesto="5000"/',
+            $html
+        );
+
+        // E lo script che li legge c'è, col saldo di chi sta guardando.
+        $this->assertStringContainsString('id="prezzo-grande"', $html);
+        $this->assertStringContainsString('var saldo   = 1000000;', $html);
     }
 
     public function test_le_varianti_sono_pulsanti_finche_non_diventano_troppe(): void

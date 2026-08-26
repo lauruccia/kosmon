@@ -206,19 +206,22 @@
                 @include('portal.partials.variant-select', [
                     'varianti' => $varianti,
                     'formId'   => $formAcquistoId,
+                    'speseKy'  => $needsShippingAddress ? $listing->shipping_ky_amount : 0,
                 ])
             @endif
 
             <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:16px 0 4px;">
-                {{-- "da" davanti al prezzo quando le combinazioni costano
-                     diverso: 100,00 secchi su un prodotto in cui la S costa 90
-                     e la XL 110 e' un'informazione sbagliata. --}}
+                {{-- "da" finche' non si sceglie: 100,00 secchi su un prodotto
+                     in cui la S costa 90 e la XL 110 e' un'informazione
+                     sbagliata. Scelta la taglia, il "da" sparisce e resta il
+                     prezzo di quella taglia — e' il JavaScript in fondo alla
+                     pagina a toglierlo. --}}
                 @if($varianti->count() > 1)
-                    <div style="font-size:14px;color:rgba(255,255,255,.65);">da</div>
+                    <div id="prezzo-da" style="font-size:14px;color:rgba(255,255,255,.65);">da</div>
                 @endif
                 {{-- Il pannello e' scuro (account-hero): il blu #0c4a86 di prima
                      ci spariva dentro (segnalato da Laura il 25/08/2026). --}}
-                <div style="font-size:36px;font-weight:300;color:#fff;letter-spacing:.06em;">
+                <div id="prezzo-grande" style="font-size:36px;font-weight:300;color:#fff;letter-spacing:.06em;">
                     {{ ky_format($prezzoDiIngresso) }}
                 </div>
                 @if($listing->is_on_offer)
@@ -311,6 +314,18 @@
                         <button type="submit" class="cta-outline">Aggiungi al carrello</button>
                     </form>
                 @else
+                    {{-- Il saldo qui basta per la combinazione PIU' ECONOMICA:
+                         se se ne sceglie una piu' cara puo' non bastare piu'.
+                         Prima il prezzo stava su ogni pulsante e si vedeva; ora
+                         che il prezzo e' uno solo, ci pensa il JavaScript ad
+                         accendere questo avviso e a spegnere il bottone. Il
+                         server resta comunque l'autorita': se il JavaScript non
+                         gira, l'acquisto viene rifiutato li' con lo stesso
+                         messaggio, e nessun KY si muove. --}}
+                    <p id="avviso-saldo-variante"
+                       style="display:none;font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    </p>
+
                     <form method="POST" action="{{ route('portal.shop.buy', $listing) }}" id="{{ $formAcquistoId }}">
                         @csrf
 
@@ -323,7 +338,7 @@
                         <input type="hidden" name="quantity" value="1">
                         @endif
                         @if($varianti->isNotEmpty())
-                            <button type="submit" class="cta" style="width:100%;text-align:center;"
+                            <button type="submit" class="cta" style="width:100%;text-align:center;" id="bottone-acquisto"
                                 onclick="return confirm('Confermi l\'acquisto della variante scelta?')">
                                 Acquista la variante scelta
                             </button>
@@ -506,44 +521,38 @@
        classi e vince. Se un domani questi stili tornano grigi, e' qui che si
        guarda. */
     .variant-options .variant-option {
-        display: flex; flex-direction: column; gap: 3px; min-width: 84px;
-        padding: 10px 15px; border-radius: 10px; cursor: pointer;
-        margin: 0; letter-spacing: 0; text-transform: none;
+        display: flex; align-items: center; justify-content: center;
+        min-width: 52px; min-height: 40px; padding: 8px 14px;
+        border-radius: 9px; cursor: pointer;
+        margin: 0; letter-spacing: .02em; text-transform: none;
+        font-size: 15px; font-weight: 700; line-height: 1;
         border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.10);
         color: #fff; transition: background .15s, border-color .15s;
     }
     .variant-options .variant-option:hover {
         background: rgba(255,255,255,.22); border-color: #fff;
     }
-    .variant-options .variant-option-name {
-        display: block; font-size: 16px; font-weight: 800; line-height: 1.15; color: #fff;
-    }
-    .variant-options .variant-option-price {
-        display: block; font-size: 12px; font-weight: 600; line-height: 1.15;
-        color: rgba(255,255,255,.82);
-    }
 
     /* Selezionata: si inverte. Il contrasto pieno e' l'unica cosa che si legge
        davvero a colpo d'occhio su un pannello scuro. */
     .variant-options .variant-radio:checked + .variant-option {
-        background: #fff; border-color: #fff;
+        background: #fff; border-color: #fff; color: #0d1c30;
+        box-shadow: 0 0 0 2px rgba(255,255,255,.35);
     }
-    .variant-options .variant-radio:checked + .variant-option .variant-option-name  { color: #0d1c30; }
-    .variant-options .variant-radio:checked + .variant-option .variant-option-price { color: #475569; }
 
     /* Il focus da tastiera deve vedersi: senza, chi naviga col Tab non sa
        dove si trova. */
     .variant-options .variant-radio:focus-visible + .variant-option {
-        box-shadow: 0 0 0 3px rgba(255,255,255,.45);
+        box-shadow: 0 0 0 3px rgba(255,255,255,.55);
     }
 
-    /* Esaurita: resta in elenco, barrata. Sparire sarebbe peggio — chi cerca
-       la M vuole sapere che la M esiste ma e' finita. */
+    /* Esaurita: resta in elenco, tratteggiata e barrata — come le taglie finite
+       su Amazon. Sparire sarebbe peggio: chi cerca la M vuole sapere che la M
+       esiste ma e' finita, non credere che quel venditore non la faccia. */
     .variant-options .variant-option.is-out {
-        opacity: .5; cursor: not-allowed; border-style: dashed;
-        background: transparent;
+        opacity: .45; cursor: not-allowed; border-style: dashed;
+        background: transparent; text-decoration: line-through;
     }
-    .variant-options .variant-option.is-out .variant-option-name { text-decoration: line-through; }
     .variant-options .variant-option.is-out:hover {
         background: transparent; border-color: rgba(255,255,255,.35);
     }
@@ -574,4 +583,77 @@
         .product-detail-grid > div:last-child { position: static !important; }
     }
 </style>
+
+@if($mostraSelettoreVarianti)
+{{--
+    Il prezzo grande segue la taglia scelta (25/08/2026, richiesta di Laura con
+    Amazon come riferimento): sui pulsanti c'e' solo la taglia, il prezzo e' uno
+    solo ed e' quello qui sopra.
+
+    Tutto quello che serve sta gia' nel `data-` dei radio, scritto dal server:
+    qui non si calcola niente, si legge e si scrive. E se questo script non
+    gira — JavaScript spento, errore, browser vecchio — la pagina resta quella
+    di prima, con "da <la piu' economica>": nessun bottone si blocca e il conto
+    vero lo fa comunque il server, che rifiuta l'acquisto con lo stesso
+    messaggio se il saldo non basta. Il controllo di qui e' una cortesia, non
+    una difesa.
+--}}
+<script>
+(function () {
+    var radios  = document.querySelectorAll('.variant-radio, .variant-select');
+    var prezzo  = document.getElementById('prezzo-grande');
+    var daLabel = document.getElementById('prezzo-da');
+    var avviso  = document.getElementById('avviso-saldo-variante');
+    var bottone = document.getElementById('bottone-acquisto');
+    var saldo   = {{ (int) $currentAccount->saldoDisponibile() }};
+
+    if (! prezzo || ! radios.length) { return; }
+
+    // Stessa formattazione di ky_format(): centesimi -> "1.234,56".
+    function formatta(centesimi) {
+        return (centesimi / 100).toLocaleString('it-IT', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function aggiorna(elemento) {
+        if (! elemento) { return; }
+
+        var costa    = parseInt(elemento.getAttribute('data-prezzo'), 10);
+        var richiede = parseInt(elemento.getAttribute('data-richiesto'), 10);
+        if (isNaN(costa)) { return; }
+
+        prezzo.textContent = formatta(costa);
+        // Scelta la taglia, "da" non ha piu' senso: il prezzo e' quello.
+        if (daLabel) { daLabel.style.display = 'none'; }
+
+        if (! avviso || ! bottone || isNaN(richiede)) { return; }
+
+        if (richiede > saldo) {
+            avviso.textContent = 'Saldo insufficiente per questa combinazione: '
+                + 'ti mancano ' + formatta(richiede - saldo) + ' KY. '
+                + 'Scegline un\'altra oppure ricarica il conto.';
+            avviso.style.display = '';
+            bottone.disabled = true;
+            bottone.style.opacity = '.5';
+            bottone.style.cursor = 'not-allowed';
+        } else {
+            avviso.style.display = 'none';
+            bottone.disabled = false;
+            bottone.style.opacity = '';
+            bottone.style.cursor = '';
+        }
+    }
+
+    Array.prototype.forEach.call(radios, function (elemento) {
+        elemento.addEventListener('change', function () {
+            aggiorna(elemento.tagName === 'SELECT'
+                ? elemento.options[elemento.selectedIndex]
+                : elemento);
+        });
+    });
+})();
+</script>
+@endif
 @endsection
