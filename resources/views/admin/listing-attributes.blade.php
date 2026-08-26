@@ -152,6 +152,14 @@
                 e il sistema gli propone le combinazioni. Per ognuna può mettere un prezzo e una giacenza.
             </p>
             <p class="subtle" style="font-size:12.5px;line-height:1.6;margin:0 0 10px;">
+                <strong>Il campo "Ordine" decide come si vedono.</strong> Il numero accanto a ogni valore
+                è l'ordine in cui le taglie compaiono a chi compra: S, M, L, XL non hanno né un ordine
+                alfabetico né uno di prezzo, quindi lo decidi tu qui. Usa numeri distanziati —
+                10, 20, 30, 40 — così un domani ci infili la XS con un 5 senza rinumerare niente.
+                A parità di numero vale l'ordine di creazione. Il numero sull'attributo fa lo stesso
+                fra attributi: taglia prima di colore.
+            </p>
+            <p class="subtle" style="font-size:12.5px;line-height:1.6;margin:0 0 10px;">
                 <strong>Rinominare non rompe niente:</strong> ogni attributo ha un codice interno che
                 non cambia mai. Se scrivi "Misura" al posto di "Taglia", i prodotti restano dove sono.
             </p>

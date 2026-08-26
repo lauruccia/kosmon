@@ -158,13 +158,17 @@
         // combinazioni, il prezzo mostrato in cima e' quello della piu'
         // economica ancora disponibile, e il bottone resta spento finche' non
         // se ne sceglie una.
+        // ORDINE: quello deciso dall'admin sui valori (S, M, L, XL), NON il
+        // prezzo. Le taglie hanno un ordine loro che col prezzo non c'entra, e
+        // con dieci taglie ordinate per prezzo il selettore diventa
+        // illeggibile — vedi ListingVariant::chiaveOrdinamento().
         $varianti = $listing->isVariabile()
-            ? $listing->variantiAttive->sortBy(fn ($v) => $v->prezzoEffettivo())->values()
+            ? $listing->variantiAttive->sortBy(fn ($v) => $v->chiaveOrdinamento())->values()
             : collect();
         $variantiDisponibili = $varianti->filter(fn ($v) => $v->isDisponibile());
-        // Le varianti sono gia' ordinate per prezzo: la prima disponibile e' la
-        // piu' economica che si puo' davvero comprare.
-        $variantePiuEconomica = $variantiDisponibili->first();
+        // La piu' economica si cerca a parte, perche' l'elenco non e' piu'
+        // ordinato per prezzo.
+        $variantePiuEconomica = $variantiDisponibili->sortBy(fn ($v) => $v->prezzoEffettivo())->first();
 
         // Il saldo che serve DAVVERO. Su un prodotto variabile il prezzo base
         // non e' quello che si paga: se la S costa meno del prezzo del
@@ -493,36 +497,56 @@
         overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
 
-    .variant-option {
-        display: flex; flex-direction: column; gap: 2px; min-width: 78px;
-        padding: 9px 14px; border-radius: 10px; cursor: pointer;
-        border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08);
-        color: #fff; transition: background .15s, border-color .15s, transform .1s;
+    /* ATTENZIONE ALLA SPECIFICITA' (25/08/2026). Il layout portale ha
+       ".card label { display:block; color:var(--ink-soft) }" — una regola
+       classe+elemento che BATTE un ".variant-option" da sola. La prima
+       versione di questi pulsanti la perdeva: le taglie uscivano grigie e
+       schiacciate su una riga sola, illeggibili sul pannello scuro. Il
+       selettore discendente ".variant-options .variant-option" pesa due
+       classi e vince. Se un domani questi stili tornano grigi, e' qui che si
+       guarda. */
+    .variant-options .variant-option {
+        display: flex; flex-direction: column; gap: 3px; min-width: 84px;
+        padding: 10px 15px; border-radius: 10px; cursor: pointer;
+        margin: 0; letter-spacing: 0; text-transform: none;
+        border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.10);
+        color: #fff; transition: background .15s, border-color .15s;
     }
-    .variant-option:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.65); }
-    .variant-option-name  { font-size: 14px; font-weight: 700; line-height: 1.2; }
-    .variant-option-price { font-size: 11.5px; color: rgba(255,255,255,.7); line-height: 1.2; }
+    .variant-options .variant-option:hover {
+        background: rgba(255,255,255,.22); border-color: #fff;
+    }
+    .variant-options .variant-option-name {
+        display: block; font-size: 16px; font-weight: 800; line-height: 1.15; color: #fff;
+    }
+    .variant-options .variant-option-price {
+        display: block; font-size: 12px; font-weight: 600; line-height: 1.15;
+        color: rgba(255,255,255,.82);
+    }
 
     /* Selezionata: si inverte. Il contrasto pieno e' l'unica cosa che si legge
        davvero a colpo d'occhio su un pannello scuro. */
-    .variant-radio:checked + .variant-option {
-        background: #fff; border-color: #fff; color: #0d1c30;
+    .variant-options .variant-radio:checked + .variant-option {
+        background: #fff; border-color: #fff;
     }
-    .variant-radio:checked + .variant-option .variant-option-price { color: #475569; }
+    .variant-options .variant-radio:checked + .variant-option .variant-option-name  { color: #0d1c30; }
+    .variant-options .variant-radio:checked + .variant-option .variant-option-price { color: #475569; }
 
     /* Il focus da tastiera deve vedersi: senza, chi naviga col Tab non sa
        dove si trova. */
-    .variant-radio:focus-visible + .variant-option {
+    .variant-options .variant-radio:focus-visible + .variant-option {
         box-shadow: 0 0 0 3px rgba(255,255,255,.45);
     }
 
     /* Esaurita: resta in elenco, barrata. Sparire sarebbe peggio — chi cerca
        la M vuole sapere che la M esiste ma e' finita. */
-    .variant-option.is-out {
-        opacity: .45; cursor: not-allowed; text-decoration: line-through;
-        border-style: dashed;
+    .variant-options .variant-option.is-out {
+        opacity: .5; cursor: not-allowed; border-style: dashed;
+        background: transparent;
     }
-    .variant-option.is-out:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.3); }
+    .variant-options .variant-option.is-out .variant-option-name { text-decoration: line-through; }
+    .variant-options .variant-option.is-out:hover {
+        background: transparent; border-color: rgba(255,255,255,.35);
+    }
 
     /* Tendina di riserva oltre le 12 combinazioni. */
     .variant-select {

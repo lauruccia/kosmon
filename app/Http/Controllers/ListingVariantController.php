@@ -39,6 +39,15 @@ class ListingVariantController extends Controller
 
         $listing->load(['variants.values.attribute', 'activeOffer']);
 
+        // Stesso ordine che vede chi compra: quello deciso dall'admin sui
+        // valori (S, M, L, XL). La colonna `sort_order` della variante da sola
+        // non basta — viene fissata quando la combinazione nasce, e una taglia
+        // aggiunta dopo si infilerebbe in fondo invece che al suo posto.
+        $listing->setRelation(
+            'variants',
+            $listing->variants->sortBy(fn (ListingVariant $v) => $v->chiaveOrdinamento())->values()
+        );
+
         // Quali valori sono già in uso su questo prodotto: servono a spuntare
         // le caselle giuste quando si riapre la pagina.
         $valoriInUso = $listing->variants

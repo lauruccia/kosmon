@@ -566,6 +566,74 @@ class VariantsPhaseDTest extends TestCase
         );
     }
 
+    public function test_le_taglie_si_mostrano_nell_ordine_dell_admin_non_per_prezzo(): void
+    {
+        // Domanda di Laura, 25/08/2026: "se ci sono tante taglie come vanno
+        // ordinate?". Fino a quel momento erano ordinate per PREZZO — che con
+        // le taglie non c'entra niente: la XL costa più della S, ma la XS e la
+        // S possono costare uguale e finivano in ordine casuale.
+        [$buyer] = $this->makeBuyer(saldo: 1000000);
+        [$company] = $this->makeSeller(saldo: 0);
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        // Creati apposta in ordine sparso, con prezzi che remano contro.
+        $taglie = $this->makeAttributo('Taglia', ['XL', 'S', 'M', 'L']);
+        $taglie['S']->update(['sort_order' => 10]);
+        $taglie['M']->update(['sort_order' => 20]);
+        $taglie['L']->update(['sort_order' => 30]);
+        $taglie['XL']->update(['sort_order' => 40]);
+
+        $this->makeVariante($listing, [$taglie['XL']], deltaKy: -500);  // la più cara di nome, la più economica di prezzo
+        $this->makeVariante($listing, [$taglie['S']], deltaKy: 900);
+        $this->makeVariante($listing, [$taglie['M']], deltaKy: 0);
+        $this->makeVariante($listing, [$taglie['L']], deltaKy: 0);      // stesso prezzo della M: pareggio
+
+        $html = $this->actingAs($buyer)->get(route('portal.shop.show', $listing))->assertOk()->getContent();
+
+        $posizioni = [];
+        foreach (['S', 'M', 'L', 'XL'] as $etichetta) {
+            $posizioni[$etichetta] = mb_strpos($html, '>' . $etichetta . '</span>');
+            $this->assertNotFalse($posizioni[$etichetta], "La taglia {$etichetta} non compare.");
+        }
+
+        $this->assertLessThan($posizioni['M'], $posizioni['S'], 'La S viene prima della M.');
+        $this->assertLessThan($posizioni['L'], $posizioni['M'], 'La M prima della L, anche se costano uguale.');
+        $this->assertLessThan($posizioni['XL'], $posizioni['L'], 'La XL in fondo, anche se costa meno di tutte.');
+    }
+
+    public function test_l_ordine_vale_anche_fra_attributi_diversi(): void
+    {
+        // Con due attributi comanda prima l'ordine dell'attributo (taglia
+        // prima di colore), poi quello dei valori dentro ciascuno.
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        $colori = $this->makeAttributo('Colore', ['rosso', 'blu']);
+        $taglie = $this->makeAttributo('Taglia', ['S', 'M']);
+
+        // La taglia è stata creata DOPO il colore: senza il campo Ordine
+        // comanderebbe l'id e il colore verrebbe prima.
+        $taglie['S']->attribute->update(['sort_order' => 1]);
+        $colori['rosso']->attribute->update(['sort_order' => 2]);
+        $colori['rosso']->update(['sort_order' => 10]);
+        $colori['blu']->update(['sort_order' => 20]);
+
+        $this->actingAs($sellerUser)->post(route('portal.shop.variants.generate', $listing), [
+            'valori' => [
+                $taglie['S']->id, $taglie['M']->id,
+                $colori['rosso']->id, $colori['blu']->id,
+            ],
+        ]);
+
+        $ordinate = $listing->fresh()->variantiAttive()->with('values.attribute')->get()
+            ->sortBy(fn ($v) => $v->chiaveOrdinamento())
+            ->map(fn ($v) => $v->etichetta_corta)
+            ->values()
+            ->all();
+
+        $this->assertSame(['S · rosso', 'S · blu', 'M · rosso', 'M · blu'], $ordinate);
+    }
+
     public function test_la_scelta_della_variante_sta_sopra_il_prezzo_e_resta_agganciata_al_form(): void
     {
         // Il riquadro sta FUORI dal form, sopra il prezzo (richiesta di Laura,

@@ -164,4 +164,30 @@ class ListingVariant extends Model
 
         return $valori->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
     }
+
+    /**
+     * In che ordine si mostrano le combinazioni a chi compra.
+     *
+     * NON per prezzo (era così fino al 25/08/2026, e Laura ha fatto notare il
+     * problema): le taglie hanno un ordine loro — S, M, L, XL — che con i
+     * prezzi non c'entra niente. Due taglie che costano uguale finivano in
+     * ordine casuale, e su un prodotto con dieci taglie diventava illeggibile.
+     *
+     * L'ordine è quello che decide l'ADMIN in Shop → Attributi, con il campo
+     * "Ordine" su ogni valore: prima gli attributi fra loro (taglia prima di
+     * colore), poi i valori dentro ciascun attributo. A parità di numero
+     * decide l'id, cioè l'ordine in cui sono stati creati — stabile, mai
+     * casuale.
+     *
+     * @return array<int, int>
+     */
+    public function chiaveOrdinamento(): array
+    {
+        $valori = $this->relationLoaded('values') ? $this->values : $this->values()->get();
+
+        return $valori
+            ->sortBy(fn (ListingAttributeValue $v) => [$v->attribute?->sort_order ?? 0, $v->attribute?->id ?? 0])
+            ->flatMap(fn (ListingAttributeValue $v) => [(int) $v->sort_order, (int) $v->id])
+            ->all();
+    }
 }
