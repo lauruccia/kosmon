@@ -82,9 +82,44 @@
                     @include('portal.partials.shipping-address-fields', ['indirizzo' => null, 'prefissoId' => 'cassa'])
 
                     @if($indirizzi->count() < $tettoIndirizzi)
+                    {{-- LA RUBRICA LA RIEMPIE CHI COMPRA, NON LA CASSA
+                         (27/08/2026 — audit 26/08, blocco 5).
+
+                         Questa casella era spuntata SEMPRE. Chi ha gia' i suoi
+                         indirizzi e spedisce una volta sola altrove — un
+                         regalo a un amico, la consegna in ufficio di un
+                         collega — si ritrovava quell'indirizzo in rubrica
+                         senza averlo deciso, e con dentro il nome e il
+                         telefono di un'altra persona. Poi lo doveva anche
+                         togliere a mano, perche' i posti in rubrica sono
+                         contati.
+
+                         Adesso parte LIBERA, sempre. Si era pensato di
+                         lasciarla spuntata per il primo indirizzo in
+                         assoluto — nessuna sorpresa, e gli si risparmia di
+                         riscrivere tutto la prossima volta — ma quel caso
+                         qui dentro NON ESISTE: questo blocco compare solo
+                         se `$serveIndirizzo`, e alla cassa di un prodotto
+                         da spedire non ci si arriva senza un indirizzo sul
+                         conto (`motivoPerCuiNonSiPuoPagare`), che dal
+                         backfill del 26/08 vuol dire senza almeno una voce
+                         in rubrica. Chi svuota la rubrica si svuota anche
+                         il conto e viene rimandato indietro prima. Un ramo
+                         "rubrica vuota" sarebbe stato codice morto che
+                         sembra prudenza.
+
+                         E c'era un SECONDO guaio dentro al primo, che si
+                         cura da solo togliendo quel '1'. La casella non
+                         spuntata non viene inviata dal browser: con un
+                         valore di ripiego diverso da "libera", `old()` non
+                         distingueva "l'ho tolta" da "non ho ancora inviato
+                         niente", e dopo un errore di validazione la spunta
+                         tornava da sola addosso a chi l'aveva appena
+                         tolta. Adesso e' scritta come quella qui sotto —
+                         `old()` e basta — e le due si comportano uguale. --}}
                     <label style="display:flex;gap:9px;align-items:center;margin-top:13px;font-size:13px;color:#334155;cursor:pointer;">
                         <input type="checkbox" name="salva_indirizzo" value="1" style="width:16px;height:16px;cursor:pointer;"
-                               {{ old('salva_indirizzo', '1') ? 'checked' : '' }}>
+                               {{ old('salva_indirizzo') ? 'checked' : '' }}>
                         Salvalo nella mia rubrica ({{ $indirizzi->count() }} di {{ $tettoIndirizzi }} usati)
                     </label>
                     @if($indirizzi->isNotEmpty())

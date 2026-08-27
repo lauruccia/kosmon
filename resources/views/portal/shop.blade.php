@@ -86,7 +86,7 @@
         @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
             <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary">✕ Reset</a>
         @endif
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="shop-toolbar-actions">
             {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
                  stessa visibilità del link nella sidebar (layouts/portal.blade.php). --}}
             <a class="cta secondary" href="{{ route('portal.shop.offers') }}" style="white-space:nowrap;">🔥 Offerte della settimana</a>
@@ -309,11 +309,30 @@
 
     /* ── Toolbar shop: ricerca con icona + select coerenti col design system ── */
     .shop-toolbar-card { padding: 18px 22px; }
-    /* Niente a capo (2026-07-29 sera): la barra filtri resta su un'unica
-       riga anche con il nuovo campo "Filtro Kmoney" — flex-wrap:nowrap +
-       overflow-x:auto come rete di sicurezza se lo spazio non basta,
-       invece di lasciar scendere i campi su una seconda riga. */
-    .shop-toolbar { display: flex; gap: 14px; flex-wrap: nowrap; align-items: flex-end; overflow-x: auto; padding-bottom: 2px; }
+    /* UNA RIGA SOLA FINCHE' CI STA, POI A CAPO (27/08/2026 — audit 26/08,
+       blocco 5).
+
+       Fino a ieri era `flex-wrap: nowrap` con `overflow-x: auto`: la scelta
+       del 29/07, presa per non far scendere i campi su una seconda riga. Il
+       guaio e' che i quattro campi hanno min-width per 790px, e dopo di loro
+       vengono "Filtra", "Reset" e i collegamenti a destra: sotto il metro
+       abbondante di colonna la barra scorreva in orizzontale SENZA sembrare
+       scorrevole — niente ombra, e su Mac e Windows recenti nemmeno la
+       barretta finche' non ci passi sopra — e "Filtra" finiva semplicemente
+       fuori dal bordo. Su un tablet in orizzontale, o su un portatile
+       stretto con la sidebar aperta, il filtro si poteva ancora compilare ma
+       non si poteva piu' inviare, se non premendo Invio: cosa che nessuno sa.
+
+       `wrap` fa esattamente quello che si voleva a luglio — riga unica
+       quando lo spazio basta — e quando non basta manda a capo invece di
+       nascondere. Chi ha lo schermo grande non vede alcuna differenza, chi
+       ce l'ha piccolo riguadagna il bottone. */
+    .shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+    /* Le azioni a destra: spinte in fondo quando dividono la riga con i
+       filtri, allineate a sinistra quando sono andate a capo per conto loro
+       (altrimenti restavano appiccicate al bordo destro con mezzo schermo
+       vuoto davanti). */
+    .shop-toolbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
     .shop-toolbar-field label {
         display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
         margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
@@ -465,6 +484,13 @@
     .shop-empty {
         grid-column: 1 / -1; text-align: center; padding: 56px 24px;
         display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--ink-muted);
+    }
+
+    /* Sotto i 900px le azioni non stanno mai sulla riga dei filtri: lasciarle
+       spinte a destra vorrebbe dire una riga quasi vuota con i bottoni
+       ammucchiati in fondo. */
+    @media (max-width: 900px) {
+        .shop-toolbar-actions { margin-left: 0; width: 100%; }
     }
 
     @media (max-width: 640px) {
