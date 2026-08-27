@@ -113,10 +113,6 @@
                         <span class="subtle" style="font-weight:500;font-size:14px;">— {{ $gruppi->count() }} venditori, {{ $gruppi->count() }} pacchi</span>
                     @endif
                 </h3>
-                <p class="subtle" style="font-size:12.5px;margin:0 0 16px;">
-                    Prezzi e disponibilità vengono ricontrollati al momento del pagamento.
-                </p>
-
                 @foreach($gruppi as $gruppo)
                 <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
@@ -224,13 +220,6 @@
                 <button type="submit" class="cta" id="bottone-paga" style="width:100%;text-align:center;">
                     Paga {{ ky_format($totaleKy) }} KY{{ $totaleEuro > 0 ? ' + quota EUR' : '' }}
                 </button>
-                <p style="font-size:11.5px;line-height:1.5;margin:10px 0 0;color:rgba(255,255,255,.68);text-align:center;">
-                    @if($totaleEuro > 0)
-                        I KY partono subito; la quota in euro la saldi nella pagina successiva.
-                    @else
-                        I KY partono subito dal tuo conto.
-                    @endif
-                </p>
             </div>
         </section>
 

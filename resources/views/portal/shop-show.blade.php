@@ -389,18 +389,22 @@
                              la cassa. La conferma vera - con l'indirizzo, la nota
                              al venditore e la spunta sulle condizioni di vendita -
                              si da' li'. --}}
-                        <button type="submit" class="cta" style="width:100%;text-align:center;" id="bottone-acquisto"
-                                formaction="{{ route('portal.shop.buy.form', $listing) }}">
-                            Acquista ora
-                        </button>
-
-                        {{-- Carrello (2026-08-25, fase C). Stesso form del bottone
-                             qui sopra: la quantita' scelta vale per entrambi. Qui
-                             la destinazione e' quella predefinita del form, quindi
-                             non serve nessun formaction. --}}
-                        <button type="submit" class="cta-outline">
-                            Aggiungi al carrello
-                        </button>
+                        {{-- I due bottoni sulla STESSA RIGA (27/08/2026, richiesta
+                             di Laura): sono le due strade possibili da qui, e in
+                             colonna la seconda sembrava un ripensamento. Sotto i
+                             ~340px di pannello vanno a capo da soli (flex-wrap).
+                             Il carrello usa la destinazione predefinita del form;
+                             l'acquisto la scavalca col formaction. La quantita'
+                             scelta vale per tutti e due. --}}
+                        <div class="acquisto-azioni">
+                            <button type="submit" class="cta" id="bottone-acquisto"
+                                    formaction="{{ route('portal.shop.buy.form', $listing) }}">
+                                Acquista ora
+                            </button>
+                            <button type="submit" class="cta-outline">
+                                Aggiungi al carrello
+                            </button>
+                        </div>
                     </form>
                 @endif
             </div>
@@ -620,6 +624,17 @@
         transition: background .15s, border-color .15s;
     }
     .cta-outline:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.75); }
+
+    /* I due bottoni d'acquisto affiancati. `flex:1 1 140px` li tiene larghi
+       uguali finche' c'e' posto e li manda a capo quando il pannello si
+       stringe, invece di schiacciare "Aggiungi al carrello" su due righe.
+       align-items di default (stretch) li fa alti uguali nonostante le due
+       classi abbiano min-height diverse. */
+    .acquisto-azioni { display: flex; flex-wrap: wrap; gap: 10px; }
+    .acquisto-azioni > .cta,
+    .acquisto-azioni > .cta-outline {
+        flex: 1 1 140px; width: auto; margin-top: 0; text-align: center;
+    }
 
     @media (max-width: 900px) {
         .product-detail-grid { grid-template-columns: 1fr !important; }
