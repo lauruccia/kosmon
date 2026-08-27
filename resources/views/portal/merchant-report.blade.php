@@ -2,7 +2,9 @@
 
 @section('content')
 <style>
-.rep-grid { display:grid; gap:20px; max-width:1000px; }
+/* Niente max-width (2026-08-27): la pagina si fermava a 1000px e su schermo
+   largo restava una fascia di bianco a destra. */
+.rep-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; }
 
 /* Header */
 .rep-header {
@@ -120,7 +122,9 @@ canvas#rep-chart { max-height:220px; }
         </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    {{-- auto-fit invece di 1fr 1fr: due colonne quando c'e' spazio, una sola
+         sotto i ~660px (prima sul telefono restavano due colonne da ~180px). --}}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">
 
         {{-- Top payers --}}
         <div class="rep-card">
