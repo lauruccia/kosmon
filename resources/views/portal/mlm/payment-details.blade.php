@@ -2,7 +2,11 @@
 
 @section('content')
 
-<div class="card card-pad" style="max-width:560px;">
+{{-- Niente max-width (2026-08-27): la scheda si fermava a 560px e il resto
+     della pagina restava bianco. I campi vanno in una griglia che si
+     ridispone da sola, cosi' la larghezza viene usata senza allungare a
+     dismisura le caselle. --}}
+<div class="card card-pad">
 
     @if(! $detail)
         <div style="margin-bottom:20px;padding:10px 14px;border-radius:8px;background:rgba(0,0,0,.03);font-size:13px;color:var(--ink-muted);">
@@ -12,6 +16,8 @@
 
     <form method="POST" action="{{ route('portal.mlm.payment-details.update') }}">
         @csrf
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 18px;">
 
         <div class="form-group" style="margin-bottom:18px;">
             <label class="form-label">Intestatario conto</label>
@@ -32,7 +38,7 @@
             <label class="form-label">BIC/SWIFT (opzionale)</label>
             <input type="text" name="bic_swift"
                    value="{{ old('bic_swift', $detail->bic_swift ?? '') }}"
-                   maxlength="11" class="form-control" style="max-width:200px;font-family:monospace;">
+                   maxlength="11" class="form-control" style="max-width:260px;font-family:monospace;">
             @error('bic_swift')<div class="form-error">{{ $message }}</div>@enderror
         </div>
 
@@ -42,6 +48,8 @@
                    value="{{ old('bank_name', $detail->bank_name ?? '') }}"
                    maxlength="150" class="form-control">
             @error('bank_name')<div class="form-error">{{ $message }}</div>@enderror
+        </div>
+
         </div>
 
         <button type="submit" class="btn btn-primary">Salva dati bancari</button>

@@ -14,6 +14,9 @@
 </div>
 
 <section class="card light-card">
+    {{-- table-scroll: senza il contenitore la tabella (display:block) si stringe
+         sul contenuto e lascia spazio bianco a destra della scheda. --}}
+    <div class="table-scroll">
     <table class="admin-table transactions-table">
         <thead>
             <tr>
@@ -48,6 +51,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </section>
 
 <div style="margin-top:14px;">{{ $clients->links() }}</div>
