@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ImageResizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -303,12 +304,74 @@ class Listing extends Model
     }
 
     /**
-     * URL della prima immagine, o null.
+     * URL della prima immagine, o null. E' l'ORIGINALE, a piena risoluzione:
+     * usalo solo dove serve davvero grande (la lente d'ingrandimento).
      */
     public function getFirstImageUrlAttribute(): ?string
     {
         $path = $this->images[0] ?? null;
         return $path ? Storage::disk('public')->url($path) : null;
+    }
+
+    /**
+     * URL di una versione ridotta, con ricaduta sull'originale.
+     *
+     * La ricaduta e' il cuore della cosa (27/08/2026): le miniature possono
+     * mancare per tre motivi legittimi — la foto e' stata caricata prima che
+     * esistesse questo meccanismo, era gia' piu' piccola della misura chiesta,
+     * oppure GD non e' riuscito a generarla. In tutti e tre i casi la pagina
+     * deve mostrare la foto lo stesso. Una card vuota sarebbe un guasto; una
+     * card lenta e' solo lenta.
+     */
+    public function urlRidotto(?string $path, string $misura): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $disco    = Storage::disk('public');
+        $derivato = ImageResizer::pathDerivato($path, $misura);
+
+        return $disco->exists($derivato)
+            ? $disco->url($derivato)
+            : $disco->url($path);
+    }
+
+    /**
+     * L'immagine per le GRIGLIE: shop, "I miei prodotti", carrello, offerte.
+     * Un sesto del peso dell'originale, e nella card non si vede differenza.
+     */
+    public function getCardImageUrlAttribute(): ?string
+    {
+        return $this->urlRidotto($this->images[0] ?? null, ImageResizer::CARD);
+    }
+
+    /**
+     * Le immagini della scheda prodotto, nella misura media.
+     *
+     * @return array<int, string>
+     */
+    public function getMediumImageUrlsAttribute(): array
+    {
+        return collect($this->images ?? [])
+            ->map(fn (string $path) => $this->urlRidotto($path, ImageResizer::MEDIUM))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Le stesse immagini in misura card: la striscia sotto la foto grande.
+     *
+     * @return array<int, string>
+     */
+    public function getCardImageUrlsAttribute(): array
+    {
+        return collect($this->images ?? [])
+            ->map(fn (string $path) => $this->urlRidotto($path, ImageResizer::CARD))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -322,6 +385,11 @@ class Listing extends Model
             return false;
         }
         Storage::disk('public')->delete($path);
+
+        // Anche le versioni ridotte, altrimenti restano sul disco per sempre:
+        // nessuna pagina le mostra piu' e nessuno si accorge che ci sono.
+        app(ImageResizer::class)->eliminaDerivate($path);
+
         $this->images = array_values(array_filter($images, fn ($p) => $p !== $path));
         $this->save();
         return true;

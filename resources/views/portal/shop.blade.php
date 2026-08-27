@@ -109,8 +109,8 @@
         @foreach($featuredListings as $listing)
         <article class="featured-card">
             <a href="{{ route('portal.shop.show', $listing) }}" class="product-media">
-                @if($listing->first_image_url)
-                    <img src="{{ $listing->first_image_url }}" alt="{{ $listing->title }}" loading="lazy">
+                @if($listing->card_image_url)
+                    <img src="{{ $listing->card_image_url }}" alt="{{ $listing->title }}" loading="lazy">
                 @else
                     <div class="product-media-placeholder"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                 @endif
@@ -166,8 +166,8 @@
         @else
         <div class="product-media">
         @endif
-            @if($listing->first_image_url)
-                <img src="{{ $listing->first_image_url }}" alt="{{ $listing->title }}" loading="lazy">
+            @if($listing->card_image_url)
+                <img src="{{ $listing->card_image_url }}" alt="{{ $listing->title }}" loading="lazy">
             @else
                 <div class="product-media-placeholder">
                     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>

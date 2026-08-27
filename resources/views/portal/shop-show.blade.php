@@ -34,13 +34,23 @@
             </div>
 
             {{-- Galleria immagini --}}
-            @php $urls = $listing->image_urls; @endphp
+            @php
+                // Tre elenchi, tre pesi (27/08/2026). La foto grande arriva
+                // nella misura media, la striscia sotto nella misura card, e
+                // l'originale a piena risoluzione lo scarica SOLO la lente
+                // d'ingrandimento, cioe' quando qualcuno vuole davvero
+                // guardare da vicino. Prima questa pagina scaricava cinque
+                // originali da qualche megabyte l'uno per mostrarne uno.
+                $urls    = $listing->image_urls;
+                $medi    = $listing->medium_image_urls;
+                $piccole = $listing->card_image_urls;
+            @endphp
             @if(count($urls) > 0)
             <div style="margin-top:20px;">
                 {{-- Immagine principale --}}
                 <div style="position:relative;border-radius:12px;overflow:hidden;background:#f1f5f9;cursor:zoom-in;" onclick="openLightbox(0)">
                     <img id="gallery-main"
-                         src="{{ $urls[0] }}"
+                         src="{{ $medi[0] ?? $urls[0] }}"
                          alt="{{ $listing->title }}"
                          style="width:100%;max-height:420px;object-fit:cover;display:block;">
                     @if(count($urls) > 1)
@@ -58,7 +68,7 @@
                 @if(count($urls) > 1)
                 <div style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">
                     @foreach($urls as $i => $url)
-                    <img src="{{ $url }}"
+                    <img src="{{ $piccole[$i] ?? $url }}"
                          alt="Foto {{ $i + 1 }}"
                          onclick="selectThumb({{ $i }})"
                          id="thumb-{{ $i }}"
@@ -446,7 +456,10 @@
 </div>
 
 {{-- Lightbox --}}
-@php $urls = $listing->image_urls; @endphp
+@php
+    $urls = $listing->image_urls;
+    $medi = $listing->medium_image_urls;
+@endphp
 @if(count($urls) > 0)
 <div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;" onclick="closeLightbox(event)">
     <button onclick="lightboxPrev(event)" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:28px;width:48px;height:48px;border-radius:50%;cursor:pointer;">‹</button>
@@ -458,7 +471,12 @@
 
 <script>
 (function () {
+    // `urls` sono gli originali e li usa SOLO la lente; `medi` e' quello che
+    // finisce nella foto grande quando si cambia miniatura. Tenerli separati
+    // e' l'unico modo perche' il primo clic su una miniatura non scarichi
+    // l'originale intero vanificando tutto.
     const urls  = @json($urls);
+    const medi  = @json($medi);
     let current = 0;
 
     window.openLightbox = function (idx) {
@@ -482,7 +500,7 @@
 
     window.selectThumb = function (idx) {
         current = idx;
-        document.getElementById('gallery-main').src = urls[idx];
+        document.getElementById('gallery-main').src = medi[idx] ?? urls[idx];
         const counter = document.querySelector('#gallery-main + div');
         if (counter) counter.textContent = `${idx + 1} / ${urls.length}`;
         document.querySelectorAll('[id^="thumb-"]').forEach((el, i) => {

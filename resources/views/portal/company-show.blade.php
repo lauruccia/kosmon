@@ -303,7 +303,7 @@
                         </div>
                         @endif
                         <div class="listing-card-img">
-                            @php $imgs = $listing->image_urls; @endphp
+                            @php $imgs = $listing->card_image_urls; @endphp
                             @if (count($imgs) > 0)
                                 <img src="{{ $imgs[0] }}" alt="{{ $listing->title }}">
                             @else

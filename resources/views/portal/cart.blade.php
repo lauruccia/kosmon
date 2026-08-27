@@ -58,7 +58,7 @@
                 @foreach($gruppo['righe'] as $riga)
                 @php
                     $listing = $riga->listing;
-                    $immagini = $listing->image_urls;
+                    $immagini = $listing->card_image_urls;
                     $motivo = $riga->motivoIndisponibilita();
                 @endphp
                 <div class="cart-row" style="display:flex;gap:14px;padding:14px 0;border-top:1px solid #eef2f7;{{ $motivo ? 'opacity:.72;' : '' }}">

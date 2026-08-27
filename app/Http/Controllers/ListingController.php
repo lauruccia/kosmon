@@ -835,10 +835,20 @@ class ListingController extends Controller
         }
 
         $paths = [];
+        $ridimensionatore = app(\App\Services\ImageResizer::class);
+
         foreach ($request->file('images') as $file) {
             if ($file->isValid()) {
                 $path = $file->store("listings/{$uuid}", 'public');
                 $paths[] = $path;
+
+                // Le versioni piccole si fanno QUI, una volta sola, mentre il
+                // venditore sta gia' aspettando il salvataggio (27/08/2026).
+                // L'alternativa - generarle alla prima visita della pagina -
+                // farebbe pagare l'attesa al cliente invece che a chi carica,
+                // e la prima visita e' proprio quella che deve essere veloce.
+                // Se falliscono non succede niente: si mostrera' l'originale.
+                $ridimensionatore->generaTutte($path);
             }
         }
         return $paths;
