@@ -46,7 +46,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Tastiera meccanica');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
 
@@ -66,7 +66,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Cuffie', extra: ['stock_quantity' => 10]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 3]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 3]);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
 
@@ -84,7 +84,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Monitor 24 pollici');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $listing->update(['title' => 'Monitor 27 pollici — nuovo modello']);
 
@@ -103,7 +103,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Corso di fotografia');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $listing->delete();
 
@@ -124,7 +124,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Ordine vecchio');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         // Simula un movimento registrato PRIMA della migrazione 0b: nessuno
@@ -141,7 +141,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Poltrona in pelle');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         // Torna indietro allo schema PRIMA della fase 0b (le tre colonne non
         // esistono più: l'ordine appena fatto è ora, a tutti gli effetti, un
@@ -175,7 +175,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Bicicletta pieghevole');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
         $listing->delete();
 
         $this->actingAs($this->makeAdmin())
@@ -191,7 +191,7 @@ class OrderSnapshotOnTransfersTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, 'Zaino da trekking');
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
         $listing->delete();
 
         $this->actingAs($this->makeAdmin())

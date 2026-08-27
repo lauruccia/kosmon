@@ -45,7 +45,7 @@ class OrdersPhaseBTest extends TestCase
         [$company, , $sellerAccount] = $this->makeSeller(saldo: 0);
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 2]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 2]);
 
         $order = Order::query()->sole();
 
@@ -76,7 +76,7 @@ class OrdersPhaseBTest extends TestCase
         $this->makeGateway($company);
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 50);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $order    = Order::query()->sole();
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
@@ -101,7 +101,7 @@ class OrdersPhaseBTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $riga = Order::query()->sole()->items()->sole();
         $titoloOriginale = $riga->title;
@@ -129,7 +129,7 @@ class OrdersPhaseBTest extends TestCase
             'expires_at'             => now()->addDays(3),
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $riga = Order::query()->sole()->items()->sole();
 
@@ -148,7 +148,7 @@ class OrdersPhaseBTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $riga = Order::query()->sole()->items()->sole();
         $titolo = $riga->title;
@@ -330,7 +330,7 @@ class OrdersPhaseBTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
 
         // Ordine nuovo, nato con il suo order_id già a posto.
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
         $this->assertSame(1, Order::query()->count());
 
         Artisan::call('migrate:rollback', [

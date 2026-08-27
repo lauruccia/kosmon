@@ -51,7 +51,7 @@ class ShopPurchaseGuardsTest extends TestCase
 
         $prima = $this->sommaSaldiCircuito();
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $this->assertSame(
             $prima,
@@ -68,7 +68,7 @@ class ShopPurchaseGuardsTest extends TestCase
 
         $prima = $this->sommaSaldiCircuito();
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $this->assertSame(1000, $buyerAccount->fresh()->available_balance);
         $this->assertSame(0, $sellerAccount->fresh()->available_balance);
@@ -83,7 +83,7 @@ class ShopPurchaseGuardsTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         $entries  = $transfer->ledgerEntries()->get();
@@ -126,7 +126,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Transfer::where('kind', 'portal_marketplace_order')->count());
@@ -147,7 +147,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
         for ($i = 0; $i < 4; $i++) {
-            $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+            $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
         }
 
         $this->assertNull(
@@ -166,7 +166,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 250000, kyPercentage: 100);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             // Il messaggio conta quanto l'effetto: senza questa asserzione il
             // test resterebbe verde anche se a bloccare l'acquisto fosse un
             // limite completamente diverso (verificato con una mutazione).
@@ -202,7 +202,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $this->assertSame(100, (int) $listing->ky_percentage);
         $this->assertSame(50, (int) $listing->desired_ky_percentage);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         // Tutto in KY: nessuna quota in euro da saldare fuori dal circuito.
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
@@ -220,7 +220,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $company->forceFill(['status' => 'suspended'])->save();
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error', fn ($errore) => str_contains(
                 (string) $errore,
                 'destinataria non è attiva nel circuito'
@@ -249,7 +249,7 @@ class ShopPurchaseGuardsTest extends TestCase
 
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         $this->assertSame($sellerAccount->id, (int) $transfer->to_account_id);
@@ -273,7 +273,7 @@ class ShopPurchaseGuardsTest extends TestCase
             'shipping_cost' => 500,
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 3]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 3]);
 
         // KY:  (1000 x 3) + 250 = 3250     EUR: (1000 x 3) + 250 = 3250
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
@@ -298,7 +298,7 @@ class ShopPurchaseGuardsTest extends TestCase
         $this->makeGateway($company);
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 50);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $payment = MarketplaceOrderPayment::query()->sole();
 
@@ -324,11 +324,11 @@ class ShopPurchaseGuardsTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing), ['quantity' => 0])
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 0])
             ->assertSessionHasErrors('quantity');
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing), ['quantity' => -3])
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => -3])
             ->assertSessionHasErrors('quantity');
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -345,8 +345,8 @@ class ShopPurchaseGuardsTest extends TestCase
         [$company] = $this->makeSeller(saldo: 0);
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $this->assertSame(2, Transfer::where('kind', 'portal_marketplace_order')->count());
         $this->assertSame(90000, $buyerAccount->fresh()->available_balance);

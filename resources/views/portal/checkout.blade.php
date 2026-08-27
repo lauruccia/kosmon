@@ -15,14 +15,21 @@
     consenso, non si decide niente.
 --}}
 <div style="margin-bottom:16px;">
-    <a href="{{ route('portal.cart') }}" class="shop-back-link">
+    <a href="{{ $urlIndietro }}" class="shop-back-link">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        Torna al carrello
+        {{ $etichettaIndietro }}
     </a>
 </div>
 
-<form method="POST" action="{{ route('portal.cart.checkout') }}" id="form-cassa">
+{{-- La stessa cassa serve due strade: il carrello e "Compra ora" dalla pagina
+     prodotto. Cambiano solo `$formAction` e i `$campiNascosti` (combinazione e
+     quantita' dell'acquisto immediato); tutto il resto - indirizzo, nota,
+     spunta condizioni, riepilogo, bottone unico - e' identico di proposito. --}}
+<form method="POST" action="{{ $formAction }}" id="form-cassa">
     @csrf
+    @foreach($campiNascosti as $nome => $valore)
+        <input type="hidden" name="{{ $nome }}" value="{{ $valore }}">
+    @endforeach
 
     <div class="cart-grid" style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
 
@@ -36,7 +43,7 @@
                         <span class="eyebrow">Passo 1</span>
                         <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">Dove lo spediamo</h3>
                     </div>
-                    <a href="{{ route('portal.shipping-addresses.index', ['redirect_to' => route('portal.cart.checkout.form', [], false)]) }}"
+                    <a href="{{ route('portal.shipping-addresses.index', ['redirect_to' => $ritornoIndirizzi]) }}"
                        style="font-size:12.5px;font-weight:600;color:#0c4a86;text-decoration:none;">Gestisci la rubrica</a>
                 </div>
 
@@ -182,7 +189,7 @@
         <section class="card account-hero card-pad">
             <div class="k-tag">Riepilogo</div>
             <h3 style="font-size:19px;font-weight:700;margin:10px 0 18px;color:#fff;">
-                {{ $cart->totalePezzi() }} {{ $cart->totalePezzi() === 1 ? 'pezzo' : 'pezzi' }}
+                {{ $totalePezzi }} {{ $totalePezzi === 1 ? 'pezzo' : 'pezzi' }}
                 @if($gruppi->count() > 1)
                     <span style="font-weight:500;opacity:.75;">da {{ $gruppi->count() }} venditori</span>
                 @endif

@@ -537,7 +537,18 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::patch('/shop/carrello/righe/{item}', [CartController::class, 'update'])->name('portal.cart.item.update');
     Route::delete('/shop/carrello/righe/{item}', [CartController::class, 'remove'])->name('portal.cart.item.remove');
     Route::get('/shop/{listing}', [ListingController::class, 'show'])->name('portal.shop.show');
-    Route::post('/shop/{listing}/acquista', [ListingController::class, 'buy'])->name('portal.shop.buy')->middleware('throttle:payments');
+    // "Compra ora" (audit 26/08/2026, blocco 3): la pagina prodotto non paga
+    // piu' con un confirm() del browser. Il bottone porta a una CASSA - la
+    // stessa del carrello, con dentro un prodotto solo - e da li' si conferma.
+    // Il nome della rotta POST resta `portal.shop.buy`: e' cambiato chi la
+    // serve, non che cosa significa.
+    // GET **e** POST: il bottone "Acquista" vive nello stesso form del bottone
+    // "Aggiungi al carrello" (cosi' la quantita' scelta vale per entrambi), e
+    // quel form deve restare POST per il carrello. Il POST qui non fa altro che
+    // rimbalzare in GET con gli stessi parametri: cosi' il token CSRF non
+    // finisce in query string e la cassa regge un F5.
+    Route::match(['get', 'post'], '/shop/{listing}/acquista/cassa', [CartController::class, 'buyNowForm'])->name('portal.shop.buy.form');
+    Route::post('/shop/{listing}/acquista', [CartController::class, 'buyNow'])->name('portal.shop.buy')->middleware('throttle:payments');
     Route::post('/shop/{listing}/carrello', [CartController::class, 'add'])->name('portal.cart.add');
     Route::get('/shop/{listing}/modifica', [ListingController::class, 'edit'])->name('portal.shop.edit');
     Route::put('/shop/{listing}', [ListingController::class, 'update'])->name('portal.shop.update');

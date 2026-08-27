@@ -346,7 +346,14 @@
                        style="display:none;font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                     </p>
 
-                    <form method="POST" action="{{ route('portal.shop.buy', $listing) }}" id="{{ $formAcquistoId }}">
+                    {{-- Il form punta al CARRELLO, non ai soldi (audit 26/08,
+                         blocco 3). "Acquista" apre la cassa - la stessa del
+                         carrello, con dentro questo solo prodotto - e l'addebito
+                         si conferma li'. Prima da qui partiva un POST che pagava
+                         davvero, con un confirm() del browser come unica
+                         conferma: su mobile i dialoghi si possono sopprimere, e
+                         allora un tocco diventava un addebito. --}}
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}">
                         @csrf
 
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)
@@ -357,25 +364,27 @@
                         @else
                         <input type="hidden" name="quantity" value="1">
                         @endif
+                        {{-- Niente piu' confirm(): questo bottone non paga, apre
+                             la cassa. La conferma vera - con l'indirizzo, la nota
+                             al venditore e la spunta sulle condizioni di vendita -
+                             si da' li'. --}}
                         @if($varianti->isNotEmpty())
                             <button type="submit" class="cta" style="width:100%;text-align:center;" id="bottone-acquisto"
-                                onclick="return confirm('Confermi l\'acquisto della variante scelta?')">
+                                    formaction="{{ route('portal.shop.buy.form', $listing) }}">
                                 Acquista la variante scelta
                             </button>
                         @else
                             <button type="submit" class="cta" style="width:100%;text-align:center;"
-                                onclick="return confirm('Confermi l\'acquisto di questo prodotto? Verranno addebitati {{ ky_format($requiredKy) }} KY dal tuo conto{{ $needsShippingAddress && $listing->shipping_cost ? ' (incluso il costo di spedizione)' : '' }}.')">
+                                    formaction="{{ route('portal.shop.buy.form', $listing) }}">
                                 Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
                             </button>
                         @endif
 
                         {{-- Carrello (2026-08-25, fase C). Stesso form del bottone
-                             qui sopra, cambia solo la destinazione: cosi' la
-                             quantita' scelta vale per entrambi. "Compra ora"
-                             resta la strada principale — chi vuole un pezzo solo
-                             non deve passare da tre pagine. --}}
-                        <button type="submit" class="cta-outline"
-                                formaction="{{ route('portal.cart.add', $listing) }}">
+                             qui sopra: la quantita' scelta vale per entrambi. Qui
+                             la destinazione e' quella predefinita del form, quindi
+                             non serve nessun formaction. --}}
+                        <button type="submit" class="cta-outline">
                             Aggiungi al carrello
                         </button>
                     </form>

@@ -592,7 +592,7 @@ class CartPhaseCTest extends TestCase
         $subito      = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
 
         $this->actingAs($buyer)->post(route('portal.cart.add', $nelCarrello), ['quantity' => 2]);
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $subito));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $subito), ['accetto_condizioni' => '1']);
 
         // L'acquisto diretto è passato...
         $this->assertSame(1, Order::count());

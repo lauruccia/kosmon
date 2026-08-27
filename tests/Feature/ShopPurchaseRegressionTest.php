@@ -60,9 +60,12 @@ class ShopPurchaseRegressionTest extends TestCase
         [$company, , $sellerAccount] = $this->makeSeller(saldo: 0);
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100); // 50,00 KY
 
+        // Dal 26/08/2026 "Compra ora" finisce sulla pagina "grazie" col numero
+        // d'ordine, non piu' su un banner verde sulla pagina prodotto: e' la
+        // stessa uscita del carrello (audit, blocco 3).
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
-            ->assertRedirect(route('portal.shop.show', $listing));
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
+            ->assertRedirectContains(route('portal.cart.thanks'));
 
         $this->assertSame(95000, $buyerAccount->fresh()->available_balance);
         $this->assertSame(5000, $sellerAccount->fresh()->available_balance);
@@ -77,7 +80,7 @@ class ShopPurchaseRegressionTest extends TestCase
         [$company, , $sellerAccount] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
 
@@ -100,7 +103,7 @@ class ShopPurchaseRegressionTest extends TestCase
         [$company, $sellerUser] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
 
@@ -128,7 +131,7 @@ class ShopPurchaseRegressionTest extends TestCase
         // 100,00 KY al 75% → 75,00 KY nel circuito + 25,00 EUR fuori circuito.
         $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 75);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $this->assertSame(92500, $buyerAccount->fresh()->available_balance);
         $this->assertSame(7500, $sellerAccount->fresh()->available_balance);
@@ -148,7 +151,7 @@ class ShopPurchaseRegressionTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 75);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         // Il blocco deve avvenire PRIMA di qualsiasi addebito: niente KY mossi,
@@ -176,7 +179,7 @@ class ShopPurchaseRegressionTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 10000, kyPercentage: 75);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -198,7 +201,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'shipping_cost' => 500,
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 3]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 3]);
 
         // 3 x 20,00 + 5,00 di spedizione (UNA sola volta) = 65,00 KY
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
@@ -217,7 +220,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'delivery_type' => Listing::DELIVERY_TYPE_SPEDIZIONE,
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
 
@@ -241,7 +244,7 @@ class ShopPurchaseRegressionTest extends TestCase
         ]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -257,7 +260,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'shipping_cost' => 500, // ignorato: non è un prodotto da spedire
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         $this->assertSame(2000, (int) $transfer->amount, 'La spedizione non va addebitata sui prodotti da ritirare.');
@@ -282,7 +285,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'expires_at'             => now()->addDays(3),
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         $this->assertSame(6000, (int) $transfer->amount);
@@ -309,7 +312,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'expires_at'             => now()->subDay(), // scaduta ieri
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing));
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1']);
 
         $transfer = Transfer::query()->where('kind', 'portal_marketplace_order')->sole();
         $this->assertSame(10000, (int) $transfer->amount);
@@ -328,7 +331,7 @@ class ShopPurchaseRegressionTest extends TestCase
         ]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing), ['quantity' => 3])
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 3])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -344,7 +347,7 @@ class ShopPurchaseRegressionTest extends TestCase
             'stock_quantity' => 5,
         ]);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 2]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 2]);
 
         $this->assertSame(3, $listing->fresh()->stock_quantity);
     }
@@ -356,7 +359,7 @@ class ShopPurchaseRegressionTest extends TestCase
         // stock_quantity null = disponibilità illimitata (comportamento storico).
         $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['quantity' => 4]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'quantity' => 4]);
 
         $this->assertNull($listing->fresh()->stock_quantity);
         $this->assertSame(8000, (int) Transfer::query()->where('kind', 'portal_marketplace_order')->sole()->amount);
@@ -383,7 +386,7 @@ class ShopPurchaseRegressionTest extends TestCase
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
         $this->actingAs($sellerUser)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error', 'Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
 
         $this->assertSame(100000, $sellerAccount->fresh()->available_balance);
@@ -399,7 +402,7 @@ class ShopPurchaseRegressionTest extends TestCase
         ]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertRedirect(route('portal.shop'));
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -415,7 +418,7 @@ class ShopPurchaseRegressionTest extends TestCase
         ]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertRedirect(route('portal.shop'));
 
         $this->assertSame(100000, $buyerAccount->fresh()->available_balance);
@@ -427,7 +430,7 @@ class ShopPurchaseRegressionTest extends TestCase
         [$company] = $this->makeSeller();
         $listing = $this->makeListing($company, prezzo: 5000, kyPercentage: 100);
 
-        $this->post(route('portal.shop.buy', $listing))
+        $this->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertRedirect(route('login'));
 
         $this->assertSame(0, Transfer::count());

@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\ShippingAddress;
 use App\Notifications\NewMarketplaceOrderNotification;
 use App\Services\CartService;
+use App\Services\OrderService;
 use App\Services\ShippingAddressBook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,17 +18,40 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 /**
- * Il carrello dello shop (fase C del piano carrello).
+ * Il carrello dello shop (fase C del piano carrello) **e** la cassa, per
+ * entrambe le strade che portano a un ordine.
  *
- * "Compra ora" resta dov'era, sulla pagina del prodotto: chi vuole un pezzo
- * solo non deve passare da tre pagine, e per noi quella è la strada già
- * collaudata che resta sempre percorribile. Il carrello è la strada in più.
+ * Fino al 26/08/2026 "Compra ora" viveva in `ListingController::buy()` e non
+ * passava di qui: aveva il `confirm()` del browser al posto della cassa,
+ * nessuna spunta sulle condizioni di vendita, nessuna scelta dell'indirizzo e
+ * nessuna pagina "grazie". Erano due esperienze diverse sullo stesso negozio,
+ * e quella piu' usata era la peggiore (audit 26/08, blocco 3).
+ *
+ * Adesso le due strade si incontrano qui e condividono tutto: la stessa pagina
+ * di cassa, la stessa validazione, la stessa rubrica indirizzi, la stessa
+ * pagina "grazie". L'unica differenza e' da dove arrivano le righe — dal
+ * carrello, oppure da un solo prodotto scelto sulla sua pagina — e vive tutta
+ * in `gruppiPerAcquistoImmediato()`.
+ *
+ * "Compra ora" NON tocca il carrello: chi ha gia' tre cose nel carrello e
+ * compra al volo un libro non deve ritrovarsi ad aver pagato anche le altre
+ * tre. E' anche il motivo per cui non e' implementato come "aggiungi e vai
+ * alla cassa".
  */
 class CartController extends Controller
 {
+    /**
+     * Codice d'eccezione di `rigaImmediata()` che vuol dire "questo prodotto
+     * non esiste piu' per chi compra": non ha senso rimandarlo alla sua pagina
+     * o alla cassa, va riportato al catalogo. Tutti gli altri errori (variante
+     * non scelta, quantita', prodotto proprio) lasciano l'utente dov'e'.
+     */
+    private const TORNA_AL_CATALOGO = 404;
+
     public function __construct(
         private readonly CartService $cartService,
         private readonly ShippingAddressBook $rubrica,
+        private readonly OrderService $orderService,
     ) {
     }
 
@@ -187,12 +211,19 @@ class CartController extends Controller
             'pageTitle'         => 'Conferma il tuo ordine — Shop KMoney',
             'currentAccount'    => $account,
             'currentUser'       => $user,
-            'cart'              => $cart,
             'gruppi'            => $gruppi,
+            'totalePezzi'       => $cart->totalePezzi(),
             'totaleKy'          => $cart->totaleKy(),
             'totaleEuro'        => $cart->totaleEuro(),
             'saldoDisponibile'  => $account->saldoDisponibile(),
             'serveIndirizzo'    => $gruppi->contains(fn ($g) => $g['richiede_indirizzo']),
+            // Da dove si arriva e dove si torna indietro: la stessa pagina
+            // serve il carrello e l'acquisto immediato.
+            'formAction'        => route('portal.cart.checkout'),
+            'urlIndietro'       => route('portal.cart'),
+            'etichettaIndietro' => 'Torna al carrello',
+            'ritornoIndirizzi'  => route('portal.cart.checkout.form', [], false),
+            'campiNascosti'     => [],
             // Tutti gli indirizzi salvati, non i primi N: un indirizzo che non
             // si puo' scegliere in cassa non serve a niente (e' l'errore che
             // fa Shopify mostrandone solo 5).
@@ -214,27 +245,10 @@ class CartController extends Controller
             return $redirect;
         }
 
-        $validated = $request->validate([
-            // Spuntare le condizioni e' obbligatorio: e' l'unico gesto
-            // esplicito rimasto ora che il confirm() del browser non c'e' piu'.
-            'accetto_condizioni' => ['accepted'],
-            'buyer_note'         => ['nullable', 'string', 'max:500'],
-            // Quale indirizzo: l'id di uno della rubrica, oppure "nuovo".
-            // Assente = il predefinito del conto, cioe' come si comportava la
-            // cassa prima che la rubrica esistesse.
-            'indirizzo_scelto'   => ['nullable', 'string', 'max:20'],
-            'salva_indirizzo'    => ['nullable', 'boolean'],
-            'rendi_predefinito'  => ['nullable', 'boolean'],
-            'label'              => ['nullable', 'string', 'max:60'],
-            'recipient_name'     => ['nullable', 'string', 'max:150'],
-            'address'            => ['nullable', 'string', 'max:255'],
-            'city'               => ['nullable', 'string', 'max:100'],
-            'postal_code'        => ['nullable', 'string', 'max:12'],
-            'province'           => ['nullable', 'string', 'max:60'],
-            'phone'              => ['nullable', 'string', 'max:30'],
-        ], [
-            'accetto_condizioni.accepted' => 'Per completare l\'ordine devi accettare le condizioni di vendita.',
-        ]);
+        // Le regole stanno in validaConfermaOrdine(): sono le stesse che usa
+        // "Compra ora", ed e' l'unico modo per essere certi che le due strade
+        // non tornino a divergere.
+        $validated = $this->validaConfermaOrdine($request);
 
         try {
             $indirizzoScelto = $this->risolviIndirizzo($request, $account, $validated);
@@ -251,7 +265,10 @@ class CartController extends Controller
                 $indirizzoScelto,
             );
         } catch (\RuntimeException $e) {
-            return back()->with('portal_error', $e->getMessage());
+            // `withInput()` come il catch qui sopra: chi ha scritto una nota e
+            // un indirizzo nuovo e incappa in "saldo insufficiente" non deve
+            // riscrivere tutto da capo (audit 26/08, blocco 5).
+            return back()->withInput()->with('portal_error', $e->getMessage());
         }
 
         // Notifiche fuori dalla transazione, come già fa l'acquisto singolo:
@@ -315,6 +332,293 @@ class CartController extends Controller
             'currentUser'    => $user,
             'ordini'         => $ordini,
             'activeNav'      => 'shop',
+        ]);
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // "Compra ora": la stessa cassa, con un prodotto solo e senza carrello
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * La cassa per un acquisto immediato dalla pagina del prodotto.
+     *
+     * Il prodotto, la combinazione e la quantita' arrivano in query string:
+     * questa pagina non scrive niente, quindi un GET va bene e regge un F5.
+     * Il carrello non viene mai toccato.
+     */
+    public function buyNowForm(Request $request, Listing $listing): View|RedirectResponse
+    {
+        $user = $request->user();
+        $account = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($account, $user)) {
+            return $redirect;
+        }
+
+        try {
+            [$variante, $quantita] = $this->rigaImmediata($request, $listing, $account);
+        } catch (\RuntimeException $e) {
+            return $this->tornaIndietro($e, $listing, conInput: false);
+        }
+
+        $parametri = array_filter([
+            'variant_id' => $variante?->id,
+            'quantity'   => $quantita,
+        ]);
+
+        // Arrivato in POST dal form della pagina prodotto: si rimbalza in GET
+        // con gli stessi parametri. Un F5 sulla cassa non deve chiedere
+        // "vuoi reinviare i dati?", e il token CSRF non deve finire nell'URL.
+        if ($request->isMethod('post')) {
+            return redirect()->route('portal.shop.buy.form', array_merge(['listing' => $listing->id], $parametri));
+        }
+
+        $gruppi = $this->gruppiPerAcquistoImmediato($listing, $variante, $quantita);
+
+        // Le stesse guardie del carrello. Non sono la difesa vera - quella
+        // resta dentro OrderService::place(), che rilegge tutto sotto lock -
+        // servono a non far vedere una cassa a chi comunque non potrebbe pagare.
+        if ($motivo = $this->motivoPerCuiNonSiPuoPagareImmediato($gruppi, $account)) {
+            return redirect()->route('portal.shop.show', $listing)->with('portal_error', $motivo);
+        }
+
+        return view('portal.checkout', [
+            'pageTitle'         => 'Conferma il tuo ordine — Shop KMoney',
+            'currentAccount'    => $account,
+            'currentUser'       => $user,
+            'gruppi'            => $gruppi,
+            'totalePezzi'       => $quantita,
+            'totaleKy'          => (int) $gruppi->sum('ky'),
+            'totaleEuro'        => (int) $gruppi->sum('eur'),
+            'saldoDisponibile'  => $account->saldoDisponibile(),
+            'serveIndirizzo'    => $gruppi->contains(fn ($g) => $g['richiede_indirizzo']),
+            'indirizzi'         => $this->rubrica->elenco($account),
+            'tettoIndirizzi'    => ShippingAddress::MAX_PER_ACCOUNT,
+            'activeNav'         => 'shop',
+            'formAction'        => route('portal.shop.buy', $listing),
+            'urlIndietro'       => route('portal.shop.show', $listing),
+            'etichettaIndietro' => 'Torna al prodotto',
+            'ritornoIndirizzi'  => route('portal.shop.buy.form', array_merge(['listing' => $listing->id], $parametri), false),
+            // Combinazione e quantita' viaggiano nascoste nel form: il POST
+            // deve poter rifare da solo la riga, senza fidarsi di niente che
+            // non sia stato rivalidato.
+            'campiNascosti'     => $parametri,
+        ]);
+    }
+
+    /**
+     * L'acquisto immediato: un prodotto solo diventa un ordine.
+     *
+     * Da qui in giu' e' identico alla cassa del carrello - stessa validazione,
+     * stesso indirizzo, stessa pagina "grazie" - e infatti la maggior parte del
+     * corpo e' condivisa con `checkout()`.
+     */
+    public function buyNow(Request $request, Listing $listing): RedirectResponse
+    {
+        $user = $request->user();
+        $account = $this->resolveAccount($user);
+
+        if ($redirect = $this->redirectIfNoAccount($account, $user)) {
+            return $redirect;
+        }
+
+        $validated = $this->validaConfermaOrdine($request, [
+            'quantity'   => ['nullable', 'integer', 'min:1', 'max:999999'],
+            'variant_id' => ['nullable', 'integer'],
+        ]);
+
+        try {
+            [$variante, $quantita] = $this->rigaImmediata($request, $listing, $account);
+        } catch (\RuntimeException $e) {
+            return $this->tornaIndietro($e, $listing, conInput: true);
+        }
+
+        try {
+            $indirizzoScelto = $this->risolviIndirizzo($request, $account, $validated);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('portal_error', $e->getMessage());
+        }
+
+        try {
+            $ordine = $this->orderService->place(
+                buyerAccount: $account,
+                user: $user,
+                righe: [['listing' => $listing, 'variant' => $variante, 'quantity' => $quantita]],
+                ipAddress: $request->ip(),
+                buyerNote: blank($validated['buyer_note'] ?? null) ? null : trim($validated['buyer_note']),
+                shippingAddress: $indirizzoScelto,
+            );
+        } catch (\RuntimeException $e) {
+            // Con `withInput()`: chi ha scritto una nota e un indirizzo nuovo e
+            // incappa in "saldo insufficiente" non deve riscrivere tutto.
+            return back()->withInput()->with('portal_error', $e->getMessage());
+        }
+
+        $this->notificaVenditore($ordine);
+
+        return redirect()
+            ->route('portal.cart.thanks', ['ids' => $ordine->uuid])
+            ->with('portal_success', 'Ordine completato: ' . ky_format((int) $ordine->total_ky) . ' KY pagati.');
+    }
+
+    /**
+     * Combinazione e quantita' di un acquisto immediato, rivalidate.
+     *
+     * Sta in un posto solo perche' il GET della cassa e il POST che paga devono
+     * vedere ESATTAMENTE lo stesso prodotto: se il GET accetta una combinazione
+     * che il POST rifiuta (o viceversa) si apre una cassa che non si puo'
+     * chiudere.
+     *
+     * @return array{0: \App\Models\ListingVariant|null, 1: int}
+     *
+     * @throws \RuntimeException con un messaggio gia' pronto per l'utente
+     */
+    private function rigaImmediata(Request $request, Listing $listing, Account $account): array
+    {
+        if ($listing->status !== 'active' || $listing->is_expired) {
+            throw new \RuntimeException('Questo prodotto non è più disponibile.', self::TORNA_AL_CATALOGO);
+        }
+
+        if ((int) $listing->company_id === (int) $account->company_id) {
+            throw new \RuntimeException('Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
+        }
+
+        $quantita = max(1, (int) ($request->input('quantity') ?: 1));
+
+        if ($quantita > 999999) {
+            throw new \RuntimeException('Quantità non valida.');
+        }
+
+        $variante = null;
+        $varianteId = $request->input('variant_id');
+
+        if (! blank($varianteId)) {
+            $variante = \App\Models\ListingVariant::query()
+                ->where('listing_id', $listing->id)
+                ->find((int) $varianteId);
+
+            if (! $variante) {
+                throw new \RuntimeException('Questa combinazione non appartiene a questo prodotto.');
+            }
+
+            if (! $variante->is_active) {
+                throw new \RuntimeException('Questa combinazione non è più disponibile.');
+            }
+        }
+
+        if ($listing->isVariabile() && ! $variante) {
+            throw new \RuntimeException('Scegli una variante prima di acquistare.');
+        }
+
+        return [$variante, $quantita];
+    }
+
+    /**
+     * Dove rimandare chi non puo' comprare questo prodotto.
+     *
+     * Un prodotto sospeso o scaduto non esiste piu' per chi compra: si torna al
+     * catalogo, come faceva "Compra ora" da sempre. Per tutto il resto si resta
+     * dov'e', con quello che aveva scritto ancora nei campi.
+     */
+    private function tornaIndietro(\RuntimeException $e, Listing $listing, bool $conInput): RedirectResponse
+    {
+        if ($e->getCode() === self::TORNA_AL_CATALOGO) {
+            return redirect()->route('portal.shop')->with('portal_error', $e->getMessage());
+        }
+
+        // Sul POST della cassa si resta dov'e' con i campi ancora pieni. Sulla
+        // GET no: `back()` senza referer finirebbe sulla home, e comunque la
+        // scelta della combinazione si fa sulla pagina del prodotto - e' li'
+        // che va rimandato chi e' arrivato senza averla scelta.
+        return $conInput
+            ? back()->withInput()->with('portal_error', $e->getMessage())
+            : redirect()->route('portal.shop.show', $listing)->with('portal_error', $e->getMessage());
+    }
+
+    /**
+     * La stessa forma che `Cart::perVenditore()` produce, per una riga sola.
+     *
+     * Costruire un `CartItem` non salvato invece di inventare una struttura
+     * nuova e' quello che permette alla pagina di cassa di restare UNA: la view
+     * chiama `totaleKy()` ed `etichettaVariante()` senza sapere se dietro c'e'
+     * un carrello vero o un acquisto al volo.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function gruppiPerAcquistoImmediato(Listing $listing, $variante, int $quantita)
+    {
+        $riga = new CartItem(['quantity' => $quantita]);
+        $riga->setRelation('listing', $listing);
+        $riga->setRelation('variant', $variante);
+
+        $daSpedire = $listing->requiresShippingAddress();
+
+        $spedizioneKy  = $daSpedire ? (int) $listing->shipping_ky_amount : 0;
+        $spedizioneEur = $daSpedire ? (int) $listing->shipping_euro_amount : 0;
+
+        return collect([[
+            'company'            => $listing->company,
+            'righe'              => collect([$riga]),
+            'ky'                 => $riga->totaleKy() + $spedizioneKy,
+            'eur'                => $riga->totaleEuro() + $spedizioneEur,
+            'spedizione_ky'      => $spedizioneKy,
+            'spedizione_eur'     => $spedizioneEur,
+            'richiede_indirizzo' => $daSpedire,
+        ]]);
+    }
+
+    /** Come `motivoPerCuiNonSiPuoPagare()`, ma per una riga che non sta in un carrello. */
+    private function motivoPerCuiNonSiPuoPagareImmediato($gruppi, Account $account): ?string
+    {
+        $riga = $gruppi->first()['righe']->first();
+
+        if (! $riga->isDisponibile()) {
+            return ($riga->listing?->title ?? 'Questo prodotto') . ': ' . $riga->motivoIndisponibilita();
+        }
+
+        if ($gruppi->contains(fn ($g) => $g['richiede_indirizzo']) && ! $account->hasShippingAddress()) {
+            return 'Questo prodotto va spedito: completa il tuo indirizzo di spedizione per procedere.';
+        }
+
+        $totale = (int) $gruppi->sum('ky');
+
+        if ($account->saldoDisponibile() < $totale) {
+            return 'Saldo insufficiente: ti mancano ' . ky_format($totale - $account->saldoDisponibile()) . ' KY.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Le regole di validazione che valgono per QUALSIASI conferma d'ordine.
+     *
+     * Estratte da `checkout()` il 26/08/2026 quando "Compra ora" e' entrato in
+     * cassa: erano gia' l'unica cosa che separava un clic da un addebito, e
+     * duplicarle voleva dire lasciarle divergere di nuovo.
+     *
+     * @param  array<string, mixed>  $extra  regole aggiuntive del chiamante
+     * @return array<string, mixed>
+     */
+    private function validaConfermaOrdine(Request $request, array $extra = []): array
+    {
+        return $request->validate(array_merge([
+            // Spuntare le condizioni e' obbligatorio: e' l'unico gesto
+            // esplicito rimasto ora che il confirm() del browser non c'e' piu'.
+            'accetto_condizioni' => ['accepted'],
+            'buyer_note'         => ['nullable', 'string', 'max:500'],
+            'indirizzo_scelto'   => ['nullable', 'string', 'max:20'],
+            'salva_indirizzo'    => ['nullable', 'boolean'],
+            'rendi_predefinito'  => ['nullable', 'boolean'],
+            'label'              => ['nullable', 'string', 'max:60'],
+            'recipient_name'     => ['nullable', 'string', 'max:150'],
+            'address'            => ['nullable', 'string', 'max:255'],
+            'city'               => ['nullable', 'string', 'max:100'],
+            'postal_code'        => ['nullable', 'string', 'max:12'],
+            'province'           => ['nullable', 'string', 'max:60'],
+            'phone'              => ['nullable', 'string', 'max:30'],
+        ], $extra), [
+            'accetto_condizioni.accepted' => 'Per completare l\'ordine devi accettare le condizioni di vendita.',
         ]);
     }
 

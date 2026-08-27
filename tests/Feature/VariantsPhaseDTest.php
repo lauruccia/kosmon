@@ -85,7 +85,7 @@ class VariantsPhaseDTest extends TestCase
         $this->assertSame(2000, $media->prezzoEffettivo());
         $this->assertSame(2500, $grande->prezzoEffettivo());
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), [
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 
             'variant_id' => $grande->id,
             'quantity'   => 2,
         ]);
@@ -105,7 +105,7 @@ class VariantsPhaseDTest extends TestCase
         $taglie  = $this->makeAttributo('Taglia', ['S']);
         $piccola = $this->makeVariante($listing, [$taglie['S']], deltaKy: -300);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $piccola->id]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $piccola->id]);
 
         $this->assertSame(1700, Order::query()->sole()->total_ky);
     }
@@ -134,7 +134,7 @@ class VariantsPhaseDTest extends TestCase
         // 12,00 di offerta + 5,00 di delta = 17,00 (non 25,00, non 12,00).
         $this->assertSame(1700, $grande->fresh(['listing.activeOffer'])->prezzoEffettivo());
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $grande->id]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $grande->id]);
 
         $this->assertSame(1700, Order::query()->sole()->total_ky);
     }
@@ -154,7 +154,7 @@ class VariantsPhaseDTest extends TestCase
         $this->assertSame(1500, $grande->quotaKy());
         $this->assertSame(1500, $grande->quotaEuro());
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $grande->id]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $grande->id]);
 
         $order = Order::query()->sole();
         $this->assertSame(1500, $order->total_ky);
@@ -176,7 +176,7 @@ class VariantsPhaseDTest extends TestCase
         $media  = $this->makeVariante($listing, [$taglie['M']], scorte: 3);
         $lunga  = $this->makeVariante($listing, [$taglie['L']], scorte: 7);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), [
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 
             'variant_id' => $media->id,
             'quantity'   => 2,
         ]);
@@ -197,7 +197,7 @@ class VariantsPhaseDTest extends TestCase
         $this->makeVariante($listing, [$taglie['L']], scorte: 10);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $media->id])
             ->assertSessionHas('portal_error', fn ($e) => str_contains((string) $e, 'esaurita'));
 
         $this->assertSame(0, Order::count());
@@ -215,7 +215,7 @@ class VariantsPhaseDTest extends TestCase
         $media->update(['is_active' => false]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $media->id])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());
@@ -235,7 +235,7 @@ class VariantsPhaseDTest extends TestCase
         $this->makeVariante($listing, [$taglie['M']]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $listing))
+            ->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1'])
             ->assertSessionHas('portal_error', fn ($e) => str_contains((string) $e, 'Scegli una variante'));
 
         $this->assertSame(0, Order::count());
@@ -253,7 +253,7 @@ class VariantsPhaseDTest extends TestCase
         $varianteAltrui = $this->makeVariante($altro, [$taglie['M']]);
 
         $this->actingAs($buyer)
-            ->post(route('portal.shop.buy', $mio), ['variant_id' => $varianteAltrui->id])
+            ->post(route('portal.shop.buy', $mio), ['accetto_condizioni' => '1', 'variant_id' => $varianteAltrui->id])
             ->assertSessionHas('portal_error');
 
         $this->assertSame(0, Order::count());
@@ -265,7 +265,7 @@ class VariantsPhaseDTest extends TestCase
         [$company] = $this->makeSeller(saldo: 0);
         $semplice = $this->makeListing($company, prezzo: 1000, kyPercentage: 100);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $semplice), ['quantity' => 1]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $semplice), ['accetto_condizioni' => '1', 'quantity' => 1]);
 
         $this->assertSame(1000, Order::query()->sole()->total_ky);
         $this->assertNull(OrderItem::query()->sole()->listing_variant_id);
@@ -285,7 +285,7 @@ class VariantsPhaseDTest extends TestCase
         $colori = $this->makeAttributo('Colore', ['rosso']);
         $variante = $this->makeVariante($listing, [$taglie['M'], $colori['rosso']], deltaKy: 200);
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $variante->id]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $variante->id]);
 
         $riga = OrderItem::query()->sole();
         $this->assertSame('Taglia: M · Colore: rosso', $riga->variant_label);
@@ -677,7 +677,7 @@ class VariantsPhaseDTest extends TestCase
         $this->assertLessThan($posPrezzo, $posSelettore, 'Prima si sceglie la taglia, poi si legge il prezzo.');
 
         // E l'aggancio deve funzionare davvero: acquisto con la M.
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $media->id])
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $media->id])
             ->assertSessionMissing('portal_error');
     }
 
@@ -1182,7 +1182,7 @@ class VariantsPhaseDTest extends TestCase
 
         $prima = $this->sommaSaldiCircuito();
 
-        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['variant_id' => $grande->id, 'quantity' => 3]);
+        $this->actingAs($buyer)->post(route('portal.shop.buy', $listing), ['accetto_condizioni' => '1', 'variant_id' => $grande->id, 'quantity' => 3]);
 
         $this->assertSame($prima, $this->sommaSaldiCircuito());
         $this->assertSame(5250, Order::query()->sole()->total_ky);

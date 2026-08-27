@@ -10,8 +10,6 @@ use App\Models\ListingCategory;
 use App\Models\MarketplaceOrderPayment;
 use App\Models\PaymentGateway;
 use App\Models\Transfer;
-use App\Notifications\NewMarketplaceOrderNotification;
-use App\Services\OrderService;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -252,100 +250,11 @@ class ListingController extends Controller
 
     // ── Portale: acquisto diretto di un prodotto ──────────────────────────────
 
-    /**
-     * Acquisto strutturato di un prodotto shop: crea un Transfer con
-     * kind=portal_marketplace_order collegato al listing (listing_id), scala lo
-     * stock se limitato, e notifica il venditore. Sostituisce il precedente
-     * link "Paga" che si limitava a precompilare il form di pagamento libero.
-     *
-     * Viene sempre addebitata la quota KY del prezzo (ky_amount) tramite il
-     * circuito. Se il prodotto ha anche una quota EUR (ky_percentage < 100),
-     * viene creato un MarketplaceOrderPayment collegato al Transfer e
-     * l'acquirente viene mandato a scegliere il metodo di pagamento EUR tra
-     * quelli configurati dall'azienda venditrice (Stripe/PayPal/Bonifico —
-     * vedi PaymentGateway). Se il venditore non ha nessun metodo attivo
-     * configurato, l'acquisto viene bloccato PRIMA di addebitare i KY: non ha
-     * senso completare la parte KY se poi non c'è modo di pagare la parte EUR.
-     */
-    public function buy(Request $request, Listing $listing, OrderService $orderService): RedirectResponse
-    {
-        $user = $request->user();
-        $currentAccount = $this->resolveAccount($user);
-
-        if ($redirect = $this->redirectIfNoAccount($currentAccount, $user)) {
-            return $redirect;
-        }
-
-        if ($listing->status !== 'active' || $listing->is_expired) {
-            return redirect()->route('portal.shop')->with('portal_error', 'Questo prodotto non è più disponibile.');
-        }
-
-        if ($listing->company_id === $currentAccount->company_id) {
-            return back()->with('portal_error', 'Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
-        }
-
-        $validated = $request->validate([
-            'quantity'   => ['nullable', 'integer', 'min:1', 'max:999999'],
-            'variant_id' => ['nullable', 'integer', 'exists:listing_variants,id'],
-        ]);
-        $quantity = (int) ($validated['quantity'] ?? 1);
-
-        // Prodotto variabile: senza combinazione non si compra (fase D).
-        $variante = null;
-        if (! empty($validated['variant_id'])) {
-            $variante = \App\Models\ListingVariant::query()
-                ->where('listing_id', $listing->id)
-                ->find($validated['variant_id']);
-
-            if (! $variante) {
-                return back()->with('portal_error', 'Questa combinazione non appartiene a questo prodotto.');
-            }
-        }
-
-        if ($listing->isVariabile() && ! $variante) {
-            return back()->with('portal_error', 'Scegli una variante prima di acquistare.');
-        }
-
-        // Da qui in poi il lavoro lo fa OrderService (fase B, 25/08/2026): i
-        // controlli su scorte, quota in euro e indirizzo, l'addebito, l'ordine
-        // e le sue righe. "Compra ora" è semplicemente un carrello con una riga
-        // sola, e passa esattamente per la stessa strada che userà il carrello.
-        try {
-            $order = $orderService->place(
-                buyerAccount: $currentAccount,
-                user: $user,
-                righe: [['listing' => $listing, 'variant' => $variante, 'quantity' => $quantity]],
-                ipAddress: $request->ip(),
-            );
-        } catch (\RuntimeException $e) {
-            return back()->with('portal_error', $e->getMessage());
-        }
-
-        $transfer = $order->transfer;
-        $payment  = $order->payment;
-
-        // La transazione è già committata a questo punto: notifica il venditore
-        // fuori dalla transazione, senza far fallire l'acquisto se la notifica ha problemi.
-        $sellerOwner = $listing->company->primaryBusinessAccount()?->ownerUser;
-        if ($sellerOwner) {
-            try {
-                $sellerOwner->notify(new NewMarketplaceOrderNotification($transfer, $listing->title, $quantity, $payment));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('marketplace_order.notify_failed', [
-                    'transfer_id' => $transfer->id,
-                    'error'       => $e->getMessage(),
-                ]);
-            }
-        }
-
-        if ($payment) {
-            return redirect()->route('portal.shop.orders.pay', $payment)
-                ->with('portal_success', ky_format((int) $transfer->amount) . ' KY pagati a ' . $listing->company->name . '. Ora completa il pagamento della quota rimanente in euro.');
-        }
-
-        return redirect()->route('portal.shop.show', $listing)
-            ->with('portal_success', 'Acquisto completato: ' . ky_format((int) $transfer->amount) . ' KY pagati a ' . $listing->company->name . '.');
-    }
+    // `buy()` viveva qui fino al 26/08/2026. E' stato spostato in
+    // CartController (`buyNow`/`buyNowForm`) quando "Compra ora" e' entrato
+    // nella cassa vera: teneva una seconda copia della strada verso i soldi,
+    // senza spunta sulle condizioni ne' scelta dell'indirizzo, e le due copie
+    // erano gia' divergenti. Vedi AUDIT_ECOMMERCE_2026-08-26.md, blocco 3.
 
     // ── Portale: form creazione ───────────────────────────────────────────────
 
