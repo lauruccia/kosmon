@@ -224,7 +224,14 @@ class Listing extends Model
         return $query->where('status', 'active')
                      ->where(function ($q) {
                          $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                     });
+                     })
+                     // Un'azienda sospesa esce dal commercio (decisione di Laura,
+                     // 26/08/2026): i suoi prodotti spariscono dal catalogo,
+                     // dalle offerte e dalle fasce "in evidenza" senza doverli
+                     // sospendere uno per uno - e senza toccarne lo `status`,
+                     // cosi' quando la sospensione viene revocata tornano su
+                     // esattamente com'erano.
+                     ->whereHas('company', fn ($c) => $c->whereNull('suspended_at'));
     }
 
     public function scopeFeatured(Builder $query): Builder

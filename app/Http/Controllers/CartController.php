@@ -484,6 +484,17 @@ class CartController extends Controller
             throw new \RuntimeException('Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
         }
 
+        // Azienda sospesa = fuori dal commercio. Un venditore sospeso e' come
+        // un prodotto che non c'e' piu': si torna al catalogo. Il compratore
+        // sospeso invece resta dov'e', il problema e' suo e deve leggerlo.
+        if ($listing->company?->isSuspended()) {
+            throw new \RuntimeException('Questo venditore non è al momento operativo nel circuito: riprova più tardi.', self::TORNA_AL_CATALOGO);
+        }
+
+        if ($account->company?->isSuspended()) {
+            throw new \RuntimeException('La tua azienda è sospesa: non puoi effettuare acquisti finché la sospensione è attiva. Contatta il supporto.');
+        }
+
         $quantita = max(1, (int) ($request->input('quantity') ?: 1));
 
         if ($quantita > 999999) {

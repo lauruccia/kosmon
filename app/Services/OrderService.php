@@ -221,6 +221,7 @@ class OrderService
                 $totaleEuro += $spedizioneEuro;
             }
 
+            $this->assertNessunoDeiDueESospeso($buyerAccount, $company);
             $this->assertVenditorePuoIncassareEuro($company, $totaleEuro);
             $this->assertIndirizzoCompleto($buyerAccount, $serveSpedizione, $shippingAddress);
 
@@ -334,6 +335,33 @@ class OrderService
 
             return $order;
         });
+    }
+
+    /**
+     * Un'azienda sospesa esce dal commercio, da tutte e due i lati.
+     *
+     * Decisione di Laura del 26/08/2026: sospendere congela il commercio, non
+     * l'accesso. L'azienda continua a entrare nel portale, vede i suoi conti e
+     * i suoi movimenti, e puo' onorare gli ordini gia' presi - ma non vende e
+     * non compra piu' niente di nuovo. Le quote in euro gia' aperte restano
+     * saldabili di proposito: la sospensione ferma il traffico NUOVO, non
+     * travolge chi ha gia' pagato in buona fede.
+     *
+     * Sta QUI, dentro la transazione, perche' e' l'unico punto da cui passano
+     * tutte le strade d'acquisto: carrello, "Compra ora" e qualunque cosa
+     * verra' dopo. Le guardie piu' in alto servono solo a dirlo prima e meglio.
+     */
+    private function assertNessunoDeiDueESospeso(Account $buyerAccount, $company): void
+    {
+        if ($company && $company->isSuspended()) {
+            throw new RuntimeException('Questo venditore non è al momento operativo nel circuito: riprova più tardi.');
+        }
+
+        $aziendaCompratore = $buyerAccount->company;
+
+        if ($aziendaCompratore && $aziendaCompratore->isSuspended()) {
+            throw new RuntimeException('La tua azienda è sospesa: non puoi effettuare acquisti finché la sospensione è attiva. Contatta il supporto.');
+        }
     }
 
     /**

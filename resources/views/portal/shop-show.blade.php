@@ -214,7 +214,15 @@
         // radio ci si agganciano con l'attributo `form` soltanto in quel caso:
         // altrove restano lì da guardare, e il prezzo grande segue comunque la
         // taglia scelta.
+        // Una sospensione toglie il form come lo toglie l'essere il proprietario:
+        // le taglie restano visibili (si legge sempre cosa c'e' in vendita), ma
+        // non c'e' niente da premere.
+        $venditoreSospeso  = (bool) $listing->company?->isSuspended();
+        $compratoreSospeso = ! $venditoreSospeso && (bool) $currentAccount?->company?->isSuspended();
+
         $formAcquistoPresente = ! $isOwnCompany
+            && ! $venditoreSospeso
+            && ! $compratoreSospeso
             && $inStock
             && ! ($needsShippingAddress && ! $hasShippingAddress);
     @endphp
@@ -302,7 +310,20 @@
             @endif
 
             <div class="quick-actions" style="margin-top:20px;">
-                @if($isOwnCompany)
+                {{-- Venditore o compratore sospeso: fuori dal commercio
+                     (decisione di Laura, 26/08/2026). Sta in cima alla catena
+                     perche' e' la ragione piu' forte di tutte - inutile
+                     proporre il carrello o "ricarica il conto" a chi comunque
+                     non puo' concludere. --}}
+                @if($venditoreSospeso)
+                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0;">
+                        Questo venditore non è al momento operativo nel circuito: i suoi prodotti non sono acquistabili.
+                    </p>
+                @elseif($compratoreSospeso)
+                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0;">
+                        La tua azienda è sospesa: non puoi effettuare acquisti finché la sospensione è attiva. Contatta il supporto.
+                    </p>
+                @elseif($isOwnCompany)
                     <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">È un prodotto pubblicato dalla tua azienda.</p>
                 @elseif(! $inStock)
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">

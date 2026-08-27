@@ -60,6 +60,18 @@ class CartService
             throw new RuntimeException('Non puoi acquistare un prodotto pubblicato dalla tua stessa azienda.');
         }
 
+        // Azienda sospesa = fuori dal commercio (decisione di Laura,
+        // 26/08/2026). La difesa vera sta in OrderService::place(), sotto lock:
+        // qui si dice subito, invece di far riempire un carrello che poi alla
+        // cassa non passa.
+        if ($listing->company?->isSuspended()) {
+            throw new RuntimeException('Questo venditore non è al momento operativo nel circuito: riprova più tardi.');
+        }
+
+        if ($account->company?->isSuspended()) {
+            throw new RuntimeException('La tua azienda è sospesa: non puoi effettuare acquisti finché la sospensione è attiva. Contatta il supporto.');
+        }
+
         // Prodotto variabile: la combinazione va scelta, e deve essere una sua.
         if ($listing->isVariabile()) {
             if (! $variante) {
