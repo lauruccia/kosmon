@@ -364,7 +364,9 @@
     /* ── Catalogo: griglia responsive stile ecommerce ──
        Schede più corte (2026-07-30): foto meno alta (aspect-ratio) + meno
        padding/gap nel corpo card, per ridurre lo spazio bianco inutile. */
-    .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    /* Colonne del catalogo: vedi .catalog-grid in layouts/portal.blade.php
+       (scaletta 5 / 3 / 2, divisori dei 15 prodotti per pagina). Qui NON si
+       ridefiniscono, altrimenti questo <style> — che viene dopo — vince. */
     .catalog-card {
         padding: 0; overflow: hidden; display: flex; flex-direction: column;
         transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
@@ -496,7 +498,6 @@
     @media (max-width: 640px) {
         .shop-toolbar { flex-direction: column; align-items: stretch; }
         .shop-toolbar > div { width: 100%; }
-        .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     }
 </style>
 
