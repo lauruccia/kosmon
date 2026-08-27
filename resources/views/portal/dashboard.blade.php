@@ -1041,6 +1041,9 @@
                     <div class="subtle" style="text-align:center;padding:18px;">Nessun movimento disponibile.</div>
                 @endforelse
             </div>
+            {{-- table-scroll: senza il contenitore la tabella (display:block) si stringe
+                 sul contenuto e lascia spazio bianco a destra della colonna. --}}
+            <div class="table-scroll">
             <table class="transactions-table">
                 <thead>
                     <tr>
@@ -1077,6 +1080,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </section>
 
         {{-- Sottoconti --}}

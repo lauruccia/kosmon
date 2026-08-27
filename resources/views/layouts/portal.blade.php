@@ -958,6 +958,19 @@
             background: linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 86%, #fff 14%), var(--surface-soft));
             border-top: none; border-bottom: 1px solid var(--line);
         }
+        /* ── Tabella che riempie la propria colonna ──────────────────
+           display:block (regola sopra) fa scorrere la tabella dentro se'
+           stessa, ma ha un effetto collaterale: la tabella vera dentro al
+           blocco si stringe sul CONTENUTO e lascia spazio bianco a destra.
+           Dove la tabella ha poche colonne e deve occupare tutta la colonna,
+           si avvolge in <div class="table-scroll">: lo scorrimento passa al
+           contenitore (quindi niente sporgenze sulla pagina, che
+           .content-shell taglierebbe) e la tabella torna larga al 100%. */
+        .table-scroll { overflow-x: auto; }
+        .table-scroll > .transactions-table,
+        .table-scroll > .admin-table {
+            display: table; width: 100%; overflow: visible;
+        }
         .transactions-table tbody tr, .admin-table tbody tr { transition: background .16s; }
         .transactions-table tbody tr:hover, .admin-table tbody tr:hover { background: var(--surface-soft); }
         .date-block { font-size: 13px; font-weight: 700; line-height: 1.25; color: var(--ink); white-space: nowrap; }
