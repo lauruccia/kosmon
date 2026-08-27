@@ -538,7 +538,9 @@ class VariantsPhaseDTest extends TestCase
         // e' che la pagina NON sia nel ramo del saldo insufficiente, cioe' che
         // proponga di comprare e non di ricaricare.
         $this->assertStringNotContainsString('Ricarica il tuo conto', $html, '90,00 bastano per la S da 80,00.');
-        $this->assertStringContainsString('Acquista la variante scelta', $html);
+        // Sul bottone si controlla l'id, non la scritta: il testo e' copy e
+        // cambia (27/08/2026 e' diventato "Acquista ora"), il bottone no.
+        $this->assertStringContainsString('id="bottone-acquisto"', $html);
         // Il prezzo in cima dev'essere "da 80,00", non "100,00" secchi: su un
         // prodotto in cui la S costa 80 e la XL 120, il prezzo base non lo
         // paga nessuno.

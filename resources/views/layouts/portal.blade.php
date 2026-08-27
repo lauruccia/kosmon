@@ -1371,11 +1371,6 @@
         $switchableAccounts = $viewer ? $viewer->switchableAccounts() : collect();
         $activeAccountId = session('active_account_id');
         $topbarTitle = $pageTitle ?? 'KMoney';
-        $topbarSubtitle = $isBackoffice
-            ? 'Controllo centralizzato di clienti, conti, autorizzazioni e movimenti.'
-            : ($isDelegate
-                ? 'Vista delegata con disponibilità, limiti operativi e operazioni riservate.'
-                : 'Portale operativo per conti personali, aziendali e sottoconti delegati.');
         $profileLabel = $isBackoffice ? ($authUser?->is_super_admin ? 'Superadmin' : 'Backoffice') : ($isDelegate ? 'Delegato' : (($currentAccount ?? null)?->owner_type === 'private' ? 'Privato' : 'Azienda'));
         // Visibilità menu utente (risolto una volta sola per questa request)
         $menuVis = app(\App\Services\MenuVisibilityService::class);
@@ -1955,7 +1950,6 @@
                 </button>
                 <div class="topbar-title">
                     <h1>{{ $topbarTitle }}</h1>
-                    <p>{{ $topbarSubtitle }}</p>
                 </div>
                 @hasSection('page-actions')
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">

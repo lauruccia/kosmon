@@ -84,7 +84,7 @@
                 @endif
                 @if($listing->requiresShippingAddress() && $listing->shipping_cost)
                 <div style="margin-top:4px;font-size:12.5px;color:#0369a1;">
-                    Costo di spedizione: <strong>{{ ky_format($listing->shipping_cost) }} KY</strong> equiv., una sola volta per ordine (non per pezzo).
+                    Costo di spedizione: <strong>{{ ky_format($listing->shipping_cost) }} KY</strong>
                 </div>
                 @endif
             </div>
@@ -368,17 +368,10 @@
                              la cassa. La conferma vera - con l'indirizzo, la nota
                              al venditore e la spunta sulle condizioni di vendita -
                              si da' li'. --}}
-                        @if($varianti->isNotEmpty())
-                            <button type="submit" class="cta" style="width:100%;text-align:center;" id="bottone-acquisto"
-                                    formaction="{{ route('portal.shop.buy.form', $listing) }}">
-                                Acquista la variante scelta
-                            </button>
-                        @else
-                            <button type="submit" class="cta" style="width:100%;text-align:center;"
-                                    formaction="{{ route('portal.shop.buy.form', $listing) }}">
-                                Acquista — {{ ky_format($requiredKy) }} KY{{ $listing->effective_ky_percentage < 100 ? ' + quota EUR' : '' }}
-                            </button>
-                        @endif
+                        <button type="submit" class="cta" style="width:100%;text-align:center;" id="bottone-acquisto"
+                                formaction="{{ route('portal.shop.buy.form', $listing) }}">
+                            Acquista ora
+                        </button>
 
                         {{-- Carrello (2026-08-25, fase C). Stesso form del bottone
                              qui sopra: la quantita' scelta vale per entrambi. Qui

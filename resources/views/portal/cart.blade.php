@@ -187,14 +187,6 @@
                 <div class="metric-value">{{ ky_format($saldoDisponibile) }} KY</div>
             </div>
 
-            @if($gruppi->count() > 1)
-            <p style="font-size:12px;line-height:1.5;margin:14px 0 0;color:rgba(255,255,255,.68);">
-                I prodotti vengono da {{ $gruppi->count() }} venditori diversi: paghi una volta sola, ma
-                il circuito genera un ordine e un movimento per ciascuno — e <strong>una spedizione per
-                venditore</strong>, perché sono pacchi diversi.
-            </p>
-            @endif
-
             <div class="quick-actions" style="margin-top:20px;">
 
                 @if($indisponibili->isNotEmpty())
@@ -232,9 +224,6 @@
                     <a href="{{ route('portal.cart.checkout.form') }}" class="cta" style="width:100%;text-align:center;display:block;">
                         Vai alla cassa — {{ ky_format($totaleKy) }} KY{{ $totaleEuro > 0 ? ' + quota EUR' : '' }}
                     </a>
-                    <p class="subtle" style="font-size:11.5px;text-align:center;margin:8px 0 0;">
-                        Non paghi ancora: prima vedi il riepilogo.
-                    </p>
                 @endif
             </div>
         </section>
