@@ -26,7 +26,7 @@ class PaymentGatewayController extends Controller
         $company = $user->company;
 
         abort_unless($company, 403, 'Nessuna azienda associata al tuo profilo.');
-        abort_unless($user->canAccessMarketplace() || $user->is_super_admin, 403);
+        abort_unless($user->canSellInMarketplace(), 403);
 
         $gateways = PaymentGateway::query()
             ->where('company_id', $company->id)
@@ -53,7 +53,7 @@ class PaymentGatewayController extends Controller
         $user = $request->user();
         $company = $user->company;
         abort_unless($company, 403);
-        abort_unless($user->canAccessMarketplace() || $user->is_super_admin, 403);
+        abort_unless($user->canSellInMarketplace(), 403);
 
         $this->saveGatewayFromRequest($request, $company, $provider, $user);
 
@@ -67,7 +67,7 @@ class PaymentGatewayController extends Controller
         $user = $request->user();
         $company = $user->company;
         abort_unless($company, 403);
-        abort_unless($user->canAccessMarketplace() || $user->is_super_admin, 403);
+        abort_unless($user->canSellInMarketplace(), 403);
 
         $gateway = $this->findCompanyGatewayOrFail($company, $provider);
         $gateway->update(['is_active' => ! $gateway->is_active, 'updated_by_user_id' => $user->id]);
@@ -81,7 +81,7 @@ class PaymentGatewayController extends Controller
         $user = $request->user();
         $company = $user->company;
         abort_unless($company, 403);
-        abort_unless($user->canAccessMarketplace() || $user->is_super_admin, 403);
+        abort_unless($user->canSellInMarketplace(), 403);
 
         $this->findCompanyGatewayOrFail($company, $provider)->delete();
 

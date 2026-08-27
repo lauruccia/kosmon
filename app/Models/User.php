@@ -488,6 +488,31 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasPermission('marketplace.buy') || $this->hasPermission('marketplace.sell');
     }
 
+    /**
+     * Puo' VENDERE nel circuito: pubblicare prodotti e collegare un incasso.
+     *
+     * Fino al 27/08/2026 queste porte erano protette da
+     * `canAccessMarketplace()`, che risponde si' anche a chi ha soltanto
+     * `marketplace.buy`. Il permesso che dovrebbe dire "puo' comprare"
+     * autorizzava quindi anche a vendere.
+     *
+     * ONESTA' SULLA GRAVITA': non era una porta aperta. Pubblicare richiede
+     * anche che l'azienda sia in directory, e i gateway richiedono
+     * un'azienda: un cliente privato con il solo permesso di comprare veniva
+     * fermato lo stesso, ma da un controllo che sta li' per un altro motivo.
+     * Bastava che quel controllo cambiasse per scoprire il fianco.
+     *
+     * Adesso ogni porta e' chiusa dalla serratura che le corrisponde.
+     */
+    public function canSellInMarketplace(): bool
+    {
+        // Nessun `is_super_admin ||` davanti: `hasPermission()` risponde gia'
+        // si' a un super admin, e ripeterlo qui sarebbe una riga che sembra
+        // fare qualcosa senza farlo — l'ho scoperto togliendola e vedendo che
+        // nessun test cadeva.
+        return $this->hasPermission('marketplace.sell');
+    }
+
     public function effectiveTransferLimits(): array
     {
         $defaults = SystemSetting::userLimitDefaults()->defaultsMap();

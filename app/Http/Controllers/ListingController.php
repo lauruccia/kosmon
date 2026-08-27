@@ -299,7 +299,7 @@ class ListingController extends Controller
             return $redirect;
         }
 
-        if (! $user->canAccessMarketplace()) {
+        if (! $user->canSellInMarketplace()) {
             return redirect()->route('portal.shop')->with('portal_error', 'Non hai i permessi per pubblicare prodotti.');
         }
 
@@ -336,7 +336,7 @@ class ListingController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->canAccessMarketplace()) {
+        if (! $user->canSellInMarketplace()) {
             abort(403);
         }
 
