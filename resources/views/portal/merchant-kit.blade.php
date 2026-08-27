@@ -2,7 +2,10 @@
 
 @section('content')
 <style>
-.kit-grid { display:grid; gap:20px; max-width:860px; }
+/* Niente max-width (2026-08-27): la pagina si fermava a 860px e su schermo
+   largo restava mezza colonna di bianco a destra. Le card restano due per
+   riga e si allargano con la finestra. */
+.kit-grid { display:grid; gap:20px; }
 
 .kit-hero {
     padding:28px 28px 24px;
@@ -27,6 +30,12 @@
 .kit-tool {
     background:#fff; border:1px solid var(--line); border-radius:14px;
     padding:22px 22px 18px; display:flex; flex-direction:column; gap:14px;
+    /* min-width:0 (2026-08-27): senza, la card "Link di pagamento" imponeva alla
+       colonna la larghezza dell'URL scritto per intero (~450px) — colonne
+       sbilanciate sotto i 1100px e, sul telefono, ~80px di card che finivano
+       fuori dallo schermo (dove .content-shell taglia). Ora l'URL si accorcia
+       con i puntini, che e' il comportamento per cui era stato scritto. */
+    min-width:0;
 }
 .kit-tool-header { display:flex; align-items:center; gap:12px; }
 .kit-tool-icon {
@@ -191,7 +200,7 @@
     </div>
 
     {{-- Sezione istruzioni --}}
-    <div class="kit-tool" style="max-width:860px;">
+    <div class="kit-tool">
         <div class="kit-tool-header">
             <div class="kit-tool-icon" style="background:#f0f9ff;">ℹ️</div>
             <div>
