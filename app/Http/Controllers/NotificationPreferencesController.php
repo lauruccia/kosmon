@@ -40,6 +40,11 @@ class NotificationPreferencesController extends Controller
         return [
             'payment_received'        => ['label' => 'Pagamento ricevuto',                  'default' => ['database', 'mail']],
             'marketplace_order_received' => ['label' => 'Ordine ricevuto nello shop',       'default' => ['database', 'mail']],
+            // Fase C (27/08/2026): le tre notizie che riguardano CHI COMPRA.
+            // Prima di oggi il circuito avvisava soltanto il venditore.
+            'order_placed'            => ['label' => 'Conferma del tuo ordine',              'default' => ['database', 'mail']],
+            'order_shipped'           => ['label' => 'Il tuo ordine è stato spedito',        'default' => ['database', 'mail']],
+            'order_euro_reminder'     => ['label' => 'Promemoria: quota in euro da saldare', 'default' => ['database', 'mail']],
             'payment_sent'            => ['label' => 'Pagamento inviato (conferma)',         'default' => ['database']],
             'cashback_received'       => ['label' => 'Cashback accreditato',                'default' => ['database', 'mail']],
             'referral_bonus_received' => ['label' => 'Bonus segnalazione accreditato',       'default' => ['database', 'mail']],

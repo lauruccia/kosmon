@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Order;
+use App\Notifications\OrderShippedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -245,6 +247,15 @@ class OrderController extends Controller
 
         $this->registraCambioDiStato($order, $precedente, $user, $request->ip(), $eAdmin);
 
+        // "Spedito" e' l'unica notizia che interessa davvero a chi ha comprato
+        // (fase C): gli altri passaggi restano visibili nella sua pagina ordini
+        // senza bisogno di una email. Solo in AVANTI - se l'admin riporta un
+        // ordine a "in preparazione" e poi di nuovo a "spedito" il cliente
+        // riceve un secondo avviso, ed e' giusto: e' ripartito davvero.
+        if ($order->status === Order::STATUS_SHIPPED && $precedente !== Order::STATUS_SHIPPED) {
+            $this->avvisaCheEPartito($order);
+        }
+
         return back()->with('portal_success',
             'Ordine ' . $order->numero . ': ora è "' . $order->status_label . '".');
     }
@@ -279,6 +290,31 @@ class OrderController extends Controller
                 'company_id'            => $order->company_id,
             ],
         ]);
+    }
+
+    /**
+     * Avvisa chi ha comprato che il pacco e' partito.
+     *
+     * Fuori da qualsiasi transazione e con la sua rete di sicurezza: una email
+     * che non parte non deve impedire al venditore di segnare l'ordine come
+     * spedito. Lo stato e' il fatto, la notifica e' la cortesia.
+     */
+    private function avvisaCheEPartito(Order $order): void
+    {
+        $destinatario = $order->buyerUser;
+
+        if (! $destinatario) {
+            return;
+        }
+
+        try {
+            $destinatario->notify(new OrderShippedNotification($order));
+        } catch (\Throwable $e) {
+            Log::error('order.shipped.notify_failed', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
     }
 
     private function eIlVenditore(Order $order, Account $account): bool

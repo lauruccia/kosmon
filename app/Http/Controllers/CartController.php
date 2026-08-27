@@ -9,6 +9,7 @@ use App\Models\Listing;
 use App\Models\Order;
 use App\Models\ShippingAddress;
 use App\Notifications\NewMarketplaceOrderNotification;
+use App\Notifications\OrderPlacedNotification;
 use App\Services\CartService;
 use App\Services\OrderService;
 use App\Services\ShippingAddressBook;
@@ -275,6 +276,7 @@ class CartController extends Controller
         // un problema con una mail non deve annullare un ordine pagato.
         foreach ($ordini as $ordine) {
             $this->notificaVenditore($ordine);
+            $this->notificaCompratore($ordine);
         }
 
         $totaleKy = (int) $ordini->sum('total_ky');
@@ -456,6 +458,7 @@ class CartController extends Controller
         }
 
         $this->notificaVenditore($ordine);
+        $this->notificaCompratore($ordine);
 
         return redirect()
             ->route('portal.cart.thanks', ['ids' => $ordine->uuid])
@@ -722,6 +725,35 @@ class CartController extends Controller
         // cosi' la difesa in profondita' dentro OrderService lo riconosce come
         // proprio.
         return new ShippingAddress(array_merge($dati, ['account_id' => $account->id]));
+    }
+
+    /**
+     * Avvisa CHI HA COMPRATO che l'ordine è stato registrato (fase C).
+     *
+     * Sta accanto a `notificaVenditore()` e viene chiamato negli stessi due
+     * punti - la cassa del carrello e "Compra ora" - perche' le due strade
+     * devono avvisare le stesse persone. E' esattamente il tipo di cosa che
+     * negli ultimi due giorni abbiamo visto divergere quando vive in due posti.
+     *
+     * Fuori dalla transazione, come la notifica al venditore: una email che non
+     * parte non deve far fallire un acquisto gia' pagato.
+     */
+    private function notificaCompratore(Order $ordine): void
+    {
+        $destinatario = $ordine->buyerUser;
+
+        if (! $destinatario) {
+            return;
+        }
+
+        try {
+            $destinatario->notify(new OrderPlacedNotification($ordine));
+        } catch (\Throwable $e) {
+            Log::error('order.placed.notify_failed', [
+                'order_id' => $ordine->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
     }
 
     private function notificaVenditore(Order $ordine): void

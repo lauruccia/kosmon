@@ -99,3 +99,15 @@ Schedule::command('accounting:check-contention')
     ->name('accounting-contention-check')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/accounting-contention.log'));
+
+// Solleciti della quota in euro (fase C, 27/08/2026).
+//
+// Una volta al giorno, di mattina: gli ordini fermi in attesa del pagamento in
+// euro vengono sollecitati UNA VOLTA SOLA (`orders.euro_reminder_sent_at`).
+// L'orario non è casuale: una email che arriva alle 9 si legge, una che arriva
+// alle 3 di notte finisce sepolta sotto quelle del mattino.
+Schedule::command('shop:solleciti-quota-euro')
+    ->dailyAt('09:00')
+    ->name('shop-euro-quota-reminders')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/shop-solleciti.log'));
