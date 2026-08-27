@@ -55,7 +55,12 @@
 
             {{-- La cosa che chi guarda un ordine vuole sapere per prima: devo
                  fare ancora qualcosa io? --}}
-            @if($order->isInAttesaDiEuro())
+            @if($order->resoInCorso())
+            <div style="margin-top:12px;font-size:12.5px;color:#7c2d12;background:#fff7ed;
+                        border:1px solid #fdba74;border-radius:8px;padding:9px 12px;">
+                Reso richiesto: stai aspettando la risposta del venditore.
+            </div>
+            @elseif($order->isInAttesaDiEuro())
             <div style="margin-top:12px;font-size:12.5px;color:#92400e;background:#fffbeb;
                         border:1px solid #fde68a;border-radius:8px;padding:9px 12px;">
                 Manca il pagamento della quota in euro perché il venditore possa spedire.

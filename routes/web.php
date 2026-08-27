@@ -523,6 +523,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/vendite', [OrderController::class, 'sales'])->name('portal.sales.index');
     Route::get('/vendite/{order}', [OrderController::class, 'sale'])->name('portal.sales.show');
     Route::post('/vendite/{order}/stato', [OrderController::class, 'updateStatus'])->name('portal.sales.status');
+    // Giro 2 della fase B (27/08/2026): quando l'ordine torna indietro.
+    // Chi annulla e chi risponde ai resi sta dalla parte di /vendite; chi
+    // CHIEDE il reso sta dalla parte di /ordini. Le rotte lo dicono da sole.
+    Route::post('/vendite/{order}/annulla', [OrderController::class, 'cancel'])->name('portal.sales.cancel');
+    Route::post('/vendite/{order}/reso/{richiesta}', [OrderController::class, 'decideReturn'])->name('portal.sales.return.decide');
+    Route::post('/ordini/{order}/reso', [OrderController::class, 'requestReturn'])->name('portal.orders.return');
 
     Route::get('/shop', [ListingController::class, 'index'])->name('portal.shop');
     Route::get('/shop/crea', [ListingController::class, 'create'])->name('portal.shop.create');

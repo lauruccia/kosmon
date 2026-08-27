@@ -134,6 +134,45 @@ class Order extends Model
         self::STATUS_SHIPPED   => [self::STATUS_DELIVERED],
     ];
 
+    /**
+     * Gli stati da cui si puo' ancora ANNULLARE (giro 2, 27/08/2026).
+     *
+     * Decisione di Laura: si annulla finche' il pacco non e' partito. Da
+     * "spedito" in poi si passa dal reso, ed e' una regola fisica prima che
+     * informatica - la merce e' in viaggio, prima deve tornare indietro.
+     * E' anche la regola di WooCommerce e di Shopify.
+     *
+     * `pending_payment` c'e' dentro di proposito: i KY sono gia' stati
+     * addebitati alla cassa anche quando la quota in euro non e' ancora
+     * arrivata, quindi c'e' un rimborso vero da fare.
+     */
+    public const STATI_ANNULLABILI = [
+        self::STATUS_PENDING_PAYMENT,
+        self::STATUS_PAID,
+        self::STATUS_PREPARING,
+    ];
+
+    /**
+     * Quanti giorni ha il compratore per chiedere un reso.
+     *
+     * Quattordici, come il diritto di recesso italiano per i consumatori
+     * (decisione di Laura, 27/08). Non e' una scelta estetica: allinearsi alla
+     * legge evita di dover spiegare a un cliente perche' il circuito gli da'
+     * meno tempo di qualsiasi negozio online.
+     */
+    public const GIORNI_PER_CHIEDERE_RESO = 14;
+
+    /**
+     * Da quando parte il conto se il venditore non segna mai "consegnato".
+     *
+     * "Consegnato" lo mette il venditore a mano, e nessuno lo obbliga. Se il
+     * conto dei quattordici giorni partisse solo da li', un venditore
+     * distratto - o furbo - terrebbe chiusa la finestra del reso per sempre
+     * semplicemente non premendo il bottone. Allora si stima: spedito + questi
+     * giorni. Il compratore non perde il suo diritto per colpa d'altri.
+     */
+    public const GIORNI_STIMA_CONSEGNA = 5;
+
     protected $fillable = [
         'uuid',
         'buyer_account_id',
@@ -158,6 +197,9 @@ class Order extends Model
         'delivered_at',
         'cancelled_at',
         'cancel_reason',
+        'stock_restored_at',
+        'cancelled_by_user_id',
+        'refund_transfer_id',
         'source',
         'placed_at',
         'backfilled_at',
@@ -173,6 +215,7 @@ class Order extends Model
         'shipped_at'    => 'datetime',
         'delivered_at'  => 'datetime',
         'cancelled_at'  => 'datetime',
+        'stock_restored_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -229,6 +272,18 @@ class Order extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(MarketplaceOrderPayment::class);
+    }
+
+    /** Le pratiche di reso aperte su questo ordine, la piu' recente per prima. */
+    public function returnRequests(): HasMany
+    {
+        return $this->hasMany(OrderReturnRequest::class)->orderByDesc('id');
+    }
+
+    /** Chi ha annullato l'ordine, se e' stato annullato. */
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_user_id');
     }
 
     // ── Comodità per le view ─────────────────────────────────────────────────
@@ -402,6 +457,86 @@ class Order extends Model
     public function getNumeroAttribute(): string
     {
         return strtoupper(substr((string) $this->uuid, 0, 8));
+    }
+
+    // ── Annullamento e resi (giro 2, 27/08/2026) ────────────────────────
+
+    /**
+     * L'ordine e' ancora annullabile?
+     *
+     * Guarda SOLO il punto del percorso, non chi sta guardando: i permessi
+     * sono un'altra domanda e la fa il controller. Tenerle separate evita la
+     * trappola classica di un metodo che risponde "no" e non si capisce se
+     * perche' e' tardi o perche' non sei tu.
+     */
+    public function puoEssereAnnullato(): bool
+    {
+        return in_array($this->status, self::STATI_ANNULLABILI, true);
+    }
+
+    /** La merce di questo ordine e' gia' tornata in magazzino? */
+    public function scorteGiaRestituite(): bool
+    {
+        return $this->stock_restored_at !== null;
+    }
+
+    /**
+     * L'ultimo giorno utile per chiedere un reso, o null se non si applica.
+     *
+     * Il conto parte dalla consegna dichiarata; se non c'e', dalla spedizione
+     * piu' la stima. Se non risulta nemmeno spedito non c'e' niente da
+     * restituire e la domanda non ha senso.
+     */
+    public function scadenzaReso(): ?\Illuminate\Support\Carbon
+    {
+        $partenza = $this->delivered_at
+            ?? $this->shipped_at?->copy()->addDays(self::GIORNI_STIMA_CONSEGNA);
+
+        return $partenza?->copy()->addDays(self::GIORNI_PER_CHIEDERE_RESO);
+    }
+
+    /**
+     * Il compratore puo' aprire una pratica di reso adesso?
+     *
+     * Tre condizioni, tutte necessarie: la merce e' partita, la finestra non
+     * e' scaduta, e non c'e' gia' una pratica in attesa di risposta. Un ordine
+     * gia' rimborsato o annullato non ci arriva nemmeno, perche' non e' fra
+     * gli stati spediti.
+     */
+    public function puoChiedereReso(): bool
+    {
+        if (! $this->isSpedito()) {
+            return false;
+        }
+
+        if ($this->resoInCorso() !== null) {
+            return false;
+        }
+
+        $scadenza = $this->scadenzaReso();
+
+        return $scadenza !== null && $scadenza->isFuture();
+    }
+
+    /** La pratica di reso aperta, se ce n'e' una. */
+    public function resoInCorso(): ?OrderReturnRequest
+    {
+        $richieste = $this->relationLoaded('returnRequests')
+            ? $this->returnRequests
+            : $this->returnRequests()->get();
+
+        return $richieste->firstWhere('status', OrderReturnRequest::STATUS_PENDING);
+    }
+
+    /**
+     * L'ordine e' finito con i soldi restituiti al compratore?
+     * Annullato e rimborsato sono due strade diverse per lo stesso esito, e
+     * per chi legge la pagina la differenza e' solo il momento in cui e'
+     * successo.
+     */
+    public function isRimborsato(): bool
+    {
+        return in_array($this->status, [self::STATUS_CANCELLED, self::STATUS_REFUNDED], true);
     }
 
 }

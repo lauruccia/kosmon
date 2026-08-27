@@ -34,6 +34,17 @@
 </form>
 @endif
 
+@if(($resiDaRispondere ?? 0) > 0)
+<section class="card light-card" style="margin-bottom:16px;border-color:#fdba74;background:#fff7ed;">
+    <div style="font-size:14px;font-weight:700;color:#7c2d12;">
+        {{ $resiDaRispondere }} {{ $resiDaRispondere === 1 ? 'richiesta di reso aspetta' : 'richieste di reso aspettano' }} una risposta
+    </div>
+    <p class="subtle" style="font-size:12.5px;margin:6px 0 0;color:#9a3412;">
+        Finché non rispondi, il cliente resta senza merce e senza KY.
+    </p>
+</section>
+@endif
+
 @if($daLavorare > 0)
 <section class="card account-hero card-pad" style="margin-bottom:16px;">
     <div class="k-tag">Da spedire</div>
@@ -91,7 +102,15 @@
                 </div>
             </div>
 
-            @if($order->isInAttesaDiEuro())
+            {{-- Una pratica di reso aperta batte qualsiasi altro avviso: e' la
+                 sola cosa in questa lista che il venditore deve fare OGGI, e
+                 che se ignora finisce all'assistenza del circuito. --}}
+            @if($order->resoInCorso())
+            <div style="margin-top:12px;font-size:12.5px;color:#7c2d12;background:#fff7ed;
+                        border:1px solid #fdba74;border-radius:8px;padding:9px 12px;">
+                <strong>Richiesta di reso in attesa di risposta.</strong> Aprila per accettare o rifiutare.
+            </div>
+            @elseif($order->isInAttesaDiEuro())
             <div style="margin-top:12px;font-size:12.5px;color:#92400e;background:#fffbeb;
                         border:1px solid #fde68a;border-radius:8px;padding:9px 12px;">
                 Non spedire ancora: la quota in euro non è stata saldata.

@@ -18,6 +18,11 @@
     $passaggi = ! $eVenditore
         ? []
         : ($eAdmin ? $order->passaggiPerAdmin() : $order->passaggiDisponibili());
+
+    // Giro 2: annullamento e resi. Le tre domande che decidono cosa si vede.
+    $resoAperto  = $order->resoInCorso();
+    $storiaResi  = $order->relationLoaded('returnRequests') ? $order->returnRequests : collect();
+    $siPuoAnnullare = $eVenditore && $order->puoEssereAnnullato();
 @endphp
 
 <div style="margin-bottom:16px;">
@@ -146,6 +151,128 @@
                 Questo ordine aspetta ancora la quota in euro. Quando il pagamento risulterà incassato
                 potrai segnarlo come preparato e spedito.
             </p>
+        </section>
+        @endif
+
+        {{-- ── La richiesta di reso da rispondere: solo chi vende ────────── --}}
+        @if($eVenditore && $resoAperto)
+        <section class="card light-card" style="border-color:#fbbf24;">
+            <span class="eyebrow">Da rispondere</span>
+            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+                Il cliente ha chiesto un reso
+            </h3>
+            <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
+                Chiesto il {{ $resoAperto->created_at?->format('d/m/Y') }}. Se accetti,
+                <strong>{{ ky_format($order->total_ky) }} KY</strong> tornano subito al cliente e la merce rientra
+                nel tuo magazzino. Se rifiuti, il motivo che scrivi lo legge lui.
+            </p>
+
+            <blockquote style="font-size:13.5px;color:#334155;background:#f8fafc;border-left:3px solid #cbd5e1;
+                               border-radius:0 8px 8px 0;padding:10px 13px;margin:0 0 14px;">
+                {{ $resoAperto->reason }}
+            </blockquote>
+
+            <form method="POST" action="{{ route('portal.sales.return.decide', [$order, $resoAperto]) }}">
+                @csrf
+                <label class="field-label" for="nota">
+                    Nota per il cliente <span class="subtle">(obbligatoria se rifiuti)</span>
+                </label>
+                <textarea class="field-input" id="nota" name="nota" rows="3" maxlength="500"
+                          placeholder="Es. Puoi rispedire a…, oppure: il prodotto risulta usato">{{ old('nota') }}</textarea>
+                @error('nota')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+                    <button type="submit" name="esito" value="accepted" class="cta">Accetta il reso e rimborsa</button>
+                    <button type="submit" name="esito" value="rejected" class="cta-outline">Rifiuta</button>
+                </div>
+            </form>
+        </section>
+        @endif
+
+        {{-- ── Annullare: solo chi vende, e solo finché il pacco è fermo ─── --}}
+        @if($siPuoAnnullare)
+        <section class="card light-card">
+            <span class="eyebrow">Annulla</span>
+            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+                Annullare questo ordine
+            </h3>
+            <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
+                @if($eAdmin)
+                    Stai annullando <strong>per conto di {{ $order->company?->name ?? 'questo negozio' }}</strong>:
+                    i {{ ky_format($order->total_ky) }} KY escono dal conto del negozio e tornano al cliente.
+                    Resta scritto nel registro che l'hai fatto tu.
+                @else
+                    I <strong>{{ ky_format($order->total_ky) }} KY</strong> tornano al cliente e la merce rientra
+                    in magazzino. Da qui non si torna indietro: se sbagli, l'ordine va rifatto.
+                @endif
+                @if($order->hasEuroQuota())
+                    La quota di {{ number_format($order->total_eur / 100, 2, ',', '.') }} € non passa dal circuito:
+                    se l'hai già incassata, va restituita separatamente.
+                @endif
+            </p>
+
+            <form method="POST" action="{{ route('portal.sales.cancel', $order) }}">
+                @csrf
+                <label class="field-label" for="motivo">Motivo <span class="subtle">(lo legge il cliente)</span></label>
+                <input class="field-input" type="text" id="motivo" name="motivo" maxlength="300" required
+                       value="{{ old('motivo') }}" placeholder="Es. prodotto non più disponibile">
+                @error('motivo')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+
+                <button type="submit" class="cta-outline" style="margin-top:14px;border-color:#dc2626;color:#dc2626;">
+                    Annulla l'ordine e rimborsa
+                </button>
+            </form>
+        </section>
+        @endif
+
+        {{-- ── Chiedere un reso: solo chi ha comprato ────────────────────── --}}
+        @if(! $eVenditore && $order->puoChiedereReso())
+        <section class="card light-card">
+            <span class="eyebrow">Reso</span>
+            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+                Vuoi restituire questo ordine?
+            </h3>
+            <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
+                Hai tempo fino al <strong>{{ $order->scadenzaReso()?->format('d/m/Y') }}</strong>.
+                La richiesta arriva al venditore, che decide se accettarla: i KY tornano sul tuo conto
+                solo quando accetta.
+            </p>
+
+            <form method="POST" action="{{ route('portal.orders.return', $order) }}">
+                @csrf
+                <label class="field-label" for="motivo">Perché vuoi restituirlo</label>
+                <textarea class="field-input" id="motivo" name="motivo" rows="3" maxlength="500" required
+                          placeholder="Descrivi il problema: taglia sbagliata, prodotto difettoso, non conforme…">{{ old('motivo') }}</textarea>
+                @error('motivo')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+
+                <button type="submit" class="cta-outline" style="margin-top:14px;">Invia la richiesta di reso</button>
+            </form>
+        </section>
+        @endif
+
+        {{-- ── Le pratiche di reso, da tutte e due le parti ──────────────── --}}
+        @if($storiaResi->isNotEmpty())
+        <section class="card light-card">
+            <span class="eyebrow">Resi</span>
+            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 12px;">
+                {{ $storiaResi->count() === 1 ? 'La richiesta di reso' : 'Le richieste di reso' }}
+            </h3>
+
+            @foreach($storiaResi as $pratica)
+            <div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;
+                        margin-bottom:{{ $loop->last ? '0' : '10px' }};">
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;">
+                    <strong style="font-size:13.5px;color:#10263d;">{{ $pratica->status_label }}</strong>
+                    <span class="subtle" style="font-size:12px;">{{ $pratica->created_at?->format('d/m/Y') }}</span>
+                </div>
+                <p style="font-size:13px;color:#475569;margin:8px 0 0;">{{ $pratica->reason }}</p>
+                @if(filled($pratica->decision_note))
+                    <p style="font-size:13px;color:#334155;margin:8px 0 0;padding-top:8px;border-top:1px dashed #e2e8f0;">
+                        <strong>Risposta del venditore:</strong> {{ $pratica->decision_note }}
+                    </p>
+                @endif
+            </div>
+            @endforeach
         </section>
         @endif
     </div>

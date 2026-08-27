@@ -45,6 +45,12 @@ class NotificationPreferencesController extends Controller
             'order_placed'            => ['label' => 'Conferma del tuo ordine',              'default' => ['database', 'mail']],
             'order_shipped'           => ['label' => 'Il tuo ordine è stato spedito',        'default' => ['database', 'mail']],
             'order_euro_reminder'     => ['label' => 'Promemoria: quota in euro da saldare', 'default' => ['database', 'mail']],
+            // Giro 2 della fase B (27/08/2026): quello che succede quando un
+            // ordine torna indietro. Tutte e tre muovono denaro o lo
+            // annunciano, quindi arrivano anche per email di default.
+            'order_cancelled'         => ['label' => 'Il tuo ordine è stato annullato',      'default' => ['database', 'mail']],
+            'order_return_requested'  => ['label' => 'Richiesta di reso da un cliente',      'default' => ['database', 'mail']],
+            'order_return_decided'    => ['label' => 'Esito della tua richiesta di reso',    'default' => ['database', 'mail']],
             'payment_sent'            => ['label' => 'Pagamento inviato (conferma)',         'default' => ['database']],
             'cashback_received'       => ['label' => 'Cashback accreditato',                'default' => ['database', 'mail']],
             'referral_bonus_received' => ['label' => 'Bonus segnalazione accreditato',       'default' => ['database', 'mail']],

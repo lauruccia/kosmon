@@ -8,6 +8,7 @@ use App\Models\ListingVariant;
 use App\Models\MarketplaceOrderPayment;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturnRequest;
 use App\Models\PaymentGateway;
 use App\Models\ShippingAddress;
 use App\Models\Transfer;
@@ -530,7 +531,12 @@ class OrderService
         return DB::transaction(function () use ($originale) {
             $order = Order::query()->lockForUpdate()->find($originale->order_id);
 
-            if (! $order || $order->status === Order::STATUS_REFUNDED) {
+            // La domanda vera e' "i pezzi sono gia' tornati?", non "in che
+            // stato e' l'ordine". Da quando esistono tre strade per rimborsare
+            // (movimenti, annullamento, reso accettato) lo stato non basta
+            // piu': un ordine annullato e poi rimborsato di nuovo a mano dai
+            // movimenti si vedrebbe restituire la merce due volte.
+            if (! $order || $order->scorteGiaRestituite()) {
                 return null;
             }
 
@@ -547,41 +553,347 @@ class OrderService
                 return null;
             }
 
-            foreach ($order->items as $item) {
-                // Specchio esatto di come le scorte sono state scalate in
-                // place(): sulla combinazione se c'era, altrimenti sul
-                // prodotto, e solo se la scorta e' limitata.
-                //
-                // `variant_label` e' lo snapshot preso all'acquisto: se la
-                // combinazione e' stata cancellata nel frattempo,
-                // `listing_variant_id` e' diventato NULL ma l'etichetta resta.
-                // Serve a non rimettere sul PRODOTTO dei pezzi che erano stati
-                // tolti a una VARIANTE - il magazzino ne uscirebbe gonfiato.
-                if ($item->listing_variant_id) {
-                    $variante = ListingVariant::query()->lockForUpdate()->find($item->listing_variant_id);
+            $this->rimettiInMagazzino($order);
 
-                    if ($variante && $variante->hasLimitedStock()) {
-                        $variante->increment('stock_quantity', $item->quantity);
-                    }
-
-                    continue;
-                }
-
-                if ($item->variant_label !== null) {
-                    continue;
-                }
-
-                $listing = Listing::query()->lockForUpdate()->find($item->listing_id);
-
-                if ($listing && $listing->hasLimitedStock()) {
-                    $listing->increment('stock_quantity', $item->quantity);
-                }
-            }
-
-            $order->forceFill(['status' => Order::STATUS_REFUNDED])->save();
+            $order->forceFill([
+                'status'            => Order::STATUS_REFUNDED,
+                'stock_restored_at' => now(),
+            ])->save();
 
             return $order;
         });
     }
 
+    /**
+     * Rimette in magazzino i pezzi di un ordine.
+     *
+     * Specchio esatto di come le scorte sono state scalate in `place()`: sulla
+     * combinazione se c'era, altrimenti sul prodotto, e solo se la scorta e'
+     * limitata. NON marca niente: chi lo chiama decide che stato dare
+     * all'ordine e quando scrivere `stock_restored_at`. Va chiamato dentro una
+     * transazione, con l'ordine gia' bloccato.
+     */
+    private function rimettiInMagazzino(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            // Specchio esatto di come le scorte sono state scalate in
+            // place(): sulla combinazione se c'era, altrimenti sul
+            // prodotto, e solo se la scorta e' limitata.
+            //
+            // `variant_label` e' lo snapshot preso all'acquisto: se la
+            // combinazione e' stata cancellata nel frattempo,
+            // `listing_variant_id` e' diventato NULL ma l'etichetta resta.
+            // Serve a non rimettere sul PRODOTTO dei pezzi che erano stati
+            // tolti a una VARIANTE - il magazzino ne uscirebbe gonfiato.
+            if ($item->listing_variant_id) {
+                $variante = ListingVariant::query()->lockForUpdate()->find($item->listing_variant_id);
+
+                if ($variante && $variante->hasLimitedStock()) {
+                    $variante->increment('stock_quantity', $item->quantity);
+                }
+
+                continue;
+            }
+
+            if ($item->variant_label !== null) {
+                continue;
+            }
+
+            $listing = Listing::query()->lockForUpdate()->find($item->listing_id);
+
+            if ($listing && $listing->hasLimitedStock()) {
+                $listing->increment('stock_quantity', $item->quantity);
+            }
+        }
+    }
+    // ── Annullamento e resi: qui i soldi tornano indietro ────────────────
+    //
+    // Giro 2 della fase B (27/08/2026). Tutto quello che sta sopra questa riga
+    // sposta etichette; tutto quello che sta sotto sposta denaro, e infatti ha
+    // regole piu' severe: chi puo' farlo, fino a quando, e - la parte nuova -
+    // che succede se il venditore i KY non ce li ha piu'.
+
+    /**
+     * Annulla un ordine e restituisce i KY al compratore.
+     *
+     * Lo fanno il VENDITORE e l'ADMIN per conto suo, mai il compratore
+     * (decisione di Laura, 27/08: come su WooCommerce, Shopify, PrestaShop).
+     * E solo finche' il pacco non e' partito: da "spedito" in poi c'e' il reso.
+     *
+     * Tutto dentro una transazione sola, al contrario del rimborso emesso dai
+     * movimenti. Li' era giusto che le scorte fallissero DOPO i soldi gia'
+     * restituiti, perche' il rimborso era il fatto e il resto la conseguenza.
+     * Qui il fatto e' l'annullamento nella sua interezza: un ordine segnato
+     * "annullato" con i KY ancora sul conto del venditore sarebbe una bugia
+     * scritta in tabella, e a rimediare si farebbe piu' danno.
+     *
+     * @throws RuntimeException con un messaggio gia' pronto per l'utente
+     */
+    public function annulla(Order $order, User $attore, string $motivo, ?string $ip = null): Order
+    {
+        return DB::transaction(function () use ($order, $attore, $motivo, $ip) {
+            $bloccato = Order::query()->lockForUpdate()->find($order->id);
+
+            if (! $bloccato) {
+                throw new RuntimeException('Questo ordine non esiste più.');
+            }
+
+            if (! $bloccato->puoEssereAnnullato()) {
+                throw new RuntimeException(
+                    $bloccato->isRimborsato()
+                        ? 'Questo ordine è già stato annullato o rimborsato.'
+                        : 'Un ordine già partito non si annulla: il pacco è in viaggio. Se il cliente non lo vuole più, deve aprire un reso quando lo riceve.'
+                );
+            }
+
+            $rimborso = $this->restituisciIKy(
+                $bloccato,
+                $attore,
+                'Annullamento ordine ' . $bloccato->numero,
+                $ip
+            );
+
+            $this->rimettiInMagazzino($bloccato);
+            $this->chiudiLaQuotaInEuro($bloccato);
+
+            $bloccato->forceFill([
+                'status'               => Order::STATUS_CANCELLED,
+                'cancelled_at'         => now(),
+                'cancel_reason'        => $motivo,
+                'cancelled_by_user_id' => $attore->id,
+                'stock_restored_at'    => now(),
+                'refund_transfer_id'   => $rimborso?->id,
+            ])->save();
+
+            return $bloccato;
+        });
+    }
+
+    /**
+     * Il compratore chiede indietro i soldi di un ordine gia' ricevuto.
+     *
+     * Non muove un centesimo: apre una pratica. E' la differenza che tiene in
+     * piedi la fiducia del venditore - nessuno puo' prelevare dal suo conto
+     * senza il suo assenso o quello dell'admin.
+     *
+     * @throws RuntimeException
+     */
+    public function chiediReso(Order $order, User $compratore, string $motivo): OrderReturnRequest
+    {
+        return DB::transaction(function () use ($order, $compratore, $motivo) {
+            $bloccato = Order::query()->lockForUpdate()->find($order->id);
+
+            if (! $bloccato) {
+                throw new RuntimeException('Questo ordine non esiste più.');
+            }
+
+            if ($bloccato->resoInCorso() !== null) {
+                throw new RuntimeException('Hai già una richiesta di reso aperta su questo ordine: aspetta la risposta del venditore.');
+            }
+
+            if (! $bloccato->puoChiedereReso()) {
+                $scadenza = $bloccato->scadenzaReso();
+
+                throw new RuntimeException(
+                    $scadenza !== null && $scadenza->isPast()
+                        ? 'Il tempo per chiedere un reso su questo ordine è scaduto il ' . $scadenza->format('d/m/Y') . '. Puoi comunque scrivere al venditore.'
+                        : 'Puoi chiedere un reso solo dopo che l\'ordine è stato spedito.'
+                );
+            }
+
+            return OrderReturnRequest::create([
+                'order_id'             => $bloccato->id,
+                'requested_by_user_id' => $compratore->id,
+                'status'               => OrderReturnRequest::STATUS_PENDING,
+                'reason'               => $motivo,
+            ]);
+        });
+    }
+
+    /**
+     * Il venditore (o l'admin per conto suo) accetta il reso: i KY tornano al
+     * compratore e la merce rientra a magazzino.
+     *
+     * L'ordine finisce in `refunded` e non in `cancelled`: sono due storie
+     * diverse e fra sei mesi la differenza conta. "Annullato" vuol dire che
+     * non e' mai partito niente; "rimborsato" che e' partito, e' arrivato ed
+     * e' tornato indietro.
+     *
+     * @throws RuntimeException
+     */
+    public function accettaReso(OrderReturnRequest $richiesta, User $attore, ?string $nota, bool $daAdmin = false, ?string $ip = null): Order
+    {
+        return DB::transaction(function () use ($richiesta, $attore, $nota, $daAdmin, $ip) {
+            $pratica = OrderReturnRequest::query()->lockForUpdate()->find($richiesta->id);
+
+            if (! $pratica || ! $pratica->isPending()) {
+                throw new RuntimeException('Questa richiesta di reso è già stata chiusa.');
+            }
+
+            $order = Order::query()->lockForUpdate()->find($pratica->order_id);
+
+            if (! $order) {
+                throw new RuntimeException('L\'ordine di questa richiesta non esiste più.');
+            }
+
+            $rimborso = $this->restituisciIKy(
+                $order,
+                $attore,
+                'Reso accettato, ordine ' . $order->numero,
+                $ip
+            );
+
+            if (! $order->scorteGiaRestituite()) {
+                $this->rimettiInMagazzino($order);
+            }
+
+            $this->chiudiLaQuotaInEuro($order);
+
+            $order->forceFill([
+                'status'             => Order::STATUS_REFUNDED,
+                'stock_restored_at'  => $order->stock_restored_at ?? now(),
+                'refund_transfer_id' => $rimborso?->id ?? $order->refund_transfer_id,
+            ])->save();
+
+            $pratica->forceFill([
+                'status'             => OrderReturnRequest::STATUS_ACCEPTED,
+                'decided_by_user_id' => $attore->id,
+                'decided_at'         => now(),
+                'decided_by_admin'   => $daAdmin,
+                'decision_note'      => $nota,
+            ])->save();
+
+            return $order;
+        });
+    }
+
+    /**
+     * Il venditore rifiuta il reso. Nessun soldo si muove, ma il perche' e'
+     * obbligatorio: un rifiuto senza motivo e' il modo migliore di perdere un
+     * cliente e di far arrivare la lite all'assistenza del circuito.
+     *
+     * @throws RuntimeException
+     */
+    public function rifiutaReso(OrderReturnRequest $richiesta, User $attore, string $nota, bool $daAdmin = false): OrderReturnRequest
+    {
+        return DB::transaction(function () use ($richiesta, $attore, $nota, $daAdmin) {
+            $pratica = OrderReturnRequest::query()->lockForUpdate()->find($richiesta->id);
+
+            if (! $pratica || ! $pratica->isPending()) {
+                throw new RuntimeException('Questa richiesta di reso è già stata chiusa.');
+            }
+
+            $pratica->forceFill([
+                'status'             => OrderReturnRequest::STATUS_REJECTED,
+                'decided_by_user_id' => $attore->id,
+                'decided_at'         => now(),
+                'decided_by_admin'   => $daAdmin,
+                'decision_note'      => $nota,
+            ])->save();
+
+            return $pratica;
+        });
+    }
+
+    /**
+     * Restituisce al compratore i KY ancora non rimborsati di questo ordine.
+     *
+     * Sta qui e non nel motore finanziario di proposito: `refundMerchant()`
+     * sa muovere i soldi ma non sa niente di ordini, di scorte e di negozi -
+     * e deve continuare a non saperlo.
+     *
+     * LA REGOLA DEL FIDO (decisione di Laura, 27/08). `refundMerchant()` non
+     * guarda se il venditore i KY ce li ha: toglie l'importo e basta, e un
+     * conto puo' finire sotto zero senza limite. Nei pagamenti normali il
+     * circuito questo controllo lo fa da sempre - `assertTransferWithinLimits`
+     * non lascia scendere sotto il fido concesso - ma i rimborsi non ci
+     * passano. Allora la stessa regola la applichiamo qui, con lo stesso
+     * metro gia' usato dal resto del circuito: `saldoDisponibile()`, cioe'
+     * saldo piu' fido. Fin li' il rimborso parte anche in negativo; oltre, si
+     * ferma e si spiega quanto manca.
+     *
+     * @return Transfer|null il movimento di rimborso, o null se non c'era
+     *                       niente da restituire (ordine senza movimento KY,
+     *                       o gia' rimborsato per intero altrove)
+     *
+     * @throws RuntimeException
+     */
+    private function restituisciIKy(Order $order, User $attore, string $descrizione, ?string $ip): ?Transfer
+    {
+        $movimento = $order->transfer()->first();
+
+        if (! $movimento || $movimento->status !== 'booked') {
+            return null;
+        }
+
+        $giaRimborsato = (int) Transfer::query()
+            ->where('reversed_transfer_id', $movimento->id)
+            ->where('status', 'booked')
+            ->sum('amount');
+
+        $residuo = (int) $movimento->amount - $giaRimborsato;
+
+        if ($residuo <= 0) {
+            return null;
+        }
+
+        $venditore = $order->sellerAccount()->first();
+
+        if (! $venditore) {
+            throw new RuntimeException('Il conto del venditore di questo ordine non è più raggiungibile: serve l\'assistenza del circuito.');
+        }
+
+        // Il controllo dei permessi lo rifa' anche `refundMerchant()`, ma con
+        // un messaggio da motore finanziario. Qui si sa di che si sta
+        // parlando, e chi legge deve capire cosa fare.
+        if (! $attore->is_super_admin && ! $attore->canSendFromAccount($venditore)) {
+            throw new RuntimeException('Non hai il permesso di muovere denaro dal conto di questo negozio: serve il permesso "pagamenti" oppure un profilo di super admin.');
+        }
+
+        $venditore->refresh();
+        $disponibile = $venditore->saldoDisponibile();
+
+        if ($disponibile < $residuo) {
+            $manca = $residuo - max(0, $disponibile);
+
+            throw new RuntimeException(
+                'Per restituire ' . ky_format($residuo) . ' KY al cliente servono '
+                . ky_format($manca) . ' KY in più di quelli disponibili (saldo più fido). '
+                . 'Ricarica il conto o chiedi un aumento del fido, poi riprova.'
+            );
+        }
+
+        return $this->bookingService->refundMerchant(
+            originalTransfer: $movimento,
+            refundAmount:     $residuo,
+            initiatedBy:      $attore->id,
+            description:      $descrizione,
+            ipAddress:        $ip,
+        );
+    }
+
+    /**
+     * Chiude la quota in euro ancora da incassare.
+     *
+     * Solo quella NON pagata: se il venditore l'ha gia' incassata, questi
+     * soldi non sono mai passati dal circuito e nessuno qui dentro puo'
+     * restituirli. In quel caso la riga resta "pagata" e sara' il messaggio a
+     * ricordare al venditore che deve fare un bonifico - meglio un promemoria
+     * scomodo di un dato falso in tabella.
+     */
+    private function chiudiLaQuotaInEuro(Order $order): void
+    {
+        $quota = $order->payment()->first();
+
+        if (! $quota) {
+            return;
+        }
+
+        if (in_array($quota->status, [
+            MarketplaceOrderPayment::STATUS_PENDING,
+            MarketplaceOrderPayment::STATUS_AWAITING_CONFIRMATION,
+        ], true)) {
+            $quota->forceFill(['status' => MarketplaceOrderPayment::STATUS_CANCELLED])->save();
+        }
+    }
 }
