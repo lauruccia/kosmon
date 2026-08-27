@@ -76,10 +76,47 @@ class Order extends Model
      */
     public const STATUS_REFUNDED = 'refunded';
 
+    /**
+     * Il percorso della merce (fase B, 27/08/2026).
+     *
+     * `preparing` -> `shipped` -> `delivered` sono ETICHETTE: non muovono un
+     * centesimo, l'addebito e' gia' avvenuto alla cassa. `cancelled` invece
+     * muove soldi, ed e' per questo che l'azione non esiste ancora: arriva nel
+     * giro successivo, trattata come un rimborso vero.
+     */
+    public const STATUS_PREPARING = 'preparing';
+    public const STATUS_SHIPPED   = 'shipped';
+    public const STATUS_DELIVERED = 'delivered';
+    public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUSES = [
         self::STATUS_PENDING_PAYMENT => 'In attesa del pagamento in euro',
         self::STATUS_PAID            => 'Pagato',
+        self::STATUS_PREPARING       => 'In preparazione',
+        self::STATUS_SHIPPED         => 'Spedito',
+        self::STATUS_DELIVERED       => 'Consegnato',
+        self::STATUS_CANCELLED       => 'Annullato',
         self::STATUS_REFUNDED        => 'Rimborsato',
+    ];
+
+    /**
+     * I passaggi che il VENDITORE puo' fare, e solo in avanti.
+     *
+     * Decisione di Laura del 27/08: lo stato lo cambiano il venditore e
+     * l'admin, come su WooCommerce e Shopify - non il compratore. E solo in
+     * avanti, perche' un negozio che torna indietro sugli stati e' un negozio
+     * che sta rimediando a un errore: per quello c'e' l'admin, che puo'
+     * portare un ordine dove serve. Cosi' la regola resta di una riga sola e
+     * la correzione ha un responsabile.
+     *
+     * Da `pending_payment` non si parte: finche' la quota in euro non e'
+     * arrivata, il venditore non deve preparare niente. E' una protezione per
+     * lui, non un vincolo burocratico.
+     */
+    public const PASSAGGI_DEL_VENDITORE = [
+        self::STATUS_PAID      => [self::STATUS_PREPARING, self::STATUS_SHIPPED],
+        self::STATUS_PREPARING => [self::STATUS_SHIPPED],
+        self::STATUS_SHIPPED   => [self::STATUS_DELIVERED],
     ];
 
     protected $fillable = [
@@ -100,6 +137,12 @@ class Order extends Model
         'shipping_province',
         'shipping_phone',
         'buyer_note',
+        'carrier',
+        'tracking_code',
+        'shipped_at',
+        'delivered_at',
+        'cancelled_at',
+        'cancel_reason',
         'source',
         'placed_at',
         'backfilled_at',
@@ -112,6 +155,9 @@ class Order extends Model
         'shipping_eur'  => 'integer',
         'placed_at'     => 'datetime',
         'backfilled_at' => 'datetime',
+        'shipped_at'    => 'datetime',
+        'delivered_at'  => 'datetime',
+        'cancelled_at'  => 'datetime',
     ];
 
     protected static function booted(): void
@@ -213,4 +259,92 @@ class Order extends Model
             ? $titolo . ' + altri ' . $altri
             : $titolo;
     }
+
+    // ── Il ciclo di vita ─────────────────────────────────────────────────────
+
+    /** Il venditore puo' portare questo ordine allo stato chiesto? */
+    public function ilVenditorePuoPortarloA(string $nuovo): bool
+    {
+        return in_array($nuovo, self::PASSAGGI_DEL_VENDITORE[$this->status] ?? [], true);
+    }
+
+    /**
+     * I passaggi che il venditore puo' fare adesso, con la loro etichetta.
+     * E' quello che la pagina del venditore trasforma in bottoni: se qui non
+     * c'e' niente, non c'e' niente da premere.
+     *
+     * @return array<string, string>
+     */
+    public function passaggiDisponibili(): array
+    {
+        $passaggi = [];
+
+        foreach (self::PASSAGGI_DEL_VENDITORE[$this->status] ?? [] as $stato) {
+            $passaggi[$stato] = self::STATUSES[$stato];
+        }
+
+        return $passaggi;
+    }
+
+    /**
+     * L'ordine e' chiuso: non c'e' piu' niente da fare, in nessuna direzione.
+     * Serve alle due pagine per separare "da lavorare" da "storico".
+     */
+    public function isConcluso(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_DELIVERED,
+            self::STATUS_CANCELLED,
+            self::STATUS_REFUNDED,
+        ], true);
+    }
+
+    /** Aspetta ancora la quota in euro: il venditore non deve preparare niente. */
+    public function isInAttesaDiEuro(): bool
+    {
+        return $this->status === self::STATUS_PENDING_PAYMENT;
+    }
+
+    public function isSpedito(): bool
+    {
+        return in_array($this->status, [self::STATUS_SHIPPED, self::STATUS_DELIVERED], true);
+    }
+
+    /** Questo ordine va spedito da qualche parte? (i servizi e i ritiri no) */
+    public function richiedeSpedizione(): bool
+    {
+        return filled($this->shipping_address);
+    }
+
+    /**
+     * Il colore con cui lo stato si legge a colpo d'occhio in un elenco.
+     * Deliberatamente pochi: verde = a posto, giallo = tocca a qualcuno,
+     * grigio = chiuso, rosso = finito male.
+     */
+    public function getStatusToneAttribute(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING_PAYMENT => 'attesa',
+            self::STATUS_PAID,
+            self::STATUS_PREPARING       => 'lavorazione',
+            self::STATUS_SHIPPED         => 'viaggio',
+            self::STATUS_DELIVERED       => 'concluso',
+            self::STATUS_CANCELLED,
+            self::STATUS_REFUNDED        => 'annullato',
+            default                      => 'attesa',
+        };
+    }
+
+    /**
+     * Il numero d'ordine che si cita al venditore o all'assistenza.
+     *
+     * L'uuid intero e' illeggibile al telefono; le prime otto cifre in
+     * maiuscolo si dettano e restano uniche a sufficienza per ritrovare
+     * l'ordine (e comunque la ricerca vera si fa sull'uuid completo).
+     */
+    public function getNumeroAttribute(): string
+    {
+        return strtoupper(substr((string) $this->uuid, 0, 8));
+    }
+
 }

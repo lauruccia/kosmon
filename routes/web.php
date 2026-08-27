@@ -40,6 +40,7 @@ use App\Http\Controllers\PaymentRequestController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ListingController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ListingVariantController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentGatewayController;
@@ -511,6 +512,17 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::put('/annunci/{announcement}', [AnnouncementController::class, 'update'])->name('portal.announcements.update');
     Route::delete('/annunci/{announcement}', [AnnouncementController::class, 'destroy'])->name('portal.announcements.destroy');
     Route::post('/annunci/{announcement}/rispondi', [AnnouncementController::class, 'reply'])->name('portal.announcements.reply');
+
+    // ── Ordini (fase B, 27/08/2026) ───────────────────────────────────────
+    // Due pagine sullo stesso oggetto: `/ordini` e' quello che ho comprato,
+    // `/vendite` quello che devo spedire. Stanno FUORI da /shop di proposito:
+    // un ordine non e' un prodotto, e chi lo cerca non lo cerca nel catalogo.
+    Route::get('/ordini', [OrderController::class, 'index'])->name('portal.orders.index');
+    Route::get('/ordini/{order}', [OrderController::class, 'show'])->name('portal.orders.show');
+
+    Route::get('/vendite', [OrderController::class, 'sales'])->name('portal.sales.index');
+    Route::get('/vendite/{order}', [OrderController::class, 'sale'])->name('portal.sales.show');
+    Route::post('/vendite/{order}/stato', [OrderController::class, 'updateStatus'])->name('portal.sales.status');
 
     Route::get('/shop', [ListingController::class, 'index'])->name('portal.shop');
     Route::get('/shop/crea', [ListingController::class, 'create'])->name('portal.shop.create');

@@ -1652,7 +1652,7 @@
                             $canMkt   = (bool) $cuViewer?->canAccessMarketplace();
                             $canPlan  = ($canMkt || $cuViewer?->is_super_admin) && $cuViewer?->company_id;
                             $showCircuito = ($mv('aziende') && $cuViewer?->canViewCompaniesDirectory())
-                                || (($mv('shop') || $mv('shop-offers')) && $canMkt)
+                                || (($mv('shop') || $mv('shop-offers') || $mv('ordini') || $mv('vendite')) && $canMkt)
                                 || ($mv('plan') && $canPlan)
                                 || ($mv('annunci') && $cuViewer?->canAccessAnnouncements())
                                 || $mv('invita')
@@ -1686,6 +1686,19 @@
                                     @if(($cartCount ?? 0) > 0)
                                         <span class="nav-count">{{ $cartCount }}</span>
                                     @endif
+                                </a>
+                                @endif
+                                {{-- Ordini (fase B, 27/08/2026). "I miei ordini" lo vede
+                                     chiunque compri; "Ordini ricevuti" solo chi ha un
+                                     negozio, cioe' un'azienda. --}}
+                                @if($mv('ordini') && $canMkt)
+                                <a class="sidebar-link {{ $an === 'ordini' ? 'active' : '' }}" href="{{ route('portal.orders.index') }}">
+                                    <span class="nav-icon">📦</span><span>I miei ordini</span>
+                                </a>
+                                @endif
+                                @if($mv('vendite') && $canMkt && $cuViewer?->company_id)
+                                <a class="sidebar-link {{ $an === 'vendite' ? 'active' : '' }}" href="{{ route('portal.sales.index') }}">
+                                    <span class="nav-icon">🧾</span><span>Ordini ricevuti</span>
                                 </a>
                                 @endif
                                 {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso

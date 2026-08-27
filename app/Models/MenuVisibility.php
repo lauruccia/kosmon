@@ -83,6 +83,11 @@ class MenuVisibility extends Model
             'annunci'            => 'Annunci',
             'shop'               => 'Shop',
             'cart'               => 'Carrello',
+            // Fase B (27/08/2026). Due chiavi separate: "I miei ordini" ce
+            // l'hanno tutti, "Ordini ricevuti" solo chi vende, e vanno potute
+            // spegnere una per volta.
+            'ordini'             => 'I miei ordini',
+            'vendite'            => 'Ordini ricevuti',
             'shop-offers'        => 'Offerte della settimana',
             'plan'               => 'Il mio piano',
             'company-reports'    => "Segnala un'azienda",
