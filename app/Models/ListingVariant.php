@@ -131,6 +131,31 @@ class ListingVariant extends Model
      * "Taglia: M · Colore: rosso" — quello che si legge sulla riga del carrello
      * e che finisce congelato sulla riga dell'ordine.
      */
+    /**
+     * Quante ne restano DI QUESTA combinazione, in parole.
+     *
+     * Specchio di `Listing::stock_label`, ma per la singola taglia. Serve
+     * perche' il badge della scheda prodotto raccontava sempre e solo il
+     * prodotto padre: su un prodotto variabile il padre non ha scorte
+     * proprie, quindi diceva "Disponibile" qualunque cosa avessi scelto —
+     * anche quando della tua taglia restava un pezzo solo (audit 26/08,
+     * blocco 5).
+     */
+    public function getStockLabelAttribute(): string
+    {
+        if (! $this->hasLimitedStock()) {
+            return 'Disponibile';
+        }
+
+        if ((int) $this->stock_quantity <= 0) {
+            return 'Esaurita';
+        }
+
+        return (int) $this->stock_quantity === 1
+            ? 'Ultimo pezzo'
+            : $this->stock_quantity . ' disponibili';
+    }
+
     public function getEtichettaAttribute(): string
     {
         $valori = $this->relationLoaded('values') ? $this->values : $this->values()->get();

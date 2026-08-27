@@ -987,6 +987,11 @@
            — bug già notato e aggirato localmente in shop-show.blade.php (vedi
            commento su .qty-field lì), ma mai risolto alla radice. 12/08/2026. */
         .field-label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+        /* Il messaggio d'errore sotto il campo che lo riguarda (27/08/2026).
+           Prima esisteva solo l'avviso unico in cima alla pagina: su un form
+           lungo come quello dell'indirizzo diceva che cosa mancava ma non
+           dove. */
+        .campo-errore { color: #b91c1c; font-size: 12.5px; margin: 6px 0 0; }
         .field-input:not([type="radio"]):not([type="checkbox"]) {
             width: 100%; min-height: 44px; padding: 10px 14px;
             border-radius: 9px; border: 1px solid var(--line-strong);

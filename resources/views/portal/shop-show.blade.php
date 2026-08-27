@@ -146,6 +146,13 @@
         $inStock      = $listing->isVariabile()
             ? $listing->variantiAttive->contains(fn ($v) => $v->isDisponibile())
             : $listing->isInStock();
+
+        // Il prodotto variabile non ha scorte proprie: l'unica cosa vera che
+        // si puo' dire PRIMA della scelta e' se ne resta almeno una taglia.
+        $etichettaScorte = $listing->isVariabile()
+            ? ($inStock ? 'Disponibile' : 'Esaurito')
+            : $listing->stock_label;
+
         $needsShippingAddress = $listing->requiresShippingAddress();
         $hasShippingAddress   = $currentAccount->hasShippingAddress();
         // Link alla sezione indirizzo di spedizione del profilo, con
@@ -273,8 +280,21 @@
                 <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $listing->effective_ky_badge_color }}">
                     {{ $listing->effective_ky_badge_label }}
                 </span>
-                <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $inStock ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;' }}">
-                    {{ $listing->stock_label }}
+                {{--
+                    Il badge delle scorte segue quello che l'utente sta
+                    guardando, non il prodotto padre (audit 26/08, blocco 5).
+
+                    Su un prodotto variabile le scorte stanno sulle
+                    combinazioni e il padre non ne ha: `stock_label` diceva
+                    quindi "Disponibile" sempre, anche quando erano finite
+                    tutte le taglie — pastiglia rossa con scritto
+                    "Disponibile", che e' il modo piu' rapido di far perdere
+                    fiducia a chi legge. Scelta una taglia, il JavaScript qui
+                    sotto ci scrive quante ne restano DI QUELLA.
+                --}}
+                <span id="badge-scorte"
+                      style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $inStock ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;' }}">
+                    {{ $etichettaScorte }}
                 </span>
             </div>
             @if($listing->effective_ky_percentage < 100)
@@ -695,6 +715,7 @@
     var prezzo  = document.getElementById('prezzo-grande');
     var daLabel = document.getElementById('prezzo-da');
     var avviso  = document.getElementById('avviso-saldo-variante');
+    var scorte  = document.getElementById('badge-scorte');
     var bottone = document.getElementById('bottone-acquisto');
     var saldo   = {{ (int) $currentAccount->saldoDisponibile() }};
 
@@ -718,6 +739,19 @@
         prezzo.textContent = formatta(costa);
         // Scelta la taglia, "da" non ha piu' senso: il prezzo e' quello.
         if (daLabel) { daLabel.style.display = 'none'; }
+
+        // E nemmeno le scorte del padre: adesso contano quelle di questa
+        // taglia. Se il dato non c'e' si lascia stare quello che c'era, che
+        // e' comunque vero.
+        var etichetta = elemento.getAttribute('data-scorte');
+
+        if (scorte && etichetta) {
+            scorte.textContent = etichetta;
+
+            var ceNe = elemento.getAttribute('data-disponibile') !== '0';
+            scorte.style.background = ceNe ? '#dcfce7' : '#fee2e2';
+            scorte.style.color      = ceNe ? '#166534' : '#991b1b';
+        }
 
         if (! avviso || ! bottone || isNaN(richiede)) { return; }
 

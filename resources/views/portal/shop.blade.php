@@ -1,12 +1,9 @@
 @extends('layouts.portal')
 
 @section('content')
-@if(session('portal_success'))
-    <div class="alert-banner success">{{ session('portal_success') }}</div>
-@endif
-@if(session('portal_error'))
-    <div class="alert-banner error">{{ session('portal_error') }}</div>
-@endif
+{{-- Niente banner qui: li stampa gia' il layout (layouts/portal.blade.php).
+     Ristamparli voleva dire leggere DUE VOLTE lo stesso avviso dopo ogni
+     aggiunta al carrello — audit 26/08, blocco 5. --}}
 
 <section class="card light-card shop-toolbar-card">
     <form method="GET" action="{{ route('portal.shop') }}" class="shop-toolbar">
@@ -141,7 +138,7 @@
                         <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                     @endif
                 </div>
-                <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
+                <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
             </div>
         </article>
         @endforeach
@@ -212,7 +209,7 @@
             </div>
             <div class="page-actions" style="margin-top:2px;">
                 @if($listing->status === 'active')
-                    <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
+                    <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
                 @else
                     <span class="listing-hidden-note">Non visibile al pubblico</span>
                 @endif

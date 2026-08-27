@@ -71,6 +71,8 @@
                 <option value="{{ $variante->id }}"
                         data-prezzo="{{ $variante->prezzoEffettivo() }}"
                         data-richiesto="{{ $variante->quotaKy() + $speseKy }}"
+                        data-scorte="{{ $variante->stock_label }}"
+                        data-disponibile="{{ $variante->isDisponibile() ? '1' : '0' }}"
                         @disabled(! $variante->isDisponibile())>
                     {{ $variante->etichetta_corta }}{{ $variante->isDisponibile() ? '' : ' (esaurita)' }}
                 </option>
@@ -87,6 +89,8 @@
                        value="{{ $variante->id }}"
                        data-prezzo="{{ $variante->prezzoEffettivo() }}"
                        data-richiesto="{{ $variante->quotaKy() + $speseKy }}"
+                       data-scorte="{{ $variante->stock_label }}"
+                       data-disponibile="{{ $disponibile ? '1' : '0' }}"
                        required
                        @if($formId) form="{{ $formId }}" @endif
                        @disabled(! $disponibile)>
