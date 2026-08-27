@@ -358,6 +358,51 @@ class OrdiniFaseBTest extends TestCase
         $this->assertFalse($buyer->canAccessMarketplace());
     }
 
+    /**
+     * Segnalato da Laura il 27/08, subito dopo: mancavano anche Shop e
+     * Carrello.
+     *
+     * Il permesso marketplace serve a PUBBLICARE un prodotto
+     * (`ListingController::create/store`); sfogliare, riempire il carrello e
+     * pagare non lo controllano da nessuna parte. Il menu era piu' severo
+     * della realta' e nascondeva pagine gia' raggiungibili scrivendone
+     * l'indirizzo — Laura aveva due articoli nel carrello e non trovava il
+     * link al carrello.
+     */
+    public function test_shop_carrello_e_offerte_si_vedono_senza_permesso_marketplace(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+        $this->assertFalse($buyer->canAccessMarketplace());
+
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        // Sonde ESATTE, non "l'HTML contiene /shop": quella stringa compare
+        // comunque dentro /shop/carrello e /shop/offerte, e il carrello ha
+        // anche la sua campanella in alto che non passa dal menu. Cercare la
+        // voce di sidebar per etichetta e' l'unico modo di testare davvero
+        // quello che si vede nella colonna di sinistra.
+        foreach (['Shop', 'Carrello', 'Offerte della settimana', 'Annunci', 'I miei ordini'] as $voce) {
+            $this->assertStringContainsString(
+                '<span>' . $voce . '</span>',
+                $html,
+                "Manca la voce «{$voce}» nel menu laterale."
+            );
+        }
+    }
+
+    /**
+     * L'altra meta': quelle pagine sono davvero aperte. Se un giorno qualcuno
+     * ci mettesse un permesso, il menu tornerebbe a mentire — al contrario.
+     */
+    public function test_quelle_pagine_sono_davvero_aperte_a_chi_non_ha_il_permesso(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+
+        $this->actingAs($buyer)->get(route('portal.shop'))->assertOk();
+        $this->actingAs($buyer)->get(route('portal.cart'))->assertOk();
+        $this->actingAs($buyer)->get(route('portal.shop.offers'))->assertOk();
+    }
+
     public function test_ordini_ricevuti_resta_riservato_a_chi_ha_un_negozio(): void
     {
         [$buyer] = $this->makeBuyer(saldo: 100000);

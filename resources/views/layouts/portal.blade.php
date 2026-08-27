@@ -1657,11 +1657,11 @@
                             $canMkt   = (bool) $cuViewer?->canAccessMarketplace();
                             $canPlan  = ($canMkt || $cuViewer?->is_super_admin) && $cuViewer?->company_id;
                             $showCircuito = ($mv('aziende') && $cuViewer?->canViewCompaniesDirectory())
-                                || (($mv('shop') || $mv('shop-offers')) && $canMkt)
+                                || $mv('shop') || $mv('shop-offers') || $mv('cart')
                                 || $mv('ordini')
                                 || ($mv('vendite') && ($cuViewer?->canAccessBackoffice() || ($canMkt && $cuViewer?->company_id)))
                                 || ($mv('plan') && $canPlan)
-                                || ($mv('annunci') && $cuViewer?->canAccessAnnouncements())
+                                || $mv('annunci')
                                 || $mv('invita')
                                 || $mv('company-reports');
                         @endphp
@@ -1678,7 +1678,18 @@
                                     <span class="nav-icon">🏢</span><span>Directory</span>
                                 </a>
                                 @endif
-                                @if($mv('shop') && $canMkt)
+                                {{-- 27/08/2026, segnalato da Laura: Shop, Carrello e
+                                     Offerte NON dipendono piu' da `$canMkt`.
+                                     Il permesso marketplace serve a PUBBLICARE un
+                                     prodotto (ListingController::create/store); sfogliare
+                                     il catalogo, riempire il carrello e passare in cassa
+                                     sono aperti a chiunque stia nel portale — nessuna di
+                                     quelle rotte lo controlla. Il menu era piu' severo
+                                     della realta' e nascondeva pagine che l'utente poteva
+                                     benissimo aprire scrivendone l'indirizzo: chi aveva
+                                     due cose nel carrello non trovava il link al carrello.
+                                     Restano tutte spegnibili dalle loro chiavi. --}}
+                                @if($mv('shop'))
                                 <a class="sidebar-link {{ $an === 'shop' ? 'active' : '' }}" href="{{ route('portal.shop') }}">
                                     <span class="nav-icon">🛒</span><span>Shop</span>
                                 </a>
@@ -1686,7 +1697,7 @@
                                 {{-- Carrello (2026-08-25, fase C). Il numerino arriva da un
                                      view composer in AppServiceProvider: serve su ogni pagina,
                                      non solo nello shop. --}}
-                                @if($mv('cart') && $canMkt)
+                                @if($mv('cart'))
                                 <a class="sidebar-link {{ $an === 'cart' ? 'active' : '' }}" href="{{ route('portal.cart') }}">
                                     <span class="nav-icon">🧺</span>
                                     <span>Carrello</span>
@@ -1723,7 +1734,7 @@
                                 {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso
                                      requisito di accesso del link Shop, ma dal 14/08/2026 con chiave
                                      menu-visibility propria ('shop-offers') così si può spegnere da sola. --}}
-                                @if($mv('shop-offers') && $canMkt)
+                                @if($mv('shop-offers'))
                                 <a class="sidebar-link {{ $an === 'shop-offers' ? 'active' : '' }}" href="{{ route('portal.shop.offers') }}">
                                     <span class="nav-icon">🔥</span><span>Offerte della settimana</span>
                                 </a>
@@ -1733,7 +1744,10 @@
                                     <span class="nav-icon">💎</span><span>Il mio piano</span>
                                 </a>
                                 @endif
-                                @if($mv('annunci') && $cuViewer?->canAccessAnnouncements())
+                                {{-- Come sopra: `AnnouncementController::index()` non
+                                     controlla `canAccessAnnouncements()`, la bacheca si
+                                     legge e basta. --}}
+                                @if($mv('annunci'))
                                 <a class="sidebar-link {{ $an === 'annunci' ? 'active' : '' }}" href="{{ route('portal.announcements') }}">
                                     <span class="nav-icon">📣</span><span>Annunci</span>
                                 </a>
