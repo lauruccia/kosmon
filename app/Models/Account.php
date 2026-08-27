@@ -475,6 +475,9 @@ class Account extends Model
         return $this->hasMany(LedgerEntry::class);
     }
 
+    /** Ricordo del massimale per questa istanza. Non e' una colonna. */
+    private ?int $massimaleMemorizzato = null;
+
     public function ownerTransferLimits(): array
     {
         return $this->ownerUser?->effectiveTransferLimits() ?? [
@@ -486,16 +489,46 @@ class Account extends Model
         ];
     }
 
+    /**
+     * Il tetto sotto zero: fido concesso, oppure limite dell'intestatario.
+     *
+     * MEMORIZZATO PER ISTANZA (27/08/2026, audit 26/08 punto 4.3). Costa tre
+     * query — fido attivo, limiti dell'utente, impostazioni di sistema — e in
+     * cassa veniva chiamato due, tre, quattro volte per disegnare la stessa
+     * pagina. Sono gli stessi numeri ogni volta.
+     *
+     * Si memorizza SOLO questo, non `saldoDisponibile()`: il saldo cambia
+     * dentro una transazione e deve restare quello vero, sempre. E `refresh()`
+     * qui sotto butta via il ricordo, cosi' chi ricarica il conto apposta —
+     * come fa il rimborso prima di controllare il fido — legge davvero i
+     * numeri nuovi.
+     */
     public function massimale(): int
     {
         if ($this->parent_account_id !== null) {
             return 0;
         }
 
+        if ($this->massimaleMemorizzato !== null) {
+            return $this->massimaleMemorizzato;
+        }
+
         $accountCreditLimit = (int) ($this->activeCreditLimit()?->credit_limit ?? 0);
         $ownerNegativeBalanceLimit = (int) ($this->ownerTransferLimits()['negative_balance_limit'] ?? 0);
 
-        return max(0, $accountCreditLimit, $ownerNegativeBalanceLimit);
+        return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit);
+    }
+
+    /**
+     * Ricaricare il conto vuol dire dimenticare anche il massimale: se non
+     * fosse cosi', un `refresh()` restituirebbe un saldo nuovo e un fido
+     * vecchio — la peggiore delle due combinazioni.
+     */
+    public function refresh(): static
+    {
+        $this->massimaleMemorizzato = null;
+
+        return parent::refresh();
     }
 
     public function saldoDisponibile(): int

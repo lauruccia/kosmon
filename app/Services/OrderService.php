@@ -111,6 +111,40 @@ class OrderService
                 $perChiave[$chiave]['quantita'] += max(1, (int) $riga['quantity']);
             }
 
+            // Le combinazioni si bloccano tutte insieme, ORDINATE per id, come
+            // si fa qui sopra con i prodotti.
+            //
+            // Prima si bloccavano una per volta dentro il ciclo, nell'ordine
+            // in cui capitavano nel carrello. Due cose sbagliate:
+            //
+            //   - una query in piu' per ogni riga, dentro una transazione che
+            //     nel frattempo TIENE I LOCK: piu' tempo si sta li' dentro,
+            //     piu' a lungo si blocca chiunque altro stia comprando lo
+            //     stesso prodotto;
+            //   - e soprattutto un ORDINE DI BLOCCO diverso a ogni carrello.
+            //     Due clienti che comprano le stesse due taglie in ordine
+            //     opposto si bloccano a vicenda: e' la ricetta esatta del
+            //     deadlock, e sarebbe uscita fuori solo sotto carico, cioe'
+            //     nel giorno peggiore. Un ordine unico e crescente lo rende
+            //     impossibile.
+            $idVarianti = collect($perChiave)
+                ->pluck('variant')
+                ->filter()
+                ->pluck('id')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $variantiBloccate = $idVarianti === []
+                ? collect()
+                : ListingVariant::query()
+                    ->whereIn('id', $idVarianti)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
             $company        = null;
             $itemsDaCreare  = [];
             $totaleKy       = 0;
@@ -131,7 +165,7 @@ class OrderService
                 $variante = null;
                 if ($listing->has_variants || ($riga['variant'] !== null)) {
                     $variante = $riga['variant']
-                        ? ListingVariant::query()->lockForUpdate()->find($riga['variant']->id)
+                        ? $variantiBloccate->get((int) $riga['variant']->id)
                         : null;
 
                     if (! $variante || (int) $variante->listing_id !== (int) $listing->id) {

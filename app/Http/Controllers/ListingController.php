@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\HandlesMovementFilters;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Listing;
+use App\Models\ListingOffer;
 use App\Models\ListingCategory;
 use App\Models\MarketplaceOrderPayment;
 use App\Models\PaymentGateway;
@@ -195,13 +196,32 @@ class ListingController extends Controller
             return $redirect;
         }
 
+        // Ordinamento e paginazione nel DATABASE, non in PHP (audit 26/08,
+        // punto 4.3). Prima si caricavano TUTTE le offerte attive in memoria
+        // e si ordinavano dopo: una pagina che cresce senza limite, e che il
+        // giorno in cui le offerte diventassero cinquecento si porterebbe
+        // dietro cinquecento prodotti con azienda e piano per mostrarne
+        // quindici.
+        //
+        // La sotto-select pesca la scadenza dell'offerta viva di ogni
+        // prodotto: e' esattamente la strada che l'indice
+        // (listing_id, cancelled_at, expires_at) di `listing_offers` sa
+        // percorrere.
         $listings = Listing::query()
             ->with(['company.plan', 'activeOffer'])
             ->active()
             ->onOffer()
-            ->get()
-            ->sortBy(fn (Listing $listing) => $listing->activeOffer?->expires_at)
-            ->values();
+            ->addSelect(['scadenza_offerta' => ListingOffer::query()
+                ->select('expires_at')
+                ->whereColumn('listing_id', 'listings.id')
+                ->whereNull('cancelled_at')
+                ->where('expires_at', '>', now())
+                ->orderBy('expires_at')
+                ->limit(1),
+            ])
+            ->orderBy('scadenza_offerta')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('portal.shop-offers', [
             'pageTitle'      => 'Offerte della settimana — Shop KMoney',
@@ -227,8 +247,20 @@ class ListingController extends Controller
             return redirect()->route('portal.shop')->with('portal_error', 'Questo prodotto non è più disponibile.');
         }
 
-        // Incrementa contatore visite
-        $listing->increment('views_count');
+        // Il contatore visite si aggiorna DOPO aver risposto (audit 26/08,
+        // punto 4.3). Era una UPDATE sincrona dentro la richiesta: su un
+        // prodotto molto visto le richieste si mettevano in fila sul lock di
+        // quella riga, e chi guardava la pagina aspettava il proprio turno
+        // per far salire un numero che non gli interessa.
+        //
+        // `afterResponse` non toglie la scrittura, la sposta fuori
+        // dall'attesa: la pagina parte, poi si conta. E se fallisse, si
+        // perderebbe una visita — che e' il genere giusto di cosa da perdere.
+        $daContare = $listing->id;
+
+        dispatch(function () use ($daContare) {
+            Listing::query()->whereKey($daContare)->increment('views_count');
+        })->afterResponse();
 
         return view('portal.shop-show', [
             'pageTitle'      => $listing->title . ' — Shop KMoney',

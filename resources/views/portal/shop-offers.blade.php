@@ -61,10 +61,18 @@
                 @if($offer)
                     <div class="offer-hero-expiry">⏱ Scade il {{ $offer->expires_at->locale('it')->isoFormat('D MMMM YYYY, HH:mm') }}</div>
                 @endif
-                <a class="cta" style="margin-top:10px;" href="{{ route('portal.shop.show', $listing) }}">Acquista ora</a>
+                {{-- Stessa correzione del catalogo (27/08): questo bottone
+                     apre la scheda, non compra. Diceva "Acquista ora". --}}
+                <a class="cta" style="margin-top:10px;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
             </div>
         </article>
         @endforeach
+    </div>
+
+    {{-- La pagina adesso e' paginata: prima caricava TUTTE le offerte attive
+         in memoria e le ordinava in PHP. --}}
+    <div style="margin-top:18px;">
+        {{ $listings->links() }}
     </div>
 @endif
 
