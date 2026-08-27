@@ -137,9 +137,12 @@ class AttritiAcquistoTest extends TestCase
 
         $html = $this->actingAs($buyer)->get(route('portal.shop'))->assertOk()->getContent();
 
-        // Il bottone della card apre la scheda: deve dirlo. "Acquista ora"
-        // resta soltanto dove si compra davvero.
-        $this->assertStringContainsString('Vedi il prodotto', $html);
+        // Dal 27/08 la card di un prodotto semplice e disponibile l'acquisto
+        // lo FA davvero: "Aggiungi al carrello" mette nel carrello senza
+        // ricaricare la pagina. Il divieto invece resta identico, ed e' la
+        // parte che conta: nessun bottone puo' dire "Acquista ora" e limitarsi
+        // ad aprire un'altra pagina.
+        $this->assertStringContainsString('Aggiungi al carrello', $html);
         $this->assertStringNotContainsString('>Acquista ora</a>', $html);
     }
 

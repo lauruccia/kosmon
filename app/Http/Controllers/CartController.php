@@ -13,6 +13,7 @@ use App\Notifications\OrderPlacedNotification;
 use App\Services\CartService;
 use App\Services\OrderService;
 use App\Services\ShippingAddressBook;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -85,7 +86,20 @@ class CartController extends Controller
         ]);
     }
 
-    public function add(Request $request, Listing $listing): RedirectResponse
+    /**
+     * Mette un prodotto nel carrello.
+     *
+     * Risponde in DUE modi (27/08/2026, audit 26/08 blocco 5): come ha sempre
+     * fatto — un redirect con il messaggio — e in JSON, quando chi chiede lo
+     * chiede. La seconda strada serve al mini-carrello, che aggiunge senza
+     * ricaricare la pagina; la prima resta perche' e' quella che funziona
+     * quando il JavaScript non gira, ed e' anche quella che il browser usa da
+     * solo se la richiesta in background fallisce.
+     *
+     * Le REGOLE non sono duplicate: sono e restano quelle di CartService, per
+     * tutte e due le strade. Qui cambia solo la forma della risposta.
+     */
+    public function add(Request $request, Listing $listing): RedirectResponse|JsonResponse
     {
         $user = $request->user();
         $account = $this->resolveAccount($user);
@@ -106,17 +120,40 @@ class CartController extends Controller
                 ->find($validated['variant_id']);
 
         try {
-            $this->cartService->aggiungi(
+            $riga = $this->cartService->aggiungi(
                 $account,
                 $listing,
                 (int) ($validated['quantity'] ?? 1),
                 $variante,
             );
         } catch (\RuntimeException $e) {
-            return back()->with('portal_error', $e->getMessage());
+            return $request->wantsJson()
+                ? response()->json(['ok' => false, 'messaggio' => $e->getMessage()], 422)
+                : back()->with('portal_error', $e->getMessage());
         }
 
-        return back()->with('portal_success', '"' . $listing->title . '" è nel carrello.');
+        $messaggio = '"' . $listing->title . '" è nel carrello.';
+
+        if ($request->wantsJson()) {
+            $carrello = Cart::attivoPer($account);
+
+            return response()->json([
+                'ok'        => true,
+                'messaggio' => $messaggio,
+                // Il conteggio lo ricalcola il carrello, non il JavaScript
+                // sommando: due schede aperte sullo stesso conto devono
+                // vedere lo stesso numero, e l'unico che lo sa e' il server.
+                'righe'     => (int) $carrello->items()->sum('quantity'),
+                'prodotto'  => [
+                    'titolo'    => $listing->title,
+                    'quantita'  => (int) $riga->quantity,
+                    'immagine'  => $listing->card_image_url,
+                    'variante'  => $variante?->etichetta_corta,
+                ],
+            ]);
+        }
+
+        return back()->with('portal_success', $messaggio);
     }
 
     public function update(Request $request, CartItem $item): RedirectResponse

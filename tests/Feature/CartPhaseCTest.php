@@ -529,7 +529,14 @@ class CartPhaseCTest extends TestCase
         $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
 
         $this->assertStringContainsString(route('portal.cart'), $html, 'Il menu deve portare al carrello.');
-        $this->assertStringContainsString('<span class="nav-count">3</span>', $html, 'Con tre pezzi dentro, il numerino deve dire 3.');
+        // Dal 27/08 il numerino porta `data-carrello-conteggio`, perche' il
+        // mini-carrello lo aggiorna senza ricaricare la pagina. Il numero che
+        // deve leggersi e' sempre quello.
+        $this->assertMatchesRegularExpression(
+            '/<span class="nav-count" data-carrello-conteggio[^>]*>3<\/span>/',
+            $html,
+            'Con tre pezzi dentro, il numerino deve dire 3.'
+        );
     }
 
     public function test_senza_niente_nel_carrello_il_numerino_non_compare(): void
@@ -542,7 +549,17 @@ class CartPhaseCTest extends TestCase
         $this->assertStringContainsString(route('portal.cart'), $html);
         // Attenzione: la parola "nav-count" da sola compare sempre, e' anche il
         // nome della classe nel foglio di stile del layout. Si cerca il markup.
-        $this->assertStringNotContainsString('<span class="nav-count">', $html, 'Carrello vuoto: nessun numerino.');
+        //
+        // E dal 27/08 il numerino ESISTE anche a zero — nascosto — perche' il
+        // mini-carrello deve avere qualcosa da aggiornare al primo prodotto
+        // aggiunto. Quindi non basta piu' che manchi: deve esserci E essere
+        // nascosto. Senza questa precisazione il test resterebbe verde per un
+        // motivo diverso da quello per cui e' stato scritto.
+        $this->assertMatchesRegularExpression(
+            '/<span class="nav-count" data-carrello-conteggio hidden>0<\/span>/',
+            $html,
+            'Carrello vuoto: il numerino c\'e\' ma non si vede.'
+        );
     }
 
     public function test_l_icona_del_carrello_e_in_alto_su_ogni_pagina(): void
@@ -562,7 +579,11 @@ class CartPhaseCTest extends TestCase
             $html = $this->actingAs($buyer)->get($pagina)->assertOk()->getContent();
 
             $this->assertStringContainsString('class="cart-bell"', $html, "Icona carrello assente su {$pagina}");
-            $this->assertStringContainsString('<span class="notif-badge">2</span>', $html, "Numerino assente su {$pagina}");
+            $this->assertMatchesRegularExpression(
+                '/<span class="notif-badge" data-carrello-conteggio[^>]*>2<\/span>/',
+                $html,
+                "Numerino assente su {$pagina}"
+            );
         }
     }
 

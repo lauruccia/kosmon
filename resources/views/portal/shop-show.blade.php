@@ -379,7 +379,7 @@
                          abbastanza KY non vedeva le taglie da nessuna parte e
                          il bottone finiva contro "Scegli una variante prima di
                          aggiungere il prodotto al carrello" (25/08/2026). --}}
-                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}">
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}" data-carrello>
                         @csrf
                         <input type="hidden" name="quantity" value="1">
                         <button type="submit" class="cta-outline">Aggiungi al carrello</button>
@@ -404,7 +404,7 @@
                          davvero, con un confirm() del browser come unica
                          conferma: su mobile i dialoghi si possono sopprimere, e
                          allora un tocco diventava un addebito. --}}
-                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}">
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" id="{{ $formAcquistoId }}" data-carrello>
                         @csrf
 
                         @if($listing->hasLimitedStock() && $listing->stock_quantity > 1)

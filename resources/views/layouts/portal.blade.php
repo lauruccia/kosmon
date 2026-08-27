@@ -1706,9 +1706,12 @@
                                 <a class="sidebar-link {{ $an === 'cart' ? 'active' : '' }}" href="{{ route('portal.cart') }}">
                                     <span class="nav-icon">🧺</span>
                                     <span>Carrello</span>
-                                    @if(($cartCount ?? 0) > 0)
-                                        <span class="nav-count">{{ $cartCount }}</span>
-                                    @endif
+                                    {{-- Il numerino c'e' SEMPRE nel markup, nascosto
+                                         quando e' a zero: cosi' il JavaScript che
+                                         aggiunge al carrello senza ricaricare la
+                                         pagina ha qualcosa da aggiornare anche al
+                                         primo prodotto (27/08/2026). --}}
+                                    <span class="nav-count" data-carrello-conteggio {{ ($cartCount ?? 0) < 1 ? 'hidden' : '' }}>{{ $cartCount ?? 0 }}</span>
                                 </a>
                                 @endif
                                 {{-- Ordini (fase B, 27/08/2026).
@@ -2018,9 +2021,7 @@
                     @if (!$isBackoffice)
                     <a href="{{ route('portal.cart') }}" class="cart-bell" title="Carrello">
                         🛒
-                        @if (($cartCount ?? 0) > 0)
-                            <span class="notif-badge">{{ $cartCount > 9 ? '9+' : $cartCount }}</span>
-                        @endif
+                        <span class="notif-badge" data-carrello-conteggio data-breve {{ ($cartCount ?? 0) < 1 ? 'hidden' : '' }}>{{ ($cartCount ?? 0) > 9 ? '9+' : ($cartCount ?? 0) }}</span>
                     </a>
                     @endif
                     @if (!$isBackoffice)
@@ -2751,6 +2752,172 @@
             navigator.clipboard.writeText(text).then(done).catch(fallback);
         } else { fallback(); }
     });
+    </script>
+
+    {{--
+        ── IL MINI-CARRELLO (27/08/2026, audit 26/08 blocco 5) ──────────────
+
+        Prima, aggiungere al carrello ricaricava la pagina e ti sbatteva in
+        cima: dalla scheda prodotto si perdeva anche la galleria, e dal
+        catalogo si perdeva il punto in cui si stava scorrendo. Per comprare
+        tre cose si ricaricava tre volte.
+
+        Adesso l'aggiunta parte in background e questo riquadro conferma sul
+        posto, con il numerino del carrello aggiornato dal SERVER (non sommato
+        qui: due schede aperte sullo stesso conto devono vedere lo stesso
+        numero).
+
+        SENZA JAVASCRIPT NON CAMBIA NIENTE: i form restano form veri, con la
+        loro azione e il loro invio. E se la richiesta in background fallisce
+        — rete che cade, sessione scaduta — si lascia proseguire l'invio
+        normale, cosi' l'utente finisce comunque nel carrello invece che
+        davanti a un bottone che non fa niente.
+    --}}
+    <div id="mini-carrello" class="mini-carrello" hidden aria-live="polite">
+        <div class="mini-carrello-testa">
+            <strong id="mini-carrello-titolo">Aggiunto al carrello</strong>
+            <button type="button" class="mini-carrello-chiudi" aria-label="Chiudi">&times;</button>
+        </div>
+        <div class="mini-carrello-corpo">
+            <img id="mini-carrello-foto" alt="" hidden>
+            <div>
+                <div id="mini-carrello-prodotto"></div>
+                <div id="mini-carrello-riga2" class="subtle"></div>
+            </div>
+        </div>
+        <div class="mini-carrello-piede">
+            <button type="button" class="cta-outline mini-carrello-continua">Continua a comprare</button>
+            <a class="cta" href="{{ route('portal.cart') }}">Vai al carrello</a>
+        </div>
+    </div>
+
+    <style>
+        .mini-carrello {
+            position: fixed; right: 18px; bottom: 18px; z-index: 900;
+            width: min(340px, calc(100vw - 36px));
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(2,20,45,.18); padding: 14px 16px;
+            color: #10263d;
+        }
+        .mini-carrello[hidden] { display: none; }
+        .mini-carrello.errore { border-color: #fecaca; background: #fef2f2; }
+        .mini-carrello-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .mini-carrello-testa strong { font-size: 14px; }
+        .mini-carrello-chiudi {
+            background: none; border: none; font-size: 20px; line-height: 1;
+            color: #94a3b8; cursor: pointer; padding: 0 2px;
+        }
+        .mini-carrello-corpo { display: flex; gap: 10px; align-items: center; margin: 10px 0 12px; }
+        .mini-carrello-corpo img { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; flex: 0 0 auto; }
+        #mini-carrello-prodotto { font-size: 13.5px; font-weight: 600; }
+        #mini-carrello-riga2 { font-size: 12px; }
+        .mini-carrello-piede { display: flex; gap: 8px; }
+        .mini-carrello-piede .cta, .mini-carrello-piede .cta-outline {
+            flex: 1; text-align: center; font-size: 13px; padding: 8px 10px;
+        }
+        @media (max-width: 560px) {
+            .mini-carrello { left: 18px; right: 18px; width: auto; }
+        }
+    </style>
+
+    <script>
+    (function () {
+        var riquadro  = document.getElementById('mini-carrello');
+        if (! riquadro) { return; }
+
+        var titolo    = document.getElementById('mini-carrello-titolo');
+        var prodotto  = document.getElementById('mini-carrello-prodotto');
+        var riga2     = document.getElementById('mini-carrello-riga2');
+        var foto      = document.getElementById('mini-carrello-foto');
+        var piede     = riquadro.querySelector('.mini-carrello-piede');
+        var timer     = null;
+
+        function chiudi() { riquadro.hidden = true; }
+
+        riquadro.querySelector('.mini-carrello-chiudi').addEventListener('click', chiudi);
+        riquadro.querySelector('.mini-carrello-continua').addEventListener('click', chiudi);
+
+        function mostra(dati, errore) {
+            riquadro.classList.toggle('errore', !! errore);
+            titolo.textContent = errore ? 'Non è stato possibile aggiungerlo' : 'Aggiunto al carrello';
+            piede.hidden = !! errore;
+
+            if (errore) {
+                foto.hidden = true;
+                prodotto.textContent = dati;
+                riga2.textContent = '';
+            } else {
+                prodotto.textContent = dati.prodotto.titolo
+                    + (dati.prodotto.variante ? ' — ' + dati.prodotto.variante : '');
+                riga2.textContent = 'Nel carrello: ' + dati.righe
+                    + (dati.righe === 1 ? ' articolo' : ' articoli');
+
+                if (dati.prodotto.immagine) {
+                    foto.src = dati.prodotto.immagine;
+                    foto.hidden = false;
+                } else {
+                    foto.hidden = true;
+                }
+            }
+
+            riquadro.hidden = false;
+
+            // L'errore resta finche' non lo si chiude: e' una cosa da leggere.
+            clearTimeout(timer);
+            if (! errore) { timer = setTimeout(chiudi, 6000); }
+        }
+
+        function aggiornaNumerini(quante) {
+            document.querySelectorAll('[data-carrello-conteggio]').forEach(function (elemento) {
+                elemento.textContent = elemento.hasAttribute('data-breve') && quante > 9
+                    ? '9+'
+                    : quante;
+                elemento.hidden = quante < 1;
+            });
+        }
+
+        document.addEventListener('submit', function (evento) {
+            var form = evento.target;
+
+            if (! form.matches || ! form.matches('form[data-carrello]')) { return; }
+            if (! window.fetch) { return; }   // browser vecchio: invio normale
+
+            evento.preventDefault();
+
+            var bottone = form.querySelector('button[type="submit"]');
+            if (bottone) { bottone.disabled = true; }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+            .then(function (risposta) {
+                return risposta.json().then(function (dati) {
+                    return { stato: risposta.status, dati: dati };
+                });
+            })
+            .then(function (esito) {
+                if (bottone) { bottone.disabled = false; }
+
+                if (esito.dati && esito.dati.ok) {
+                    aggiornaNumerini(esito.dati.righe);
+                    mostra(esito.dati, false);
+                } else {
+                    mostra((esito.dati && esito.dati.messaggio)
+                        || 'Riprova, o apri la pagina del prodotto.', true);
+                }
+            })
+            .catch(function () {
+                // Rete caduta, sessione scaduta, risposta non leggibile: si
+                // lascia fare al browser quello che avrebbe fatto senza di
+                // noi. Meglio una pagina che si ricarica di un bottone morto.
+                form.removeAttribute('data-carrello');
+                form.submit();
+            });
+        });
+    })();
     </script>
 
     {{-- Legal Footer --}}

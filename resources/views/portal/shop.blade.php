@@ -1,6 +1,31 @@
 @extends('layouts.portal')
 
 @section('content')
+@php
+    // Calcolati UNA VOLTA per pagina, non per card: qui dentro ci sono due
+    // relazioni, e chiederle quindici volte sarebbe stato un N+1 travestito
+    // da comodita' (27/08/2026).
+    $ioSonoSospeso = (bool) $currentAccount->company?->isSuspended();
+    $miaAzienda    = $currentAccount->company_id;
+
+    // Il bottone "Aggiungi" compare solo dove il server direbbe di si':
+    // mostrarlo e poi rifiutare sarebbe peggio che non mostrarlo. I prodotti
+    // con le taglie restano fuori di proposito — la taglia va scelta, e si
+    // sceglie nella scheda.
+    $siPuoAggiungere = function ($listing) use ($ioSonoSospeso, $miaAzienda) {
+        return $listing->status === 'active'
+            && ! $listing->has_variants
+            && $listing->isInStock()
+            && ! $ioSonoSospeso
+            && (int) $listing->company_id !== (int) $miaAzienda;
+        // NIENTE controllo sul venditore sospeso: qui sarebbe codice morto.
+        // I prodotti di un'azienda sospesa non arrivano affatto in questa
+        // griglia — li esclude lo scope `active()` — e gli unici che sfuggono
+        // allo scope sono i PROPRI, gia' esclusi dalla riga qui sopra. Una
+        // mutazione l'ha dimostrato: toglierlo non faceva cadere niente.
+        // Il controllo vero, quello che conta, e' in CartService.
+    };
+@endphp
 {{-- Niente banner qui: li stampa gia' il layout (layouts/portal.blade.php).
      Ristamparli voleva dire leggere DUE VOLTE lo stesso avviso dopo ogni
      aggiunta al carrello — audit 26/08, blocco 5. --}}
@@ -138,7 +163,15 @@
                         <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                     @endif
                 </div>
+                @if($siPuoAggiungere($listing))
+                <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello>
+                    @csrf
+                    <input type="hidden" name="quantity" value="1">
+                    <button type="submit" class="cta" style="width:100%;">Aggiungi al carrello</button>
+                </form>
+                @else
                 <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
+                @endif
             </div>
         </article>
         @endforeach
@@ -209,7 +242,20 @@
             </div>
             <div class="page-actions" style="margin-top:2px;">
                 @if($listing->status === 'active')
-                    <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
+                    @if($siPuoAggiungere($listing))
+                        {{-- Un form vero, non un bottone finto: senza
+                             JavaScript aggiunge lo stesso, ricaricando la
+                             pagina come prima. Con il JavaScript parte in
+                             background e risponde il mini-carrello. --}}
+                        <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello style="flex:1;">
+                            @csrf
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="cta" style="width:100%;">Aggiungi al carrello</button>
+                        </form>
+                        <a class="cta secondary" href="{{ route('portal.shop.show', $listing) }}">Vedi</a>
+                    @else
+                        <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
+                    @endif
                 @else
                     <span class="listing-hidden-note">Non visibile al pubblico</span>
                 @endif
