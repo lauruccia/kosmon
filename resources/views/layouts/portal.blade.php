@@ -698,8 +698,32 @@
         .portal-grid   { grid-template-columns: 306px minmax(0, 1fr); align-items: start; }
         .summary-grid  { grid-template-columns: minmax(0, 1.25fr) minmax(280px, .85fr); }
         .delegate-grid { grid-template-columns: 340px minmax(0, 1fr); }
-        .admin-grid, .spotlight-grid, .catalog-grid, .grid-cards,
+        .admin-grid, .spotlight-grid, .grid-cards,
         .stats-grid, .entity-grid, .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+        /* ── CATALOGO PRODOTTI: righe SEMPRE piene (27/08/2026, richiesta Laura) ──
+           Le colonne NON sono piu' libere (`auto-fill`): con `auto-fill` il numero
+           di colonne dipendeva dai pixel disponibili e su un monitor largo ne
+           uscivano 7, cioe' 15 prodotti a pagina = due righe piene + UNO solo,
+           orfano, in fondo. Qui le colonne sono a scaglioni, e ogni scaglione e'
+           un DIVISORE dei 15 prodotti per pagina (5 e 3): cosi' ogni pagina piena
+           chiude sempre l'ultima riga. Sul telefono restano 2 colonne (piu'
+           leggibili di 3 su 360px): 15 e' dispari, quindi l'ultima card si allarga
+           su entrambe le colonne invece di lasciare mezza riga vuota.
+           Gli scaglioni sono in px di CSS, quindi lo ZOOM del browser li attraversa
+           da solo: zoom out = piu' spazio = si resta a 5 colonne piu' a lungo.
+           ATTENZIONE: se si cambia `paginate(15)` in ListingController (index e
+           mine) vanno rifatti anche questi numeri — 15 deve restare divisibile
+           per ogni conteggio di colonne qui sotto. */
+        .catalog-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+        @media (max-width: 1200px) {
+            .catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 560px) {
+            .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            /* L'orfana di fine pagina occupa la riga intera invece di lasciarla a meta'. */
+            .catalog-grid > .catalog-card:last-child:nth-child(odd) { grid-column: span 2; }
+        }
         .hero-strip    { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .info-grid     { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .info-grid > div { min-width: 0; }
@@ -1105,8 +1129,10 @@
             .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 980px) {
+            /* .catalog-grid NON e' qui: il catalogo ha la sua scaletta di colonne
+               (5 / 3 / 2) piu' su, e a una colonna non ci va mai. */
             .portal-grid, .summary-grid, .delegate-grid, .admin-grid, .grid-cards,
-            .spotlight-grid, .catalog-grid, .stats-grid, .hero-strip, .entity-grid,
+            .spotlight-grid, .stats-grid, .hero-strip, .entity-grid,
             .info-grid, .form-split, .tile-grid, .permission-grid, .role-grid {
                 grid-template-columns: 1fr;
             }
