@@ -11,13 +11,19 @@
 --}}
 @php
     $eVenditore = $lato === 'venditore';
-    $passaggi   = $eVenditore ? $order->passaggiDisponibili() : [];
+    $eAdmin     = $eAdmin ?? false;
+
+    // L'admin corregge, il venditore avanza: due elenchi diversi di proposito.
+    // Vedi Order::PASSAGGI_DEL_VENDITORE e Order::STATI_DI_CONSEGNA.
+    $passaggi = ! $eVenditore
+        ? []
+        : ($eAdmin ? $order->passaggiPerAdmin() : $order->passaggiDisponibili());
 @endphp
 
 <div style="margin-bottom:16px;">
     <a href="{{ $eVenditore ? route('portal.sales.index') : route('portal.orders.index') }}" class="shop-back-link">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        {{ $eVenditore ? 'Torna agli ordini ricevuti' : 'Torna ai miei ordini' }}
+        {{ $eVenditore ? ($eAdmin ? 'Torna agli ordini dei negozi' : 'Torna agli ordini ricevuti') : 'Torna ai miei ordini' }}
     </a>
 </div>
 
@@ -90,11 +96,19 @@
         {{-- ── I bottoni: solo chi vende ─────────────────────────────────── --}}
         @if($eVenditore && ! empty($passaggi))
         <section class="card light-card">
-            <span class="eyebrow">Aggiorna</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">A che punto sei</h3>
+            <span class="eyebrow">{{ $eAdmin ? 'Correggi' : 'Aggiorna' }}</span>
+            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+                {{ $eAdmin ? 'Stato dell\'ordine' : 'A che punto sei' }}
+            </h3>
             <p class="subtle" style="font-size:12.5px;margin:0 0 14px;">
-                Il cliente vede questo stato dalla sua pagina ordini. Cambiarlo non muove denaro:
-                l'addebito è già avvenuto alla cassa.
+                @if($eAdmin)
+                    Stai intervenendo <strong>per conto di {{ $order->company?->name ?? 'questo negozio' }}</strong>:
+                    puoi anche riportare l'ordine indietro. Resta scritto nel registro chi l'ha fatto.
+                    Annullamenti e rimborsi non passano da qui, perché muovono denaro.
+                @else
+                    Il cliente vede questo stato dalla sua pagina ordini. Cambiarlo non muove denaro:
+                    l'addebito è già avvenuto alla cassa.
+                @endif
             </p>
 
             <form method="POST" action="{{ route('portal.sales.status', $order) }}">
@@ -118,8 +132,8 @@
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     @foreach($passaggi as $stato => $etichetta)
                         <button type="submit" name="stato" value="{{ $stato }}"
-                                class="{{ $loop->first ? 'cta' : 'cta-outline' }}">
-                            Segna «{{ $etichetta }}»
+                                class="{{ (! $eAdmin && $loop->first) ? 'cta' : 'cta-outline' }}">
+                            {{ $eAdmin ? 'Porta a' : 'Segna' }} «{{ $etichetta }}»
                         </button>
                     @endforeach
                 </div>

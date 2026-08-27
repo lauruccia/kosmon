@@ -329,9 +329,197 @@ class OrdiniFaseBTest extends TestCase
         $this->assertSame(0, AuditLog::where('event', 'order.status.changed')->count());
     }
 
+
+    // =========================================================================
+    // La voce di menu
+    // =========================================================================
+
+    /**
+     * Segnalato da Laura il 27/08: da utenza privata "I miei ordini" non
+     * compariva nel menu Circuito.
+     *
+     * Era il cancello sbagliato. Shop e Carrello stanno dietro al permesso
+     * marketplace, ed e' giusto; lo storico dei PROPRI acquisti no. Chi ha
+     * comprato deve poterlo rivedere anche il giorno in cui gli venisse tolto
+     * quel permesso — le ricevute non si tolgono.
+     */
+    public function test_i_miei_ordini_si_vede_anche_senza_permesso_marketplace(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(route('portal.orders.index'), $html,
+            'Lo storico dei propri acquisti non dipende dal permesso marketplace.');
+
+        // E che il permesso davvero non ce l'abbia lo si dice qui, non
+        // cercando l'assenza di "/shop" nell'HTML: quella stringa compare
+        // comunque dentro "/shop/carrello" dell'icona del carrello in alto.
+        $this->assertFalse($buyer->canAccessMarketplace());
+    }
+
+    public function test_ordini_ricevuti_resta_riservato_a_chi_ha_un_negozio(): void
+    {
+        [$buyer] = $this->makeBuyer(saldo: 100000);
+
+        $html = $this->actingAs($buyer)->get(route('portal.dashboard'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString(route('portal.sales.index'), $html);
+    }
+
+    // =========================================================================
+    // L'admin gestisce per conto delle aziende (richiesta di Laura, 27/08)
+    // =========================================================================
+
+    public function test_l_admin_vede_gli_ordini_di_tutti_i_negozi(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$uno] = $this->makeSeller();
+        [$due] = $this->makeSeller();
+        $this->ordina($buyerAccount, $buyer, $this->makeListing($uno, prezzo: 2000, kyPercentage: 100, extra: ['title' => 'Roba del primo']));
+        $this->ordina($buyerAccount, $buyer, $this->makeListing($due, prezzo: 2000, kyPercentage: 100, extra: ['title' => 'Roba del secondo']));
+
+        $this->actingAs($this->makeAdmin())->get(route('portal.sales.index'))
+            ->assertOk()
+            ->assertSee('Roba del primo')
+            ->assertSee('Roba del secondo')
+            // E deve sapere di CHI sono, altrimenti non puo' gestirli per loro conto.
+            ->assertSee($uno->name)
+            ->assertSee($due->name);
+    }
+
+    public function test_l_admin_puo_filtrare_per_negozio(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$uno] = $this->makeSeller();
+        [$due] = $this->makeSeller();
+        $this->ordina($buyerAccount, $buyer, $this->makeListing($uno, prezzo: 2000, kyPercentage: 100, extra: ['title' => 'Roba del primo']));
+        $this->ordina($buyerAccount, $buyer, $this->makeListing($due, prezzo: 2000, kyPercentage: 100, extra: ['title' => 'Roba del secondo']));
+
+        $this->actingAs($this->makeAdmin())
+            ->get(route('portal.sales.index', ['company' => $uno->id]))
+            ->assertOk()
+            ->assertSee('Roba del primo')
+            ->assertDontSee('Roba del secondo');
+    }
+
+    public function test_l_admin_puo_far_avanzare_un_ordine_per_conto_del_negozio(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $ordine = $this->ordina($buyerAccount, $buyer, $listing);
+        $saldo = (int) $buyerAccount->fresh()->available_balance;
+        $movimenti = Transfer::count();
+
+        $this->actingAs($this->makeAdmin())
+            ->post(route('portal.sales.status', $ordine), ['stato' => Order::STATUS_SHIPPED])
+            ->assertSessionHas('portal_success');
+
+        $this->assertSame(Order::STATUS_SHIPPED, $ordine->fresh()->status);
+
+        // Vale anche per l'admin: correggere uno stato non muove denaro.
+        $this->assertSame($saldo, (int) $buyerAccount->fresh()->available_balance);
+        $this->assertSame($movimenti, Transfer::count());
+    }
+
+    /**
+     * E' la ragione per cui l'admin esiste in questa pagina: rimediare a un
+     * "spedito" premuto per sbaglio. Il venditore non puo' farlo (va solo
+     * avanti), e questa e' l'altra meta' di quella decisione.
+     */
+    public function test_l_admin_puo_riportare_indietro_un_ordine_e_le_date_si_puliscono(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$company, $sellerUser] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $ordine = $this->ordina($buyerAccount, $buyer, $listing);
+
+        $this->actingAs($sellerUser)->post(route('portal.sales.status', $ordine), [
+            'stato' => Order::STATUS_SHIPPED, 'tracking_code' => 'SBAGLIATO',
+        ]);
+        $this->assertNotNull($ordine->fresh()->shipped_at);
+
+        $this->actingAs($this->makeAdmin())
+            ->post(route('portal.sales.status', $ordine), ['stato' => Order::STATUS_PREPARING])
+            ->assertSessionHas('portal_success');
+
+        $ordine->refresh();
+        $this->assertSame(Order::STATUS_PREPARING, $ordine->status);
+        // Una data di spedizione su un ordine "in preparazione" racconterebbe
+        // una storia falsa nella cronologia.
+        $this->assertNull($ordine->shipped_at);
+    }
+
+    public function test_nemmeno_l_admin_puo_toccare_un_ordine_che_aspetta_gli_euro(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller();
+        $this->makeGateway($company);
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 75);
+        $ordine = $this->ordina($buyerAccount, $buyer, $listing);
+
+        $this->actingAs($this->makeAdmin())
+            ->post(route('portal.sales.status', $ordine), ['stato' => Order::STATUS_PREPARING])
+            ->assertSessionHas('portal_error');
+
+        $this->assertSame(Order::STATUS_PENDING_PAYMENT, $ordine->fresh()->status);
+    }
+
+    public function test_nemmeno_l_admin_puo_annullare_da_qui(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $ordine = $this->ordina($buyerAccount, $buyer, $listing);
+
+        // Annullamenti e rimborsi muovono denaro: sono il giro 2, e non devono
+        // entrare da una scorciatoia.
+        foreach ([Order::STATUS_CANCELLED, Order::STATUS_REFUNDED] as $stato) {
+            $this->actingAs($this->makeAdmin())
+                ->post(route('portal.sales.status', $ordine), ['stato' => $stato])
+                ->assertSessionHas('portal_error');
+        }
+
+        $this->assertSame(Order::STATUS_PAID, $ordine->fresh()->status);
+    }
+
+    public function test_la_traccia_distingue_l_admin_dal_venditore(): void
+    {
+        [$buyer, $buyerAccount] = $this->makeBuyer(saldo: 100000);
+        [$company] = $this->makeSeller();
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $ordine = $this->ordina($buyerAccount, $buyer, $listing);
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin)->post(route('portal.sales.status', $ordine), [
+            'stato' => Order::STATUS_SHIPPED,
+        ]);
+
+        $log = AuditLog::query()->where('event', 'order.status.changed')->sole();
+        $this->assertSame($admin->id, (int) $log->actor_user_id);
+        $this->assertTrue($log->context['per_conto_del_negozio']);
+    }
+
     // =========================================================================
     // Impalcatura
     // =========================================================================
+
+    private function makeAdmin(): \App\Models\User
+    {
+        return \App\Models\User::create([
+            'name'                => 'Admin del circuito',
+            'email'               => 'admin-' . \Illuminate\Support\Str::random(8) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'role'                => 'admin',
+            'is_active'           => true,
+            'is_super_admin'      => true,
+            'email_verified_at'   => now(),
+            'contract_signed_at'  => now(),
+        ]);
+    }
 
     private function ordina($buyerAccount, $buyer, $listing, int $quantita = 1): Order
     {

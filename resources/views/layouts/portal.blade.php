@@ -1420,6 +1420,11 @@
                                 @if($isFullBackoffice)
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-orders' ? 'active' : '' }}" href="{{ route('admin.listings.orders') }}"><span class="subnav-icon">OR</span><span>Ordini</span></a>
                                 @endif
+                                {{-- Gli ordini dei negozi (fase B, 27/08/2026): l'admin li
+                                     gestisce per conto delle aziende dalla STESSA pagina che
+                                     usa il venditore, cosi' vede quello che vede lui. Diversa
+                                     da "Ordini" qui sopra, che e' la vista sui movimenti. --}}
+                                <a class="sidebar-sublink {{ ($activeNav ?? '') === 'vendite' ? 'active' : '' }}" href="{{ route('portal.sales.index') }}"><span class="subnav-icon">GO</span><span>Gestione ordini</span></a>
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-categories' ? 'active' : '' }}" href="{{ route('admin.listing-categories.index') }}"><span class="subnav-icon">CT</span><span>Categorie</span></a>
                                 {{-- Attributi prodotti variabili (2026-08-25, fase D). --}}
                                 <a class="sidebar-sublink {{ ($activeNav ?? '') === 'admin-listing-attributes' ? 'active' : '' }}" href="{{ route('admin.listing-attributes.index') }}"><span class="subnav-icon">AT</span><span>Attributi</span></a>
@@ -1652,7 +1657,9 @@
                             $canMkt   = (bool) $cuViewer?->canAccessMarketplace();
                             $canPlan  = ($canMkt || $cuViewer?->is_super_admin) && $cuViewer?->company_id;
                             $showCircuito = ($mv('aziende') && $cuViewer?->canViewCompaniesDirectory())
-                                || (($mv('shop') || $mv('shop-offers') || $mv('ordini') || $mv('vendite')) && $canMkt)
+                                || (($mv('shop') || $mv('shop-offers')) && $canMkt)
+                                || $mv('ordini')
+                                || ($mv('vendite') && ($cuViewer?->canAccessBackoffice() || ($canMkt && $cuViewer?->company_id)))
                                 || ($mv('plan') && $canPlan)
                                 || ($mv('annunci') && $cuViewer?->canAccessAnnouncements())
                                 || $mv('invita')
@@ -1688,17 +1695,29 @@
                                     @endif
                                 </a>
                                 @endif
-                                {{-- Ordini (fase B, 27/08/2026). "I miei ordini" lo vede
-                                     chiunque compri; "Ordini ricevuti" solo chi ha un
-                                     negozio, cioe' un'azienda. --}}
-                                @if($mv('ordini') && $canMkt)
+                                {{-- Ordini (fase B, 27/08/2026).
+
+                                     "I miei ordini" NON e' dietro a `$canMkt`, a
+                                     differenza di Shop e Carrello: e' lo storico dei
+                                     PROPRI acquisti, e chi ha comprato deve poterlo
+                                     rivedere anche il giorno in cui gli venisse tolto
+                                     il permesso marketplace. La pagina si limita da
+                                     sola - senza ordini mostra lo stato vuoto - e resta
+                                     comunque spegnibile dalla sua chiave.
+                                     (Segnalato da Laura il 27/08: da utenza privata la
+                                     voce non compariva.)
+
+                                     "Ordini ricevuti" invece e' roba da negozio, e
+                                     l'admin la usa per gestire gli ordini per conto
+                                     delle aziende. --}}
+                                @if($mv('ordini'))
                                 <a class="sidebar-link {{ $an === 'ordini' ? 'active' : '' }}" href="{{ route('portal.orders.index') }}">
                                     <span class="nav-icon">📦</span><span>I miei ordini</span>
                                 </a>
                                 @endif
-                                @if($mv('vendite') && $canMkt && $cuViewer?->company_id)
+                                @if($mv('vendite') && ($cuViewer?->canAccessBackoffice() || ($canMkt && $cuViewer?->company_id)))
                                 <a class="sidebar-link {{ $an === 'vendite' ? 'active' : '' }}" href="{{ route('portal.sales.index') }}">
-                                    <span class="nav-icon">🧾</span><span>Ordini ricevuti</span>
+                                    <span class="nav-icon">🧾</span><span>{{ $cuViewer?->canAccessBackoffice() ? 'Ordini dei negozi' : 'Ordini ricevuti' }}</span>
                                 </a>
                                 @endif
                                 {{-- "Offerte della settimana" (2026-08-13, richiesta di Laura): stesso

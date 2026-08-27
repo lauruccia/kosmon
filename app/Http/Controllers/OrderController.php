@@ -90,33 +90,51 @@ class OrderController extends Controller
     {
         $user = $request->user();
         $account = $this->resolveAccount($user);
+        $eAdmin = (bool) $user->canAccessBackoffice();
 
-        if ($redirect = $this->redirectIfNoAccount($account, $user)) {
+        // L'admin gestisce gli ordini PER CONTO delle aziende (richiesta di
+        // Laura, 27/08): entra da questa stessa pagina e li vede tutti. Non
+        // serve che abbia un conto operativo, e infatti la guardia qui sotto
+        // non lo riguarda.
+        if (! $eAdmin && ($redirect = $this->redirectIfNoAccount($account, $user))) {
             return $redirect;
         }
 
-        if (! $account->company_id) {
+        if (! $eAdmin && ! $account->company_id) {
             return redirect()->route('portal.dashboard')
                 ->with('portal_error', 'Le vendite le vede chi ha un negozio nel circuito.');
         }
+
+        $azienda = $eAdmin ? $request->integer('company') ?: null : (int) $account->company_id;
 
         // "Da lavorare" in cima, e dentro quel gruppo i piu' vecchi per primi:
         // in una lista di cose da spedire il piu' urgente e' quello che
         // aspetta da piu' tempo, non l'ultimo arrivato.
         $ordini = Order::query()
-            ->where('company_id', $account->company_id)
-            ->with(['items', 'buyerUser', 'payment'])
+            ->when($azienda, fn ($q) => $q->where('company_id', $azienda))
+            ->with(['items', 'buyerUser', 'payment', 'company'])
             ->orderByRaw("CASE WHEN `status` IN ('delivered','cancelled','refunded') THEN 1 ELSE 0 END")
             ->orderBy('placed_at')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return view('portal.sales', [
-            'pageTitle'      => 'Ordini ricevuti',
+            'pageTitle'      => $eAdmin ? 'Ordini dei negozi' : 'Ordini ricevuti',
             'currentAccount' => $account,
             'currentUser'    => $user,
             'ordini'         => $ordini,
+            'eAdmin'         => $eAdmin,
+            // Il filtro per azienda serve solo all'admin: il venditore vede
+            // gia' soltanto i propri.
+            'aziende'        => $eAdmin
+                ? \App\Models\Company::query()
+                    ->whereIn('id', Order::query()->select('company_id'))
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                : collect(),
+            'aziendaScelta'  => $azienda,
             'daLavorare'     => Order::query()
-                ->where('company_id', $account->company_id)
+                ->when($azienda, fn ($q) => $q->where('company_id', $azienda))
                 ->whereIn('status', [Order::STATUS_PAID, Order::STATUS_PREPARING])
                 ->count(),
             'activeNav'      => 'vendite',
@@ -128,11 +146,13 @@ class OrderController extends Controller
         $user = $request->user();
         $account = $this->resolveAccount($user);
 
-        if ($redirect = $this->redirectIfNoAccount($account, $user)) {
+        if (! $user->canAccessBackoffice() && ($redirect = $this->redirectIfNoAccount($account, $user))) {
             return $redirect;
         }
 
-        abort_unless($this->eIlVenditore($order, $account), 403);
+        $eAdmin = (bool) $user->canAccessBackoffice();
+
+        abort_unless($eAdmin || $this->eIlVenditore($order, $account), 403);
 
         return view('portal.order-show', [
             'pageTitle'      => 'Ordine ' . $order->numero,
@@ -140,6 +160,7 @@ class OrderController extends Controller
             'currentUser'    => $user,
             'order'          => $order->load(['company', 'items', 'payment', 'transfer', 'buyerUser']),
             'lato'           => 'venditore',
+            'eAdmin'         => $eAdmin,
             'activeNav'      => 'vendite',
         ]);
     }
@@ -155,12 +176,13 @@ class OrderController extends Controller
     {
         $user = $request->user();
         $account = $this->resolveAccount($user);
+        $eAdmin = (bool) $user->canAccessBackoffice();
 
-        if ($redirect = $this->redirectIfNoAccount($account, $user)) {
+        if (! $eAdmin && ($redirect = $this->redirectIfNoAccount($account, $user))) {
             return $redirect;
         }
 
-        abort_unless($this->eIlVenditore($order, $account), 403);
+        abort_unless($eAdmin || $this->eIlVenditore($order, $account), 403);
 
         $validated = $request->validate([
             'stato'         => ['required', Rule::in(array_keys(Order::STATUSES))],
@@ -168,11 +190,21 @@ class OrderController extends Controller
             'tracking_code' => ['nullable', 'string', 'max:100'],
         ]);
 
-        if (! $order->ilVenditorePuoPortarloA($validated['stato'])) {
+        // Due regole diverse di proposito: il venditore va solo avanti,
+        // l'admin si muove liberamente dentro gli stati di consegna. E' cosi'
+        // che una correzione ha sempre un responsabile - e infatti finisce in
+        // AuditLog con scritto chi era.
+        $ammesso = $eAdmin
+            ? $order->lAdminPuoPortarloA($validated['stato'])
+            : $order->ilVenditorePuoPortarloA($validated['stato']);
+
+        if (! $ammesso) {
             return back()->withInput()->with('portal_error',
                 'Da "' . $order->status_label . '" non si può passare a "'
                 . (Order::STATUSES[$validated['stato']] ?? $validated['stato'])
-                . '". Se serve correggere un ordine, scrivi all\'assistenza del circuito.');
+                . '".' . ($eAdmin
+                    ? ' Annullamenti e rimborsi non passano da qui: muovono denaro.'
+                    : ' Se serve correggere un ordine, scrivi all\'assistenza del circuito.'));
         }
 
         $precedente = $order->status;
@@ -194,9 +226,24 @@ class OrderController extends Controller
             $campi['delivered_at'] = now();
         }
 
+        // L'admin puo' tornare indietro, e allora le date davanti non valgono
+        // piu': un ordine riportato a "in preparazione" che si porta dietro una
+        // data di consegna racconta una storia falsa nella cronologia.
+        if ($eAdmin) {
+            $indice = array_search($validated['stato'], Order::STATI_DI_CONSEGNA, true);
+
+            if ($indice < array_search(Order::STATUS_SHIPPED, Order::STATI_DI_CONSEGNA, true)) {
+                $campi['shipped_at'] = null;
+            }
+
+            if ($indice < array_search(Order::STATUS_DELIVERED, Order::STATI_DI_CONSEGNA, true)) {
+                $campi['delivered_at'] = null;
+            }
+        }
+
         $order->forceFill($campi)->save();
 
-        $this->registraCambioDiStato($order, $precedente, $user, $request->ip());
+        $this->registraCambioDiStato($order, $precedente, $user, $request->ip(), $eAdmin);
 
         return back()->with('portal_success',
             'Ordine ' . $order->numero . ': ora è "' . $order->status_label . '".');
@@ -211,7 +258,7 @@ class OrderController extends Controller
      * l'admin (decisione di Laura), e il giorno che un compratore contesta una
      * consegna l'unica difesa e' sapere chi ha premuto quel bottone.
      */
-    private function registraCambioDiStato(Order $order, string $precedente, $user, ?string $ip): void
+    private function registraCambioDiStato(Order $order, string $precedente, $user, ?string $ip, bool $eAdmin = false): void
     {
         AuditLog::create([
             'actor_user_id'  => $user->id,
@@ -225,6 +272,11 @@ class OrderController extends Controller
                 'a'             => $order->status,
                 'carrier'       => $order->carrier,
                 'tracking_code' => $order->tracking_code,
+                // Chi ha corretto per conto del negozio, e chi invece stava
+                // gestendo i propri ordini: a distanza di mesi e' la
+                // differenza che conta.
+                'per_conto_del_negozio' => $eAdmin,
+                'company_id'            => $order->company_id,
             ],
         ]);
     }

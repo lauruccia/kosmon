@@ -113,6 +113,21 @@ class Order extends Model
      * arrivata, il venditore non deve preparare niente. E' una protezione per
      * lui, non un vincolo burocratico.
      */
+    /**
+     * Gli stati del percorso di consegna, quelli che NON muovono denaro.
+     *
+     * E' il perimetro dentro cui l'admin puo' muoversi liberamente per
+     * correggere: `cancelled` e `refunded` restano fuori perche' sono rimborsi
+     * veri, e `pending_payment` perche' dichiarare "pagato" un ordine che non
+     * ha incassato sarebbe una bugia, non una correzione.
+     */
+    public const STATI_DI_CONSEGNA = [
+        self::STATUS_PAID,
+        self::STATUS_PREPARING,
+        self::STATUS_SHIPPED,
+        self::STATUS_DELIVERED,
+    ];
+
     public const PASSAGGI_DEL_VENDITORE = [
         self::STATUS_PAID      => [self::STATUS_PREPARING, self::STATUS_SHIPPED],
         self::STATUS_PREPARING => [self::STATUS_SHIPPED],
@@ -261,6 +276,48 @@ class Order extends Model
     }
 
     // ── Il ciclo di vita ─────────────────────────────────────────────────────
+
+    /**
+     * L'admin puo' portare questo ordine allo stato chiesto?
+     *
+     * Decisione di Laura del 27/08: gli ordini li gestisce anche l'admin, per
+     * conto delle aziende. A differenza del venditore puo' andare anche
+     * ALL'INDIETRO - ed e' tutto il punto: e' l'unico modo di rimediare a un
+     * "spedito" premuto per sbaglio, ed e' il motivo per cui il venditore puo'
+     * andare solo avanti.
+     *
+     * Il perimetro pero' resta quello della consegna: un ordine fermo in
+     * attesa della quota in euro non ci entra nemmeno per mano dell'admin, e
+     * annullamenti e rimborsi restano fuori (muovono soldi: giro 2).
+     */
+    public function lAdminPuoPortarloA(string $nuovo): bool
+    {
+        return in_array($this->status, self::STATI_DI_CONSEGNA, true)
+            && in_array($nuovo, self::STATI_DI_CONSEGNA, true)
+            && $nuovo !== $this->status;
+    }
+
+    /**
+     * Gli stati fra cui l'admin puo' scegliere adesso, con la loro etichetta.
+     *
+     * @return array<string, string>
+     */
+    public function passaggiPerAdmin(): array
+    {
+        if (! in_array($this->status, self::STATI_DI_CONSEGNA, true)) {
+            return [];
+        }
+
+        $passaggi = [];
+
+        foreach (self::STATI_DI_CONSEGNA as $stato) {
+            if ($stato !== $this->status) {
+                $passaggi[$stato] = self::STATUSES[$stato];
+            }
+        }
+
+        return $passaggi;
+    }
 
     /** Il venditore puo' portare questo ordine allo stato chiesto? */
     public function ilVenditorePuoPortarloA(string $nuovo): bool

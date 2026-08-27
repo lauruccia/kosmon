@@ -13,6 +13,27 @@
     spedire l'urgente e' chi aspetta da piu' tempo, non l'ultimo arrivato.
 --}}
 
+{{-- L'admin gestisce gli ordini PER CONTO delle aziende (richiesta di Laura,
+     27/08): stessa pagina, ma senza il filtro sulla propria azienda e con la
+     possibilita' di sceglierne una. --}}
+@if($eAdmin && $aziende->isNotEmpty())
+<form method="GET" action="{{ route('portal.sales.index') }}" class="card light-card" style="margin-bottom:16px;">
+    <label class="field-label" for="company">Negozio</label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <select class="field-input" id="company" name="company" data-no-search style="max-width:340px;"
+                onchange="this.form.submit()">
+            <option value="">Tutti i negozi</option>
+            @foreach($aziende as $azienda)
+                <option value="{{ $azienda->id }}" @selected($aziendaScelta === $azienda->id)>{{ $azienda->name }}</option>
+            @endforeach
+        </select>
+        @if($aziendaScelta)
+            <a href="{{ route('portal.sales.index') }}" class="subtle" style="font-size:12.5px;">✕ Vedi tutti</a>
+        @endif
+    </div>
+</form>
+@endif
+
 @if($daLavorare > 0)
 <section class="card account-hero card-pad" style="margin-bottom:16px;">
     <div class="k-tag">Da spedire</div>
@@ -27,8 +48,14 @@
     <section class="card light-card" style="text-align:center;padding:48px 24px;">
         <div style="font-size:44px;line-height:1;margin-bottom:12px;">🧾</div>
         <h2 style="font-size:20px;font-weight:700;color:#10263d;margin:0 0 8px;">Nessun ordine ricevuto</h2>
-        <p class="subtle" style="margin:0 0 20px;">Quando qualcuno comprerà dal tuo negozio, lo troverai qui con l'indirizzo a cui spedire.</p>
+        <p class="subtle" style="margin:0 0 20px;">
+            {{ $eAdmin
+                ? 'Quando i negozi del circuito riceveranno ordini, li troverai qui e potrai gestirli per loro conto.'
+                : 'Quando qualcuno comprerà dal tuo negozio, lo troverai qui con l\'indirizzo a cui spedire.' }}
+        </p>
+        @unless($eAdmin)
         <a href="{{ route('portal.shop.mine') }}" class="cta" style="display:inline-block;">I miei prodotti</a>
+        @endunless
     </section>
 
 @else
@@ -48,6 +75,9 @@
                         {{ $order->summary_title }}
                     </div>
                     <div class="subtle" style="font-size:12.5px;">
+                        @if($eAdmin)
+                            {{ $order->company?->name ?? 'Negozio non più nel circuito' }} ·
+                        @endif
                         {{ $order->shipping_recipient_name ?: ($order->buyerUser?->name ?? 'Cliente del circuito') }}
                         · {{ $order->placed_at?->format('d/m/Y') }}
                     </div>
