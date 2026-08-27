@@ -625,15 +625,30 @@
     }
     .cta-outline:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.75); }
 
-    /* I due bottoni d'acquisto affiancati. `flex:1 1 140px` li tiene larghi
-       uguali finche' c'e' posto e li manda a capo quando il pannello si
-       stringe, invece di schiacciare "Aggiungi al carrello" su due righe.
-       align-items di default (stretch) li fa alti uguali nonostante le due
-       classi abbiano min-height diverse. */
-    .acquisto-azioni { display: flex; flex-wrap: wrap; gap: 10px; }
+    /* I due bottoni d'acquisto affiancati. Due trappole, tutte e due prese in
+       pieno il 27/08/2026 (i bottoni restavano incolonnati sul sito vero
+       mentre in prova sembravano a posto):
+
+       1. il form sta dentro .quick-actions, che e' gia' un flex container:
+          senza `flex:1 1 100%` il form si stringe sul contenuto e la riga dei
+          bottoni non prende la larghezza del pannello;
+       2. la colonna d'acquisto e' larga 360px, ma lo spazio DAVVERO
+          disponibile dentro la card e' ~280px: con una base di 140px per
+          bottone, 140+140+gap non ci stava e il flex-wrap li mandava a capo —
+          cioe' esattamente l'aspetto incolonnato di prima, ma per una ragione
+          diversa. Serve `flex:1 1 auto` (base = contenuto) con il testo su una
+          riga sola e un font leggermente piu' piccolo.
+
+       Sotto i ~280px vanno a capo per davvero, ed e' giusto: "Aggiungi al
+       carrello" spezzato su due righe sarebbe peggio. align-items di default
+       (stretch) li tiene alti uguali nonostante le min-height diverse. */
+    .quick-actions > form { flex: 1 1 100%; }
+    .acquisto-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
     .acquisto-azioni > .cta,
     .acquisto-azioni > .cta-outline {
-        flex: 1 1 140px; width: auto; margin-top: 0; text-align: center;
+        flex: 1 1 auto; min-width: 0; width: auto; margin-top: 0;
+        text-align: center; font-size: 13px; padding: 8px 10px;
+        white-space: nowrap;
     }
 
     @media (max-width: 900px) {
