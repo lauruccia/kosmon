@@ -3,7 +3,14 @@
 @section('content')
 <style>
     /* ── Layout ── */
-    .dir-main { display:grid; gap:20px; }
+    /* grid-template-columns:minmax(0,1fr) (2026-08-27): senza minmax la colonna
+       e' `auto`, cioe' larga quanto il figlio piu' largo. Bastava che la barra
+       dei filtri chiedesse piu' spazio di quello disponibile perche' TUTTA la
+       colonna dei contenuti (schede, tab, bottone "Vicino a te") sporgesse a
+       destra, dove .content-shell la taglia con overflow-x:clip: quella roba
+       diventa invisibile e non c'e' modo di scorrere fino a lei. Con
+       minmax(0,1fr) nessun figlio puo' piu' allargare la colonna. */
+    .dir-main { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; }
 
     /* ── Top bar (search + stats) ── */
     .dir-topbar {
@@ -20,31 +27,38 @@
        grandi spazi vuoti. Con una griglia a colonne fisse ogni campo resta
        nella propria cella, stessa riga, stessa base di allineamento — niente
        piu' salti di riga imprevedibili. */
+    /* Colonne auto-fit (2026-08-27): le 5 colonne fisse pretendevano una riga
+       da ~1550px e sotto quella misura non andavano a capo, sporgevano — ed
+       era questo a spingere fuori schermo il bottone "Cerca" e, tramite
+       .dir-main, l'intera colonna dei contenuti. Con auto-fit i campi si
+       ridispongono da soli su piu' righe: niente resta mai fuori. Il riquadro
+       "Filtro Kmoney" vale due colonne perche' tiene tre controlli. */
     .dir-searchbar {
         display:grid;
-        grid-template-columns: minmax(200px,1.3fr) minmax(130px,0.85fr) minmax(130px,0.85fr) auto auto;
+        grid-template-columns:repeat(auto-fit, minmax(170px,1fr));
         gap:8px 12px;
         align-items:end;
     }
     .dir-searchbar .field { margin:0; min-width:0; }
     .dir-searchbar .field label { font-size:11px; }
     .dir-searchbar .form-actions { margin:0; flex-shrink:0; }
-    @media(max-width:1180px){
-        .dir-searchbar { grid-template-columns: 1fr 1fr; }
-    }
+    .dir-searchbar .dir-ky-filter-group { grid-column:span 2; }
     @media(max-width:700px){
         .dir-searchbar { grid-template-columns: 1fr; }
+        .dir-searchbar .dir-ky-filter-group { grid-column:auto; }
     }
 
     /* ── Filtro Kmoney (checkbox + % esatta/minima raggruppati, punto 7) ──
-       Un unico riquadro compatto, SEMPRE su una riga sola (nowrap): prima si
-       spezzava su due righe (checkbox sopra, select sotto) e risultava piu'
-       alto degli altri campi, disallineando l'intera barra filtri. */
+       Riquadro unico e compatto: su schermo largo resta su una riga sola come
+       prima. Il nowrap + overflow-x:auto e' stato tolto (2026-08-27) perche'
+       quando lo spazio si stringeva la select "min." finiva NASCOSTA dentro
+       una barra che non sembrava scorrevole (stesso attrito gia' corretto nei
+       filtri dello shop). Ora va a capo: piu' alta, ma tutto raggiungibile. */
     .dir-ky-filter-group { min-width:0; }
     .dir-ky-filter-box {
-        display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+        display:flex; align-items:center; gap:8px 12px; flex-wrap:wrap;
         padding:6px 10px; border:1px solid var(--line); border-radius:10px;
-        background:var(--surface-soft); overflow-x:auto;
+        background:var(--surface-soft);
     }
     .dir-ky-checkbox-label {
         display:flex !important; align-items:center; gap:6px;
