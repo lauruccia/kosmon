@@ -167,6 +167,21 @@ class OrderService
                 $unitKy    = $variante ? $variante->quotaKy() : $listing->effective_ky_amount;
                 $unitEuro  = $variante ? $variante->quotaEuro() : $listing->effective_euro_amount;
 
+                // Difesa in profondita' (audit 26/08/2026, 1.5). La soglia sul
+                // prezzo minimo vive nel form prodotto e in quello delle
+                // offerte, ma non copre tutto: i prodotti caricati PRIMA di
+                // quella regola, e un delta di variante che abbassa il prezzo
+                // sotto la soglia, arrivano ancora qui con la quota KY
+                // arrotondata a zero. Un movimento da zero non e' registrabile
+                // e faceva morire l'intero carrello con un messaggio muto:
+                // meglio dire subito quale prodotto e' e perche'.
+                if ((int) $unitKy <= 0 && (int) $listing->effective_ky_percentage > 0) {
+                    throw new RuntimeException(
+                        '"' . $listing->title . '" ha un prezzo troppo basso perché la sua quota in KY sia calcolabile: '
+                        . 'segnalalo al venditore, per ora non è acquistabile.'
+                    );
+                }
+
                 $totaleKy   += $unitKy * $quantita;
                 $totaleEuro += $unitEuro * $quantita;
 
@@ -341,6 +356,24 @@ class OrderService
         if (! $haGateway) {
             throw new RuntimeException('Questo venditore non ha ancora configurato un metodo di pagamento per la quota in euro: riprova più tardi o contattalo direttamente.');
         }
+
+        // La quota in euro dev'essere incassabile davvero (audit 26/08/2026,
+        // 1.4). Stripe rifiuta gli incassi sotto i 50 centesimi: senza questo
+        // controllo un ordine da 25 centesimi di quota euro passava l'addebito
+        // KY e veniva respinto dopo, restando "in attesa del pagamento in
+        // euro" per sempre CON I KY GIA' USCITI. Si blocca qui, che e' prima
+        // di Order::create() e prima di book(): non si muove niente.
+        $minimo = (int) config('kmoney.shop.min_euro_quota', 50);
+
+        if ($minimo > 0 && $totaleEuro < $minimo) {
+            throw new RuntimeException(
+                'La quota in euro di questo ordine ('
+                . number_format($totaleEuro / 100, 2, ',', '.')
+                . ' €) è troppo bassa per essere incassata: il minimo è '
+                . number_format($minimo / 100, 2, ',', '.')
+                . ' €. Aumenta la quantità oppure scegli un prodotto con una quota in euro più alta.'
+            );
+        }
     }
 
     /**
@@ -434,4 +467,93 @@ class OrderService
 
         return $testo;
     }
+
+    /**
+     * Rimette in magazzino la merce di un ordine dello shop dopo un rimborso,
+     * e marca l'ordine come rimborsato (audit 26/08/2026, punto 1.3).
+     *
+     * Prima non lo faceva nessuno: `refundMerchant` accetta da sempre i
+     * movimenti `portal_marketplace_order` fra i rimborsabili, ma restituisce
+     * solo i soldi. I pezzi scalati all'acquisto restavano scalati, e dopo
+     * qualche reso il venditore risultava esaurito con la merce in mano.
+     *
+     * SOLO SUL RIMBORSO TOTALE (decisione di Laura, 26/08/2026): su un rimborso
+     * parziale non c'e' modo di sapere quanti pezzi siano tornati indietro, e
+     * indovinare sarebbe peggio che non fare niente. In quel caso questo metodo
+     * non tocca ne' le scorte ne' lo stato.
+     *
+     * Sta fuori da `TransferBookingService` di proposito: il motore finanziario
+     * non deve sapere che esiste uno shop. E sta DOPO il rimborso, non dentro:
+     * se questo pezzo fallisce, i soldi sono comunque tornati al compratore -
+     * che e' il verso giusto in cui sbagliare.
+     *
+     * E' idempotente: un ordine gia' `refunded` non viene toccato due volte.
+     *
+     * @return Order|null l'ordine aggiornato, oppure null se non c'era niente
+     *                    da fare (movimento non legato a un ordine dello shop,
+     *                    rimborso parziale, o scorte gia' restituite)
+     */
+    public function ripristinaScorteDopoRimborso(Transfer $originale): ?Order
+    {
+        if (! $originale->order_id) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($originale) {
+            $order = Order::query()->lockForUpdate()->find($originale->order_id);
+
+            if (! $order || $order->status === Order::STATUS_REFUNDED) {
+                return null;
+            }
+
+            // Quanto e' stato rimborsato in tutto su questo movimento: la somma
+            // di tutti i rimborsi contabilizzati, non solo dell'ultimo. Due
+            // rimborsi parziali che insieme coprono il totale contano come un
+            // rimborso totale, ed e' giusto cosi'.
+            $rimborsato = (int) Transfer::query()
+                ->where('reversed_transfer_id', $originale->id)
+                ->where('status', 'booked')
+                ->sum('amount');
+
+            if ($rimborsato < (int) $originale->amount) {
+                return null;
+            }
+
+            foreach ($order->items as $item) {
+                // Specchio esatto di come le scorte sono state scalate in
+                // place(): sulla combinazione se c'era, altrimenti sul
+                // prodotto, e solo se la scorta e' limitata.
+                //
+                // `variant_label` e' lo snapshot preso all'acquisto: se la
+                // combinazione e' stata cancellata nel frattempo,
+                // `listing_variant_id` e' diventato NULL ma l'etichetta resta.
+                // Serve a non rimettere sul PRODOTTO dei pezzi che erano stati
+                // tolti a una VARIANTE - il magazzino ne uscirebbe gonfiato.
+                if ($item->listing_variant_id) {
+                    $variante = ListingVariant::query()->lockForUpdate()->find($item->listing_variant_id);
+
+                    if ($variante && $variante->hasLimitedStock()) {
+                        $variante->increment('stock_quantity', $item->quantity);
+                    }
+
+                    continue;
+                }
+
+                if ($item->variant_label !== null) {
+                    continue;
+                }
+
+                $listing = Listing::query()->lockForUpdate()->find($item->listing_id);
+
+                if ($listing && $listing->hasLimitedStock()) {
+                    $listing->increment('stock_quantity', $item->quantity);
+                }
+            }
+
+            $order->forceFill(['status' => Order::STATUS_REFUNDED])->save();
+
+            return $order;
+        });
+    }
+
 }

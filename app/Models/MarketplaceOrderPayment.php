@@ -78,6 +78,37 @@ class MarketplaceOrderPayment extends Model
         static::creating(function (MarketplaceOrderPayment $payment): void {
             $payment->uuid ??= (string) Str::uuid();
         });
+
+        // Quando la quota in euro risulta incassata, l'ordine smette di essere
+        // "in attesa del pagamento in euro" (audit 26/08/2026, 1.2).
+        //
+        // Prima questo non succedeva da nessuna parte: `orders.status` veniva
+        // scritto UNA volta sola, alla creazione (OrderService::place), e i tre
+        // punti che incassano gli euro - conferma manuale del bonifico
+        // (PaymentController), ritorno di Stripe, ritorno di PayPal -
+        // aggiornavano solo questa riga. L'ordine restava `pending_payment`
+        // per sempre, anche a euro arrivati.
+        //
+        // Sta QUI e non nei tre chiamanti di proposito: e' esattamente
+        // dimenticandosene in uno che il buco si e' aperto, e domani i punti
+        // che incassano potrebbero essere quattro. Non muove denaro, allinea
+        // solo uno stato derivato, ed e' idempotente: rieseguirlo non cambia
+        // niente.
+        static::updated(function (MarketplaceOrderPayment $payment): void {
+            if (! $payment->wasChanged('status') || $payment->status !== self::STATUS_PAID) {
+                return;
+            }
+
+            $order = $payment->order;
+
+            // I pagamenti piu' vecchi del backfill non hanno un ordine, e un
+            // ordine gia' rimborsato non deve tornare "pagato".
+            if (! $order || $order->status !== \App\Models\Order::STATUS_PENDING_PAYMENT) {
+                return;
+            }
+
+            $order->forceFill(['status' => \App\Models\Order::STATUS_PAID])->save();
+        });
     }
 
     /**

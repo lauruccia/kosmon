@@ -26,6 +26,7 @@ use App\Models\Transfer;
 use App\Models\User;
 use App\Http\Controllers\Concerns\AuthorizesBackoffice;
 use App\Http\Controllers\Concerns\HandlesMovementFilters;
+use App\Services\OrderService;
 use App\Services\TransferBookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -262,6 +263,18 @@ class AdminController extends Controller
                 'reason' => $validated['reason'] ?? null,
             ],
         ]);
+
+        // Lo storno amministrativo e' sempre totale (l'importo e' quello pieno
+        // del movimento): se dietro c'era un ordine dello shop, la merce torna
+        // in magazzino e l'ordine diventa "Rimborsato" (audit 26/08/2026, 1.3).
+        // Stesso trattamento del rimborso emesso dal venditore, altrimenti la
+        // stessa operazione lascerebbe il magazzino in due stati diversi a
+        // seconda di chi l'ha eseguita.
+        try {
+            app(OrderService::class)->ripristinaScorteDopoRimborso($transfer);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
         return back()->with('portal_success', 'Movimento stornato correttamente.');
     }

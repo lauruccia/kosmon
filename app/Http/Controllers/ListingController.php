@@ -843,7 +843,14 @@ class ListingController extends Controller
             // salvato COSÌ COM'ERA in price_ky: un prodotto a "5 KY" finiva
             // salvato come 5 centesimi (0,05 KY) — bug segnalato da Laura il
             // 24/07 ("ho caricato un prodotto a 5ky, i clienti lo vedono a 0,05").
-            'price_ky'       => ['required', 'numeric', 'min:0.01', 'max:99999.99'],
+            // Il minimo NON e' piu' 0,01 KY (audit 26/08/2026, 1.5). Sotto la
+            // soglia di config('kmoney.shop.min_price_ky') la quota KY
+            // arrotondata puo' diventare zero - un centesimo al 25% fa
+            // round(0,25) = 0 - e un movimento da zero non e' registrabile:
+            // in un carrello con piu' venditori una riga cosi' faceva fallire
+            // l'INTERO acquisto, con un messaggio che nominava l'azienda ma non
+            // spiegava niente. Si blocca qui, dove il venditore puo' capirlo.
+            'price_ky'       => ['required', 'numeric', 'min:' . number_format(((int) config('kmoney.shop.min_price_ky', 100)) / 100, 2, '.', ''), 'max:99999.99'],
             'ky_percentage'  => ['required', 'integer', Rule::in(empty($allowedPercentages) ? Listing::KY_PERCENTAGES : $allowedPercentages)],
             'stock_mode'     => ['required', Rule::in(['unlimited', 'limited'])],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:999999', 'required_if:stock_mode,limited'],

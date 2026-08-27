@@ -64,9 +64,22 @@ class Order extends Model
     /** Non c'è più niente da incassare: KY mossi ed euro (se c'erano) saldati. */
     public const STATUS_PAID = 'paid';
 
+    /**
+     * Il movimento KY e' stato rimborsato per intero e la merce e' tornata in
+     * magazzino (audit 26/08/2026, 1.3). Solo sul rimborso TOTALE: su uno
+     * parziale non si puo' sapere quanti pezzi siano tornati indietro, quindi
+     * l'ordine resta com'era e le scorte non si toccano.
+     *
+     * Attenzione: riguarda solo i KY. Se l'ordine aveva anche una quota in
+     * euro gia' incassata, quella va restituita fuori dal circuito - il
+     * messaggio al venditore lo ricorda.
+     */
+    public const STATUS_REFUNDED = 'refunded';
+
     public const STATUSES = [
         self::STATUS_PENDING_PAYMENT => 'In attesa del pagamento in euro',
         self::STATUS_PAID            => 'Pagato',
+        self::STATUS_REFUNDED        => 'Rimborsato',
     ];
 
     protected $fillable = [

@@ -24,6 +24,7 @@ use App\Models\KyCardPurchase;
 use App\Models\TextPaymentRequest;
 use App\Notifications\PaymentRequestedNotification;
 use App\Services\GeocodingService;
+use App\Services\OrderService;
 use App\Services\TransferBookingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -1603,9 +1604,34 @@ class PortalController extends Controller
             ));
         }
 
-        return redirect()->route('portal.movements')->with('portal_success',
-            'Rimborso di ' . ky_format($refund->amount) . ' KY emesso correttamente.'
-        );
+        // Se il movimento rimborsato era un ordine dello shop e il rimborso e'
+        // ora totale, la merce torna in magazzino e l'ordine diventa
+        // "Rimborsato" (audit 26/08/2026, 1.3). Fuori dalla transazione del
+        // rimborso di proposito: i soldi sono gia' tornati al compratore, e se
+        // questo pezzo fallisse e' quello il verso giusto in cui sbagliare.
+        $messaggio = 'Rimborso di ' . ky_format($refund->amount) . ' KY emesso correttamente.';
+
+        try {
+            $ordineRimborsato = app(OrderService::class)->ripristinaScorteDopoRimborso($transfer);
+
+            if ($ordineRimborsato) {
+                $messaggio .= ' La merce è tornata disponibile in magazzino.';
+
+                // La quota in euro non passa dal circuito: nessuno qui dentro
+                // puo' restituirla, e non dirlo lascerebbe il venditore
+                // convinto di aver chiuso la pratica.
+                if ($ordineRimborsato->hasEuroQuota()) {
+                    $messaggio .= ' Attenzione: questo ordine aveva anche una quota di '
+                        . number_format($ordineRimborsato->total_eur / 100, 2, ',', '.')
+                        . ' € da saldare fuori dal circuito — se l\'hai già incassata, va restituita separatamente.';
+                }
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+            $messaggio .= ' Le scorte però non sono state ripristinate in automatico: controllale a mano sulla scheda prodotto.';
+        }
+
+        return redirect()->route('portal.movements')->with('portal_success', $messaggio);
     }
 
     public function paymentRequests(Request $request): View|RedirectResponse

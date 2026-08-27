@@ -201,6 +201,26 @@ class CartService
         //    stessa transazione: se il terzo venditore fallisce, i primi due
         //    non hanno incassato niente.
         $ordini = DB::transaction(function () use ($cart, $account, $user, $ipAddress, $buyerNote, $shippingAddress) {
+            // Il carrello si riprende QUI, bloccato (audit 26/08/2026, 1.1).
+            //
+            // Fra il controllo di sopra e questa riga puo' essersi infilata una
+            // seconda richiesta gemella: due schede aperte sulla cassa, o un
+            // doppio tap su una connessione lenta. Il doppio CLIC era gia'
+            // innocuo (il secondo POST arriva a transazione chiusa e trova il
+            // carrello 'ordered'); due richieste DAVVERO simultanee no: en-
+            // trambe leggevano un carrello 'active' fuori dalla transazione e
+            // arrivavano a pagare. L'idempotenza del motore finanziario non le
+            // fermava, perche' place() genera un idempotency_key nuovo a ogni
+            // chiamata e per lui erano due operazioni diverse.
+            //
+            // Con il lock la seconda aspetta qui che la prima abbia finito,
+            // poi trova 'ordered' e si ferma senza addebitare niente.
+            $bloccato = Cart::query()->lockForUpdate()->find($cart->id);
+
+            if (! $bloccato || $bloccato->status !== Cart::STATUS_ACTIVE) {
+                throw new RuntimeException('Questo carrello è già stato trasformato in ordine: controlla i tuoi movimenti prima di riprovare.');
+            }
+
             $creati = collect();
 
             foreach ($cart->perVenditore() as $gruppo) {
@@ -231,7 +251,7 @@ class CartService
                 }
             }
 
-            $cart->update(['status' => Cart::STATUS_ORDERED]);
+            $bloccato->update(['status' => Cart::STATUS_ORDERED]);
 
             return $creati;
         });

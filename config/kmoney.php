@@ -43,6 +43,34 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Shop: le due soglie che tengono in piedi il mix KY/EUR
+    |--------------------------------------------------------------------------
+    |
+    | Nascono dall'audit del 26/08/2026 (AUDIT_ECOMMERCE_2026-08-26.md, blocco
+    | 1, punti 1.4 e 1.5). Sono due numeri, ma servono a non lasciare mai
+    | l'acquirente con i KY usciti e l'ordine bloccato.
+    |
+    | min_euro_quota - la quota in euro piu' piccola che un gateway accetta,
+    | in CENTESIMI DI EURO. Stripe rifiuta gli incassi sotto i 50 centesimi:
+    | un ordine da 25 centesimi di quota euro passerebbe l'addebito KY e poi
+    | verrebbe respinto al pagamento, restando "in attesa" per sempre. Si
+    | blocca in cassa PRIMA di muovere qualsiasi cosa.
+    |
+    | min_price_ky - il prezzo minimo di un prodotto, in CENTESIMI DI KY.
+    | Sotto questa soglia la quota KY arrotondata puo' diventare zero (un
+    | centesimo al 25% fa round(0,25) = 0) e il movimento non e' nemmeno
+    | registrabile: in un carrello con piu' venditori una riga cosi' fa
+    | fallire l'intero acquisto. 100 = 1,00 KY.
+    |
+    */
+
+    'shop' => [
+        'min_euro_quota' => (int) env('SHOP_MIN_EURO_QUOTA', 50),
+        'min_price_ky'   => (int) env('SHOP_MIN_PRICE_KY', 100),
+    ],
+
     'mlm_enabled' => env('MLM_ENABLED', true),
 
 ];

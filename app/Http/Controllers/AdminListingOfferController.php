@@ -75,7 +75,10 @@ class AdminListingOfferController extends Controller implements HasMiddleware
             // (es. "8,50"), convertito in centesimi sotto con ky_to_cents() —
             // stessa convenzione di tutti gli altri form di importo del
             // progetto (vedi CLAUDE.md "Importi sempre in centesimi").
-            'offer_price_ky'      => ['required', 'numeric', 'min:0.01', 'max:99999.99'],
+            // Stessa soglia del prezzo pieno (audit 26/08/2026, 1.5): mettere
+            // in offerta a un centesimo un prodotto col mix al 25% lo renderebbe
+            // invendibile, e a scoprirlo sarebbe il cliente in cassa.
+            'offer_price_ky'      => ['required', 'numeric', 'min:' . number_format(((int) config('kmoney.shop.min_price_ky', 100)) / 100, 2, '.', ''), 'max:99999.99'],
             'offer_ky_percentage' => ['required', 'integer', Rule::in(Listing::KY_PERCENTAGES)],
             'expires_at'          => ['required', 'date', 'after:now'],
         ]);
