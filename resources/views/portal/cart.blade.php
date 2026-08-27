@@ -94,22 +94,50 @@
                         </p>
                         @endif
 
-                        <div style="margin-top:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
-                            <form method="POST" action="{{ route('portal.cart.item.update', $riga) }}" style="display:flex;align-items:center;gap:6px;">
+                        {{--
+                            Le due azioni della riga — 27/08/2026, audit 26/08
+                            blocco 5. Prima erano due scritte da 12px senza
+                            sfondo, alte una ventina di pixel e attaccate: col
+                            pollice si premeva "Rimuovi" al posto di
+                            "Aggiorna", e la riga spariva senza domande.
+
+                            E soprattutto: la quantita' NON partiva da sola.
+                            Chi cambiava il numero e andava in cassa senza
+                            premere "Aggiorna" pagava la quantita' VECCHIA —
+                            vedeva tre e pagava uno. Adesso il campo si invia
+                            da solo appena lo lasci (decisione di Laura,
+                            27/08), e il bottone resta solo per chi ha il
+                            JavaScript spento.
+                        --}}
+                        <div class="riga-azioni">
+                            <form method="POST" action="{{ route('portal.cart.item.update', $riga) }}" class="qta-form">
                                 @csrf
                                 @method('PATCH')
-                                <label class="subtle" style="font-size:12px;">Quantità</label>
-                                <input type="number" name="quantity" value="{{ $riga->quantity }}" min="1"
+                                <label class="subtle" style="font-size:12px;" for="qta-{{ $riga->id }}">Quantità</label>
+                                <input type="number" id="qta-{{ $riga->id }}" class="qta-input" name="quantity"
+                                       value="{{ $riga->quantity }}" min="1"
                                        @if($riga->variant && $riga->variant->hasLimitedStock()) max="{{ $riga->variant->stock_quantity }}"
                                        @elseif(! $riga->variant && $listing->hasLimitedStock()) max="{{ $listing->stock_quantity }}" @endif
-                                       style="width:66px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;">
-                                <button type="submit" style="background:none;border:none;color:#0c4a86;font-size:12px;font-weight:600;cursor:pointer;padding:4px 2px;">Aggiorna</button>
+                                       inputmode="numeric">
+                                {{-- Rete di sicurezza senza JavaScript: con lo
+                                     script attivo sparisce, perche' il campo
+                                     si invia gia' da solo. --}}
+                                <button type="submit" class="qta-conferma">Aggiorna</button>
                             </form>
 
-                            <form method="POST" action="{{ route('portal.cart.item.remove', $riga) }}">
+                            <form method="POST" action="{{ route('portal.cart.item.remove', $riga) }}" class="rimuovi-form">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" style="background:none;border:none;color:#b91c1c;font-size:12px;font-weight:600;cursor:pointer;padding:4px 2px;">Rimuovi</button>
+                                <button type="submit" class="rimuovi-avvia">Rimuovi</button>
+                                {{-- La conferma la mostra il JavaScript
+                                     intercettando l'invio: senza script il
+                                     bottone resta quello di prima e funziona
+                                     come ha sempre funzionato. --}}
+                                <span class="rimuovi-conferma" hidden>
+                                    <span class="rimuovi-domanda">Togliere dal carrello?</span>
+                                    <button type="submit" class="rimuovi-si">Sì, togli</button>
+                                    <button type="button" class="rimuovi-no">Annulla</button>
+                                </span>
                             </form>
                         </div>
                     </div>
@@ -246,5 +274,107 @@
         .cart-row { flex-wrap: wrap; }
         .cart-row > div:last-child { text-align: left !important; width: 100%; }
     }
+
+    /* ── Le azioni della riga (27/08/2026) ──────────────────────────────
+       Bottoni veri, non scritte: 34px di altezza minima e uno sfondo, cosi'
+       il pollice becca quello che voleva. E "Rimuovi" sta staccato dalla
+       quantita', invece che a due pixel da "Aggiorna". */
+    .riga-azioni {
+        margin-top: 10px;
+        display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+        justify-content: space-between;
+    }
+    .qta-form { display: flex; align-items: center; gap: 8px; }
+    .qta-input {
+        width: 72px; min-height: 34px; padding: 6px 8px;
+        border: 1px solid #cbd5e1; border-radius: 7px; font-size: 14px;
+    }
+    .qta-conferma {
+        min-height: 34px; padding: 6px 12px;
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px;
+        color: #0c4a86; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .rimuovi-form { display: flex; align-items: center; gap: 8px; }
+    .rimuovi-avvia, .rimuovi-si, .rimuovi-no {
+        min-height: 34px; padding: 6px 12px;
+        border-radius: 7px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .rimuovi-avvia {
+        background: none; border: 1px solid transparent; color: #b91c1c;
+    }
+    .rimuovi-avvia:hover { border-color: #fecaca; background: #fef2f2; }
+    .rimuovi-conferma { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rimuovi-domanda { font-size: 12.5px; color: #7f1d1d; font-weight: 600; }
+    .rimuovi-si { background: #b91c1c; border: 1px solid #b91c1c; color: #fff; }
+    .rimuovi-no { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
 </style>
+
+{{--
+    Due comodita', tutte e due facoltative: senza JavaScript la pagina resta
+    esattamente quella di prima, con il bottone "Aggiorna" e "Rimuovi" che
+    toglie subito. Niente qui dentro e' una difesa — le difese stanno nel
+    server, che continua a validare e a bloccare come sempre.
+--}}
+<script>
+(function () {
+    // 1. La quantita' si invia da sola quando la lasci.
+    //    `change` e non `input`: altrimenti partirebbe una richiesta a ogni
+    //    tasto premuto mentre si scrive "12".
+    document.querySelectorAll('.qta-form').forEach(function (form) {
+        var campo   = form.querySelector('.qta-input');
+        var bottone = form.querySelector('.qta-conferma');
+
+        if (! campo) { return; }
+
+        // Il bottone adesso e' inutile: lo tolgo di mezzo solo qui, dove so
+        // che lo script sta girando.
+        if (bottone) { bottone.hidden = true; }
+
+        campo.addEventListener('change', function () {
+            if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+        });
+
+        // Il messaggio del browser per "minimo 1" e' in inglese su tutti i
+        // browser non localizzati, e non dice cosa fare.
+        campo.addEventListener('invalid', function () {
+            campo.setCustomValidity(
+                'La quantità minima è 1. Per togliere il prodotto usa «Rimuovi».'
+            );
+        });
+        campo.addEventListener('input', function () { campo.setCustomValidity(''); });
+    });
+
+    // 2. "Rimuovi" chiede conferma, sul posto.
+    //    Si intercetta l'INVIO del form, non il clic del bottone: cosi' senza
+    //    JavaScript il bottone resta un normale invio e la riga si toglie come
+    //    ha sempre fatto.
+    document.querySelectorAll('.rimuovi-form').forEach(function (form) {
+        var avvia    = form.querySelector('.rimuovi-avvia');
+        var conferma = form.querySelector('.rimuovi-conferma');
+        var annulla  = form.querySelector('.rimuovi-no');
+        var deciso   = false;
+
+        if (! avvia || ! conferma) { return; }
+
+        form.addEventListener('submit', function (evento) {
+            if (deciso) { return; }
+
+            evento.preventDefault();
+            avvia.hidden = true;
+            conferma.hidden = false;
+        });
+
+        conferma.querySelector('.rimuovi-si').addEventListener('click', function () {
+            deciso = true;
+        });
+
+        if (annulla) {
+            annulla.addEventListener('click', function () {
+                conferma.hidden = true;
+                avvia.hidden = false;
+            });
+        }
+    });
+})();
+</script>
 @endsection
