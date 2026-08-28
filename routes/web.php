@@ -254,7 +254,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt')->middleware('throttle:10,1');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.store');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store')->middleware('throttle:5,1');
 
     Route::get('/forgot-password', fn () => view('auth.forgot-password'))->name('password.request');
 
@@ -341,7 +341,7 @@ Route::middleware('auth')->group(function () {
 // 2FA challenge e wizard obbligatorio (auth only — no twofactor/onboarding middleware per evitare loop)
 Route::middleware('auth')->group(function () {
     Route::get('/2fa/verifica', [TwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
-    Route::post('/2fa/verifica', [TwoFactorController::class, 'verifyChallenge'])->name('2fa.verify');
+    Route::post('/2fa/verifica', [TwoFactorController::class, 'verifyChallenge'])->name('2fa.verify')->middleware('throttle:10,1');
     Route::get('/2fa/obbligatorio', [TwoFactorController::class, 'showRequired'])->name('portal.2fa.required');
 });
 
@@ -419,7 +419,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // Sicurezza account / 2FA setup
     // Step-up authentication
     Route::get('/profilo/conferma-identita', [StepUpController::class, 'show'])->name('portal.step-up.show');
-    Route::post('/profilo/conferma-identita', [StepUpController::class, 'verify'])->name('portal.step-up.verify');
+    Route::post('/profilo/conferma-identita', [StepUpController::class, 'verify'])->name('portal.step-up.verify')->middleware('throttle:10,1');
 
     Route::get('/profilo/sicurezza', [TwoFactorController::class, 'showSetup'])->name('portal.security');
 

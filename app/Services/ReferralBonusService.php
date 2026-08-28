@@ -125,6 +125,10 @@ class ReferralBonusService
                 return; // nessuna segnalazione dietro questo utente
             }
 
+            if ($referrer->id === $locked->id) {
+                return; // auto-invito: nessuno si segnala da solo
+            }
+
             if (! $this->referrerIsEligible($referrer)) {
                 return; // il bonus spetta solo ai segnalanti privati (no aziende, no agenti)
             }

@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Listeners\AwardFriendReferralBonus;
 use App\Listeners\LogLoginActivity;
 use App\Listeners\SendWebPushAfterNotification;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Pagination\Paginator;
@@ -59,6 +61,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Login activity log + alert nuovo IP
         Event::listen(Login::class, LogLoginActivity::class);
+
+        // Bonus segnalazione "amico": all'email verificata, non alla
+        // registrazione (vedi AwardFriendReferralBonus).
+        Event::listen(Verified::class, AwardFriendReferralBonus::class);
 
         // Rate limiter per pagamenti sensibili
         // 15 req/min per utente autenticato, oppure per IP se ospite

@@ -28,6 +28,8 @@ class StepUpController extends Controller
         return view('portal.step-up', compact('has2fa', 'hasPasskey', 'reason'));
     }
 
+    private const ATTEMPT_SCOPE = 'step-up';
+
     public function verify(Request $request): RedirectResponse
     {
         $user   = $request->user();
@@ -37,6 +39,13 @@ class StepUpController extends Controller
             'password'      => ['nullable', 'string'],
             'totp_code'     => ['nullable', 'string', 'size:6', 'regex:/^\d{6}$/'],
         ]);
+
+        // Blocco per UTENTE dopo 5 tentativi sbagliati: senza, questa pagina
+        // e' un modo illimitato per indovinare la password dell'account.
+        $bloccato = \App\Support\CredentialAttempts::lockoutMessage(self::ATTEMPT_SCOPE, $user->id);
+        if ($bloccato !== null) {
+            return back()->withErrors(['credential' => $bloccato]);
+        }
 
         $verified = false;
 
@@ -56,12 +65,16 @@ class StepUpController extends Controller
         }
 
         if (! $verified) {
+            \App\Support\CredentialAttempts::hit(self::ATTEMPT_SCOPE, $user->id);
+
             return back()->withErrors([
                 'credential' => $has2fa
                     ? 'Codice OTP o password non corretti. Riprova.'
                     : 'Password non corretta. Riprova.',
             ]);
         }
+
+        \App\Support\CredentialAttempts::clear(self::ATTEMPT_SCOPE, $user->id);
 
         // Segna la verifica in sessione con timestamp
         $request->session()->put('step_up_verified_at', now());

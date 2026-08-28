@@ -178,6 +178,8 @@ class TwoFactorController extends Controller
     /**
      * Validate OTP (or recovery code) and mark the session as 2FA-verified.
      */
+    private const ATTEMPT_SCOPE = '2fa-challenge';
+
     public function verifyChallenge(Request $request): RedirectResponse
     {
         $request->validate([
@@ -188,9 +190,17 @@ class TwoFactorController extends Controller
         $user   = $request->user();
         $secret = $user->two_factor_secret;
 
+        // Blocco per UTENTE dopo 5 codici sbagliati (vedi CredentialAttempts).
+        // Il throttle di rotta conta per IP e da solo non protegge l'account.
+        $bloccato = \App\Support\CredentialAttempts::lockoutMessage(self::ATTEMPT_SCOPE, $user->id);
+        if ($bloccato !== null) {
+            return back()->withErrors(['code' => $bloccato]);
+        }
+
         // 1. Try TOTP code
         $code = trim($request->input('code', ''));
         if ($code !== '' && $secret && Totp::verify($secret, $code)) {
+            \App\Support\CredentialAttempts::clear(self::ATTEMPT_SCOPE, $user->id);
             $request->session()->put('two_factor_verified', true);
             return redirect()->intended(route('portal.dashboard'));
         }
@@ -207,11 +217,14 @@ class TwoFactorController extends Controller
                         'two_factor_recovery_codes' => array_values($stored),
                     ])->save();
 
+                    \App\Support\CredentialAttempts::clear(self::ATTEMPT_SCOPE, $user->id);
                     $request->session()->put('two_factor_verified', true);
                     return redirect()->intended(route('portal.dashboard'));
                 }
             }
         }
+
+        \App\Support\CredentialAttempts::hit(self::ATTEMPT_SCOPE, $user->id);
 
         return back()->withErrors([
             'code' => 'Codice non valido o scaduto. Riprova.',

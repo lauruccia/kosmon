@@ -1077,6 +1077,22 @@ class TransferBookingService
     ): void {
         $idempotencyKey = 'fee_' . $parentTransfer->uuid;
 
+        // Se a pagare la commissione sarebbe il conto sistema stesso, non c'e'
+        // niente da incassare: sarebbe un giro da se' a se'. E soprattutto
+        // CREEREBBE MONETA — piu' sotto $payer e $system sarebbero due istanze
+        // della STESSA riga, e il secondo forceFill()->save() sovrascrive il
+        // primo: il conto sistema finirebbe a saldo + commissione, dal nulla.
+        // Oggi non esiste un solo movimento 'portal_fee' (nessuna regola
+        // commissioni attiva), quindi questa guardia arriva prima che il
+        // problema possa presentarsi.
+        if ($fromAccount->id === $systemAccount->id) {
+            \Illuminate\Support\Facades\Log::warning(
+                'Commissione saltata: il pagante e il conto sistema coincidono.',
+                ['account_id' => $systemAccount->id, 'transfer_id' => $parentTransfer->id, 'kind' => $kind]
+            );
+            return;
+        }
+
         // Evita doppia commissione
         if (\App\Models\Transfer::where('idempotency_key', $idempotencyKey)->exists()) {
             return;

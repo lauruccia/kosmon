@@ -74,7 +74,13 @@ class ReferralBonusServiceTest extends TestCase
 
     // ── Tier "amico" via registrazione reale ────────────────────────────────
 
-    public function test_amico_bonus_awarded_to_referrer_on_private_registration(): void
+    /**
+     * Dal 28/08/2026 il bonus "amico" NON esce piu' all'invio del form di
+     * registrazione ma all'email verificata: prima bastava registrarsi con un
+     * indirizzo inesistente per far uscire 10 KY dal conto dell'agente di
+     * riferimento, all'infinito. Vedi App\Listeners\AwardFriendReferralBonus.
+     */
+    public function test_amico_bonus_awarded_to_referrer_only_after_email_is_verified(): void
     {
         $this->seed(RolesAndPermissionsSeeder::class);
         $this->makeSuperAdmin();
@@ -92,10 +98,20 @@ class ReferralBonusServiceTest extends TestCase
 
         $response->assertRedirect('/dashboard');
 
-        $this->assertSame(1000, $this->referrerBalance($referrer)); // 10,00 KY default
-
         $invited = User::where('email', 'amico@example.test')->firstOrFail();
         $this->assertSame($referrer->id, $invited->referred_by_user_id);
+
+        // Registrato ma non verificato: ancora niente.
+        $this->assertSame(0, $this->referrerBalance($referrer));
+        $this->assertSame(0, Transfer::where('idempotency_key', "referral_bonus_{$invited->id}_amico")->count());
+
+        // L'utente apre il link di verifica: e' qui che il bonus matura.
+        $invited->markEmailAsVerified();
+        event(new \Illuminate\Auth\Events\Verified($invited));
+
+        $invited->refresh();
+
+        $this->assertSame(1000, $this->referrerBalance($referrer)); // 10,00 KY default
         $this->assertSame(1000, $invited->referral_bonus_paid_amount);
         $this->assertSame('amico', $invited->referral_bonus_tier);
 
