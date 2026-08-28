@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -12,6 +15,13 @@ use Illuminate\View\View;
 
 class EmailChangeController extends Controller
 {
+    /**
+     * Quanti codici sbagliati prima che la richiesta si annulli da sola.
+     * Il conteggio vive in cache (nessuna colonna nuova, nessuna migrazione)
+     * e si azzera a ogni nuova richiesta e a ogni cambio riuscito.
+     */
+    private const MAX_TENTATIVI = 5;
+
     private function resolveAccount(\App\Models\User $user): ?\App\Models\Account
     {
         if ($user->managed_account_id !== null) {
@@ -34,6 +44,43 @@ class EmailChangeController extends Controller
             ->orderBy('id')
             ->first();
     }
+
+    // ── Stato della richiesta in corso ──────────────────────────────────────
+
+    /** Spegne la richiesta pendente. Prima questi 4 campi erano azzerati a mano in 5 punti. */
+    private function clearPendingChange(\App\Models\User $user): void
+    {
+        $user->update([
+            'pending_email'             => null,
+            'email_change_token'        => null,
+            'email_change_expires_at'   => null,
+            'email_change_cancel_token' => null,
+        ]);
+    }
+
+    private function attemptsKey(\App\Models\User $user): string
+    {
+        return 'email_change_attempts:' . $user->id;
+    }
+
+    private function registerFailedAttempt(\App\Models\User $user): int
+    {
+        $key  = $this->attemptsKey($user);
+        $next = ((int) Cache::get($key, 0)) + 1;
+
+        // Poco piu' della finestra dei 30 minuti: il contatore non deve
+        // sopravvivere alla richiesta a cui si riferisce.
+        Cache::put($key, $next, now()->addMinutes(35));
+
+        return $next;
+    }
+
+    private function forgetAttempts(\App\Models\User $user): void
+    {
+        Cache::forget($this->attemptsKey($user));
+    }
+
+    // ── Pagine ──────────────────────────────────────────────────────────────
 
     public function show(Request $request): View
     {
@@ -73,6 +120,18 @@ class EmailChangeController extends Controller
             'email_change_token'        => $token,
             'email_change_expires_at'   => $expires,
             'email_change_cancel_token' => $cancelToken,
+        ]);
+
+        // Richiesta nuova, tentativi da capo.
+        $this->forgetAttempts($user);
+
+        AuditLog::create([
+            'actor_user_id'  => $user->id,
+            'event'          => 'user.email_change_requested',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'ip_address'     => $request->ip(),
+            'context'        => ['from' => $oldEmail, 'to' => $request->new_email],
         ]);
 
         // OTP al nuovo indirizzo
@@ -127,25 +186,74 @@ class EmailChangeController extends Controller
 
         $user = $request->user();
 
-        if (! $user->pending_email) {
+        if (! $user->pending_email || ! $user->email_change_token) {
             return redirect()->route('portal.email-change')
                 ->withErrors(['token' => 'Nessuna richiesta di cambio email in attesa.']);
         }
 
-        if (now()->gt($user->email_change_expires_at)) {
-            $user->update([
-                'pending_email'             => null,
-                'email_change_token'        => null,
-                'email_change_expires_at'   => null,
-                'email_change_cancel_token' => null,
-            ]);
+        if ($user->email_change_expires_at === null || now()->gt($user->email_change_expires_at)) {
+            $this->clearPendingChange($user);
+            $this->forgetAttempts($user);
+
             return redirect()->route('portal.email-change')
                 ->withErrors(['token' => 'Il codice e\' scaduto. Riprova.']);
         }
 
+        // ── IL CONTROLLO CHE MANCAVA ────────────────────────────────────────
+        // Fino al 28/08/2026 il codice inserito non veniva MAI confrontato con
+        // quello salvato: otto caratteri qualsiasi confermavano il cambio e
+        // marcavano la nuova casella come verificata senza che nessuno avesse
+        // mai letto la mail. hash_equals confronta in tempo costante, cosi' il
+        // tempo di risposta non dice quanti caratteri iniziali erano giusti.
+        $inserito = strtoupper(trim((string) $request->input('token')));
+
+        if (! hash_equals((string) $user->email_change_token, $inserito)) {
+            $tentativi = $this->registerFailedAttempt($user);
+
+            if ($tentativi >= self::MAX_TENTATIVI) {
+                $pendingEmail = $user->pending_email;
+                $this->clearPendingChange($user);
+                $this->forgetAttempts($user);
+
+                AuditLog::create([
+                    'actor_user_id'  => $user->id,
+                    'event'          => 'user.email_change_blocked',
+                    'auditable_type' => User::class,
+                    'auditable_id'   => $user->id,
+                    'ip_address'     => $request->ip(),
+                    'context'        => ['to' => $pendingEmail, 'tentativi' => $tentativi],
+                ]);
+
+                return redirect()->route('portal.email-change')
+                    ->withErrors(['token' => 'Troppi codici errati: la richiesta e\' stata annullata. Se sei stato tu, ricominciala.']);
+            }
+
+            return back()->withErrors([
+                'token' => 'Codice non valido. Tentativi rimasti: ' . (self::MAX_TENTATIVI - $tentativi) . '.',
+            ]);
+        }
+
+        // L'unicita' era stata controllata al momento della richiesta, fino a 30
+        // minuti fa: nel frattempo quell'indirizzo puo' essere stato registrato
+        // da un altro account. Senza questo controllo l'update sbatterebbe
+        // sull'indice unique con un 500.
+        $giaPresa = User::where('email', $user->pending_email)
+            ->where('id', '!=', $user->id)
+            ->exists();
+
+        if ($giaPresa) {
+            $this->clearPendingChange($user);
+            $this->forgetAttempts($user);
+
+            return redirect()->route('portal.email-change')
+                ->withErrors(['token' => 'Quell\'indirizzo nel frattempo e\' stato registrato da un altro account. Riprova con un altro indirizzo.']);
+        }
+
         $oldEmail = $user->email;
+        $newEmail = $user->pending_email;
+
         $user->update([
-            'email'                     => $user->pending_email,
+            'email'                     => $newEmail,
             'pending_email'             => null,
             'email_change_token'        => null,
             'email_change_expires_at'   => null,
@@ -153,9 +261,20 @@ class EmailChangeController extends Controller
             'email_verified_at'         => now(),
         ]);
 
+        $this->forgetAttempts($user);
+
+        AuditLog::create([
+            'actor_user_id'  => $user->id,
+            'event'          => 'user.email_changed',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'ip_address'     => $request->ip(),
+            'context'        => ['from' => $oldEmail, 'to' => $newEmail],
+        ]);
+
         try {
             Mail::raw(
-                "L'indirizzo email del tuo account KMoney e' stato aggiornato a {$user->email}.\n" .
+                "L'indirizzo email del tuo account KMoney e' stato aggiornato a {$newEmail}.\n" .
                 "Se non hai autorizzato questa modifica, contatta immediatamente il supporto.",
                 function ($m) use ($oldEmail) {
                     $m->to($oldEmail)->subject('[KMoney] Email aggiornata');
@@ -166,17 +285,15 @@ class EmailChangeController extends Controller
         }
 
         return redirect()->route('portal.dashboard')
-            ->with('success', 'Email aggiornata con successo a ' . $user->email . '.');
+            ->with('success', 'Email aggiornata con successo a ' . $newEmail . '.');
     }
 
     public function cancel(Request $request): RedirectResponse
     {
-        $request->user()->update([
-            'pending_email'             => null,
-            'email_change_token'        => null,
-            'email_change_expires_at'   => null,
-            'email_change_cancel_token' => null,
-        ]);
+        $user = $request->user();
+
+        $this->clearPendingChange($user);
+        $this->forgetAttempts($user);
 
         return redirect()->route('portal.email-change')->with('info', 'Richiesta di cambio email annullata.');
     }
@@ -186,7 +303,7 @@ class EmailChangeController extends Controller
      */
     public function cancelByToken(string $token): RedirectResponse
     {
-        $user = \App\Models\User::where('email_change_cancel_token', $token)
+        $user = User::where('email_change_cancel_token', $token)
             ->whereNotNull('pending_email')
             ->first();
 
@@ -196,21 +313,25 @@ class EmailChangeController extends Controller
         }
 
         if ($user->email_change_expires_at && now()->gt($user->email_change_expires_at)) {
-            $user->update([
-                'pending_email'             => null,
-                'email_change_token'        => null,
-                'email_change_expires_at'   => null,
-                'email_change_cancel_token' => null,
-            ]);
+            $this->clearPendingChange($user);
+            $this->forgetAttempts($user);
+
             return redirect()->route('login')
                 ->with('info', 'La richiesta era gia\' scaduta. Nessuna modifica applicata.');
         }
 
-        $user->update([
-            'pending_email'             => null,
-            'email_change_token'        => null,
-            'email_change_expires_at'   => null,
-            'email_change_cancel_token' => null,
+        $pendingEmail = $user->pending_email;
+
+        $this->clearPendingChange($user);
+        $this->forgetAttempts($user);
+
+        AuditLog::create([
+            'actor_user_id'  => $user->id,
+            'event'          => 'user.email_change_cancelled_by_link',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'ip_address'     => request()->ip(),
+            'context'        => ['to' => $pendingEmail],
         ]);
 
         return redirect()->route('login')
