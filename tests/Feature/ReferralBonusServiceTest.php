@@ -438,6 +438,64 @@ class ReferralBonusServiceTest extends TestCase
         );
     }
 
+    /**
+     * Regola del fido (Laura, 28/08/2026): il bonus puo' portare l'agente in
+     * negativo, ma non oltre il fido che gli e' stato concesso. Prima
+     * l'initiator super admin bypassava fido e massimale, quindi lo scoperto
+     * era illimitato e bastavano registrazioni ripetute per spingere il conto
+     * dell'agente a meno infinito.
+     */
+    public function test_amico_bonus_puo_mandare_l_agente_sotto_fino_al_fido(): void
+    {
+        $referrer = $this->makeReferrer();
+        $this->makeSuperAdmin();
+
+        $agent = $this->makeAgentWithAccount(0); // a zero, ma con 10 KY di fido
+        $agent->forceFill(['transfer_limits_use_defaults' => false, 'negative_balance_limit' => 1000])->save();
+        $referrer->forceFill(['mlm_client_agent_id' => $agent->id])->save();
+
+        $invited = User::create([
+            'name'                => 'Amico Agente Con Fido',
+            'email'               => 'amicofido@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'is_active'           => true,
+            'referred_by_user_id' => $referrer->id,
+        ]);
+        $invited->forceFill(['email_verified_at' => now()])->save();
+
+        app(ReferralBonusService::class)->awardTierOrFail($invited, ReferralBonusService::TIER_AMICO);
+
+        $this->assertSame(1000, $this->referrerBalance($referrer));
+        $this->assertSame(-1000, $this->accountBalance($agent), 'Il fido concesso copre esattamente il bonus.');
+    }
+
+    public function test_amico_bonus_non_esce_se_l_agente_non_ha_capienza_nemmeno_col_fido(): void
+    {
+        $referrer = $this->makeReferrer();
+        $this->makeSuperAdmin();
+
+        $agent = $this->makeAgentWithAccount(0);
+        $agent->forceFill(['transfer_limits_use_defaults' => false, 'negative_balance_limit' => 0])->save();
+        $referrer->forceFill(['mlm_client_agent_id' => $agent->id])->save();
+
+        $invited = User::create([
+            'name'                => 'Amico Agente Senza Capienza',
+            'email'               => 'amicosenzafido@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'is_active'           => true,
+            'referred_by_user_id' => $referrer->id,
+        ]);
+        $invited->forceFill(['email_verified_at' => now()])->save();
+
+        app(ReferralBonusService::class)->awardTierOrFail($invited, ReferralBonusService::TIER_AMICO);
+
+        $this->assertSame(0, $this->referrerBalance($referrer), 'Senza capienza il bonus non deve uscire.');
+        $this->assertSame(0, $this->accountBalance($agent), 'Il conto dell\'agente non deve andare oltre il fido.');
+        $this->assertSame(0, Transfer::where('idempotency_key', "referral_bonus_{$invited->id}_amico")->count());
+    }
+
     public function test_amico_bonus_still_paid_by_system_account_when_referrer_has_no_agent_assigned(): void
     {
         // Stesso comportamento di prima di questa modifica: il segnalante non

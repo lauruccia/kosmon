@@ -155,6 +155,34 @@ class ReferralBonusService
                     return;
                 }
 
+                // REGOLA DEL FIDO (decisione di Laura, 28/08/2026): il bonus
+                // puo' portare in negativo il conto che lo paga, ma solo fino
+                // al fido concesso — non oltre. Sostituisce la decisione
+                // precedente ("l'agente deve sempre poter pagare, anche oltre
+                // il fido"), che con l'initiator super admin voleva dire
+                // scoperto illimitato: bastavano registrazioni ripetute per
+                // spingere il conto dell'agente a meno infinito.
+                //
+                // saldoDisponibile() = saldo + massimale, cioe' esattamente
+                // "saldo + fido" (Account::massimale() tiene insieme le due
+                // fonti di scoperto: credit_limits e negative_balance_limit).
+                //
+                // Non si applica al conto sistema: la Cassa Circuito crea
+                // moneta nuova, e' il caso del livello "attivita".
+                if (! $fundingAccount->is_system_account && $fundingAccount->saldoDisponibile() < $delta) {
+                    Log::warning(
+                        'ReferralBonusService: bonus segnalazione non erogato, il conto pagante non ha capienza entro il fido.',
+                        [
+                            'tier' => $tier,
+                            'referred_user_id' => $locked->id,
+                            'funding_account_id' => $fundingAccount->id,
+                            'richiesto' => $delta,
+                            'disponibile_con_fido' => $fundingAccount->saldoDisponibile(),
+                        ]
+                    );
+                    return;
+                }
+
                 // Initiator: l'admin che ha scatenato l'evento se presente E
                 // autorizzato (es. approvazione KYC), altrimenti un super
                 // admin qualsiasi. Serve SEMPRE un super admin come initiator
@@ -166,10 +194,10 @@ class ReferralBonusService
                 // consenso esplicito al singolo addebito): SOLO
                 // is_super_admin bypassa il controllo di autorizzazione in
                 // TransferBookingService::assertAuthorizedInitiator() E il
-                // controllo di fido/massimale in assertTransferWithinLimits()
-                // — quest'ultimo bypass è voluto anche per l'agente (Laura:
-                // "l'agente dovrebbe avere sempre possibilità di pagare" il
-                // bonus al proprio cliente, anche oltre il fido configurato).
+                // controllo di fido/massimale in assertTransferWithinLimits().
+                // Il secondo bypass resta, ma dal 28/08/2026 non significa
+                // piu' scoperto illimitato: la capienza entro il fido e'
+                // controllata qui sopra, prima di arrivare al motore.
                 // Il segnalante/segnalato NON possono mai essere usati come
                 // initiator qui.
                 $systemUser = ($actor && $actor->is_super_admin)
