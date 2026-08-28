@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\NfcCard;
 use App\Models\NfcCardAuthSession;
 use App\Models\User;
+use App\Support\NfcTapToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -67,6 +68,15 @@ class NfcCardPaymentControllerTest extends TestCase
             'pin_attempts'  => 0,
             'nfc_payload'   => NfcCard::buildPayload($uuid),
         ]);
+    }
+
+    /**
+     * Prova del tap, come la emetterebbe /nfc/card/identify dopo aver verificato
+     * la firma HMAC del chip. Senza, /nfc/card/request rifiuta (fix A10).
+     */
+    private function tapToken(NfcCard $card, User $merchant): string
+    {
+        return NfcTapToken::issue($card->id, $merchant->id);
     }
 
     private function makeSig(string $uuid): string
@@ -148,6 +158,7 @@ class NfcCardPaymentControllerTest extends TestCase
         $response = $this->actingAs($merchant)
             ->postJson(route('nfc.card.request'), [
                 'card_uuid'   => $card->uuid,
+                'tap_token'   => $this->tapToken($card, $merchant),
                 'amount'      => 10,   // 10 KY
                 'description' => 'Test NFC card',
             ]);
@@ -181,6 +192,7 @@ class NfcCardPaymentControllerTest extends TestCase
         $response = $this->actingAs($merchant)
             ->postJson(route('nfc.card.request'), [
                 'card_uuid'   => $card->uuid,
+                'tap_token'   => $this->tapToken($card, $merchant),
                 'amount'      => '0.50', // 0,50 KY < soglia
                 'description' => 'Contactless test',
             ]);
@@ -222,6 +234,7 @@ class NfcCardPaymentControllerTest extends TestCase
         $this->actingAs($merchant)
             ->postJson(route('nfc.card.request'), [
                 'card_uuid' => $card->uuid,
+                'tap_token' => $this->tapToken($card, $merchant),
                 'amount'    => '1', // 1,00 KY = soglia → conferma richiesta
             ])
             ->assertOk();
@@ -252,6 +265,7 @@ class NfcCardPaymentControllerTest extends TestCase
         $this->actingAs($merchant)
             ->postJson(route('nfc.card.request'), [
                 'card_uuid' => $card->uuid,
+                'tap_token' => $this->tapToken($card, $merchant),
                 'amount'    => 5,
             ])
             ->assertStatus(403);

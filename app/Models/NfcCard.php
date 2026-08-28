@@ -367,7 +367,7 @@ class NfcCard extends Model
     /** Genera l'URL da scrivere sul chip NFC. */
     public static function buildPayload(string $uuid): string
     {
-        $sig = hash_hmac('sha256', $uuid, config('app.nfc_card_secret', config('app.key')));
+        $sig = hash_hmac('sha256', $uuid, (config('app.nfc_card_secret') ?: config('app.key')));
 
         return route('nfc.card.scan-landing', ['uuid' => $uuid, 'sig' => $sig]);
     }
@@ -375,7 +375,7 @@ class NfcCard extends Model
     /** Verifica la firma HMAC dell'UUID letto dal chip. */
     public static function verifyHmac(string $uuid, string $sig): bool
     {
-        $expected = hash_hmac('sha256', $uuid, config('app.nfc_card_secret', config('app.key')));
+        $expected = hash_hmac('sha256', $uuid, (config('app.nfc_card_secret') ?: config('app.key')));
 
         if (hash_equals($expected, $sig)) {
             return true;
@@ -464,7 +464,7 @@ class NfcCard extends Model
      */
     private static function computeSerialCheck(string $body): string
     {
-        $secret = config('app.nfc_card_secret', config('app.key'));
+        $secret = (config('app.nfc_card_secret') ?: config('app.key'));
         $hmac   = hash_hmac('sha256', $body, $secret);
 
         // Prendi i primi 8 hex char (32 bit) → intero → base36 uppercase, padded a 4

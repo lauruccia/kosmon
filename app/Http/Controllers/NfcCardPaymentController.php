@@ -9,6 +9,7 @@ use App\Models\NfcCard;
 use App\Models\NfcCardAuthSession;
 use App\Notifications\NfcCardPinRequestNotification;
 use App\Services\TransferBookingService;
+use App\Support\NfcTapToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,9 @@ use Illuminate\View\View;
  *
  * MERCHANT (incassa):
  *   1. POST /nfc/card/identify       — legge UUID+sig dal chip, verifica HMAC, ottiene owner info
- *   2. POST /nfc/card/request        — invia importo, crea NfcCardAuthSession, invia push al cliente
+ *      (restituisce anche un tap_token monouso — App\Support\NfcTapToken)
+ *   2. POST /nfc/card/request        — invia importo + tap_token, crea NfcCardAuthSession,
+ *                                      invia push al cliente
  *   3. GET  /nfc/card/status/{nonce} — polling stato autorizzazione
  *
  * CLIENTE (conferma dal proprio telefono):
@@ -74,8 +77,14 @@ class NfcCardPaymentController extends Controller
 
         $card->logs()->create(['event' => 'tap', 'ip' => $request->ip()]);
 
+        // Prova del tap: solo da qui, e solo dopo che la firma HMAC è risultata
+        // valida, si ottiene il permesso di chiedere un addebito su questa card.
+        $tapToken = NfcTapToken::issue($card->id, $request->user()->id);
+
         return response()->json([
-            'card_uuid'    => $card->uuid,
+            'card_uuid'      => $card->uuid,
+            'tap_token'      => $tapToken,
+            'tap_expires_in' => NfcTapToken::TTL_SECONDS,
             'owner_name'   => $card->ownerName(),
             'card_label'   => $card->serial_number ?? substr($card->uuid, 0, 8),
             'limits'       => [
@@ -99,6 +108,23 @@ class NfcCardPaymentController extends Controller
         $amountCents = ky_to_cents($data['amount']);
 
         $card = NfcCard::with(['company.users', 'ownerUser'])->where('uuid', $data['card_uuid'])->firstOrFail();
+
+        // Il tap deve essere reale, recente, di questa card e di questo merchant.
+        // Senza questo controllo il solo UUID (che gira in chiaro: risposta di
+        // identify, redirect della landing, cronologia del telefono) basterebbe
+        // a riaddebitare il titolare senza avere la card in mano.
+        if (! NfcTapToken::isValid($data['tap_token'] ?? null, $card->id, $request->user()->id)) {
+            $card->logs()->create([
+                'event' => 'auth_fail',
+                'ip'    => $request->ip(),
+                'notes' => 'Richiesta senza tap token valido (card non avvicinata o token scaduto)',
+            ]);
+
+            return response()->json([
+                'error'  => 'Avvicina di nuovo la card: la lettura è scaduta.',
+                'reason' => 'tap_required',
+            ], 422);
+        }
 
         if (! $card->isActive()) {
             return response()->json(['error' => 'Card non attiva.'], 403);
@@ -132,7 +158,7 @@ class NfcCardPaymentController extends Controller
         // ── senza notifica né conferma del titolare (come carte di credito) ──
         if ($card->pin_threshold !== null
             && ! $card->requiresPinFor($amountCents)) {
-            return $this->bookContactless($request, $card, $merchantAccount, $amountCents, $data['description'] ?? null);
+            return $this->bookContactless($request, $card, $merchantAccount, $amountCents, $data['description'] ?? null, $data['tap_token']);
         }
 
         // Crea sessione auth (scade in 10 minuti — tempo sufficiente per login se necessario)
@@ -145,6 +171,9 @@ class NfcCardPaymentController extends Controller
             'status'               => 'pending',
             'expires_at'           => now()->addMinutes(10),
         ]);
+
+        // Tap speso: la richiesta è partita, per farne un'altra si riavvicina la card.
+        NfcTapToken::consume($data['tap_token']);
 
         // URL firmato (valido 10 min) — funziona anche senza sessione attiva
         $signedUrl = URL::temporarySignedRoute(
@@ -188,7 +217,7 @@ class NfcCardPaymentController extends Controller
      * Addebito contactless immediato (importo sotto la soglia PIN della card).
      * Nessuna conferma richiesta al titolare: il tap della card autorizza il pagamento.
      */
-    private function bookContactless(Request $request, NfcCard $card, Account $merchantAccount, int $amountCents, ?string $description): JsonResponse
+    private function bookContactless(Request $request, NfcCard $card, Account $merchantAccount, int $amountCents, ?string $description, ?string $tapToken = null): JsonResponse
     {
         // Account del titolare della card (azienda o privato)
         $customerAccount = $card->ownerAccount();
@@ -269,6 +298,9 @@ class NfcCardPaymentController extends Controller
             $card->logs()->create(['event' => 'payment_fail', 'notes' => $errorMsg]);
             return response()->json(['error' => 'Pagamento fallito: ' . $errorMsg], 422);
         }
+
+        // Tap speso: un altro addebito richiede un nuovo avvicinamento della card.
+        NfcTapToken::consume($tapToken);
 
         // Notifica informativa al titolare (nessuna azione richiesta)
         try {

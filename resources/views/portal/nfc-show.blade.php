@@ -145,6 +145,8 @@
     // Stato card NFC fisica — dichiarato in testa per evitare TDZ se lo script
     // sottostante viene interrotto da un errore runtime.
     var scannedCardUuid = null;
+    // Prova del tap restituita da /nfc/card/identify: senza, l'addebito viene rifiutato.
+    var scannedTapToken = null;
 
     // Helper: POST JSON con refresh automatico CSRF se sessione scaduta (419)
     async function postJson(url, body) {
@@ -432,6 +434,7 @@
                             }
 
                             scannedCardUuid = uuid;
+                            scannedTapToken = data.tap_token || null;
                             statusEl.textContent = '✓ Card riconosciuta';
                             statusEl.style.background = '#dcfce7';
                             statusEl.style.color      = '#166534';
@@ -473,7 +476,7 @@
     }
 
     async function sendCardRequest() {
-        if (!scannedCardUuid) return;
+        if (!scannedCardUuid || !scannedTapToken) return;
 
         const statusEl = document.getElementById('card-nfc-status');
         const amount      = @json($pr->amount / 100);
@@ -487,6 +490,7 @@
         try {
             const res = await postJson('{{ route('nfc.card.request') }}', {
                 card_uuid:   scannedCardUuid,
+                tap_token:   scannedTapToken,
                 amount:      amount,
                 description: description,
             });
@@ -497,6 +501,15 @@
             if (!res.ok) {
                 statusEl.textContent = '✕ ' + (data.error || ('Errore server (' + res.status + ')'));
                 statusEl.style.color = 'var(--danger)';
+
+                // Tap scaduto o mancante: si riparte dall'avvicinamento della card,
+                // altrimenti il commerciante resta con il pulsante nascosto.
+                if (data.reason === 'tap_required') {
+                    scannedCardUuid = null;
+                    scannedTapToken = null;
+                    document.getElementById('card-nfc-info').style.display = 'none';
+                    resetCardBtn();
+                }
                 return;
             }
 

@@ -26,6 +26,9 @@ class CreateNfcCardPaymentRequest extends FormRequest
     {
         return [
             'card_uuid'   => ['required', 'string'],
+            // Prova del tap fisico, emessa da /nfc/card/identify dopo la verifica
+            // della firma HMAC. Senza, l'UUID da solo autorizzerebbe un addebito.
+            'tap_token'   => ['required', 'string'],
             'amount'      => ['required', 'numeric', 'min:0.01', 'max:9999999'],
             'description' => ['nullable', 'string', 'max:200'],
         ];
