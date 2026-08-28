@@ -145,15 +145,15 @@ class MlmWalletService
      * payout/importo). Lancia eccezione se non può essere completata (mai
      * silenziosa: è un'azione sincrona scatenata dall'agente/admin).
      */
-    public function reserveForPayout(User $agent, int $amountCents, string $idempotencyKey, string $description): void
+    public function reserveForPayout(User $agent, int $amountCents, string $idempotencyKey, string $description, ?int $payoutId = null): void
     {
-        $this->moveReservation($agent, $amountCents, fromAgent: true, sourceType: 'withdrawal_reserve', idempotencyKey: $idempotencyKey, description: $description);
+        $this->moveReservation($agent, $amountCents, fromAgent: true, sourceType: 'withdrawal_reserve', idempotencyKey: $idempotencyKey, description: $description, sourceId: $payoutId);
     }
 
     /** Rilascia una riserva (liquidazione rifiutata): il KY torna disponibile e ri-prelevabile. */
-    public function releaseReservation(User $agent, int $amountCents, string $idempotencyKey, string $description): void
+    public function releaseReservation(User $agent, int $amountCents, string $idempotencyKey, string $description, ?int $payoutId = null): void
     {
-        $this->moveReservation($agent, $amountCents, fromAgent: false, sourceType: 'withdrawal_release', idempotencyKey: $idempotencyKey, description: $description);
+        $this->moveReservation($agent, $amountCents, fromAgent: false, sourceType: 'withdrawal_release', idempotencyKey: $idempotencyKey, description: $description, sourceId: $payoutId);
     }
 
     /**
@@ -245,7 +245,7 @@ class MlmWalletService
      * Transfer::MLM_BONUS_REVERSAL_ACTION); null per riserva/rilascio prelievo,
      * che sono movimenti veri e restano visibili.
      */
-    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description, ?string $category = null, ?string $adminAction = null): void
+    private function moveReservation(User $agent, int $amountCents, bool $fromAgent, string $sourceType, string $idempotencyKey, string $description, ?string $category = null, ?string $adminAction = null, ?int $sourceId = null): void
     {
         if ($amountCents <= 0) {
             return;
@@ -274,7 +274,7 @@ class MlmWalletService
             throw new \RuntimeException('Impossibile elaborare il prelievo: nessun super admin disponibile per autorizzare il movimento.');
         }
 
-        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description, $category, $adminAction): void {
+        DB::transaction(function () use ($agent, $agentAccount, $systemAccount, $superAdmin, $amountCents, $fromAgent, $sourceType, $idempotencyKey, $description, $category, $adminAction, $sourceId): void {
             $transfer = app(TransferBookingService::class)->book([
                 'initiated_by'    => $superAdmin->id,
                 'from_account_id' => $fromAgent ? $agentAccount->id : $systemAccount->id,
@@ -294,7 +294,9 @@ class MlmWalletService
                 'category'        => $category,
                 'amount_cents'    => $fromAgent ? -$amountCents : $amountCents,
                 'source_type'     => $sourceType,
-                'source_id'       => null,
+                // Per le riserve/rilasci e' l'id della MlmPayout: e' la chiave
+                // con cui MlmPayoutService ritrova QUESTA riserva e nessun'altra.
+                'source_id'       => $sourceId,
                 'transfer_id'     => $transfer->id,
                 'idempotency_key' => $idempotencyKey,
             ]);

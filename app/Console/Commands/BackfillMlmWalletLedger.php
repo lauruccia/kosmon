@@ -82,6 +82,7 @@ class BackfillMlmWalletLedger extends Command
                         $payout->total_eur_cents,
                         "mlm_wallet_reserve_payout_{$payout->id}_{$payout->total_eur_cents}",
                         "Riserva cassetto kmoney per liquidazione #{$payout->id}",
+                        $payout->id,
                     );
                     $reservedPayouts++;
                 }

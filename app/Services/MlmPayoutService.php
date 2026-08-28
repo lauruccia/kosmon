@@ -180,11 +180,15 @@ class MlmPayoutService
             return;
         }
 
-        $alreadyReserved = abs((int) MlmWalletLedgerEntry::where('source_type', 'withdrawal_reserve')
-            ->where('idempotency_key', 'like', "mlm_wallet_reserve_payout_{$payout->id}_%")
-            ->sum('amount_cents'));
+        $alreadyReserved = $this->reservedCentsFor($payout);
 
         $delta = $payout->total_eur_cents - $alreadyReserved;
+        if ($delta < 0) {
+            // Riservato piu' del dovuto: non e' una situazione prevista (il
+            // totale di un payout non cala mai), ma se capita voglio vederla
+            // in log invece di uscire in silenzio.
+            Log::warning("Cassetto kmoney: la liquidazione #{$payout->id} risulta riservata per {$alreadyReserved} centesimi a fronte di un totale di {$payout->total_eur_cents}.");
+        }
         if ($delta <= 0) {
             return;
         }
@@ -194,7 +198,31 @@ class MlmPayoutService
             $delta,
             "mlm_wallet_reserve_payout_{$payout->id}_{$payout->total_eur_cents}",
             "Riserva cassetto kmoney per liquidazione #{$payout->id}",
+            $payout->id,
         );
+    }
+
+    /**
+     * Quanto risulta riservato nel cassetto PER QUESTA liquidazione.
+     *
+     * Fino al 28/08/2026 la domanda era posta con
+     * `idempotency_key LIKE "mlm_wallet_reserve_payout_{id}_%"`, e in SQL
+     * l'underscore e' un jolly da un carattere: il pattern della liquidazione
+     * #1 catturava anche la #12, la #13, la #19... E non c'era nessun filtro
+     * per agente, quindi il totale cosi' gonfiato veniva poi rilasciato
+     * sull'agente sbagliato. Riprodotto ad agosto: rifiutando una liquidazione
+     * da 50 euro ne uscivano 3.000 sul conto di un altro.
+     *
+     * Ora la riga si ritrova per agente + tipo + id della liquidazione
+     * (`source_id`), colonna che esisteva gia' e veniva scritta a null.
+     */
+    private function reservedCentsFor(MlmPayout $payout): int
+    {
+        return abs((int) MlmWalletLedgerEntry::query()
+            ->where('agent_user_id', $payout->agent_user_id)
+            ->where('source_type', 'withdrawal_reserve')
+            ->where('source_id', $payout->id)
+            ->sum('amount_cents'));
     }
 
     /**
@@ -206,11 +234,16 @@ class MlmPayoutService
      */
     private function releaseWalletReservationForPayout(MlmPayout $payout): void
     {
-        $reserved = abs((int) MlmWalletLedgerEntry::where('source_type', 'withdrawal_reserve')
-            ->where('idempotency_key', 'like', "mlm_wallet_reserve_payout_{$payout->id}_%")
-            ->sum('amount_cents'));
+        $reserved = $this->reservedCentsFor($payout);
 
         if ($reserved <= 0) {
+            if ($payout->total_eur_cents > 0) {
+                // Righe scritte prima del 28/08/2026 hanno source_id a null e
+                // qui non si trovano: NON vengono rilasciate (il KY resta
+                // fermo, si sblocca a mano) invece di essere rilasciate a
+                // caso. Vedi la nota di rilascio: c'e' un UPDATE di backfill.
+                Log::warning("Cassetto kmoney: nessuna riserva trovata per la liquidazione #{$payout->id} (agente #{$payout->agent_user_id}); niente da rilasciare.");
+            }
             return;
         }
 
@@ -219,6 +252,7 @@ class MlmPayoutService
             $reserved,
             "mlm_wallet_release_payout_{$payout->id}",
             "Rilascio riserva cassetto kmoney — liquidazione #{$payout->id} rifiutata",
+            $payout->id,
         );
     }
 
