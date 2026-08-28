@@ -1126,10 +1126,7 @@ class PortalController extends Controller
 
         $needsStepUp = false;
         if ($totpThreshold !== null && $preview['amount_cents'] >= (int) $totpThreshold) {
-            $verifiedAt = $request->session()->get('step_up_verified_at');
-            $isStepUpValid = $verifiedAt
-                && now()->diffInMinutes(\Carbon\Carbon::createFromTimestamp($verifiedAt)) < \App\Http\Middleware\RequireStepUp::STEP_UP_WINDOW_MINUTES;
-            $needsStepUp = ! $isStepUpValid;
+            $needsStepUp = ! \App\Http\Middleware\RequireStepUp::isVerified($request);
         }
 
         return view('portal.pay-confirm', [
@@ -1164,10 +1161,7 @@ class PortalController extends Controller
         $settings = \App\Models\SystemSetting::userLimitDefaults();
         $totpThreshold = $settings->payment_confirm_totp_threshold;
         if ($totpThreshold !== null && $preview['amount_cents'] >= (int) $totpThreshold) {
-            $verifiedAt = $request->session()->get('step_up_verified_at');
-            $isStepUpValid = $verifiedAt
-                && now()->diffInMinutes(\Carbon\Carbon::createFromTimestamp($verifiedAt)) < \App\Http\Middleware\RequireStepUp::STEP_UP_WINDOW_MINUTES;
-            if (! $isStepUpValid) {
+            if (! \App\Http\Middleware\RequireStepUp::isVerified($request)) {
                 $request->session()->put('step_up_return_url', route('portal.pay.confirm'));
                 return redirect()->route('portal.step-up.show')
                     ->with('step_up_reason', 'Per importi elevati devi confermare la tua identità prima di procedere.');

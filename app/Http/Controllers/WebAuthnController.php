@@ -599,7 +599,7 @@ class WebAuthnController extends Controller
             ]);
 
             // ✅ Stessa semantica dello step-up classico: segna la sessione come verificata
-            $request->session()->put('step_up_verified_at', now());
+            \App\Http\Middleware\RequireStepUp::markVerified($request);
             $request->session()->forget('step_up_reason');
 
             $returnUrl = $request->session()->pull(

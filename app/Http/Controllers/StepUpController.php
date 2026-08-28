@@ -76,8 +76,8 @@ class StepUpController extends Controller
 
         \App\Support\CredentialAttempts::clear(self::ATTEMPT_SCOPE, $user->id);
 
-        // Segna la verifica in sessione con timestamp
-        $request->session()->put('step_up_verified_at', now());
+        // Segna la verifica in sessione (timestamp intero, vedi RequireStepUp)
+        RequireStepUp::markVerified($request);
         $request->session()->forget('step_up_reason');
 
         $returnUrl = $request->session()->pull('step_up_return_url', route('portal.dashboard'));
