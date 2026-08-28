@@ -341,6 +341,83 @@ class Account extends Model
         return max(0, -(int) $this->available_balance);
     }
 
+    /**
+     * Il fido concesso ai membri, quanto ne stanno usando e quanto resta
+     * ancora aperto. Il margine aperto e' la moneta che puo' nascere domani
+     * senza che nessuno autorizzi niente: chiunque abbia fido residuo puo'
+     * spenderlo, e in quel momento i KY si creano.
+     *
+     * Replica `massimale()` — max(fido attivo del conto, limite sotto zero
+     * dell'intestatario) — ma in tre query invece che in tre per conto, e in
+     * aggregato. Le DUE fonti vanno tenute entrambe: c'e' chi va sotto zero
+     * grazie a `users.negative_balance_limit` senza avere nessuna riga in
+     * `credit_limits`, e guardando solo i fidi quel permesso sparisce.
+     *
+     * Escluso il conto sistema (il suo "fido" non e' credito concesso a
+     * nessuno) e i sottoconti, che sotto zero non ci vanno mai.
+     *
+     * Il margine si somma conto per conto e non come differenza fra i due
+     * totali: chi fosse sotto zero oltre il proprio tetto — dati vecchi,
+     * tetto abbassato dopo — regalerebbe margine agli altri.
+     *
+     * @return array{concesso:int, usato:int, margine:int, conti:int}
+     */
+    public static function fidoConcesso(): array
+    {
+        $limiteDiSistema = (int) (SystemSetting::userLimitDefaults()
+            ->defaultsMap()['negative_balance_limit'] ?? 0);
+
+        // Il fido attivo di ogni conto. Ordinati per id crescente, l'ultimo
+        // sovrascrive: e' lo stesso "vince l'id piu' alto" di activeCreditLimit().
+        $fidiAttivi = CreditLimit::query()
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->pluck('credit_limit', 'account_id');
+
+        $conti = static::query()
+            ->where('accounts.is_system_account', false)
+            ->whereNull('accounts.parent_account_id')
+            ->leftJoin('users', 'users.id', '=', 'accounts.owner_user_id')
+            ->toBase()
+            ->get([
+                'accounts.id',
+                'accounts.available_balance',
+                'users.transfer_limits_use_defaults',
+                'users.negative_balance_limit',
+            ]);
+
+        $concesso = 0;
+        $usato = 0;
+        $margine = 0;
+        $contiConFido = 0;
+
+        foreach ($conti as $conto) {
+            $limiteIntestatario = $conto->transfer_limits_use_defaults
+                ? (int) ($conto->negative_balance_limit ?? $limiteDiSistema)
+                : (int) ($conto->negative_balance_limit ?? 0);
+
+            $massimale = max(0, (int) ($fidiAttivi[$conto->id] ?? 0), $limiteIntestatario);
+
+            if ($massimale === 0) {
+                continue;
+            }
+
+            $utilizzato = max(0, -(int) $conto->available_balance);
+
+            $concesso += $massimale;
+            $usato += $utilizzato;
+            $margine += max(0, $massimale - $utilizzato);
+            $contiConFido++;
+        }
+
+        return [
+            'concesso' => $concesso,
+            'usato' => $usato,
+            'margine' => $margine,
+            'conti' => $contiConFido,
+        ];
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

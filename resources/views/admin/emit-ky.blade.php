@@ -99,13 +99,13 @@
         <div class="table-muted" style="font-size:11px;">rientrati: {{ ky_format($totalReturnedToSystem) }} KY</div>
     </article>
 
-    {{-- Fidi attivi --}}
-    <article class="stat-card" style="border-left:4px solid #d97706;">
-        <div class="eyebrow">Fidi attivi</div>
-        <div class="section-title" style="color:#d97706;font-size:18px;">
-            {{ ky_format($activeCreditLimitsTotal) }} KY
+    {{-- Fido concesso e non ancora toccato: moneta che puo' nascere domani --}}
+    <article class="stat-card" style="border-left:4px solid #b45309;">
+        <div class="eyebrow">Fido ancora aperto</div>
+        <div class="section-title" style="color:#b45309;font-size:18px;">
+            {{ ky_format($fido['margine']) }} KY
         </div>
-        <div class="table-muted" style="font-size:11px;">{{ $accountsNegative }} conti in rosso</div>
+        <div class="table-muted" style="font-size:11px;">concessi {{ ky_format($fido['concesso']) }} a {{ $fido['conti'] }} conti</div>
     </article>
 
 </section>
@@ -144,13 +144,13 @@
                     <th>Tipo</th>
                     <th style="text-align:right;">N°</th>
                     <th style="text-align:right;">Totale KY</th>
-                    <th style="text-align:right;">% sul circolante</th>
+                    <th style="text-align:right;">% sul totale</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($emissionBreakdown as $row)
                 @php
-                    $pct = $kyInCirculation > 0 ? round(($row->total / $kyInCirculation) * 100, 1) : 0;
+                    $pct = $totalOutFromSystem > 0 ? round(($row->total / $totalOutFromSystem) * 100, 1) : 0;
                     $kindLabel = match($row->kind) {
                         'ky_emission'        => '🏦 Emissione diretta',
                         'admin_credit'       => '👤 Accredito admin',
@@ -212,13 +212,13 @@
                     <th>Tipo</th>
                     <th style="text-align:right;">N°</th>
                     <th style="text-align:right;">Totale KY</th>
-                    <th style="text-align:right;">% sul circolante</th>
+                    <th style="text-align:right;">% sul totale</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($returnBreakdown as $row)
                 @php
-                    $pct = $kyInCirculation > 0 ? round(($row->total / $kyInCirculation) * 100, 1) : 0;
+                    $pct = $totalReturnedToSystem > 0 ? round(($row->total / $totalReturnedToSystem) * 100, 1) : 0;
                     $kindLabel = match($row->kind) {
                         'admin_debit'        => '🔻 Addebito admin',
                         'admin_credit'       => '👤 Accredito admin',
@@ -398,6 +398,10 @@
             </div>
             <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">
                 {{ ky_format($kyFromEmission) }} da emissione + {{ ky_format($kyFromCreditLines) }} da fidi in uso
+            </div>
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08);">
+                Potenziale: <strong style="color:#b45309;">{{ ky_format($circolantePotenziale) }} KY</strong>
+                se tutti usassero il fido residuo
             </div>
             <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">
                 Somma circuito: <strong style="color:{{ $circuitIsHealthy ? '#15803d' : '#dc2626' }};">{{ $circuitIsHealthy ? '0,00 ✅' : ky_format($circuitDelta).' ❌' }} KY</strong>

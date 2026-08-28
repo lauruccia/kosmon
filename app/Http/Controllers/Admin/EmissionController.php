@@ -74,14 +74,14 @@ class EmissionController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        // ── Fidi attivi ───────────────────────────────────────────────────────
-        $activeCreditLimitsTotal = (int) \App\Models\CreditLimit::query()
-            ->where('status', 'active')
-            ->sum('credit_limit');
+        // ── Fido concesso ai membri, usato e ancora aperto ────────────────────
+        // Il margine aperto e' la moneta che puo' nascere domani senza che
+        // nessuno autorizzi niente. Sommato al circolante da' il potenziale.
+        $fido = Account::fidoConcesso();
+        $circolantePotenziale = $kyInCirculation + $fido['margine'];
 
-        // ── Conti con saldo positivo/negativo ────────────────────────────────
+        // ── Conti con saldo positivo ─────────────────────────────────────────
         $accountsPositive = $circolante['conti'];
-        $accountsNegative = $accountsUsingCreditLine;
 
         // ── Dati per form ed storico ──────────────────────────────────────────
         $targetAccounts = Account::query()
@@ -127,10 +127,10 @@ class EmissionController extends Controller
             'emissionBreakdown'      => $emissionBreakdown,
             'returnBreakdown'        => $returnBreakdown,
             // fidi
-            'activeCreditLimitsTotal'=> $activeCreditLimitsTotal,
+            'fido'                   => $fido,
+            'circolantePotenziale'   => $circolantePotenziale,
             // conti
             'accountsPositive'       => $accountsPositive,
-            'accountsNegative'       => $accountsNegative,
             'activeNav'              => 'emit',
         ]);
     }
