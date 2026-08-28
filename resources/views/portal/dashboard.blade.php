@@ -642,7 +642,7 @@
             <div class="bkpi__label">Fido</div>
             @if($massimale > 0)
                 @php
-                    $fidoUsato = $currentBalance < 0 ? abs($currentBalance) : 0;
+                    $fidoUsato = $currentAccount->fidoUtilizzato();
                     $fidoResiduo = max(0, $massimale - $fidoUsato);
                 @endphp
                 <div class="bkpi__value">{{ ky_format($massimale) }}<span class="bkpi__currency">KY</span></div>
@@ -987,7 +987,7 @@
                 {{-- Fido (solo se attivo) --}}
         @if($massimale > 0)
         @php
-            $fidoUsato   = $currentBalance < 0 ? abs($currentBalance) : 0;
+            $fidoUsato   = $currentAccount->fidoUtilizzato();
             $fidoResiduo = max(0, $massimale - $fidoUsato);
             $fidoPct     = $massimale > 0 ? round($fidoUsato / $massimale * 100) : 0;
         @endphp

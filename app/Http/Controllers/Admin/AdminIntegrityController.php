@@ -33,7 +33,17 @@ class AdminIntegrityController extends Controller
         $circuitHealthy  = abs($totalBalance) <= 1; // tolleranza 1 cent
 
         $systemAccount   = Account::systemAccount();
-        $kyInCirculation = $systemAccount ? abs((int) $systemAccount->available_balance) : 0;
+
+        // I KY in mano ai membri hanno due origini: quelli emessi dalla Cassa
+        // (che lasciano il segno sul suo saldo negativo) e quelli creati dai
+        // membri che pagano andando sotto zero, che dalla Cassa non passano.
+        // La somma delle due e' il circolante vero, e per l'invariante del
+        // circuito chiuso coincide con la somma dei saldi positivi.
+        $kyFromEmission    = $systemAccount ? abs((int) $systemAccount->available_balance) : 0;
+        $fidiInUso         = Account::fidiInUso();
+        $kyFromCreditLines = $fidiInUso['totale'];
+        $circolante        = Account::kyInCircolazione();
+        $kyInCirculation   = $circolante['totale'];
 
         // ── 2. Conti con saldo disallineato rispetto al ledger ─────────────
         // NB: l'aggregato (ledger_balance) e' calcolato in una sottoquery e poi
@@ -111,6 +121,9 @@ class AdminIntegrityController extends Controller
             'totalBalance'        => $totalBalance,
             'circuitHealthy'      => $circuitHealthy,
             'kyInCirculation'     => $kyInCirculation,
+            'kyFromEmission'      => $kyFromEmission,
+            'kyFromCreditLines'   => $kyFromCreditLines,
+            'accountsUsingCreditLine' => $fidiInUso['conti'],
             'systemAccount'       => $systemAccount,
             // conti
             'mismatchedAccounts'  => $mismatchedAccounts,

@@ -60,7 +60,25 @@
         <div class="section-title" style="color:#7c3aed;font-size:22px;">
             {{ ky_format($kyInCirculation) }} KY
         </div>
-        <div class="table-muted" style="font-size:11px;">= |saldo Cassa Circuito|</div>
+        <div class="table-muted" style="font-size:11px;">= emissione + fidi in uso &middot; {{ $accountsPositive }} conti a credito</div>
+    </article>
+
+    {{-- Origine 1: emissione dalla Cassa --}}
+    <article class="stat-card" style="border-left:4px solid #6d28d9;">
+        <div class="eyebrow">Di cui da emissione</div>
+        <div class="section-title" style="color:#6d28d9;font-size:18px;">
+            {{ ky_format($kyFromEmission) }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">usciti dalla Cassa Circuito</div>
+    </article>
+
+    {{-- Origine 2: fidi in uso — moneta creata dai membri andando sotto zero --}}
+    <article class="stat-card" style="border-left:4px solid #d97706;">
+        <div class="eyebrow">Di cui da fidi in uso</div>
+        <div class="section-title" style="color:#d97706;font-size:18px;">
+            {{ ky_format($kyFromCreditLines) }} KY
+        </div>
+        <div class="table-muted" style="font-size:11px;">{{ $accountsUsingCreditLine }} conti sotto zero</div>
     </article>
 
     {{-- Saldo Cassa Circuito --}}
@@ -70,26 +88,6 @@
             {{ ky_format($systemAccount->available_balance) }} KY
         </div>
         <div class="table-muted" style="font-size:11px;">{{ $systemAccount->account_number }}</div>
-    </article>
-
-    {{-- KY su conto riserva operativa (MAIN Knm srl) --}}
-    @if($mainReserveAccount)
-    <article class="stat-card" style="border-left:4px solid #0284c7;">
-        <div class="eyebrow">Riserva operativa</div>
-        <div class="section-title" style="color:#0284c7;font-size:18px;">
-            {{ ky_format($kyOnMainReserve) }} KY
-        </div>
-        <div class="table-muted" style="font-size:11px;">{{ $mainReserveAccount->company?->name ?? $mainReserveAccount->display_name }} (MAIN)</div>
-    </article>
-    @endif
-
-    {{-- KY effettivamente circolanti su conti membri --}}
-    <article class="stat-card" style="border-left:4px solid #059669;">
-        <div class="eyebrow">KY su conti membri</div>
-        <div class="section-title" style="color:#059669;font-size:18px;">
-            {{ ky_format($kyOnOtherAccounts) }} KY
-        </div>
-        <div class="table-muted" style="font-size:11px;">{{ $accountsPositive }} conti con saldo positivo</div>
     </article>
 
     {{-- Uscite dal sistema (via trasferimenti tracciati) --}}
@@ -350,30 +348,30 @@
         <div style="margin-bottom:14px;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Distribuzione KY in circolazione</div>
             @php
-                $pctRiserva = round(($kyOnMainReserve / $kyInCirculation) * 100, 1);
-                $pctMembri  = max(0, round(($kyOnOtherAccounts / $kyInCirculation) * 100, 1));
+                $pctEmissione = round(($kyFromEmission / $kyInCirculation) * 100, 1);
+                $pctFidi      = round(($kyFromCreditLines / $kyInCirculation) * 100, 1);
             @endphp
 
             <div style="margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-                    <span>🏛 Riserva operativa (@if($mainReserveAccount){{ $mainReserveAccount->company?->name ?? 'MAIN' }}@endif)</span>
-                    <strong>{{ $pctRiserva }}%</strong>
+                    <span>🏦 Emessi dalla Cassa Circuito</span>
+                    <strong>{{ $pctEmissione }}%</strong>
                 </div>
-                <div style="height:8px;background:#e0e7ff;border-radius:4px;overflow:hidden;">
-                    <div style="width:{{ min(100,$pctRiserva) }}%;height:100%;background:#0284c7;border-radius:4px;"></div>
+                <div style="height:8px;background:#ede9fe;border-radius:4px;overflow:hidden;">
+                    <div style="width:{{ min(100,$pctEmissione) }}%;height:100%;background:#6d28d9;border-radius:4px;"></div>
                 </div>
-                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyOnMainReserve) }} KY</div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyFromEmission) }} KY</div>
             </div>
 
             <div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-                    <span>🏪 Conti membri del circuito ({{ $accountsPositive }})</span>
-                    <strong>{{ $pctMembri }}%</strong>
+                    <span>📉 Creati dai fidi in uso ({{ $accountsUsingCreditLine }} conti)</span>
+                    <strong>{{ $pctFidi }}%</strong>
                 </div>
-                <div style="height:8px;background:#dcfce7;border-radius:4px;overflow:hidden;">
-                    <div style="width:{{ min(100,$pctMembri) }}%;height:100%;background:#059669;border-radius:4px;"></div>
+                <div style="height:8px;background:#fef3c7;border-radius:4px;overflow:hidden;">
+                    <div style="width:{{ min(100,$pctFidi) }}%;height:100%;background:#d97706;border-radius:4px;"></div>
                 </div>
-                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyOnOtherAccounts) }} KY</div>
+                <div style="font-size:11px;color:var(--ink-muted);text-align:right;margin-top:2px;">{{ ky_format($kyFromCreditLines) }} KY</div>
             </div>
         </div>
         @endif
@@ -381,7 +379,7 @@
         <div style="display:grid;gap:8px;margin-bottom:12px;">
             <div style="display:flex;gap:8px;align-items:flex-start;">
                 <span style="font-size:15px;flex-shrink:0;">📉</span>
-                <div><strong style="font-size:12px;">Cassa si indebita</strong><br><span style="font-size:12px;color:var(--ink-soft);">Saldo negativo = KY netti circolanti.</span></div>
+                <div><strong style="font-size:12px;">Due origini della moneta</strong><br><span style="font-size:12px;color:var(--ink-soft);">Il saldo negativo della Cassa conta solo i KY emessi. Gli altri nascono quando un membro paga andando sotto zero: moneta vera, che la Cassa non vede.</span></div>
             </div>
             <div style="display:flex;gap:8px;align-items:flex-start;">
                 <span style="font-size:15px;flex-shrink:0;">📒</span>
@@ -397,6 +395,9 @@
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:4px;">KY in circolazione</div>
             <div style="font-size:26px;font-weight:800;color:#7c3aed;">
                 {{ ky_format($kyInCirculation) }} KY
+            </div>
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">
+                {{ ky_format($kyFromEmission) }} da emissione + {{ ky_format($kyFromCreditLines) }} da fidi in uso
             </div>
             <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">
                 Somma circuito: <strong style="color:{{ $circuitIsHealthy ? '#15803d' : '#dc2626' }};">{{ $circuitIsHealthy ? '0,00 ✅' : ky_format($circuitDelta).' ❌' }} KY</strong>

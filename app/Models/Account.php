@@ -283,6 +283,64 @@ class Account extends Model
         return static::query()->where('is_system_account', true)->first();
     }
 
+    /**
+     * Fidi in uso: i KY che esistono nel circuito perche' qualcuno e' andato
+     * sotto zero. Sono moneta a tutti gli effetti — sono gia' stati spesi e
+     * sono finiti sul conto di qualcun altro — ma non sono mai usciti dalla
+     * Cassa, quindi il saldo del conto sistema non li vede.
+     *
+     * Si misurano dal SALDO NEGATIVO e non dal fido concesso perche' lo
+     * scoperto ha due fonti (una riga attiva in credit_limits, oppure
+     * users.negative_balance_limit con transfer_limits_use_defaults = 0) e il
+     * saldo le cattura entrambe.
+     *
+     * @return array{totale:int, conti:int} totale in centesimi di KY
+     */
+    public static function fidiInUso(): array
+    {
+        $row = static::query()
+            ->where('is_system_account', false)
+            ->where('available_balance', '<', 0)
+            ->selectRaw('COALESCE(SUM(-available_balance), 0) AS totale, COUNT(*) AS conti')
+            ->toBase()
+            ->first();
+
+        return [
+            'totale' => (int) ($row?->totale ?? 0),
+            'conti' => (int) ($row?->conti ?? 0),
+        ];
+    }
+
+    /**
+     * KY effettivamente in mano ai membri: la somma dei saldi positivi.
+     * In un circuito chiuso vale sempre |saldo Cassa| + fidi in uso.
+     *
+     * @return array{totale:int, conti:int} totale in centesimi di KY
+     */
+    public static function kyInCircolazione(): array
+    {
+        $row = static::query()
+            ->where('is_system_account', false)
+            ->where('available_balance', '>', 0)
+            ->selectRaw('COALESCE(SUM(available_balance), 0) AS totale, COUNT(*) AS conti')
+            ->toBase()
+            ->first();
+
+        return [
+            'totale' => (int) ($row?->totale ?? 0),
+            'conti' => (int) ($row?->conti ?? 0),
+        ];
+    }
+
+    /**
+     * KY di cui questo conto e' debitore verso il circuito perche' sta usando
+     * il proprio scoperto. Zero se il conto e' in positivo.
+     */
+    public function fidoUtilizzato(): int
+    {
+        return max(0, -(int) $this->available_balance);
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

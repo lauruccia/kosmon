@@ -23,10 +23,22 @@ class EmissionController extends Controller
 
         // ── Metriche circuito chiuso ──────────────────────────────────────────
         // In un circuito chiuso SUM(tutti i saldi) deve essere sempre 0.
-        // Il saldo negativo della Cassa = KY netti in circolazione.
-        $kyInCirculation    = (int) abs($systemAccount->available_balance);
-        $circuitDelta       = (int) Account::query()->sum('available_balance'); // deve essere 0
-        $circuitIsHealthy   = $circuitDelta === 0;
+        // I KY in mano ai membri hanno DUE origini, non una:
+        //   1. l'emissione, che lascia il segno sul saldo negativo della Cassa;
+        //   2. i fidi in uso, KY nati quando un membro va sotto zero pagando —
+        //      moneta vera, gia' spesa, che pero' non e' mai passata dalla Cassa.
+        // La somma delle due e' la moneta effettivamente circolante, e per
+        // l'invariante del circuito chiuso coincide con i saldi positivi.
+        $kyFromEmission = (int) abs($systemAccount->available_balance);
+        $fidiInUso = Account::fidiInUso();
+        $kyFromCreditLines = $fidiInUso['totale'];
+        $accountsUsingCreditLine = $fidiInUso['conti'];
+
+        $circolante = Account::kyInCircolazione();
+        $kyInCirculation = $circolante['totale'];
+
+        $circuitDelta = (int) Account::query()->sum('available_balance'); // deve essere 0
+        $circuitIsHealthy = $circuitDelta === 0;
 
         // ── Flussi storici via trasferimento ──────────────────────────────────
         $totalOutFromSystem = (int) Transfer::query()
@@ -62,25 +74,14 @@ class EmissionController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        // ── Conto riserva operativa (MAIN account Knm srl — source delle distribuzioni) ──
-        $mainReserveAccount = Account::query()
-            ->with(['company:id,name'])
-            ->where('type', 'main')
-            ->where('is_system_account', false)
-            ->orderBy('id')
-            ->first();
-
-        $kyOnMainReserve   = $mainReserveAccount ? (int) $mainReserveAccount->available_balance : 0;
-        $kyOnOtherAccounts = $kyInCirculation - max(0, $kyOnMainReserve);
-
         // ── Fidi attivi ───────────────────────────────────────────────────────
         $activeCreditLimitsTotal = (int) \App\Models\CreditLimit::query()
             ->where('status', 'active')
             ->sum('credit_limit');
 
         // ── Conti con saldo positivo/negativo ────────────────────────────────
-        $accountsPositive = Account::query()->where('is_system_account', false)->where('available_balance', '>', 0)->count();
-        $accountsNegative = Account::query()->where('is_system_account', false)->where('available_balance', '<', 0)->count();
+        $accountsPositive = $circolante['conti'];
+        $accountsNegative = $accountsUsingCreditLine;
 
         // ── Dati per form ed storico ──────────────────────────────────────────
         $targetAccounts = Account::query()
@@ -112,6 +113,9 @@ class EmissionController extends Controller
             'recentEmissions'        => $recentEmissions,
             // metriche circuito
             'kyInCirculation'        => $kyInCirculation,
+            'kyFromEmission'         => $kyFromEmission,
+            'kyFromCreditLines'      => $kyFromCreditLines,
+            'accountsUsingCreditLine'=> $accountsUsingCreditLine,
             'circuitDelta'           => $circuitDelta,
             'circuitIsHealthy'       => $circuitIsHealthy,
             // flussi
@@ -122,10 +126,6 @@ class EmissionController extends Controller
             // breakdown
             'emissionBreakdown'      => $emissionBreakdown,
             'returnBreakdown'        => $returnBreakdown,
-            // riserva
-            'mainReserveAccount'     => $mainReserveAccount,
-            'kyOnMainReserve'        => $kyOnMainReserve,
-            'kyOnOtherAccounts'      => $kyOnOtherAccounts,
             // fidi
             'activeCreditLimitsTotal'=> $activeCreditLimitsTotal,
             // conti

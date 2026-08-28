@@ -100,7 +100,17 @@
             <div class="int-kpi">
                 <div class="int-kpi-label">KY in circolazione</div>
                 <div class="int-kpi-value" style="font-size:18px;">{{ ky_format($kyInCirculation) }}</div>
+                <div class="int-kpi-sub">Emissione + fidi in uso</div>
+            </div>
+            <div class="int-kpi">
+                <div class="int-kpi-label">Di cui da emissione</div>
+                <div class="int-kpi-value" style="font-size:18px;">{{ ky_format($kyFromEmission) }}</div>
                 <div class="int-kpi-sub">Saldo negativo conto sistema</div>
+            </div>
+            <div class="int-kpi">
+                <div class="int-kpi-label">Di cui da fidi in uso</div>
+                <div class="int-kpi-value" style="font-size:18px;">{{ ky_format($kyFromCreditLines) }}</div>
+                <div class="int-kpi-sub">{{ $accountsUsingCreditLine }} conti sotto zero</div>
             </div>
             <div class="int-kpi">
                 <div class="int-kpi-label">Somma globale saldi</div>
@@ -352,6 +362,17 @@
                     <strong>Ogni transfer booked ha 2 ledger entry bilanciate</strong> — il motore di booking
                     deve sempre generare 1 debit (conto mittente) e 1 credit (conto destinatario),
                     entrambi pari ad <code>amount</code>.
+                </span>
+            </div>
+            @php $circolanteQuadra = $kyInCirculation === $kyFromEmission + $kyFromCreditLines; @endphp
+            <div style="display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;">
+                <span class="badge {{ $circolanteQuadra ? 'badge-ok' : 'badge-err' }}" style="text-align:center;">{{ $circolanteQuadra ? '✓' : '✗' }}</span>
+                <span>
+                    <strong>Circolante = emissione + fidi in uso</strong> — i KY in mano ai membri
+                    ({{ ky_format($kyInCirculation) }}) nascono in due modi: usciti dalla Cassa
+                    ({{ ky_format($kyFromEmission) }}) oppure creati da un membro che paga andando
+                    sotto zero ({{ ky_format($kyFromCreditLines) }}). Sono le due facce della stessa
+                    somma-zero, quindi devono sempre coincidere.
                 </span>
             </div>
         </div>

@@ -12,10 +12,16 @@
     $negativeSum       = $accounts->where('available_balance', '<', 0)->sum('available_balance');
     $positiveCount     = $accounts->where('available_balance', '>', 0)->count();
     $negativeCount     = $accounts->where('available_balance', '<', 0)->count();
+
+    // Fidi in uso — dato FISSO, non segue i filtri e non conta il conto sistema:
+    // sono i KY che esistono perche' un membro ha pagato andando sotto zero.
+    // La card "Saldo negativo" qui accanto invece si muove col filtro e include
+    // il conto sistema, quindi non e' la stessa cosa.
+    $fidiInUso         = \App\Models\Account::fidiInUso();
 @endphp
 
-{{-- ─── KPI strip (6 colonne: 5 metriche + azioni rapide) ─────── --}}
-<section class="hero-strip" style="grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:20px;">
+{{-- ─── KPI strip (6 metriche + azioni rapide, a capo su schermo stretto) ─────── --}}
+<section class="hero-strip" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:20px;">
 
     <article class="stat-card">
         <div class="eyebrow">Conti nel circuito</div>
@@ -53,6 +59,12 @@
         <div class="eyebrow">Saldo negativo <span style="font-weight:400;opacity:.6;">(filtro)</span></div>
         <div class="section-title" id="ac-negative-sum" style="font-size:20px;color:var(--danger);">{{ ky_format($negativeSum) }} KY</div>
         <div class="table-muted" style="margin-top:4px;"><span id="ac-negative-count">{{ $negativeCount }}</span> conti a debito</div>
+    </article>
+
+    <article class="stat-card">
+        <div class="eyebrow">Fidi in uso <span style="font-weight:400;opacity:.6;">(circuito)</span></div>
+        <div class="section-title" style="font-size:20px;color:var(--warning,#d97706);">{{ ky_format($fidiInUso['totale']) }} KY</div>
+        <div class="table-muted" style="margin-top:4px;">{{ $fidiInUso['conti'] }} conti sotto zero &middot; esclusa la Cassa</div>
     </article>
 
     <article class="stat-card">
