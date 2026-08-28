@@ -279,16 +279,21 @@ class PlanSubscriptionController extends Controller
             ->with(['fromPlan', 'toPlan'])
             ->firstOrFail();
 
-        if ($payment->isPending() && $payment->payment_method === 'stripe' && $request->has('session_id')) {
-            try {
-                \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-                $session = \Stripe\Checkout\Session::retrieve($request->query('session_id'));
-                if ($session->payment_status === 'paid') {
-                    $this->upgradeService->completePayment($payment);
-                }
-            } catch (\Exception $e) {
-                Log::warning('Plan upgrade Stripe success verify', ['error' => $e->getMessage()]);
+        // Stessa regola della ricarica KYCard: la sessione da verificare e'
+        // quella salvata sul pagamento, non quella nell'indirizzo.
+        // Vedi StripeCheckoutVerifier.
+        if ($payment->isPending() && $payment->payment_method === 'stripe') {
+            $pagata = app(\App\Services\StripeCheckoutVerifier::class)->isPaidFor(
+                $payment->stripe_checkout_session_id,
+                (int) $payment->amount_cents,
+                $payment->uuid,
+                'plan:' . $payment->uuid,
+            );
+
+            if ($pagata) {
+                $this->upgradeService->completePayment($payment);
             }
+
             $payment->refresh();
         }
 

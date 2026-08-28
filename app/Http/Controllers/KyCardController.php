@@ -309,17 +309,23 @@ class KyCardController extends PortalController
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
-        // Se Stripe: verifica sessione se non ancora completato
-        if ($purchase->isPending() && $purchase->payment_method === 'stripe' && $request->has('session_id')) {
-            try {
-                \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-                $session = \Stripe\Checkout\Session::retrieve($request->query('session_id'));
-                if ($session->payment_status === 'paid') {
-                    $this->creditKy($purchase);
-                }
-            } catch (\Exception $e) {
-                Log::warning('Stripe success verify', ['error' => $e->getMessage()]);
+        // Se Stripe: verifica la sessione SALVATA SULL'ACQUISTO, mai quella che
+        // arriva in ?session_id= (vedi StripeCheckoutVerifier: un session_id
+        // gia' pagato, incollato su acquisti nuovi, accreditava KY all'infinito).
+        // Accredita solo se la sessione risulta pagata, riferita a questo
+        // acquisto e dell'importo esatto.
+        if ($purchase->isPending() && $purchase->payment_method === 'stripe') {
+            $pagata = app(\App\Services\StripeCheckoutVerifier::class)->isPaidFor(
+                $purchase->stripe_checkout_session_id,
+                (int) $purchase->price_eur_cents,
+                $purchase->uuid,
+                'kycard:' . $purchase->uuid,
+            );
+
+            if ($pagata) {
+                $this->creditKy($purchase);
             }
+
             $purchase->refresh();
         }
 
@@ -356,10 +362,18 @@ class KyCardController extends PortalController
         if ($event->type === 'checkout.session.completed') {
             $session  = $event->data->object;
 
+            $verifier = app(\App\Services\StripeCheckoutVerifier::class);
+
             $purchase = KyCardPurchase::where('stripe_checkout_session_id', $session->id)->first();
             if ($purchase && $purchase->isPending()) {
                 $purchase->update(['stripe_payment_intent_id' => $session->payment_intent]);
-                $this->creditKy($purchase);
+
+                // checkout.session.completed puo' arrivare anche NON pagata
+                // (metodi asincroni): l'evento e' firmato, ma va comunque
+                // controllato stato e importo prima di creare moneta.
+                if ($verifier->sessionMatches($session, (int) $purchase->price_eur_cents, $purchase->uuid, 'kycard-webhook:' . $purchase->uuid)) {
+                    $this->creditKy($purchase);
+                }
             }
 
             // Stesso endpoint webhook condiviso anche per gli upgrade piano
@@ -368,7 +382,10 @@ class KyCardController extends PortalController
             $planPayment = \App\Models\PlanPayment::where('stripe_checkout_session_id', $session->id)->first();
             if ($planPayment && $planPayment->isPending()) {
                 $planPayment->update(['stripe_payment_intent_id' => $session->payment_intent]);
-                app(\App\Services\PlanUpgradeService::class)->completePayment($planPayment);
+
+                if ($verifier->sessionMatches($session, (int) $planPayment->amount_cents, $planPayment->uuid, 'plan-webhook:' . $planPayment->uuid)) {
+                    app(\App\Services\PlanUpgradeService::class)->completePayment($planPayment);
+                }
             }
         }
 

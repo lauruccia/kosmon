@@ -20,6 +20,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\ContentSecurityPolicy::class,
         ]);
+        // Il webhook Stripe arriva da un server esterno: non ha sessione ne'
+        // token CSRF. Senza questa esenzione POST /stripe/webhook rispondeva
+        // 419 e non ha mai accreditato niente, lasciando la pagina di successo
+        // come unica strada (chi pagava e chiudeva il browser restava senza KY).
+        // La firma dell'evento e' verificata dentro KyCardController::stripeWebhook.
+        $middleware->validateCsrfTokens(except: [
+            'stripe/webhook',
+        ]);
         $middleware->alias([
             'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
             'twofactor'  => \App\Http\Middleware\TwoFactorChallenge::class,
