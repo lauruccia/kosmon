@@ -39,34 +39,38 @@
 # quindi non c'e' proprio nulla da copiare li' — evita ogni rischio di
 # self-copy per sempre, indipendentemente da come si comporta $HOME su
 # questo host.
+# FIX 28/08/2026 — i percorsi non sono piu' scritti SOLO come /home2/...
+# L'hosting ha riferito che in cPanel il repository risulta registrato come
+# /home/kmoney/kosmon_git (senza il 2) mentre la home reale dell'account e'
+# /home2/kmoney/, e che questo disallineamento lascia il deploy in stato
+# "queued". Quel pezzo lo devono sbloccare loro. Ma se lo sbloccano e
+# l'ambiente di deploy vede la home come /home/kmoney, i task qui sotto
+# uscirebbero comunque con "nessuna cartella live nota trovata": provavano
+# SOLO /home2. Ora ogni task prova entrambe le forme, /home2 per prima (cosi'
+# su kosmopay, che deploya regolarmente, non cambia assolutamente nulla), e
+# il percorso di public_html si ricava dalla cartella trovata invece di
+# essere scritto a mano.
+#
+# REGOLA (dal fix del 25/08): ogni task deve funzionare DA SOLO. cPanel esegue
+# ogni riga in una shell propria, quindi niente variabili ereditate dal task
+# precedente — ogni riga si ricalcola il percorso.
+
 deployment:
   tasks:
-    # Rilevamento: percorsi scritti per esteso, niente $HOME.
-    - "if [ -d /home2/kosmopay/kosmon ]; then export DEPLOYPATH=/home2/kosmopay/kosmon; export PUBLICPATH=; elif [ -d /home2/kmoney/kosmon_git ]; then export DEPLOYPATH=/home2/kmoney/kosmon_git; export PUBLICPATH=/home2/kmoney/public_html; else echo \"ERRORE: nessuna cartella live nota trovata (non /home2/kosmopay/kosmon, non /home2/kmoney/kosmon_git). Deploy interrotto per sicurezza.\" >&2; exit 1; fi; echo \"Deploy verso: $DEPLOYPATH (public: ${PUBLICPATH:-standard})\""
+
+    # Rilevamento della cartella live: /home2 per prima, /home come ripiego.
+    - "D=; for c in /home2/kosmopay/kosmon /home/kosmopay/kosmon /home2/kmoney/kosmon_git /home/kmoney/kosmon_git; do if [ -d \"$c\" ]; then D=\"$c\"; break; fi; done; if [ -z \"$D\" ]; then echo 'ERRORE: nessuna cartella live nota trovata, ne sotto /home2 ne sotto /home. Deploy interrotto per sicurezza.' >&2; exit 1; fi; case \"$D\" in */kosmon_git) P=\"${D%/kosmon_git}/public_html\";; *) P=;; esac; echo \"Deploy verso: $D (public: ${P:-standard})\""
 
     # 1. SOLO kosmopay.it: copia il codice dalla checkout alla cartella live
-    #    separata. Su kmoney.it questo task non fa nulla (DEPLOYPATH e' gia'
-    #    la checkout: il pull di "Update from Remote" ha gia' aggiornato tutto).
-    - "if [ -d /home2/kosmopay/kosmon ]; then /bin/cp -Rf app bootstrap config database public resources routes /home2/kosmopay/kosmon/; /bin/cp -f artisan composer.json composer.lock /home2/kosmopay/kosmon/; fi"
+    #    separata. Su kmoney.it non fa nulla (li' la checkout E' la cartella viva).
+    - "D=; for c in /home2/kosmopay/kosmon /home/kosmopay/kosmon; do if [ -d \"$c\" ]; then D=\"$c\"; break; fi; done; if [ -n \"$D\" ]; then /bin/cp -Rf app bootstrap config database public resources routes \"$D\"/; /bin/cp -f artisan composer.json composer.lock \"$D\"/; echo \"Codice copiato in $D\"; fi"
 
     # 1b. SOLO kmoney.it: aggiorna gli asset in public_html, SENZA toccare
     #     index.php (personalizzato: punta a ../kosmon_git).
-    - "if [ -d /home2/kmoney/kosmon_git ]; then cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" /home2/kmoney/public_html/; fi; done; cd ..; fi"
+    - "D=; for c in /home2/kmoney/kosmon_git /home/kmoney/kosmon_git; do if [ -d \"$c\" ]; then D=\"$c\"; break; fi; done; if [ -n \"$D\" ]; then P=\"${D%/kosmon_git}/public_html\"; cd public && for f in *; do if [ \"$f\" != \"index.php\" ]; then /bin/cp -Rf \"$f\" \"$P\"/; fi; done; cd ..; echo \"Asset aggiornati in $P\"; fi"
 
-    # 2. Svuota le cache cancellando i file compilati (senza dipendere da php/composer).
-    #
-    # FIX 25/08/2026 — queste erano CINQUE righe separate che usavano
-    # "$DEPLOYPATH", la variabile esportata dal task di rilevamento qui sopra.
-    # Ma cPanel esegue ogni task in una shell propria: una variabile non
-    # sopravvive al task che l'ha creata, quindi i comandi diventavano
-    # "/bin/rm -f /bootstrap/cache/config.php" — un percorso assoluto sbagliato
-    # che, grazie a -f, falliva in SILENZIO senza far fallire il deploy.
-    # Risultato: la cache compilata non e' mai stata svuotata da un deploy, in
-    # nessuna versione di questo file, e il sito poteva continuare a servire
-    # config, route e viste vecchie dopo una pubblicazione andata "a buon fine".
-    #
-    # Ora e' un unico task autosufficiente: il percorso se lo ricalcola da solo
-    # e la variabile vive dentro la stessa riga. REGOLA per il futuro: ogni
-    # task di questo file deve funzionare da solo, senza ereditare niente dai
-    # task precedenti.
-    - "if [ -d /home2/kosmopay/kosmon ]; then D=/home2/kosmopay/kosmon; elif [ -d /home2/kmoney/kosmon_git ]; then D=/home2/kmoney/kosmon_git; else echo 'ERRORE: nessuna cartella live nota trovata: cache non svuotate.' >&2; exit 1; fi; /bin/rm -f \"$D\"/bootstrap/cache/config.php \"$D\"/bootstrap/cache/routes-*.php \"$D\"/bootstrap/cache/packages.php \"$D\"/bootstrap/cache/services.php; /bin/rm -f \"$D\"/storage/framework/views/*.php; echo \"Cache compilate svuotate in $D\""
+    # 2. Svuota le cache cancellando i file compilati, senza dipendere da
+    #    php/composer. Prima del 25/08 questo task usava una variabile del task
+    #    precedente, non sopravviveva, e falliva in silenzio: la cache non e'
+    #    MAI stata svuotata da un deploy.
+    - "D=; for c in /home2/kosmopay/kosmon /home/kosmopay/kosmon /home2/kmoney/kosmon_git /home/kmoney/kosmon_git; do if [ -d \"$c\" ]; then D=\"$c\"; break; fi; done; if [ -z \"$D\" ]; then echo 'ERRORE: nessuna cartella live nota trovata: cache non svuotate.' >&2; exit 1; fi; /bin/rm -f \"$D\"/bootstrap/cache/config.php \"$D\"/bootstrap/cache/routes-*.php \"$D\"/bootstrap/cache/packages.php \"$D\"/bootstrap/cache/services.php; /bin/rm -f \"$D\"/storage/framework/views/*.php; echo \"Cache compilate svuotate in $D\""
