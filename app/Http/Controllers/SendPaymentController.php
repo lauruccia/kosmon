@@ -12,6 +12,7 @@ use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\TransferBookingService;
+use App\Support\PaymentIdempotency;
 use App\Support\PaymentPin;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -83,8 +84,8 @@ class SendPaymentController extends PortalController
             // Identifica QUESTO caricamento della pagina. Finisce in un campo
             // nascosto del form e da' la chiave di idempotenza dell'invio: due
             // reinvii dello stesso form portano lo stesso token, un nuovo
-            // caricamento ne porta uno diverso. Vedi idempotencyKeyFor().
-            'invioToken'         => (string) Str::uuid(),
+            // caricamento ne porta uno diverso. Vedi App\Support\PaymentIdempotency.
+            'invioToken'         => PaymentIdempotency::freshToken(),
         ]);
     }
 
@@ -297,13 +298,11 @@ class SendPaymentController extends PortalController
         }
 
         // ── Esegui il trasferimento ───────────────────────────────────────────
-        $idempotencyKey = $this->idempotencyKeyFor(
-            $currentAccount,
-            $validated['invio_token'] ?? null,
+        $idempotencyKey = PaymentIdempotency::forForm('invia', $currentAccount, $validated['invio_token'] ?? null, [
             (int) $validated['to_account_id'],
             $amountCents,
-            $validated['description'] ?? null,
-        );
+            $validated['description'] ?? '',
+        ]);
 
         // Invio gia' registrato (tasto indietro, reinvio del form, retry di
         // rete): si mostra la ricevuta di QUELLO, dicendolo. Senza questo ramo
@@ -378,54 +377,6 @@ class SendPaymentController extends PortalController
         ));
 
         return redirect()->route('portal.invia.ricevuta', $transfer->uuid);
-    }
-
-    /**
-     * Chiave di idempotenza di un invio.
-     *
-     * Prima qui c'era `Str::uuid()`, cioe' una chiave NUOVA a ogni POST: il
-     * motore sa gia' riconoscere un invio ripetuto (TransferBookingService::book
-     * restituisce il transfer esistente, e `transfers.idempotency_key` e' UNIQUE
-     * dalla migrazione iniziale), ma con una chiave casuale quella capacita' era
-     * buttata via e ogni reinvio diventava un pagamento nuovo.
-     *
-     * La chiave e' composta da tre cose, e ognuna serve:
-     *
-     * - il TOKEN del form (`invioToken`, generato in show()): e' lo stesso per
-     *   tutti i reinvii dello stesso form — doppio submit, tasto indietro,
-     *   retry di rete — e cambia a ogni caricamento della pagina, cosi' chi
-     *   vuole davvero rifare lo stesso pagamento lo puo' fare;
-     * - il CONTO PAGATORE: senza, chi indovinasse il token di un altro
-     *   otterrebbe la ricevuta del SUO pagamento. Con l'id del conto nella
-     *   chiave, ognuno puo' collidere solo con se stesso;
-     * - il PAYLOAD (destinatario, importo, causale): se l'utente torna indietro
-     *   e cambia l'importo, quello e' un pagamento diverso e deve passare.
-     *
-     * Senza token (client vecchio, POST diretto all'endpoint) si ricade su una
-     * finestra di un minuto: non e' preciso come il token, ma e' comunque una
-     * chiave STABILE, mentre quella casuale non proteggeva da niente.
-     */
-    private function idempotencyKeyFor(
-        Account $fromAccount,
-        ?string $token,
-        int $toAccountId,
-        int $amountCents,
-        ?string $description,
-    ): string {
-        $token = preg_replace('/[^A-Za-z0-9\-]/', '', (string) $token);
-
-        if ($token === '') {
-            $token = 'senza-form-' . now()->format('Y-m-d-H-i');
-        }
-
-        $impronta = hash('sha256', implode('|', [
-            $token,
-            $toAccountId,
-            $amountCents,
-            (string) $description,
-        ]));
-
-        return 'invia_' . $fromAccount->id . '_' . substr($impronta, 0, 40);
     }
 
     // ── GET /invia/ricevuta/{uuid} ────────────────────────────────────────────

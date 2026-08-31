@@ -389,6 +389,22 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->is_super_admin || $this->hasPermission('backoffice.access');
     }
 
+    /**
+     * Accesso PIENO al backoffice: super admin oppure `backoffice.full`.
+     *
+     * Da non confondere con canAccessBackoffice(), che e' vero anche per gli
+     * operatori RISTRETTI — il ruolo "Gestore Aziende e Prodotti" ha
+     * `backoffice.access` ma non `backoffice.full`, e vede solo le rotte
+     * elencate in EnsureCanAccessBackoffice. Chiedere canAccessBackoffice()
+     * dove si intendeva "e' un amministratore" e' il modo in cui A7 e' nato:
+     * le pagine /broker rispondevano di si' a un operatore che avevamo
+     * deliberatamente tenuto fuori da conti e movimenti (31/08).
+     */
+    public function hasFullBackofficeAccess(): bool
+    {
+        return $this->is_super_admin || $this->hasPermission('backoffice.full');
+    }
+
     public function canAccessPortal(): bool
     {
         return ! $this->canAccessBackoffice();

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\Company;
+use App\Support\PaymentIdempotency;
 use App\Models\Transfer;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +21,13 @@ class BrokerController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('broker') && ! $user->canAccessBackoffice()) {
+        // hasFullBackofficeAccess() e non canAccessBackoffice(): queste rotte
+        // stanno nel gruppo PORTALE, quindi EnsureCanAccessBackoffice non le
+        // filtra, e con la domanda larga un operatore ristretto entrava lo
+        // stesso — vedendo saldi e movimenti di tutte le aziende, cioe' proprio
+        // cio' che gli era stato chiuso il 12/08 su /admin/accounts e
+        // /admin/movimenti (A7, 31/08).
+        if (! $user->hasRole('broker') && ! $user->hasFullBackofficeAccess()) {
             abort(403, 'Accesso riservato agli operatori broker.');
         }
 
@@ -29,7 +36,8 @@ class BrokerController extends Controller
             ->with(['accounts' => fn ($q) => $q->whereNull('parent_account_id')->where('status', 'active'), 'broker'])
             ->where('status', 'active');
 
-        if (! $user->canAccessBackoffice()) {
+        // Chi non ha l'accesso PIENO vede solo i propri clienti assegnati.
+        if (! $user->hasFullBackofficeAccess()) {
             $query->where('broker_user_id', $user->id);
         }
 
@@ -135,6 +143,9 @@ class BrokerController extends Controller
             ->get();
 
         return view('broker.pay', [
+            // Identifica questo caricamento della pagina: due invii dello
+            // stesso form non possono diventare due pagamenti.
+            'invioToken'           => PaymentIdempotency::freshToken(),
             'pageTitle'            => 'Paga per conto di ' . $company->name,
             'company'              => $company,
             'fromAccount'          => $fromAccount,
@@ -162,6 +173,7 @@ class BrokerController extends Controller
             'to_account_id' => ['required', 'integer', 'exists:accounts,id', 'different:' . $fromAccount->id],
             'amount'        => ['required', 'numeric', 'min:0.01'],
             'description'   => ['nullable', 'string', 'max:500'],
+            'invio_token'   => ['nullable', 'string', 'max:64'],
         ]);
 
         $amountCents = ky_to_cents($validated['amount']);
@@ -174,7 +186,14 @@ class BrokerController extends Controller
                 'amount'          => $amountCents,
                 'description'     => $validated['description'] ?? 'Pagamento operato da broker ' . $user->name,
                 'kind'            => 'broker_payment',
-                'idempotency_key' => (string) Str::uuid(),
+                // Ultimo posto rimasto con la chiave casuale a ogni POST
+                // (M1, 31/08): qui un reinvio pagava due volte per conto di
+                // un'azienda che non e' nemmeno quella dell'operatore.
+                'idempotency_key' => PaymentIdempotency::forForm('broker', $fromAccount, $validated['invio_token'] ?? null, [
+                    (int) $validated['to_account_id'],
+                    $amountCents,
+                    $validated['description'] ?? '',
+                ]),
                 'ip_address'      => $request->ip(),
             ]);
         } catch (\RuntimeException $e) {
@@ -198,7 +217,7 @@ class BrokerController extends Controller
 
     private function authorizeAccess(\App\Models\User $user, Company $company): void
     {
-        if ($user->canAccessBackoffice()) {
+        if ($user->hasFullBackofficeAccess()) {
             return;
         }
 

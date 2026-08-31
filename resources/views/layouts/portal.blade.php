@@ -1860,7 +1860,7 @@
                                     <span class="nav-icon">📖</span><span>Docs API</span>
                                 </a>
                                 @endif
-                                @if($mv('operatore') && (($currentUser??$authUser)?->hasRole('broker') || $isBackoffice))
+                                @if($mv('operatore') && (($currentUser??$authUser)?->hasRole('broker') || ($authUser?->hasFullBackofficeAccess() ?? false)))
                                 <a class="sidebar-link {{ $an === 'broker' ? 'active' : '' }}" href="{{ route('broker.dashboard') }}">
                                     <span class="nav-icon">BR</span><span>Operatore</span>
                                 </a>

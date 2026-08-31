@@ -34,6 +34,9 @@
 
         <form method="POST" action="{{ route('broker.pay.submit', $company) }}" id="brokerPayForm">
             @csrf
+            {{-- Vedi App\Support\PaymentIdempotency: due invii dello stesso
+                 form restano un pagamento solo. --}}
+            <input type="hidden" name="invio_token" value="{{ $invioToken }}">
 
             {{-- Destinatario --}}
             <div style="margin-bottom:16px;">

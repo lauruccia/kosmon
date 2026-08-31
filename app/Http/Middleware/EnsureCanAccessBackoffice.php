@@ -51,9 +51,15 @@ class EnsureCanAccessBackoffice
             'admin.companies.ecommerce.webhook.delete',
             'admin.companies.ecommerce.pairing.approve',
             'admin.companies.ecommerce.pairing.reject',
-            'admin.companies.payment-gateways.update',
-            'admin.companies.payment-gateways.toggle',
-            'admin.companies.payment-gateways.destroy',
+            // NON elencate qui, di proposito (A9, 31/08):
+            //   admin.companies.payment-gateways.update / toggle / destroy
+            // Sono le credenziali di INCASSO in euro — IBAN, intestatario,
+            // secret key di Stripe, client secret di PayPal. Chi le puo'
+            // riscrivere puo' dirottare gli incassi di qualsiasi azienda sul
+            // proprio conto. Non e' "gestione aziende e prodotti": restano ai
+            // soli `backoffice.full` (e ai super admin). Se un domani servisse
+            // aprirle a un operatore ristretto, aggiungerle qui NON basta:
+            // metterci sopra anche il middleware `step.up`.
             'admin.kyc.approve',
             'admin.kyc.reject',
             'admin.kyc.request-docs',
@@ -99,7 +105,8 @@ class EnsureCanAccessBackoffice
 
     private function hasFullBackofficeAccess(User $user): bool
     {
-        return $user->is_super_admin || $user->hasPermission('backoffice.full');
+        // Una copia sola: la definizione vive su User (31/08).
+        return $user->hasFullBackofficeAccess();
     }
 
     private function routeAllowedForRestrictedUser(User $user, ?string $routeName): bool
