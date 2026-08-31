@@ -651,7 +651,15 @@ class Account extends Model
         $accountCreditLimit = (int) ($this->activeCreditLimit()?->credit_limit ?? 0);
         $ownerNegativeBalanceLimit = (int) ($this->ownerTransferLimits()['negative_balance_limit'] ?? 0);
 
-        return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit);
+        // Quota di iscrizione pagata in KY (31/08/2026): il fido concesso
+        // dall'admin non deve essere mangiato dalla quota. Si SOMMA, non si
+        // confronta con max() come le altre due fonti — decisione di Laura:
+        // fido 50 e quota 30 vogliono dire che il conto puo' arrivare a -80.
+        // Vale zero per chiunque non abbia pagato la quota in KY, cioe' per
+        // tutti gli utenti gia' esistenti.
+        $quotaIscrizione = max(0, (int) ($this->ownerUser?->registration_fee_ky_allowance_cents ?? 0));
+
+        return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit) + $quotaIscrizione;
     }
 
     /**

@@ -387,6 +387,20 @@ class KyCardController extends PortalController
                     app(\App\Services\PlanUpgradeService::class)->completePayment($planPayment);
                 }
             }
+
+            // Terzo incasso sullo stesso endpoint: la quota di iscrizione dei
+            // privati (31/08/2026, vedi RegistrationFeeController). Anche qui
+            // il webhook e la pagina di successo possono arrivare insieme:
+            // l'accredito e' idempotente sulla idempotency_key del transfer,
+            // non sul solo stato del pagamento.
+            $feePayment = \App\Models\RegistrationFeePayment::where('stripe_checkout_session_id', $session->id)->first();
+            if ($feePayment && $feePayment->isPending()) {
+                $feePayment->update(['stripe_payment_intent_id' => $session->payment_intent]);
+
+                if ($verifier->sessionMatches($session, (int) $feePayment->amount_eur_cents, $feePayment->uuid, 'regfee-webhook:' . $feePayment->uuid)) {
+                    app(\App\Services\RegistrationFeeService::class)->completeEuroPayment($feePayment);
+                }
+            }
         }
 
         return response('OK', 200);

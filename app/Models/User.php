@@ -177,6 +177,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'payment_pin_hash',
         'referral_code',
         'referred_by_user_id',
+        'registration_fee_due_cents',
+        'registration_fee_paid_at',
+        'registration_fee_ky_allowance_cents',
         'mlm_agent_code',
         'referral_bonus_paid_amount',
         'referral_bonus_tier',
@@ -245,6 +248,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'mlm_agent_contract_otp_expires_at'  => 'datetime',
 
             'birth_date' => 'date',
+
+            'registration_fee_paid_at' => 'datetime',
         ];
     }
 

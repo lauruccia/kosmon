@@ -19,6 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // della config e con `config:cache` env() restituirebbe null.
         $middleware->web(append: [
             \App\Http\Middleware\ContentSecurityPolicy::class,
+            // Quota di iscrizione (31/08/2026): agganciato a TUTTO il web e
+            // non al solo gruppo del portale. Decide da se' cosa bloccare
+            // (l'elenco sta in EnsureRegistrationFeePaid) e non fa niente per
+            // chi la quota non ce l'ha, cioe' per tutti gli utenti gia'
+            // esistenti; in cambio, nessuna rotta nuova puo' nascere fuori dal
+            // suo raggio per distrazione.
+            \App\Http\Middleware\EnsureRegistrationFeePaid::class,
         ]);
         // Il webhook Stripe arriva da un server esterno: non ha sessione ne'
         // token CSRF. Senza questa esenzione POST /stripe/webhook rispondeva

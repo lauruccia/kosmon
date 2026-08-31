@@ -1532,6 +1532,7 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'registration-fees' ? 'active' : '' }}" href="{{ route('admin.registration-fees.index') }}"><span class="nav-icon">&#127915;</span><span>Quote iscrizione</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'cashback' ? 'active' : '' }}" href="{{ route('admin.cashback.index') }}"><span class="nav-icon">CB</span><span>Cashback</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-fees' ? 'active' : '' }}" href="{{ route('admin.fees.index') }}"><span class="nav-icon">&#x1F4B0;</span><span>Commissioni</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broadcast' ? 'active' : '' }}" href="{{ route('admin.broadcast.index') }}"><span class="nav-icon">&#x1F4E2;</span><span>Comunicazioni</span></a>
@@ -2115,6 +2116,17 @@
                     <span class="pill {{ $isBackoffice ? 'warn' : ($isDelegate ? 'warn' : 'success') }}">{{ $profileLabel }}</span>
                 </div>
             </header>
+            {{-- Quota di iscrizione da saldare (31/08/2026): l'utente entra e
+                 vede tutto, ma finche' non paga non invia, non incassa e non
+                 compra. Il banner e' l'unico avviso permanente: il resto del
+                 blocco vive in EnsureRegistrationFeePaid, che pero' si fa
+                 sentire solo quando l'utente prova ad agire. --}}
+            @if (! request()->routeIs('portal.registration-fee.*') && app(\App\Services\RegistrationFeeService::class)->isDueFor(auth()->user()))
+                <div class="notice error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span>Quota di iscrizione da saldare: fino ad allora non puoi inviare KY, incassare o acquistare.</span>
+                    <a class="cta" href="{{ route('portal.registration-fee.show') }}" style="padding:6px 12px;font-size:13px;">Salda ora</a>
+                </div>
+            @endif
             @if (session('portal_success'))<div class="notice success">{{ session('portal_success') }}</div>@endif
             @if (session('portal_error'))<div class="notice error">{{ session('portal_error') }}</div>@endif
             @if ($errors->any())<div class="notice error">{{ $errors->first() }}</div>@endif

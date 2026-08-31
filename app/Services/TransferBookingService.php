@@ -971,12 +971,21 @@ class TransferBookingService
         $projectedBalance = $account->available_balance - $amount;
         $creditExposureLimit = max(0, (int) ($creditLimit?->credit_limit ?? 0));
 
-        if ($creditExposureLimit > 0 && $projectedBalance < -$creditExposureLimit) {
+        // Quota di iscrizione pagata in KY (31/08/2026): fido aggiuntivo pari
+        // alla quota, concesso al titolare del conto che l'ha pagata cosi'.
+        // Va sommato QUI e non solo in Account::massimale(): quello e' il
+        // numero che si vede, questo e' il numero che il motore fa rispettare
+        // davvero — se si aggiornasse solo il primo, l'utente vedrebbe una
+        // capienza che al momento di spendere gli verrebbe negata. Vale zero
+        // per tutti gli altri conti.
+        $quotaIscrizione = max(0, (int) ($account->ownerUser?->registration_fee_ky_allowance_cents ?? 0));
+
+        if ($creditExposureLimit > 0 && $projectedBalance < -($creditExposureLimit + $quotaIscrizione)) {
             throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);
         }
 
         $effectiveNegativeBalanceLimit = max(0, (int) ($limits['negative_balance_limit'] ?? 0));
-        if ($creditExposureLimit === 0 && $projectedBalance < -$effectiveNegativeBalanceLimit) {
+        if ($creditExposureLimit === 0 && $projectedBalance < -($effectiveNegativeBalanceLimit + $quotaIscrizione)) {
             throw new NegativeBalanceLimitExceededException($effectiveNegativeBalanceLimit, $account->available_balance, $amount);
         }
 

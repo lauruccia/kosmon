@@ -142,6 +142,12 @@ class AuthController extends Controller
             return [$user, $account, $company];
         });
 
+        // Quota di iscrizione (31/08/2026): marca il debito sul nuovo privato,
+        // se l'admin ha acceso l'interruttore. Fuori dalla transazione e non
+        // bloccante di proposito — la quota si puo' segnare a mano, una
+        // registrazione persa no. Vedi RegistrationFeeService.
+        app(\App\Services\RegistrationFeeService::class)->markDueOnRegistration($user);
+
         // Invia email di benvenuto in background (queued)
         Mail::to($user->email)->queue(
             new RegistrationConfirmation($user, $account, $company)

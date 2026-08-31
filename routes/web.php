@@ -53,6 +53,7 @@ use App\Http\Controllers\StatementController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\StepUpController;
 use App\Http\Controllers\KyCardController;
+use App\Http\Controllers\RegistrationFeeController;
 use App\Http\Controllers\AdminKyCardController;
 use App\Http\Controllers\AdminPlanController;
 use App\Http\Controllers\PlanSubscriptionController;
@@ -856,6 +857,19 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/ricarica/{kyCard}/bonifico', [KyCardController::class, 'bankTransfer'])->name('portal.ky-cards.bank-transfer');
     Route::get('/ricarica/success/{purchase}', [KyCardController::class, 'success'])->name('portal.ky-cards.success');
 
+    // ── Quota di iscrizione dei privati (31/08/2026) ───────────────────────
+    // Non e' sotto il middleware 'quota' che blocca pagare/incassare/comprare:
+    // sarebbe l'unica strada per uscire dal blocco, chiusa dal blocco stesso.
+    // Lo garantisce l'elenco in EnsureRegistrationFeePaid, che queste rotte
+    // non le nomina.
+    Route::get('/quota-iscrizione', [RegistrationFeeController::class, 'show'])->name('portal.registration-fee.show');
+    Route::post('/quota-iscrizione/ky', [RegistrationFeeController::class, 'payWithKy'])->name('portal.registration-fee.ky')->middleware('throttle:10,1');
+    Route::post('/quota-iscrizione/stripe', [RegistrationFeeController::class, 'stripeCheckout'])->name('portal.registration-fee.stripe')->middleware('throttle:10,1');
+    Route::post('/quota-iscrizione/paypal/create-order', [RegistrationFeeController::class, 'paypalCreateOrder'])->name('portal.registration-fee.paypal-create-order')->middleware('throttle:10,1');
+    Route::get('/quota-iscrizione/paypal/capture/{payment}', [RegistrationFeeController::class, 'paypalCapture'])->name('portal.registration-fee.paypal-capture');
+    Route::post('/quota-iscrizione/bonifico', [RegistrationFeeController::class, 'bankTransfer'])->name('portal.registration-fee.bank-transfer');
+    Route::get('/quota-iscrizione/esito/{payment}', [RegistrationFeeController::class, 'success'])->name('portal.registration-fee.success');
+
     // Admin Settori
     Route::get('/admin/settori', [AdminSectorController::class, 'index'])->name('admin.sectors.index')->middleware('backoffice');
     Route::post('/admin/settori', [AdminSectorController::class, 'store'])->name('admin.sectors.store')->middleware('backoffice');
@@ -885,6 +899,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/ky-cards/bonifici/{purchase}/confirm', [KyCardController::class, 'adminConfirmBankTransfer'])->name('admin.ky-cards.confirm-transfer')->middleware('backoffice');
     Route::post('/admin/ky-cards/bonifici/{purchase}/reject', [KyCardController::class, 'adminRejectBankTransfer'])->name('admin.ky-cards.reject-transfer')->middleware('backoffice');
     Route::post('/admin/ky-cards/acquisti/{purchase}/retry', [KyCardController::class, 'adminRetryCredit'])->name('admin.ky-cards.retry-credit')->middleware('backoffice');
+
+    // Quote di iscrizione: elenco e conferma dei bonifici (31/08/2026).
+    Route::get('/admin/quote-iscrizione', [RegistrationFeeController::class, 'adminIndex'])->name('admin.registration-fees.index')->middleware('backoffice');
+    Route::post('/admin/quote-iscrizione/impostazioni', [RegistrationFeeController::class, 'adminUpdateSettings'])->name('admin.registration-fees.settings')->middleware('backoffice');
+    Route::post('/admin/quote-iscrizione/{payment}/conferma', [RegistrationFeeController::class, 'adminConfirmBankTransfer'])->name('admin.registration-fees.confirm')->middleware('backoffice');
+    Route::post('/admin/quote-iscrizione/{payment}/rifiuta', [RegistrationFeeController::class, 'adminRejectBankTransfer'])->name('admin.registration-fees.reject')->middleware('backoffice');
 
     // -- Card NFC fisiche (Admin) -----------------------------------------
     Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index')->middleware('backoffice');

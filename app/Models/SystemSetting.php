@@ -91,6 +91,12 @@ class SystemSetting extends Model
         'referral_bonus_amico_amount',
         'referral_bonus_agente_amount',
         'referral_bonus_attivita_amount',
+        'registration_fee_enabled',
+        'registration_fee_amount_cents',
+        'registration_fee_stripe_enabled',
+        'registration_fee_paypal_enabled',
+        'registration_fee_bank_transfer_enabled',
+        'registration_fee_ky_enabled',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -114,6 +120,13 @@ class SystemSetting extends Model
             // Interruttore Bonus Diretti KNM (2026-08-14): NULL sulle righe
             // pre-migrazione = disattivati, vedi mlmDirectBonusesEnabled().
             'mlm_direct_bonuses_enabled' => 'boolean',
+            // Quota di iscrizione (31/08/2026): sulle righe pre-migrazione
+            // NULL vale spento, come per l'interruttore dei bonus diretti.
+            'registration_fee_enabled'               => 'boolean',
+            'registration_fee_stripe_enabled'        => 'boolean',
+            'registration_fee_paypal_enabled'        => 'boolean',
+            'registration_fee_bank_transfer_enabled' => 'boolean',
+            'registration_fee_ky_enabled'            => 'boolean',
         ];
     }
 
@@ -648,6 +661,11 @@ HTML;
                 'referral_bonus_amico_amount'       => 1000,  // 10,00 KY
                 'referral_bonus_agente_amount'      => 5000,  // 50,00 KY
                 'referral_bonus_attivita_amount'    => 10000, // 100,00 KY
+                // Quota di iscrizione: nasce SPENTA. Accendendola cambia il
+                // percorso di registrazione di ogni nuovo privato, quindi
+                // deve essere una scelta esplicita dell'admin, mai un default.
+                'registration_fee_enabled'          => false,
+                'registration_fee_amount_cents'     => 3000, // 30,00
             ]
         );
     }
@@ -677,5 +695,54 @@ HTML;
             'agente'    => (int) ($this->referral_bonus_agente_amount ?? 0),
             'attivita'  => (int) ($this->referral_bonus_attivita_amount ?? 0),
         ];
+    }
+
+    // -- Quota di iscrizione (31/08/2026) ----------------------------------
+
+    /**
+     * La quota e' attiva solo se l'interruttore e' acceso E l'importo e'
+     * maggiore di zero: una quota da 0,00 non e' una quota, e chiedere
+     * all'admin di ricordarsi di spegnere l'interruttore quando azzera
+     * l'importo sarebbe un modo per farsi bloccare gli utenti a vuoto.
+     */
+    public function registrationFeeEnabled(): bool
+    {
+        return (bool) $this->registration_fee_enabled
+            && $this->registrationFeeAmount() > 0
+            && $this->registrationFeeMethods() !== [];
+    }
+
+    /** Importo in centesimi. Vale sia per gli euro sia per i KY (alla pari). */
+    public function registrationFeeAmount(): int
+    {
+        return max(0, (int) ($this->registration_fee_amount_cents ?? 0));
+    }
+
+    /**
+     * I metodi che l'admin ha lasciato accesi, gia' filtrati per quelli che
+     * il circuito puo' davvero eseguire: senza le chiavi Stripe o PayPal in
+     * configurazione, mostrare il bottone significa solo portare l'utente su
+     * un errore 503.
+     *
+     * @return array<string, string> metodo => etichetta
+     */
+    public function registrationFeeMethods(): array
+    {
+        $attivi = [];
+
+        if ($this->registration_fee_stripe_enabled && config('services.stripe.secret')) {
+            $attivi[RegistrationFeePayment::METHOD_STRIPE] = RegistrationFeePayment::METHODS[RegistrationFeePayment::METHOD_STRIPE];
+        }
+        if ($this->registration_fee_paypal_enabled && config('services.paypal.client_id')) {
+            $attivi[RegistrationFeePayment::METHOD_PAYPAL] = RegistrationFeePayment::METHODS[RegistrationFeePayment::METHOD_PAYPAL];
+        }
+        if ($this->registration_fee_bank_transfer_enabled && config('kmoney.bank_iban')) {
+            $attivi[RegistrationFeePayment::METHOD_BANK_TRANSFER] = RegistrationFeePayment::METHODS[RegistrationFeePayment::METHOD_BANK_TRANSFER];
+        }
+        if ($this->registration_fee_ky_enabled) {
+            $attivi[RegistrationFeePayment::METHOD_KY] = RegistrationFeePayment::METHODS[RegistrationFeePayment::METHOD_KY];
+        }
+
+        return $attivi;
     }
 }
