@@ -491,6 +491,13 @@ class KyCardController extends PortalController
     {
         // (B) Guard idempotenza: se l'accredito e' gia' avvenuto non rifare nulla.
         if ($purchase->isCompleted() || $purchase->transfer_id) {
+            // I KY ci sono gia'. I punti MLM pero' potrebbero mancare: se la
+            // richiesta che ha creato il transfer si e' interrotta prima di
+            // assegnarli, oggi non li recupererebbe piu' nessuno (l'admin che
+            // rilancia l'accredito si fermava proprio qui). La chiamata e'
+            // idempotente sulla sorgente, quindi non puo' creare doppioni.
+            $this->awardMlmDepositPoints($purchase);
+
             return;
         }
 
@@ -507,7 +514,18 @@ class KyCardController extends PortalController
 
             // Creazione diretta (bypass check stato azienda e limiti):
             // il cliente ha gia' pagato in euro, l'accredito KY e' dovuto.
-            \Illuminate\Support\Facades\DB::transaction(function () use ($systemAccount, $purchase, $amount, $idempotencyKey) {
+
+            // Vero solo per la richiesta che ha DAVVERO registrato il transfer.
+            // Nella corsa webhook Stripe + pagina success entrambe entrano qui:
+            // il lock sul conto madre le mette in fila e la seconda trova il
+            // transfer gia' scritto, ma il suo `return` esce dalla CLOSURE, non
+            // dal metodo — l'esecuzione riprendeva sotto e arrivava lo stesso
+            // ai punti MLM, assegnati cosi' DUE volte (qualifica gonfiata e
+            // base commissionabile pagata due volte). Fino al 28/08 non poteva
+            // succedere: il webhook rispondeva 419 e la strada era una sola.
+            $accreditoCreatoQui = false;
+
+            \Illuminate\Support\Facades\DB::transaction(function () use ($systemAccount, $purchase, $amount, $idempotencyKey, &$accreditoCreatoQui) {
 
                 // (A) Lock pessimistico: blocco prima il conto madre — questo serializza
                 // tutti gli accrediti KYCard concorrenti ed evita lost-update sul saldo KNM.
@@ -548,6 +566,8 @@ class KyCardController extends PortalController
                     'description'     => 'Ricarica KYCard: ' . ($purchase->kyCard->name ?? 'Card #' . $purchase->ky_card_id),
                     'booked_at'       => $bookedAt,
                 ]);
+
+                $accreditoCreatoQui = true;
 
                 \App\Models\LedgerEntry::create([
                     'transfer_id'  => $transfer->id,
@@ -595,22 +615,8 @@ class KyCardController extends PortalController
 
             $purchase->refresh();
 
-            // MLM: assegna i punti deposito al cliente/agente risolto (fascia EUR).
-            // Isolato in try/catch proprio: l'accredito KY e' gia' avvenuto, un
-            // eventuale errore qui non deve intaccare la risposta all'utente.
-            // Saltato interamente se MLM è disattivato su questa installazione
-            // (config('kmoney.mlm_enabled')).
-            if (config('kmoney.mlm_enabled') && $purchase->isCompleted()) {
-                try {
-                    app(\App\Services\MlmPointsService::class)->awardDepositPoints(
-                        $purchase->user,
-                        (int) $purchase->price_eur_cents,
-                        $purchase->transfer_id,
-                        $purchase->kyCard, // i punti sono definiti sulla card acquistata (22/07)
-                    );
-                } catch (\Exception $mlmException) {
-                    Log::error('MLM points award failed', ['purchase' => $purchase->uuid, 'error' => $mlmException->getMessage()]);
-                }
+            if ($accreditoCreatoQui) {
+                $this->awardMlmDepositPoints($purchase);
             }
 
             try {
@@ -625,6 +631,39 @@ class KyCardController extends PortalController
             if (!optional($purchase->fresh())->isCompleted()) {
                 $purchase->update(['status' => 'failed']);
             }
+        }
+    }
+
+    /**
+     * MLM: assegna i punti deposito al cliente/agente risolto (fascia EUR).
+     *
+     * Isolato in try/catch proprio: l'accredito KY e' gia' avvenuto e un
+     * errore qui non deve intaccare la risposta all'utente. Saltato
+     * interamente se MLM e' disattivato su questa installazione
+     * (config('kmoney.mlm_enabled')).
+     *
+     * Chiamato da UN SOLO punto per ogni accredito riuscito — chi registra il
+     * transfer — piu' il recupero sugli acquisti gia' completati. La difesa
+     * contro il doppione non e' pero' qui: sta in MlmPointsService (controllo
+     * sulla sorgente) e nell'indice UNIQUE del database. Tre livelli, perche'
+     * questo e' il solo che una modifica futura del flusso di pagamento
+     * potrebbe scavalcare senza accorgersene.
+     */
+    private function awardMlmDepositPoints(KyCardPurchase $purchase): void
+    {
+        if (! config('kmoney.mlm_enabled') || ! $purchase->isCompleted()) {
+            return;
+        }
+
+        try {
+            app(\App\Services\MlmPointsService::class)->awardDepositPoints(
+                $purchase->user,
+                (int) $purchase->price_eur_cents,
+                $purchase->transfer_id,
+                $purchase->kyCard, // i punti sono definiti sulla card acquistata (22/07)
+            );
+        } catch (\Exception $mlmException) {
+            Log::error('MLM points award failed', ['purchase' => $purchase->uuid, 'error' => $mlmException->getMessage()]);
         }
     }
 

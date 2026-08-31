@@ -9,7 +9,9 @@ use App\Models\KyCard;
 use App\Models\MlmPointRule;
 use App\Models\SystemSetting;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Assegna i "punti cliente" (PC) agli agenti in base alle azioni dei loro
@@ -112,17 +114,19 @@ class MlmPointsService
         $from = now();
 
         if ($card->mlm_points > 0 && $card->mlm_points_duration_days > 0) {
-            $this->createLedgerEntry(
+            $this->ignoringDuplicateSource(fn () => $this->createLedgerEntry(
                 client: $client,
                 sourceType: 'deposit',
                 sourceTransferId: $sourceTransferId,
                 points: mlm_points_normalize($card->mlm_points),
                 validFrom: $from,
                 validUntil: $this->resolveValidUntil($from, $card->mlm_points_duration_days),
-            );
+            ));
         }
 
-        $this->createCommissionBaseEntry($client, $depositEurCents, $sourceTransferId);
+        $this->ignoringDuplicateSource(
+            fn () => $this->createCommissionBaseEntry($client, $depositEurCents, $sourceTransferId)
+        );
     }
 
     /**
@@ -174,6 +178,16 @@ class MlmPointsService
             return;
         }
 
+        // Idempotenza sulla SORGENTE: una ricarica (= un transfer) genera una
+        // sola riga di base commissionabile. Vedi il commento gemello in
+        // createLedgerEntry(): questa e' la riga che vale euro veri, perche'
+        // MlmCommissionEngine la paga al run del 1° del mese.
+        if ($sourceTransferId !== null && MlmCommissionBaseLedgerEntry::query()
+                ->where('source_transfer_id', $sourceTransferId)
+                ->exists()) {
+            return;
+        }
+
         $nextRunDate = now()->addMonthNoOverflow()->startOfMonth()->toDateString();
 
         MlmCommissionBaseLedgerEntry::create([
@@ -201,6 +215,49 @@ class MlmPointsService
      * semplice DATE confrontata con whereDate() — cioe' valida per l'intera
      * giornata indicata, non solo fino all'istante esatto N giorni dopo.
      */
+    /**
+     * Esegue una scrittura sul ledger lasciando passare in silenzio il solo
+     * caso "riga gia' presente per questa sorgente", cioe' la violazione
+     * dell'indice UNIQUE su source_transfer_id.
+     *
+     * Il controllo con exists() fatto prima della scrittura copre il caso
+     * normale (due chiamate in sequenza: retry, riesecuzione). Non copre la
+     * corsa vera, in cui due richieste leggono "non c'e'" nello stesso
+     * istante e scrivono entrambe: li' l'unico arbitro possibile e' il
+     * database. Quando e' il database a fermare la seconda scrittura il
+     * risultato voluto e' comunque raggiunto - una riga sola - quindi non e'
+     * un errore, si annota e si prosegue. Qualsiasi ALTRO errore SQL viene
+     * rilanciato: non voglio che un vincolo diverso passi inosservato.
+     */
+    private function ignoringDuplicateSource(callable $write): void
+    {
+        try {
+            $write();
+        } catch (QueryException $e) {
+            if (! $this->isDuplicateKeyViolation($e)) {
+                throw $e;
+            }
+
+            Log::info('MLM: riga ledger gia\' presente per questa sorgente, seconda scrittura ignorata (indice UNIQUE).', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * SQLSTATE 23000 = integrity constraint violation. Il codice driver e'
+     * 1062 su MySQL/MariaDB e 19 su SQLite (i test): confrontare il messaggio
+     * sarebbe fragile, il SQLSTATE e' standard.
+     */
+    private function isDuplicateKeyViolation(QueryException $e): bool
+    {
+        if (($e->errorInfo[0] ?? null) === '23000') {
+            return true;
+        }
+
+        return in_array((int) ($e->errorInfo[1] ?? 0), [1062, 19], true);
+    }
+
     private function resolveValidUntil(Carbon $from, int $normalDurationDays): Carbon
     {
         $overrideMinutes = SystemSetting::mlmSettings()->mlm_points_validity_override_minutes;
@@ -222,6 +279,23 @@ class MlmPointsService
     ): void {
         $agent = $client->mlmClientAgent;
         if (! $agent) {
+            return;
+        }
+
+        // Idempotenza sulla SORGENTE: un evento (una ricarica = un transfer)
+        // genera UNA riga punti. Serve perche' l'accredito KY puo' essere
+        // eseguito piu' volte per lo stesso acquisto (corsa webhook Stripe +
+        // pagina success, oppure il retry dell'admin): i KY erano gia'
+        // protetti dalla idempotency_key del transfer, i punti no, e una riga
+        // in piu' gonfia la qualifica dell'agente. Il vincolo VERO e' l'indice
+        // UNIQUE (source_type, source_transfer_id) aggiunto il 31/08: questo
+        // controllo evita solo di arrivarci con un'eccezione nel caso normale.
+        // sourceTransferId null (registrazione, simulatore) non e' una
+        // sorgente identificabile: non si deduplica, come nell'indice.
+        if ($sourceTransferId !== null && MlmPointLedgerEntry::query()
+                ->where('source_type', $sourceType)
+                ->where('source_transfer_id', $sourceTransferId)
+                ->exists()) {
             return;
         }
 

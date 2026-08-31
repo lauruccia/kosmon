@@ -358,4 +358,103 @@ class MlmPointsServiceTest extends TestCase
 
         $this->assertSame(0, MlmPointLedgerEntry::count());
     }
+
+    // ── Una sorgente, una riga (A5, 31/08) ────────────────────────────────
+
+    public function test_the_same_deposit_never_generates_a_second_row(): void
+    {
+        $agent  = $this->makeAgent();
+        $client = $this->makeClient($agent);
+        $card   = $this->makeCard(120_000, 2, 360);
+
+        // Stessa ricarica (stesso transfer) assegnata due volte: e' cio' che
+        // succede quando l'accredito KY parte sia dal webhook Stripe sia
+        // dalla pagina di successo, o quando l'admin rilancia un accredito.
+        $this->service->awardDepositPoints($client, 120_000, 4242, $card);
+        $this->service->awardDepositPoints($client, 120_000, 4242, $card);
+
+        $this->assertSame(1, MlmPointLedgerEntry::where('client_user_id', $client->id)->count());
+        $this->assertSame(1, MlmCommissionBaseLedgerEntry::where('client_user_id', $client->id)->count());
+        // E i punti dell'agente non sono raddoppiati: e' l'effetto che si
+        // vedeva sulla qualifica.
+        $this->assertSame(2, $agent->mlmActivePoints());
+    }
+
+    public function test_two_different_deposits_keep_their_own_rows(): void
+    {
+        $agent  = $this->makeAgent();
+        $client = $this->makeClient($agent);
+        $card   = $this->makeCard(120_000, 2, 360);
+
+        $this->service->awardDepositPoints($client, 120_000, 4242, $card);
+        $this->service->awardDepositPoints($client, 120_000, 4243, $card);
+
+        $this->assertSame(2, MlmPointLedgerEntry::where('client_user_id', $client->id)->count());
+        $this->assertSame(2, MlmCommissionBaseLedgerEntry::where('client_user_id', $client->id)->count());
+        $this->assertSame(4, $agent->mlmActivePoints());
+    }
+
+    public function test_deposits_without_a_transfer_are_not_deduplicated(): void
+    {
+        // Il simulatore compensi chiama awardDepositPoints senza transfer:
+        // senza sorgente non c'e' niente da deduplicare, e due ricariche
+        // simulate devono restare due righe.
+        $agent  = $this->makeAgent();
+        $client = $this->makeClient($agent);
+        $card   = $this->makeCard(120_000, 2, 360);
+
+        $this->service->awardDepositPoints($client, 120_000, null, $card);
+        $this->service->awardDepositPoints($client, 120_000, null, $card);
+
+        $this->assertSame(2, MlmPointLedgerEntry::where('client_user_id', $client->id)->count());
+        $this->assertSame(2, MlmCommissionBaseLedgerEntry::where('client_user_id', $client->id)->count());
+    }
+
+    /**
+     * Il controllo con exists() nel servizio e l'indice UNIQUE nel database
+     * si coprono a vicenda: mutandone uno solo i test qui sopra resterebbero
+     * verdi. Questi due provano il vincolo AL LIVELLO A CUI VIVE, scrivendo
+     * sul modello senza passare dal servizio.
+     */
+    public function test_the_database_itself_refuses_two_point_rows_for_one_deposit(): void
+    {
+        $agent  = $this->makeAgent();
+        $client = $this->makeClient($agent);
+
+        $riga = [
+            'agent_user_id'      => $agent->id,
+            'client_user_id'     => $client->id,
+            'source_type'        => 'deposit',
+            'source_transfer_id' => 5150,
+            'points'             => 2,
+            'valid_from'         => now(),
+            'valid_until'        => now()->addDays(360),
+        ];
+
+        MlmPointLedgerEntry::create($riga);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        MlmPointLedgerEntry::create($riga);
+    }
+
+    public function test_the_database_itself_refuses_two_commission_base_rows_for_one_deposit(): void
+    {
+        $agent  = $this->makeAgent();
+        $client = $this->makeClient($agent);
+
+        $riga = [
+            'client_user_id'           => $client->id,
+            'direct_agent_id'          => $agent->id,
+            'source_transfer_id'       => 5151,
+            'monthly_amount_eur_cents' => 120_000,
+            'knm_margin_percent'       => 30,
+            'valid_from'               => now()->addMonthNoOverflow()->startOfMonth()->toDateString(),
+            'valid_until'              => now()->addMonthNoOverflow()->startOfMonth()->toDateString(),
+        ];
+
+        MlmCommissionBaseLedgerEntry::create($riga);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        MlmCommissionBaseLedgerEntry::create($riga);
+    }
 }

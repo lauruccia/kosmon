@@ -8,6 +8,8 @@ use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\KyCard;
 use App\Models\KyCardPurchase;
+use App\Models\MlmCommissionBaseLedgerEntry;
+use App\Models\MlmPointLedgerEntry;
 use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -122,6 +124,41 @@ class KyCardCreditTest extends TestCase
         ]);
     }
 
+    /** Card che genera punti MLM: 2 punti validi 360 giorni. */
+    private function makeCardWithMlmPoints(): KyCard
+    {
+        $card = $this->makeCard();
+        $card->forceFill([
+            'mlm_points'               => 2,
+            'mlm_points_duration_days' => 360,
+        ])->save();
+
+        return $card;
+    }
+
+    /** Rende l'acquirente un cliente MLM con un agente diretto. */
+    private function attachMlmAgent(User $buyer): User
+    {
+        $agent = User::create([
+            'name'                => 'Agente KyCredit',
+            'email'               => 'agente-' . Str::random(6) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'is_active'           => true,
+            'mlm_role'            => 'agente',
+            'mlm_rank'            => 'start',
+            'mlm_activated_at'    => now(),
+        ]);
+
+        $buyer->forceFill([
+            'mlm_role'            => 'cliente',
+            'mlm_client_agent_id' => $agent->id,
+        ])->save();
+
+        return $agent;
+    }
+
     private function callCreditKy(KyCardPurchase $purchase): void
     {
         $controller = app(KyCardController::class);
@@ -229,5 +266,115 @@ class KyCardCreditTest extends TestCase
         $this->assertSame(1, Transfer::where('kind', 'kycard_topup')->count());
         $this->assertSame(15000, (int) $account->fresh()->available_balance);
         $this->assertSame(-15000, (int) $system->fresh()->available_balance);
+    }
+
+    /**
+     * A5 (31/08) — la corsa webhook Stripe + pagina success non deve
+     * assegnare i punti MLM due volte.
+     *
+     * Riprodotta in modo deterministico con DUE istanze dello stesso
+     * acquisto: la seconda e' stata caricata PRIMA dell'accredito, quindi in
+     * memoria risulta ancora 'pending' — esattamente come la richiesta
+     * concorrente che ha superato il controllo iniziale un istante prima che
+     * l'altra scrivesse. Entra nella transazione, trova il transfer gia'
+     * registrato e deve fermarsi li'.
+     *
+     * Fino al 28/08 questa corsa non poteva accadere: il webhook rispondeva
+     * 419 per il CSRF (punto A1) e la strada era una sola. E' stato il fix
+     * del webhook a renderla raggiungibile.
+     */
+    public function test_the_webhook_and_success_race_does_not_award_mlm_points_twice(): void
+    {
+        $this->makeSystemAccount(0);
+        [$buyer, $account] = $this->makeBuyer(0);
+        $agent = $this->attachMlmAgent($buyer);
+        $card = $this->makeCardWithMlmPoints();
+        $purchase = $this->makePurchase($account, $buyer, $card, 'pending');
+
+        // La seconda richiesta ha in mano una copia ancora 'pending'.
+        $copiaAncoraPending = KyCardPurchase::find($purchase->id);
+
+        $this->callCreditKy($purchase);
+        $this->callCreditKy($copiaAncoraPending);
+
+        $this->assertSame(1, Transfer::where('kind', 'kycard_topup')->count());
+        $this->assertSame(1, MlmPointLedgerEntry::where('client_user_id', $buyer->id)->count());
+        $this->assertSame(1, MlmCommissionBaseLedgerEntry::where('client_user_id', $buyer->id)->count());
+        // La qualifica dell'agente vede 2 punti, non 4.
+        $this->assertSame(2, $agent->fresh()->mlmActivePoints());
+    }
+
+    /**
+     * Lo stesso fatto, ma al livello a cui vive DAVVERO la correzione del
+     * controller.
+     *
+     * Contare le righe non basta a provarla: MlmPointsService e' idempotente
+     * per conto suo e c'e' l'indice UNIQUE sotto, quindi "una riga sola"
+     * resta vero anche se il controller chiede i punti due volte — le tre
+     * difese si nascondono a vicenda. Qui si osserva la DECISIONE del
+     * controller: chiedere l'assegnazione una volta sola. E' il test che
+     * diventa rosso se qualcuno, domani, rimette la condizione vecchia
+     * (isCompleted()) al posto del flag.
+     */
+    public function test_only_the_request_that_books_the_transfer_asks_for_the_points(): void
+    {
+        $this->makeSystemAccount(0);
+        [$buyer, $account] = $this->makeBuyer(0);
+        $this->attachMlmAgent($buyer);
+        $card = $this->makeCardWithMlmPoints();
+        $purchase = $this->makePurchase($account, $buyer, $card, 'pending');
+
+        $copiaAncoraPending = KyCardPurchase::find($purchase->id);
+
+        $spia = \Mockery::spy(\App\Services\MlmPointsService::class);
+        $this->app->instance(\App\Services\MlmPointsService::class, $spia);
+
+        $this->callCreditKy($purchase);
+        $this->callCreditKy($copiaAncoraPending);
+
+        $spia->shouldHaveReceived('awardDepositPoints')->once();
+    }
+
+    /**
+     * Il caso opposto, che prima era altrettanto silenzioso: se la richiesta
+     * che ha registrato il transfer si interrompe prima di assegnare i punti,
+     * nessuno li recuperava piu' (creditKy usciva subito perche' l'acquisto
+     * risultava gia' completato). Ora il recupero c'e', e non puo' generare
+     * doppioni.
+     */
+    public function test_a_completed_purchase_without_points_recovers_them_once(): void
+    {
+        $system = $this->makeSystemAccount(-15000);
+        [$buyer, $account] = $this->makeBuyer(15000);
+        $this->attachMlmAgent($buyer);
+        $card = $this->makeCardWithMlmPoints();
+        $purchase = $this->makePurchase($account, $buyer, $card, 'pending');
+
+        $transfer = Transfer::create([
+            'initiated_by'    => $buyer->id,
+            'from_account_id' => $system->id,
+            'to_account_id'   => $account->id,
+            'amount'          => 15000,
+            'currency_code'   => 'KY',
+            'status'          => 'booked',
+            'kind'            => 'kycard_topup',
+            'idempotency_key' => 'kycard_' . $purchase->uuid,
+            'booked_at'       => now(),
+        ]);
+        $purchase->forceFill([
+            'status'       => 'completed',
+            'transfer_id'  => $transfer->id,
+            'completed_at' => now(),
+        ])->save();
+
+        $this->assertSame(0, MlmPointLedgerEntry::where('client_user_id', $buyer->id)->count());
+
+        $this->callCreditKy($purchase);
+        $this->callCreditKy($purchase->fresh());
+
+        $this->assertSame(1, MlmPointLedgerEntry::where('client_user_id', $buyer->id)->count());
+        $this->assertSame(1, MlmCommissionBaseLedgerEntry::where('client_user_id', $buyer->id)->count());
+        // E nessun movimento nuovo: i KY erano gia' accreditati.
+        $this->assertSame(1, Transfer::where('kind', 'kycard_topup')->count());
     }
 }
