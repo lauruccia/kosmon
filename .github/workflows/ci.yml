@@ -51,6 +51,11 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --env=testing --force
 
+      - name: Verifica il rollback completo (down di tutte le migration)
+        run: |
+          php artisan migrate:reset --env=testing --force
+          php artisan migrate --env=testing --force
+
       - name: Run tests
         run: php artisan test --env=testing --parallel --stop-on-failure
 
