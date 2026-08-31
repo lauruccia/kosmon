@@ -142,8 +142,16 @@
             <div class="k-tag">Come funziona</div>
             <p style="margin-top:10px;line-height:1.6;">
                 Quando un trasferimento viene contabilizzato, il sistema valuta tutte le regole attive e applica quella piu vantaggiosa per il pagante.
-                Il cashback viene erogato automaticamente dal <strong>conto di sistema</strong> come trasferimento separato di tipo <code>portal_cashback</code>.
-                Se il conto sistema non ha saldo sufficiente, l'erogazione viene saltata silenziosamente (il pagamento principale non e mai bloccato).
+                Il cashback e' uno <strong>sconto differito a carico del venditore</strong>: esce dal conto di chi ha incassato, non dal conto di sistema,
+                come trasferimento separato di tipo <code>portal_cashback</code>. Il circuito non conia KY nuovi.
+            </p>
+            <p style="margin-top:10px;line-height:1.6;">
+                Vale solo quando chi incassa e' un'<strong>azienda</strong>: fra privati un pagamento e' un trasferimento, non una vendita.
+                Se il venditore non ha capienza entro il suo fido, l'erogazione viene saltata e finisce nel log (il pagamento principale non e mai bloccato).
+            </p>
+            <p style="margin-top:10px;line-height:1.6;">
+                <strong>Attivare una regola qui e' una condizione commerciale, non un'impostazione tecnica:</strong>
+                da quel momento ogni azienda che incassa paga la percentuale indicata. Va comunicata ai commercianti prima di accendere la regola.
             </p>
         </section>
 
