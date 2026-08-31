@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -25,9 +26,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        // L'indice puo' essere gia' sparito (lo rimuove anche il down() di
+        // 2026_06_12_200000): `dropIndex` secco darebbe 1091 e fermerebbe il
+        // rollback. E la chiave esterna va tolta PRIMA dell'indice che la
+        // copre, altrimenti MySQL rifiuta con 1553 (B7, 31/08).
         Schema::table('transfers', function (Blueprint $table) {
-            $table->dropIndex(['related_transfer_id']);
             $table->dropConstrainedForeignId('related_transfer_id');
         });
+
+        SchemaIndex::dropIfExists('transfers', 'transfers_related_transfer_id_index');
     }
 };

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -65,48 +66,46 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('transfers', function (Blueprint $table) {
-            $table->dropIndexIfExists('transfers_from_booked_at_index');
-            $table->dropIndexIfExists('transfers_to_booked_at_index');
-            $table->dropIndexIfExists('transfers_initiated_by_booked_index');
-        });
-        Schema::table('ledger_entries', function (Blueprint $table) {
-            $table->dropIndexIfExists('ledger_account_direction_index');
-        });
-        Schema::table('accounts', function (Blueprint $table) {
-            $table->dropIndexIfExists('accounts_company_status_index');
-            $table->dropIndexIfExists('accounts_owner_user_status_index');
-        });
-        Schema::table('companies', function (Blueprint $table) {
-            $table->dropIndexIfExists('companies_status_kyc_index');
-            $table->dropIndexIfExists('companies_sector_index');
-        });
-        Schema::table('audit_logs', function (Blueprint $table) {
-            $table->dropIndexIfExists('audit_logs_actor_event_index');
-            $table->dropIndexIfExists('audit_logs_created_at_index');
-        });
+        // `dropIndexIfExists()` non esiste in Laravel 12 (Blueprint ha solo
+        // `dropIndex()`): il rollback era rotto su tutti i driver. Vedi B7 e
+        // App\Support\SchemaIndex.
+        $daRimuovere = [
+            'transfers'      => [
+                'transfers_from_booked_at_index',
+                'transfers_to_booked_at_index',
+                'transfers_initiated_by_booked_index',
+            ],
+            'ledger_entries' => ['ledger_account_direction_index'],
+            'accounts'       => [
+                'accounts_company_status_index',
+                'accounts_owner_user_status_index',
+            ],
+            'companies'      => [
+                'companies_status_kyc_index',
+                'companies_sector_index',
+            ],
+            'audit_logs'     => [
+                'audit_logs_actor_event_index',
+                'audit_logs_created_at_index',
+            ],
+        ];
+
+        foreach ($daRimuovere as $tabella => $indici) {
+            foreach ($indici as $indice) {
+                SchemaIndex::dropIfExists($tabella, $indice);
+            }
+        }
     }
 
+    /**
+     * Delega: la logica per driver vive in un posto solo. La versione
+     * precedente usava `SHOW INDEX ... WHERE Key_name = ?` dentro un
+     * try/catch che in caso di errore rispondeva "l'indice non c'e'" —
+     * cioe' su una connessione ostile provava a ricreare un indice
+     * esistente, trasformando un problema di lettura in un errore 1061.
+     */
     private function indexExists(string $table, string $index): bool
     {
-        $driver = \Illuminate\Support\Facades\DB::getDriverName();
-
-        if ($driver === 'sqlite') {
-            $result = \Illuminate\Support\Facades\DB::select(
-                "SELECT name FROM sqlite_master WHERE type='index' AND name = ?",
-                [$index]
-            );
-            return count($result) > 0;
-        }
-
-        try {
-            $indexes = \Illuminate\Support\Facades\DB::select(
-                "SHOW INDEX FROM `{$table}` WHERE Key_name = ?",
-                [$index]
-            );
-            return count($indexes) > 0;
-        } catch (\Throwable) {
-            return false;
-        }
+        return SchemaIndex::exists($table, $index);
     }
 };

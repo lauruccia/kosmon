@@ -31,7 +31,11 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table): void {
             $table->dropForeign(['mlm_agent_reviewed_by']);
-            $table->dropIndex(['users_mlm_agent_request_status_index']);
+            // Nome dell'indice come STRINGA. Passandolo in un array Laravel lo
+            // interpreta come elenco di COLONNE e ne ricava
+            // `users_users_mlm_agent_request_status_index_index`, che non
+            // esiste: errore 1091 e rollback fermo (B7, 31/08).
+            $table->dropIndex('users_mlm_agent_request_status_index');
             $table->dropColumn([
                 'mlm_agent_request_status',
                 'mlm_agent_requested_at',

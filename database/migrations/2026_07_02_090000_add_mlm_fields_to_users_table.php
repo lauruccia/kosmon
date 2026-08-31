@@ -30,7 +30,10 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table): void {
             $table->dropForeign(['mlm_client_agent_id']);
-            $table->dropIndex(['users_mlm_role_mlm_rank_index']);
+            // Nome come STRINGA: in un array Laravel lo legge come elenco di
+            // colonne e ne ricava un nome inesistente (errore 1091). Stessa
+            // svista di 2026_07_03_100000 (B7, 31/08).
+            $table->dropIndex('users_mlm_role_mlm_rank_index');
             $table->dropColumn([
                 'mlm_role',
                 'mlm_rank',

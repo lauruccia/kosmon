@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -33,11 +34,16 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Prima la chiave esterna, poi l'indice: nell'ordine opposto MySQL
+        // rifiuta con 1553, perche' finche' la FK esiste quell'indice le serve
+        // (B7, 31/08). Togliendo la colonna l'indice se ne va da solo: la
+        // chiamata dopo e' una rete di sicurezza, non fa nulla se non c'e'.
         Schema::table('transfers', function (Blueprint $table) {
-            $table->dropIndex(['listing_id']);
             $table->dropConstrainedForeignId('listing_id');
             $table->dropColumn('quantity');
         });
+
+        SchemaIndex::dropIfExists('transfers', 'transfers_listing_id_index');
 
         Schema::table('listings', function (Blueprint $table) {
             $table->dropColumn('stock_quantity');

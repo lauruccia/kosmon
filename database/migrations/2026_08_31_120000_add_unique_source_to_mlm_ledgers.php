@@ -1,8 +1,8 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -32,13 +32,13 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (! $this->hasIndex('mlm_point_ledger', self::POINT_INDEX)) {
+        if (! SchemaIndex::exists('mlm_point_ledger', self::POINT_INDEX)) {
             Schema::table('mlm_point_ledger', function (Blueprint $table): void {
                 $table->unique(['source_type', 'source_transfer_id'], self::POINT_INDEX);
             });
         }
 
-        if (! $this->hasIndex('mlm_commission_base_ledger', self::BASE_INDEX)) {
+        if (! SchemaIndex::exists('mlm_commission_base_ledger', self::BASE_INDEX)) {
             Schema::table('mlm_commission_base_ledger', function (Blueprint $table): void {
                 $table->unique(['source_transfer_id'], self::BASE_INDEX);
             });
@@ -47,39 +47,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if ($this->hasIndex('mlm_point_ledger', self::POINT_INDEX)) {
-            Schema::table('mlm_point_ledger', function (Blueprint $table): void {
-                $table->dropUnique(self::POINT_INDEX);
-            });
-        }
-
-        if ($this->hasIndex('mlm_commission_base_ledger', self::BASE_INDEX)) {
-            Schema::table('mlm_commission_base_ledger', function (Blueprint $table): void {
-                $table->dropUnique(self::BASE_INDEX);
-            });
-        }
-    }
-
-    /**
-     * Esistenza di un indice, per driver. Niente PRAGMA sparato su qualsiasi
-     * connessione (e' il difetto di
-     * 2026_06_12_200000_add_performance_indexes_to_transfers, che su MySQL fa
-     * fallire l'intera migrate) e niente information_schema: l'utente di
-     * produzione non ha il permesso di leggerlo (nota del 24/08 sui due
-     * server). SHOW INDEX funziona sia su MySQL sia su MariaDB.
-     */
-    private function hasIndex(string $table, string $index): bool
-    {
-        $driver = Schema::getConnection()->getDriverName();
-
-        if ($driver === 'sqlite') {
-            return collect(DB::select("PRAGMA index_list('{$table}')"))
-                ->pluck('name')
-                ->contains($index);
-        }
-
-        return collect(DB::select("SHOW INDEX FROM `{$table}`"))
-            ->pluck('Key_name')
-            ->contains($index);
+        SchemaIndex::dropIfExists('mlm_point_ledger', self::POINT_INDEX);
+        SchemaIndex::dropIfExists('mlm_commission_base_ledger', self::BASE_INDEX);
     }
 };

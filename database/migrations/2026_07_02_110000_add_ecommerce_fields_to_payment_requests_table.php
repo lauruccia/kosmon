@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,8 +23,12 @@ return new class extends Migration
 
     public function down(): void
     {
+        // L'indice comincia per to_account_id, che e' una chiave esterna:
+        // MySQL lo tiene stretto (1553). Ci pensa SchemaIndex, che rimette un
+        // indice semplice sulla prima colonna e riprova (B7, 31/08).
+        SchemaIndex::dropIfExists('payment_requests', 'payment_requests_to_account_id_external_reference_index');
+
         Schema::table('payment_requests', function (Blueprint $table) {
-            $table->dropIndex(['to_account_id', 'external_reference']);
             $table->dropColumn(['external_reference', 'return_url', 'cancel_url']);
         });
     }

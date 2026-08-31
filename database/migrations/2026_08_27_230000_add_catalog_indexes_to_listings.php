@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -57,10 +58,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('listings', function (Blueprint $table) {
-            $table->dropIndex('listings_status_featured_created_index');
-            $table->dropIndex('listings_company_status_created_index');
-            $table->dropIndex('listings_category_status_featured_created_index');
-        });
+        // `listings_company_status_created_index` comincia per company_id e
+        // MySQL lo elegge a indice di appoggio della chiave esterna verso
+        // companies: toglierlo da errore 1553. Ci pensa SchemaIndex, che
+        // rimette un indice semplice sulla prima colonna e riprova.
+        foreach ([
+            'listings_status_featured_created_index',
+            'listings_company_status_created_index',
+            'listings_category_status_featured_created_index',
+        ] as $indice) {
+            SchemaIndex::dropIfExists('listings', $indice);
+        }
     }
 };

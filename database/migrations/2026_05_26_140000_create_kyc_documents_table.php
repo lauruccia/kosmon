@@ -39,8 +39,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('kyc_documents');
+
+        // `kyc_reviewed_by` ha una chiave esterna: togliere la colonna senza
+        // togliere prima il vincolo da 1553. Su SQLite non si vedeva perche'
+        // la tabella viene ricostruita da zero a ogni ALTER (B7, 31/08).
         Schema::table('companies', function (Blueprint $table) {
-            $table->dropColumn(['kyc_notes', 'kyc_reviewed_by', 'kyc_reviewed_at']);
+            $table->dropConstrainedForeignId('kyc_reviewed_by');
+            $table->dropColumn(['kyc_notes', 'kyc_reviewed_at']);
         });
     }
 };
