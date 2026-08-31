@@ -204,14 +204,44 @@ class AdminBackofficeTest extends TestCase
         $this->assertSame(2222200, $account->fresh()->max_balance);
     }
 
-    public function test_updating_default_limits_does_not_change_existing_users_effective_limits(): void
+    /**
+     * I default NON si applicano retroattivamente: prima di salvarli,
+     * `Admin\CreditLimitController::updateLimitDefaults()` (r.180-196) passa su
+     * tutti gli utenti che li seguono, copia sul loro profilo i valori
+     * ATTUALI e mette `transfer_limits_use_defaults = false`. Chi c'e' gia'
+     * resta dov'e'; i nuovi default valgono per chi arriva dopo.
+     *
+     * Questo test asseriva gia' la cosa giusta, ma era rosso da settimane per
+     * un motivo che non c'entrava nulla: il form dei limiti salva insieme
+     * anche i tre bonus segnalazione, obbligatori dal 27/07, e senza quei
+     * campi la validazione rimanda indietro **in silenzio** senza salvare.
+     * Il test falliva quindi prima ancora di arrivare al punto — e il punto,
+     * letto di sfuggita, faceva sembrare che il codice avesse un
+     * comportamento che non ha.
+     *
+     * Aggiunta la seconda meta', che prima non c'era: la leva non deve
+     * toccare chi ha limiti PROPRI. Fra questi c'e' `negative_balance_limit`,
+     * cioe' quanto un conto puo' andare sottozero.
+     */
+    public function test_updating_default_limits_freezes_existing_users_and_spares_custom_ones(): void
     {
         $this->seed();
-        $admin = User::where('email', 'superadmin@kmoney.test')->firstOrFail();
-        $privateUser = User::where('email', 'maria.ferri@kmoney.test')->firstOrFail();
+        $admin    = User::where('email', 'superadmin@kmoney.test')->firstOrFail();
+        $seguace  = User::where('email', 'maria.ferri@kmoney.test')->firstOrFail();
+        $suoi     = User::where('email', 'elisa.ferri@kmoney.test')->firstOrFail();
 
-        $this->assertTrue($privateUser->transfer_limits_use_defaults);
-        $oldLimits = $privateUser->effectiveTransferLimits();
+        $this->assertTrue($seguace->transfer_limits_use_defaults);
+        $limitiPrima = $seguace->effectiveTransferLimits();
+
+        $suoi->forceFill([
+            'transfer_limits_use_defaults' => false,
+            'circuit_capacity_limit'       => 111100,
+            'negative_balance_limit'       => 222200,
+            'daily_transaction_limit'      => 333300,
+            'monthly_transaction_limit'    => 444400,
+            'per_movement_limit'           => 555500,
+        ])->save();
+        $limitiSuoi = $suoi->fresh()->effectiveTransferLimits();
 
         $this->actingAs($admin)
             ->post('/admin/limits', [
@@ -220,15 +250,25 @@ class AdminBackofficeTest extends TestCase
                 'default_daily_transaction_limit' => 7000,
                 'default_monthly_transaction_limit' => 30000,
                 'default_per_movement_limit' => 4000,
+                // Senza questi tre il form non salva niente: obbligatori dal
+                // 27/07. Mancavano, ed e' il vero motivo del rosso.
+                'referral_bonus_amico_amount'    => '0',
+                'referral_bonus_agente_amount'   => '0',
+                'referral_bonus_attivita_amount' => '0',
             ])
             ->assertRedirect();
 
-        $privateUser->refresh();
-
-        $this->assertFalse($privateUser->transfer_limits_use_defaults);
-        $this->assertSame($oldLimits, $privateUser->effectiveTransferLimits());
         // L'input del form è in KY: 10000 KY → 1000000 centesimi
         $this->assertSame(1000000, SystemSetting::userLimitDefaults()->default_negative_balance_limit);
+
+        // Chi seguiva i default e' stato CONGELATO sui valori di prima.
+        $seguace->refresh();
+        $this->assertFalse($seguace->transfer_limits_use_defaults);
+        $this->assertSame($limitiPrima, $seguace->effectiveTransferLimits());
+
+        // Chi aveva limiti propri non si e' mosso di un centesimo.
+        $this->assertSame($limitiSuoi, $suoi->fresh()->effectiveTransferLimits());
+        $this->assertSame(222200, $suoi->fresh()->effectiveTransferLimits()['negative_balance_limit']);
     }
 
     public function test_superadmin_can_refund_transfer_within_refund_window(): void
