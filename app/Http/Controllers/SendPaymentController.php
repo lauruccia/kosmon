@@ -13,6 +13,7 @@ use App\Models\Transfer;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\TransferBookingService;
 use App\Support\PaymentPin;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,6 +80,11 @@ class SendPaymentController extends PortalController
             'pinThreshold'       => $pinThreshold,
             'hasPin'             => $hasPin,
             'activeNav'          => 'conto',
+            // Identifica QUESTO caricamento della pagina. Finisce in un campo
+            // nascosto del form e da' la chiave di idempotenza dell'invio: due
+            // reinvii dello stesso form portano lo stesso token, un nuovo
+            // caricamento ne porta uno diverso. Vedi idempotencyKeyFor().
+            'invioToken'         => (string) Str::uuid(),
         ]);
     }
 
@@ -219,6 +225,7 @@ class SendPaymentController extends PortalController
             'amount'        => ['required', 'numeric', 'min:0.01'],
             'description'   => ['nullable', 'string', 'max:200'],
             'pin'           => ['nullable', 'string', 'size:6', 'regex:/^\d{6}$/'],
+            'invio_token'   => ['nullable', 'string', 'max:64'],
         ]);
 
         $amountCents = ky_to_cents($validated['amount']);
@@ -290,6 +297,24 @@ class SendPaymentController extends PortalController
         }
 
         // ── Esegui il trasferimento ───────────────────────────────────────────
+        $idempotencyKey = $this->idempotencyKeyFor(
+            $currentAccount,
+            $validated['invio_token'] ?? null,
+            (int) $validated['to_account_id'],
+            $amountCents,
+            $validated['description'] ?? null,
+        );
+
+        // Invio gia' registrato (tasto indietro, reinvio del form, retry di
+        // rete): si mostra la ricevuta di QUELLO, dicendolo. Senza questo ramo
+        // book() restituirebbe in silenzio il transfer vecchio e l'utente
+        // vedrebbe una ricevuta identica a un pagamento nuovo — e partirebbero
+        // di nuovo le due email.
+        if ($giaInviato = Transfer::where('idempotency_key', $idempotencyKey)->first()) {
+            return redirect()->route('portal.invia.ricevuta', $giaInviato->uuid)
+                ->with('portal_warning', 'Questo pagamento era gia\' stato inviato: qui sotto la ricevuta. Non e\' stato addebitato una seconda volta.');
+        }
+
         try {
             $transfer = $bookingService->book([
                 'initiated_by'    => $currentUser->id,
@@ -298,11 +323,25 @@ class SendPaymentController extends PortalController
                 'amount'          => $amountCents,
                 'description'     => $validated['description'] ?? null,
                 'kind'            => 'portal_payment',
-                'idempotency_key' => (string) Str::uuid(),
+                'idempotency_key' => $idempotencyKey,
                 'ip_address'      => $request->ip(),
             ]);
         } catch (\RuntimeException $e) {
             return back()->withInput()->with('portal_error', $e->getMessage());
+        } catch (QueryException $e) {
+            // Due richieste identiche arrivate nello STESSO istante: il
+            // controllo qui sopra le ha viste entrambe come "mai inviato" e
+            // l'indice UNIQUE su transfers.idempotency_key ha fermato la
+            // seconda. E' il vincolo che fa il suo lavoro, non un guasto — ma
+            // solo se la riga vincente esiste davvero.
+            $vincente = Transfer::where('idempotency_key', $idempotencyKey)->first();
+
+            if (! $vincente) {
+                throw $e;
+            }
+
+            return redirect()->route('portal.invia.ricevuta', $vincente->uuid)
+                ->with('portal_warning', 'Questo pagamento era gia\' stato inviato: qui sotto la ricevuta. Non e\' stato addebitato una seconda volta.');
         }
 
         // ── Salva beneficiario automaticamente ───────────────────────────────
@@ -339,6 +378,54 @@ class SendPaymentController extends PortalController
         ));
 
         return redirect()->route('portal.invia.ricevuta', $transfer->uuid);
+    }
+
+    /**
+     * Chiave di idempotenza di un invio.
+     *
+     * Prima qui c'era `Str::uuid()`, cioe' una chiave NUOVA a ogni POST: il
+     * motore sa gia' riconoscere un invio ripetuto (TransferBookingService::book
+     * restituisce il transfer esistente, e `transfers.idempotency_key` e' UNIQUE
+     * dalla migrazione iniziale), ma con una chiave casuale quella capacita' era
+     * buttata via e ogni reinvio diventava un pagamento nuovo.
+     *
+     * La chiave e' composta da tre cose, e ognuna serve:
+     *
+     * - il TOKEN del form (`invioToken`, generato in show()): e' lo stesso per
+     *   tutti i reinvii dello stesso form — doppio submit, tasto indietro,
+     *   retry di rete — e cambia a ogni caricamento della pagina, cosi' chi
+     *   vuole davvero rifare lo stesso pagamento lo puo' fare;
+     * - il CONTO PAGATORE: senza, chi indovinasse il token di un altro
+     *   otterrebbe la ricevuta del SUO pagamento. Con l'id del conto nella
+     *   chiave, ognuno puo' collidere solo con se stesso;
+     * - il PAYLOAD (destinatario, importo, causale): se l'utente torna indietro
+     *   e cambia l'importo, quello e' un pagamento diverso e deve passare.
+     *
+     * Senza token (client vecchio, POST diretto all'endpoint) si ricade su una
+     * finestra di un minuto: non e' preciso come il token, ma e' comunque una
+     * chiave STABILE, mentre quella casuale non proteggeva da niente.
+     */
+    private function idempotencyKeyFor(
+        Account $fromAccount,
+        ?string $token,
+        int $toAccountId,
+        int $amountCents,
+        ?string $description,
+    ): string {
+        $token = preg_replace('/[^A-Za-z0-9\-]/', '', (string) $token);
+
+        if ($token === '') {
+            $token = 'senza-form-' . now()->format('Y-m-d-H-i');
+        }
+
+        $impronta = hash('sha256', implode('|', [
+            $token,
+            $toAccountId,
+            $amountCents,
+            (string) $description,
+        ]));
+
+        return 'invia_' . $fromAccount->id . '_' . substr($impronta, 0, 40);
     }
 
     // ── GET /invia/ricevuta/{uuid} ────────────────────────────────────────────

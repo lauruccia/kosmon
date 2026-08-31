@@ -556,6 +556,10 @@
         <input type="hidden" id="f_amount" name="amount">
         <input type="hidden" id="f_description" name="description">
         <input type="hidden" id="f_pin" name="pin">
+        {{-- Identifica questo caricamento della pagina: due invii dello stesso
+             form non possono diventare due pagamenti. Vedi
+             SendPaymentController::idempotencyKeyFor(). --}}
+        <input type="hidden" name="invio_token" value="{{ $invioToken }}">
     </form>
 
 </div>
