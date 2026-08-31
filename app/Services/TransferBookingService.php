@@ -978,7 +978,10 @@ class TransferBookingService
         // davvero — se si aggiornasse solo il primo, l'utente vedrebbe una
         // capienza che al momento di spendere gli verrebbe negata. Vale zero
         // per tutti gli altri conti.
-        $quotaIscrizione = max(0, (int) ($account->ownerUser?->registration_fee_ky_allowance_cents ?? 0));
+        // Dal 31/08 le quote sono DUE (iscrizione privati e codice agente) e
+        // la stessa persona puo' doverle entrambe: si sommano.
+        $quotaIscrizione = max(0, (int) ($account->ownerUser?->registration_fee_ky_allowance_cents ?? 0))
+            + max(0, (int) ($account->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0));
 
         if ($creditExposureLimit > 0 && $projectedBalance < -($creditExposureLimit + $quotaIscrizione)) {
             throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);

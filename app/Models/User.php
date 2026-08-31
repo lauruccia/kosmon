@@ -180,6 +180,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'registration_fee_due_cents',
         'registration_fee_paid_at',
         'registration_fee_ky_allowance_cents',
+        'agent_code_fee_due_cents',
+        'agent_code_fee_paid_at',
+        'agent_code_fee_ky_allowance_cents',
         'mlm_agent_code',
         'referral_bonus_paid_amount',
         'referral_bonus_tier',
@@ -250,6 +253,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'birth_date' => 'date',
 
             'registration_fee_paid_at' => 'datetime',
+            'agent_code_fee_paid_at'   => 'datetime',
         ];
     }
 

@@ -61,6 +61,10 @@ class MlmAgentRequestController extends Controller
             'mlm_agent_rejection_reason' => null,
         ])->save();
 
+
+        // Quota codice agente (31/08/2026): il debito nasce QUI, all'approvazione.
+        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($user->fresh());
+
         $user->notify(new MlmAgentRequestReviewedNotification('approved'));
 
         AuditLog::create([
@@ -123,6 +127,10 @@ class MlmAgentRequestController extends Controller
             'mlm_agent_reviewed_by'      => $request->user()->id,
             'mlm_agent_rejection_reason' => null,
         ])->save();
+
+
+        // Quota codice agente (31/08/2026): il debito nasce QUI, all'approvazione.
+        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($user->fresh());
 
         $user->notify(new MlmAgentRequestReviewedNotification('approved'));
 

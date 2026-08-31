@@ -269,6 +269,11 @@ class MlmPortalController extends Controller
             return $user;
         });
 
+        // Quota codice agente (31/08/2026): questo percorso crea l'utente
+        // gia' con la richiesta 'approved', quindi salta l'approvazione admin
+        // ed e' la terza porta da cui si arriva alla firma del contratto.
+        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($newAgent);
+
         AuditLog::create([
             'actor_user_id'  => $agent->id,
             'event'          => 'mlm.agent_created_by_referrer',

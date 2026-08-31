@@ -401,6 +401,16 @@ class KyCardController extends PortalController
                     app(\App\Services\RegistrationFeeService::class)->completeEuroPayment($feePayment);
                 }
             }
+
+            // Quarto incasso: la quota per il codice agente (31/08/2026).
+            $agentFee = \App\Models\AgentCodeFeePayment::where('stripe_checkout_session_id', $session->id)->first();
+            if ($agentFee && $agentFee->isPending()) {
+                $agentFee->update(['stripe_payment_intent_id' => $session->payment_intent]);
+
+                if ($verifier->sessionMatches($session, (int) $agentFee->amount_eur_cents, $agentFee->uuid, 'agentcode-webhook:' . $agentFee->uuid)) {
+                    app(\App\Services\AgentCodeFeeService::class)->completeEuroPayment($agentFee);
+                }
+            }
         }
 
         return response('OK', 200);

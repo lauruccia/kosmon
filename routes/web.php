@@ -53,6 +53,7 @@ use App\Http\Controllers\StatementController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\StepUpController;
 use App\Http\Controllers\KyCardController;
+use App\Http\Controllers\AgentCodeFeeController;
 use App\Http\Controllers\RegistrationFeeController;
 use App\Http\Controllers\AdminKyCardController;
 use App\Http\Controllers\AdminPlanController;
@@ -831,6 +832,22 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
         Route::get('/mlm/contratto-agente/firmato', [MlmAgentContractController::class, 'viewSigned'])->name('portal.mlm.agent-contract.view');
     });
 
+
+    // ── Quota per il codice agente (31/08/2026) ────────────────────────────
+    // Deliberatamente FUORI dal gruppo 'mlm.enabled' qui sopra: se il
+    // programma agenti venisse spento mentre qualcuno deve ancora la quota,
+    // queste rotte sparirebbero e ogni redirect verso di loro diventerebbe un
+    // 500 su tutto il portale. Da spente non fanno danno: show() rimanda alla
+    // dashboard chi non deve niente.
+    Route::get('/mlm/quota-codice', [AgentCodeFeeController::class, 'show'])->name('portal.mlm.agent-code-fee.show');
+    Route::post('/mlm/quota-codice/rinuncia', [AgentCodeFeeController::class, 'giveUp'])->name('portal.mlm.agent-code-fee.give-up')->middleware('throttle:10,1');
+    Route::post('/mlm/quota-codice/ky', [AgentCodeFeeController::class, 'payWithKy'])->name('portal.mlm.agent-code-fee.ky')->middleware('throttle:10,1');
+    Route::post('/mlm/quota-codice/stripe', [AgentCodeFeeController::class, 'stripeCheckout'])->name('portal.mlm.agent-code-fee.stripe')->middleware('throttle:10,1');
+    Route::post('/mlm/quota-codice/paypal/create-order', [AgentCodeFeeController::class, 'paypalCreateOrder'])->name('portal.mlm.agent-code-fee.paypal-create-order')->middleware('throttle:10,1');
+    Route::get('/mlm/quota-codice/paypal/capture/{payment}', [AgentCodeFeeController::class, 'paypalCapture'])->name('portal.mlm.agent-code-fee.paypal-capture');
+    Route::post('/mlm/quota-codice/bonifico', [AgentCodeFeeController::class, 'bankTransfer'])->name('portal.mlm.agent-code-fee.bank-transfer');
+    Route::get('/mlm/quota-codice/esito/{payment}', [AgentCodeFeeController::class, 'success'])->name('portal.mlm.agent-code-fee.success');
+
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
     Route::get('/api-tokens/nuovo', [ApiTokenController::class, 'create'])->name('portal.api-tokens.create');
     Route::post('/api-tokens', [ApiTokenController::class, 'store'])->name('portal.api-tokens.store')->middleware('step.up');
@@ -905,6 +922,12 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/quote-iscrizione/impostazioni', [RegistrationFeeController::class, 'adminUpdateSettings'])->name('admin.registration-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/conferma', [RegistrationFeeController::class, 'adminConfirmBankTransfer'])->name('admin.registration-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/rifiuta', [RegistrationFeeController::class, 'adminRejectBankTransfer'])->name('admin.registration-fees.reject')->middleware('backoffice');
+
+    // Quote codice agente: elenco, impostazioni e conferma dei bonifici.
+    Route::get('/admin/quote-codice-agente', [AgentCodeFeeController::class, 'adminIndex'])->name('admin.agent-code-fees.index')->middleware('backoffice');
+    Route::post('/admin/quote-codice-agente/impostazioni', [AgentCodeFeeController::class, 'adminUpdateSettings'])->name('admin.agent-code-fees.settings')->middleware('backoffice');
+    Route::post('/admin/quote-codice-agente/{payment}/conferma', [AgentCodeFeeController::class, 'adminConfirmBankTransfer'])->name('admin.agent-code-fees.confirm')->middleware('backoffice');
+    Route::post('/admin/quote-codice-agente/{payment}/rifiuta', [AgentCodeFeeController::class, 'adminRejectBankTransfer'])->name('admin.agent-code-fees.reject')->middleware('backoffice');
 
     // -- Card NFC fisiche (Admin) -----------------------------------------
     Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index')->middleware('backoffice');

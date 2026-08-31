@@ -657,9 +657,16 @@ class Account extends Model
         // fido 50 e quota 30 vogliono dire che il conto puo' arrivare a -80.
         // Vale zero per chiunque non abbia pagato la quota in KY, cioe' per
         // tutti gli utenti gia' esistenti.
-        $quotaIscrizione = max(0, (int) ($this->ownerUser?->registration_fee_ky_allowance_cents ?? 0));
+        // Quota codice agente (31/08/2026): stessa regola, colonna separata
+        // perche' le due quote sono distinte e possono essere dovute
+        // entrambe dalla stessa persona — un privato che diventa agente.
+        // Si SOMMANO fra loro: chi ha pagato 30 e 480 in KY ha 510 di
+        // capienza in piu' del suo fido, ed e' esattamente il debito che si
+        // e' assunto.
+        $quote = max(0, (int) ($this->ownerUser?->registration_fee_ky_allowance_cents ?? 0))
+            + max(0, (int) ($this->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0));
 
-        return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit) + $quotaIscrizione;
+        return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit) + $quote;
     }
 
     /**

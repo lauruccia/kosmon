@@ -97,6 +97,12 @@ class SystemSetting extends Model
         'registration_fee_paypal_enabled',
         'registration_fee_bank_transfer_enabled',
         'registration_fee_ky_enabled',
+        'agent_code_fee_enabled',
+        'agent_code_fee_amount_cents',
+        'agent_code_fee_stripe_enabled',
+        'agent_code_fee_paypal_enabled',
+        'agent_code_fee_bank_transfer_enabled',
+        'agent_code_fee_ky_enabled',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -127,6 +133,12 @@ class SystemSetting extends Model
             'registration_fee_paypal_enabled'        => 'boolean',
             'registration_fee_bank_transfer_enabled' => 'boolean',
             'registration_fee_ky_enabled'            => 'boolean',
+            // Quota codice agente (31/08/2026): stessa convenzione.
+            'agent_code_fee_enabled'                 => 'boolean',
+            'agent_code_fee_stripe_enabled'          => 'boolean',
+            'agent_code_fee_paypal_enabled'          => 'boolean',
+            'agent_code_fee_bank_transfer_enabled'   => 'boolean',
+            'agent_code_fee_ky_enabled'              => 'boolean',
         ];
     }
 
@@ -666,6 +678,9 @@ HTML;
                 // deve essere una scelta esplicita dell'admin, mai un default.
                 'registration_fee_enabled'          => false,
                 'registration_fee_amount_cents'     => 3000, // 30,00
+                // Anche la quota del codice agente nasce SPENTA.
+                'agent_code_fee_enabled'            => false,
+                'agent_code_fee_amount_cents'       => 48000, // 480,00
             ]
         );
     }
@@ -741,6 +756,46 @@ HTML;
         }
         if ($this->registration_fee_ky_enabled) {
             $attivi[RegistrationFeePayment::METHOD_KY] = RegistrationFeePayment::METHODS[RegistrationFeePayment::METHOD_KY];
+        }
+
+        return $attivi;
+    }
+
+    // -- Quota per il codice agente (31/08/2026) ---------------------------
+    //
+    // Interruttori separati da quelli della quota privati, non un doppione
+    // per distrazione: le due quote sono attive insieme e Laura deve poter
+    // accendere il pagamento in KY per i privati e spegnerlo per gli agenti,
+    // dove 480 KY di scoperto pesano sedici volte tanto.
+
+    public function agentCodeFeeEnabled(): bool
+    {
+        return (bool) $this->agent_code_fee_enabled
+            && $this->agentCodeFeeAmount() > 0
+            && $this->agentCodeFeeMethods() !== [];
+    }
+
+    public function agentCodeFeeAmount(): int
+    {
+        return max(0, (int) ($this->agent_code_fee_amount_cents ?? 0));
+    }
+
+    /** @return array<string, string> metodo => etichetta */
+    public function agentCodeFeeMethods(): array
+    {
+        $attivi = [];
+
+        if ($this->agent_code_fee_stripe_enabled && config('services.stripe.secret')) {
+            $attivi[AgentCodeFeePayment::METHOD_STRIPE] = AgentCodeFeePayment::METHODS[AgentCodeFeePayment::METHOD_STRIPE];
+        }
+        if ($this->agent_code_fee_paypal_enabled && config('services.paypal.client_id')) {
+            $attivi[AgentCodeFeePayment::METHOD_PAYPAL] = AgentCodeFeePayment::METHODS[AgentCodeFeePayment::METHOD_PAYPAL];
+        }
+        if ($this->agent_code_fee_bank_transfer_enabled && config('kmoney.bank_iban')) {
+            $attivi[AgentCodeFeePayment::METHOD_BANK_TRANSFER] = AgentCodeFeePayment::METHODS[AgentCodeFeePayment::METHOD_BANK_TRANSFER];
+        }
+        if ($this->agent_code_fee_ky_enabled) {
+            $attivi[AgentCodeFeePayment::METHOD_KY] = AgentCodeFeePayment::METHODS[AgentCodeFeePayment::METHOD_KY];
         }
 
         return $attivi;

@@ -46,7 +46,26 @@ class EnsureMlmAgentContractSigned
             return $next($request);
         }
 
+        // Gia' sulle rotte della quota codice agente: lasciar passare, o si
+        // chiuderebbe l'unica strada che porta alla firma.
+        if ($request->routeIs('portal.mlm.agent-code-fee.*')) {
+            return $next($request);
+        }
+
         if ($user->mlmAgentAwaitingContract()) {
+            // QUOTA CODICE AGENTE (31/08/2026) — questo ammorbidisce, per il
+            // solo tratto prima del pagamento, la scelta del 31/07 di
+            // bloccare l'intero portale fino alla firma. Motivo: chi non ha
+            // ancora pagato NON PUO' firmare, e mandarcelo lo stesso vorrebbe
+            // dire sbatterlo contro una porta chiusa senza vie d'uscita.
+            // Decisione di Laura: in questo tratto il conto resta visibile e
+            // a fermarlo e' EnsureRegistrationFeePaid, che gli impedisce di
+            // pagare, incassare e comprare ma non di guardare. Appena la
+            // quota e' saldata torna il blocco duro di sempre: firma e basta.
+            if (app(\App\Services\AgentCodeFeeService::class)->isDueFor($user)) {
+                return $next($request);
+            }
+
             return redirect()->route('portal.mlm.agent-contract.show')
                 ->with('agent_contract_required', true);
         }

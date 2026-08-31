@@ -34,6 +34,14 @@ class MlmAgentContractController extends Controller
             return redirect()->route('portal.mlm.agent-request.show');
         }
 
+        // Quota codice agente (31/08/2026): la firma e' l'atto che fa
+        // diventare agente, quindi e' qui che si sbarra la strada a chi non
+        // ha pagato. Sbarrarla piu' a valle vorrebbe dire avere, sia pure per
+        // un istante, un agente che non ha pagato il codice.
+        if (app(\App\Services\AgentCodeFeeService::class)->isDueFor($user)) {
+            return redirect()->route('portal.mlm.agent-code-fee.show');
+        }
+
         $settings       = SystemSetting::agentContractSettings();
         $contractHtml   = $settings->renderAgentContractText($user);
         $contractVer    = $settings->mlm_agent_contract_version ?? 1;
@@ -169,6 +177,14 @@ class MlmAgentContractController extends Controller
 
         abort_unless($user->mlmAgentAwaitingContract(), 403);
 
+        // Quota codice agente (31/08/2026): la firma e' l'atto che fa
+        // diventare agente, quindi e' qui che si sbarra la strada a chi non
+        // ha pagato. Sbarrarla piu' a valle vorrebbe dire avere, sia pure per
+        // un istante, un agente che non ha pagato il codice.
+        if (app(\App\Services\AgentCodeFeeService::class)->isDueFor($user)) {
+            return redirect()->route('portal.mlm.agent-code-fee.show');
+        }
+
         // Niente OTP finche' il modulo non e' compilato: la view nasconde gia'
         // il pulsante, questa e' la guardia lato server (2026-08-14).
         if (! $user->hasCompleteAgentContractData()) {
@@ -205,6 +221,14 @@ class MlmAgentContractController extends Controller
         $user = $request->user();
 
         abort_unless($user->mlmAgentAwaitingContract(), 403);
+
+        // Quota codice agente (31/08/2026): la firma e' l'atto che fa
+        // diventare agente, quindi e' qui che si sbarra la strada a chi non
+        // ha pagato. Sbarrarla piu' a valle vorrebbe dire avere, sia pure per
+        // un istante, un agente che non ha pagato il codice.
+        if (app(\App\Services\AgentCodeFeeService::class)->isDueFor($user)) {
+            return redirect()->route('portal.mlm.agent-code-fee.show');
+        }
 
         // Ultima barriera prima di congelare lo snapshot: mai una firma su un
         // modulo di adesione con le caselle anagrafiche vuote (2026-08-14).

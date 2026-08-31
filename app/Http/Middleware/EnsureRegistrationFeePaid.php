@@ -2,15 +2,25 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AgentCodeFeeService;
 use App\Services\RegistrationFeeService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Finche' la quota di iscrizione non e' saldata, l'utente entra e vede tutto
+ * Finche' una quota del circuito non e' saldata, l'utente entra e vede tutto
  * — conto, saldo, movimenti, profilo, negozio, aziende — ma non PAGA, non
  * INCASSA e non COMPRA (decisione di Laura, 31/08/2026).
+ *
+ * LE QUOTE SONO DUE e possono essere dovute dalla stessa persona in momenti
+ * diversi: l'iscrizione dei privati (alla registrazione) e il codice agente
+ * (all'approvazione della richiesta). Il nome della classe e' rimasto quello
+ * della prima, che e' gia' pronta per la produzione e non si e' voluta
+ * rimaneggiare; l'elenco delle rotte bloccate invece e' e deve restare UNO
+ * SOLO, perche' e' la stessa identica domanda — che cosa puo' fare chi deve
+ * dei soldi al circuito — e due elenchi gemelli divergerebbero al primo
+ * cambiamento.
  *
  * PERCHE' UNA LISTA E NON UN MIDDLEWARE SPARSO SULLE ROTTE. Le rotte del
  * portale sono qualche centinaio dentro un unico gruppo: appendere `quota` a
@@ -75,7 +85,16 @@ class EnsureRegistrationFeePaid
             return $next($request);
         }
 
-        if (! app(RegistrationFeeService::class)->isDueFor($user)) {
+        // Quale quota deve? Se ne deve due, si comincia da quella di
+        // iscrizione: e' la prima in ordine di tempo e l'altra non e' nemmeno
+        // raggiungibile finche' non ha un conto operativo.
+        if (app(RegistrationFeeService::class)->isDueFor($user)) {
+            $rotta     = 'portal.registration-fee.show';
+            $messaggio = 'Per usare questa funzione devi prima saldare la quota di iscrizione.';
+        } elseif (app(AgentCodeFeeService::class)->isDueFor($user)) {
+            $rotta     = 'portal.mlm.agent-code-fee.show';
+            $messaggio = 'Per usare questa funzione devi prima saldare la quota per il codice agente.';
+        } else {
             return $next($request);
         }
 
@@ -84,14 +103,11 @@ class EnsureRegistrationFeePaid
             return $next($request);
         }
 
-        $messaggio = 'Per usare questa funzione devi prima saldare la quota di iscrizione.';
-
         if ($request->expectsJson()) {
             return response()->json(['message' => $messaggio], 403);
         }
 
-        return redirect()->route('portal.registration-fee.show')
-            ->with('portal_error', $messaggio);
+        return redirect()->route($rotta)->with('portal_error', $messaggio);
     }
 
     private function bloccata(string $routeName): bool
