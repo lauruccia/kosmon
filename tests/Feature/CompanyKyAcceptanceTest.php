@@ -207,6 +207,12 @@ class CompanyKyAcceptanceTest extends TestCase
     }
 
     // ── Directory: badge sulla card ───────────────────────────────────────────
+    //
+    // Le scritte qui sotto seguono companies.blade.php (r.724-730), che dal
+    // rifacimento della directory dice "✓ 75% KY" e "★ 100% KY" — non piu'
+    // "Kmoney 75%". Erano i 4 rossi fissi della suite, gia' diagnosticati il
+    // 14/08 come "test da riallineare" e mai riallineati: la copia e' quella
+    // giusta, erano le asserzioni a essere ferme.
 
     public function test_directory_shows_declared_percentage_badge(): void
     {
@@ -216,7 +222,7 @@ class CompanyKyAcceptanceTest extends TestCase
 
         $this->actingAs($viewer)->get(route('portal.companies'))
             ->assertOk()
-            ->assertSee('Kmoney 50%');
+            ->assertSee('✓ 50% KY');
     }
 
     public function test_directory_shows_gold_badge_for_full_acceptance(): void
@@ -227,11 +233,27 @@ class CompanyKyAcceptanceTest extends TestCase
 
         $this->actingAs($viewer)->get(route('portal.companies'))
             ->assertOk()
-            ->assertSee('ky-badge--gold')
-            ->assertSee('★ 100% Kmoney');
+            // Non basta cercare `ky-badge--gold` (vive anche nel foglio di
+            // stile) ne' `★ 100% KY` (vive anche in kyBadgeHtml(), il template
+            // JS della mappa, r.992): entrambe sono nella pagina SEMPRE. Solo
+            // il badge scritto dal server porta con se' il title.
+            ->assertSee('ky-badge ky-badge--gold" title="Questa azienda accetta pagamenti al 100% in Kmoney">★ 100% KY</span>', false);
     }
 
-    public function test_directory_badge_uses_best_listing_percentage_automatically(): void
+    /**
+     * ATTENZIONE, questo test diceva il CONTRARIO fino al 31/08: si aspettava
+     * che il badge salisse a 75%, cioe' alla migliore percentuale dei prodotti.
+     *
+     * Non era un test "fermo sulla copia vecchia" come gli altri tre: era una
+     * REGOLA SUPERATA. Il 29/07 e' stato deciso che il badge mostra sempre e
+     * solo la percentuale dichiarata nel profilo, e che i prodotti piu'
+     * generosi si segnalano a parte con "Prodotti al X% KY sullo shop"
+     * (PortalController r.2000-2015, dove il secondo argomento di
+     * computeEffectiveKyPercentage e' `null` di proposito). Il test e' rimasto
+     * rosso da allora, e siccome era rosso comunque nessuno ha notato che
+     * stava difendendo il comportamento sbagliato.
+     */
+    public function test_directory_badge_keeps_the_declared_percentage_and_flags_the_shop_apart(): void
     {
         [$viewer] = $this->makeCompanyUser();
         [$user, $company] = $this->makeCompanyUser();
@@ -240,8 +262,11 @@ class CompanyKyAcceptanceTest extends TestCase
 
         $this->actingAs($viewer)->get(route('portal.companies'))
             ->assertOk()
-            ->assertSee('Kmoney 75%')
-            ->assertDontSee('Kmoney 25%');
+            // Il badge resta quello dichiarato...
+            ->assertSee('✓ 25% KY')
+            ->assertDontSee('✓ 75% KY')
+            // ...e lo shop piu' generoso si vede, ma altrove.
+            ->assertSee('75% KY sullo shop');
     }
 
     public function test_directory_shows_no_percentage_badge_when_undeclared(): void
@@ -251,25 +276,40 @@ class CompanyKyAcceptanceTest extends TestCase
 
         $this->actingAs($viewer)->get(route('portal.companies'))
             ->assertOk()
-            ->assertDontSee('★ 100% Kmoney')
-            ->assertDontSee('✓ Kmoney');
+            // Il testo dei badge e le loro classi sono nella pagina anche
+            // quando nessun badge viene disegnato: le classi nel foglio di
+            // stile, le scritte dentro kyBadgeHtml(), il template JS della
+            // mappa (r.984-997). Cercare quelli darebbe un test sempre verde,
+            // qualunque cosa succeda al badge — terza occorrenza del tranello
+            // "attributo nudo asserito" (mini-carrello, 27/08).
+            //
+            // L'attributo `title` invece lo mette solo il ramo Blade.
+            ->assertDontSee('ky-badge--gold" title=', false)
+            ->assertDontSee('ky-badge--mix" title=', false);
     }
 
-    public function test_directory_orders_higher_acceptance_first_within_same_plan(): void
+    /**
+     * Anche questo difendeva una regola SUPERATA: si aspettava che chi accetta
+     * il 100% comparisse prima di chi accetta il 25%. Il 27/07 la priorita' per
+     * piano e per percentuale e' stata tolta e l'ordine della directory e'
+     * diventato **casuale a ogni ricarica** (PortalController r.1974-1985).
+     *
+     * Non si asserisce quindi nessun ordine — sarebbe un test che fallisce a
+     * caso una volta su due. Si asserisce la cosa che la decisione garantisce:
+     * la percentuale non decide chi si vede e chi no.
+     */
+    public function test_directory_lists_companies_whatever_their_percentage(): void
     {
         [$viewer] = $this->makeCompanyUser();
-        [, $low]  = $this->makeCompanyUser(companyAttrs: ['name' => 'Zeta Bassa AAA']);
-        [, $high] = $this->makeCompanyUser(companyAttrs: ['name' => 'Alfa Alta ZZZ']);
-        $low->update(['accepted_ky_percentage' => 25]);
-        $high->update(['accepted_ky_percentage' => 100]);
+        [, $bassa] = $this->makeCompanyUser(companyAttrs: ['name' => 'Zeta Bassa AAA']);
+        [, $alta]  = $this->makeCompanyUser(companyAttrs: ['name' => 'Alfa Alta ZZZ']);
+        $bassa->update(['accepted_ky_percentage' => 25]);
+        $alta->update(['accepted_ky_percentage' => 100]);
 
-        $html = $this->actingAs($viewer)->get(route('portal.companies'))->getContent();
-
-        $posHigh = strpos($html, 'Alfa Alta ZZZ');
-        $posLow  = strpos($html, 'Zeta Bassa AAA');
-        $this->assertNotFalse($posHigh);
-        $this->assertNotFalse($posLow);
-        $this->assertLessThan($posLow, $posHigh, 'Chi accetta il 100% deve comparire prima di chi accetta il 25%.');
+        $this->actingAs($viewer)->get(route('portal.companies'))
+            ->assertOk()
+            ->assertSee('Zeta Bassa AAA')
+            ->assertSee('Alfa Alta ZZZ');
     }
 
     // ── Admin: vede e imposta la % dell'azienda ───────────────────────────────
