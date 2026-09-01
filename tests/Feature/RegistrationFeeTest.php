@@ -383,6 +383,12 @@ class RegistrationFeeTest extends TestCase
         $this->assertContains('portal.incasso-qr', $radici);
         $this->assertContains('portal.cart.checkout', $radici);
 
+        // 01/09/2026: autorizzare un'app a pagare al posto tuo mentre il conto
+        // e' fermo. L'ADDEBITO vero passa da routes/api.php e lo ferma
+        // Api\V1\MandateController::charge() — sono due porte diverse, e
+        // servono tutte e due.
+        $this->assertContains('oauth.mandate.grant', $radici);
+
         // E queste non devono MAI finirci: sono le vie d'uscita dal blocco.
         foreach (['portal.dashboard', 'portal.ky-cards', 'portal.registration-fee'] as $aperta) {
             $this->assertNotContains($aperta, $radici);
@@ -972,9 +978,562 @@ class RegistrationFeeTest extends TestCase
             ->assertSee('modalità TEST');
     }
 
+    // ─── 13. La porta dell'agente (01/09/2026) ──────────────────────────────
+    //
+    // Decisione di Laura: chi entra dal portale di un agente paga i 480 del
+    // codice, non anche i 30 dei privati — ma se agente non lo diventa, i 30
+    // tornano dovuti. Altrimenti quella porta e' il modo di entrare nel
+    // circuito senza pagare niente, e non e' una possibilita' teorica: e'
+    // proprio la porta da cui entra quasi tutta la gente nuova.
+
+    public function test_chi_e_registrato_dal_portale_di_un_agente_non_deve_subito_i_trenta(): void
+    {
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        $nuovo = $this->registraDalPortaleAgente();
+
+        // Zero e non NULL: la differenza e' tutto. NULL vorrebbe dire "non la
+        // dovra' mai", come i milletrecento iscritti da prima.
+        $this->assertSame(0, (int) $nuovo->registration_fee_due_cents);
+        $this->assertFalse(app(RegistrationFeeService::class)->isDueFor($nuovo));
+
+        // La quota che deve davvero e' quella del codice agente.
+        $this->assertSame(48000, (int) $nuovo->agent_code_fee_due_cents);
+    }
+
+    public function test_rinunciando_al_codice_agente_i_trenta_diventano_dovuti(): void
+    {
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        $nuovo = $this->registraDalPortaleAgente();
+
+        app(\App\Services\AgentCodeFeeService::class)->giveUp($nuovo);
+
+        $nuovo->refresh();
+
+        $this->assertSame(self::QUOTA, (int) $nuovo->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($nuovo));
+        $this->assertNull($nuovo->agent_code_fee_due_cents);
+
+        Notification::assertSentTo($nuovo, RegistrationFeeRequestedNotification::class);
+    }
+
+    public function test_il_rifiuto_dell_admin_accende_i_trenta_e_toglie_la_quota_del_codice(): void
+    {
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        $nuovo = $this->registraDalPortaleAgente();
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $nuovo), ['reason' => 'Documenti non conformi.'])
+            ->assertRedirect();
+
+        $nuovo->refresh();
+
+        $this->assertSame(self::QUOTA, (int) $nuovo->registration_fee_due_cents);
+        $this->assertNull($nuovo->agent_code_fee_due_cents, 'Un codice agente rifiutato non si paga.');
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($nuovo));
+    }
+
+    public function test_un_vecchio_iscritto_rifiutato_come_agente_non_si_ritrova_una_quota(): void
+    {
+        [$vecchio] = $this->makePrivate(0);
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        // Non e' mai passato dalla porta dell'agente: la sua colonna e' NULL,
+        // e NULL deve restare NULL qualunque cosa succeda al suo percorso MLM.
+        $vecchio->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $vecchio), ['reason' => 'Ripensamento.'])
+            ->assertRedirect();
+
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+        $this->assertFalse(app(RegistrationFeeService::class)->isDueFor($vecchio->fresh()));
+    }
+
+    public function test_con_la_quota_del_codice_spenta_chi_entra_dal_portale_deve_i_trenta_subito(): void
+    {
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente(attiva: false);
+
+        $nuovo = $this->registraDalPortaleAgente();
+
+        // Nessuna quota lo copre: allora la paga come chiunque altro,
+        // altrimenti questa sarebbe la porta di servizio del circuito.
+        $this->assertSame(self::QUOTA, (int) $nuovo->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($nuovo));
+    }
+
+    public function test_segnare_la_quota_alla_registrazione_non_sveglia_una_quota_sospesa(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuota();
+        $utente->forceFill(['registration_fee_due_cents' => 0])->save();
+
+        // Difesa in profondita': oggi nessuno chiama markDueOnRegistration()
+        // su un utente gia' segnato, ma il giorno che nascesse una quarta
+        // porta di registrazione, riscrivere quella colonna accenderebbe una
+        // quota che qualcuno ha deciso di sospendere.
+        app(RegistrationFeeService::class)->markDueOnRegistration($utente->fresh());
+
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    public function test_una_quota_gia_pagata_non_si_riaccende_lasciando_il_percorso_agente(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuota();
+
+        // Stato che oggi dal sito non si raggiunge — una quota sospesa non la
+        // si puo' pagare — ma che una riparazione a mano nel database puo'
+        // benissimo creare. Se succede, riaccendere la quota vorrebbe dire
+        // farla pagare due volte alla stessa persona.
+        $utente->forceFill([
+            'registration_fee_due_cents' => 0,
+            'registration_fee_paid_at'   => now(),
+        ])->save();
+
+        app(RegistrationFeeService::class)->resumeAfterAgentPath($utente->fresh());
+
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
+        $this->assertNotNull($utente->fresh()->registration_fee_paid_at);
+    }
+
+    public function test_la_sospensione_non_cancella_una_quota_gia_dovuta(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->suspendForAgentPath($utente);
+
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    // ─── 14. Ripescaggio di un incasso in euro (01/09/2026) ─────────────────
+
+    public function test_un_incasso_stripe_finito_failed_si_ripesca_e_accredita(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        $this->fingiStripe(pagata: true);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+        $this->assertNotNull($utente->fresh()->registration_fee_paid_at);
+    }
+
+    public function test_senza_la_conferma_di_stripe_il_ripescaggio_non_accredita_niente(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        $this->fingiStripe(pagata: false);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertNull($utente->fresh()->registration_fee_paid_at);
+    }
+
+    public function test_il_bonifico_rifiutato_si_accredita_solo_con_la_conferma_esplicita(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto, RegistrationFeePayment::METHOD_BANK_TRANSFER);
+
+        // Senza la conferma non succede niente: non c'e' nessuna banca da
+        // interrogare, quindi la prova e' l'admin e deve essere esplicita.
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento), ['bonifico_ricevuto' => '1'])
+            ->assertRedirect();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+    }
+
+    public function test_una_quota_pagata_in_ky_non_si_ripesca(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto, RegistrationFeePayment::METHOD_KY);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+    }
+
+    public function test_non_si_ripesca_una_quota_gia_saldata(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        app(RegistrationFeeService::class)->completeEuroPayment($pagamento);
+
+        // Il ripescaggio si ferma prima di rimettere in moto l'accredito: chi
+        // preme il bottone due volte deve sentirselo dire, non ritrovarsi a
+        // guardare un saldo per capire se e' successo qualcosa.
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('già saldata');
+
+        app(RegistrationFeeService::class)->retryEuroCredit($pagamento->fresh(), $this->superAdmin);
+    }
+
+    public function test_il_servizio_rifiuta_di_ripescare_un_pagamento_in_ky(): void
+    {
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto, RegistrationFeePayment::METHOD_KY);
+
+        // Il controllo che conta sta nel SERVIZIO e non nella rotta: in KY non
+        // c'e' nessun euro incassato da recuperare, e accreditare KY a chi ha
+        // pagato in KY vorrebbe dire regalarglieli.
+        $this->expectException(\RuntimeException::class);
+
+        app(RegistrationFeeService::class)->retryEuroCredit($pagamento, $this->superAdmin);
+    }
+
+    public function test_un_utente_qualunque_non_puo_ripescare_un_pagamento(): void
+    {
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        $this->actingAsWithSession($utente)
+            ->post(route('admin.registration-fees.retry-credit', $pagamento))
+            ->assertForbidden();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+    }
+
+    public function test_la_pagina_di_esito_accredita_anche_una_riga_gia_finita_failed(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        $this->fingiStripe(pagata: true);
+
+        $this->actingAsWithSession($utente)
+            ->get(route('portal.registration-fee.success', ['payment' => $pagamento->uuid]))
+            ->assertOk();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+    }
+
+    // ─── 15. La stessa quota incassata due volte ────────────────────────────
+
+    public function test_la_seconda_quota_incassata_lascia_traccia_nell_audit_log(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        $primo   = $this->pagamentoFallito($utente, $conto);
+        $secondo = $this->pagamentoFallito($utente, $conto);
+
+        $fees = app(RegistrationFeeService::class);
+        $fees->completeEuroPayment($primo);
+        $fees->completeEuroPayment($secondo);
+
+        $this->assertTrue($secondo->fresh()->isCompleted());
+
+        $tracce = AuditLog::where('event', 'registration_fee.paid_in_eur')
+            ->get()
+            ->map(fn ($l) => (bool) ($l->context['quota_gia_saldata'] ?? false))
+            ->all();
+
+        $this->assertSame([false, true], $tracce, 'Il secondo incasso deve risultare come tale.');
+    }
+
+    // ─── 16. Tentativi abbandonati ──────────────────────────────────────────
+
+    public function test_i_tentativi_abbandonati_si_chiudono_dopo_ventiquattro_ore(): void
+    {
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        $vecchio = $this->pagamentoInAttesa($utente, $conto, giorniFa: 2);
+        $recente = $this->pagamentoInAttesa($utente, $conto, giorniFa: 0);
+
+        $this->artisan('quote:scadi-tentativi')->assertSuccessful();
+
+        $this->assertSame(RegistrationFeePayment::STATUS_FAILED, $vecchio->fresh()->status);
+        $this->assertSame(RegistrationFeePayment::STATUS_PENDING, $recente->fresh()->status);
+    }
+
+    public function test_la_scadenza_non_tocca_mai_i_bonifici_in_attesa(): void
+    {
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        $bonifico = RegistrationFeePayment::create([
+            'user_id'          => $utente->id,
+            'account_id'       => $conto->id,
+            'amount_eur_cents' => self::QUOTA,
+            'ky_amount'        => self::QUOTA,
+            'status'           => RegistrationFeePayment::STATUS_PENDING_BANK_TRANSFER,
+            'payment_method'   => RegistrationFeePayment::METHOD_BANK_TRANSFER,
+        ]);
+        $bonifico->forceFill(['created_at' => now()->subMonth()])->save();
+
+        $this->artisan('quote:scadi-tentativi')->assertSuccessful();
+
+        $this->assertSame(
+            RegistrationFeePayment::STATUS_PENDING_BANK_TRANSFER,
+            $bonifico->fresh()->status,
+            'Chi ha in mano una causale puo\' andare in banca la settimana dopo.'
+        );
+    }
+
+    public function test_un_tentativo_scaduto_si_puo_ancora_accreditare(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        $tentativo = $this->pagamentoInAttesa($utente, $conto, giorniFa: 2);
+
+        $this->artisan('quote:scadi-tentativi')->assertSuccessful();
+        $this->assertSame(RegistrationFeePayment::STATUS_FAILED, $tentativo->fresh()->status);
+
+        // Ed e' proprio questo che rende la scadenza innocua: se il pagamento
+        // arriva lo stesso, la riga chiusa si riapre.
+        $this->fingiStripe(pagata: true);
+
+        $this->actingAsWithSession($utente)
+            ->get(route('portal.registration-fee.success', ['payment' => $tentativo->uuid]))
+            ->assertOk();
+
+        $this->assertTrue($tentativo->fresh()->isCompleted());
+    }
+
+    // ─── 17. Solleciti e ricevuta ───────────────────────────────────────────
+
+    public function test_il_sollecito_parte_una_volta_sola(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $utente->forceFill(['created_at' => now()->subDays(10)])->save();
+
+        $this->artisan('quote:solleciti-iscrizione')->assertSuccessful();
+        $this->artisan('quote:solleciti-iscrizione')->assertSuccessful();
+
+        Notification::assertSentToTimes($utente, \App\Notifications\RegistrationFeeReminderNotification::class, 1);
+    }
+
+    public function test_non_si_sollecita_chi_ha_la_quota_sospesa_o_gia_saldata(): void
+    {
+        [$sospeso] = $this->makePrivate(0);
+        $sospeso->forceFill([
+            'registration_fee_due_cents' => 0,
+            'created_at'                 => now()->subDays(10),
+        ])->save();
+
+        [$saldato] = $this->makePrivateConQuota(0);
+        $saldato->forceFill([
+            'registration_fee_paid_at' => now(),
+            'created_at'               => now()->subDays(10),
+        ])->save();
+
+        $this->artisan('quote:solleciti-iscrizione')->assertSuccessful();
+
+        Notification::assertNothingSentTo($sospeso);
+        Notification::assertNothingSentTo($saldato);
+    }
+
+    public function test_chi_paga_in_ky_riceve_la_ricevuta(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente] = $this->makePrivateConQuota(10000, fido: 5000);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+
+        Notification::assertSentTo($utente, \App\Notifications\RegistrationFeePaidNotification::class);
+    }
+
+    public function test_chi_paga_in_euro_riceve_la_ricevuta_una_volta_sola(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        $fees = app(RegistrationFeeService::class);
+        $fees->completeEuroPayment($pagamento);
+        $fees->completeEuroPayment($pagamento->fresh());
+
+        Notification::assertSentToTimes($utente, \App\Notifications\RegistrationFeePaidNotification::class, 1);
+    }
+
+    public function test_la_ricevuta_non_parte_due_volte_quando_due_richieste_si_accavallano(): void
+    {
+        $this->makeSystemAccount(1000000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $pagamento = $this->pagamentoFallito($utente, $conto);
+
+        // La corsa vera: webhook Stripe e pagina di successo leggono la stessa
+        // riga nello stesso istante. Questa e' la copia caricata PRIMA che
+        // l'altra richiesta accreditasse — per lei il pagamento e' ancora da
+        // fare, e la guardia in cima al metodo non scatta. A fermarla resta
+        // solo il controllo dentro il lock, che e' anche quello che decide se
+        // la ricevuta va spedita.
+        $copiaVecchia = RegistrationFeePayment::find($pagamento->id);
+
+        $fees = app(RegistrationFeeService::class);
+        $fees->completeEuroPayment($pagamento);
+        $fees->completeEuroPayment($copiaVecchia);
+
+        Notification::assertSentToTimes($utente, \App\Notifications\RegistrationFeePaidNotification::class, 1);
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+    }
+
+    // ─── 18. Il service worker ──────────────────────────────────────────────
+
+    public function test_le_pagine_delle_quote_non_finiscono_nella_cache_del_service_worker(): void
+    {
+        // Una pagina di pagamento servita da una cache vecchia porta dentro un
+        // CSRF token morto, e il risultato e' un 419 "sessione scaduta" a chi
+        // non ha nessuna colpa. E' lo stesso motivo per cui /ricarica e' li'
+        // dentro da mesi, con il suo commento accanto.
+        $sw = file_get_contents(public_path('sw.js'));
+
+        $this->assertStringContainsString('/\\/quota-/', $sw);
+        $this->assertStringContainsString('/\\/ricarica/', $sw);
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     private User $superAdmin;
+
+    private function attivaQuotaCodiceAgente(bool $attiva = true, int $importo = 48000): void
+    {
+        SystemSetting::userLimitDefaults()->forceFill([
+            'agent_code_fee_enabled'               => $attiva,
+            'agent_code_fee_amount_cents'          => $importo,
+            'agent_code_fee_stripe_enabled'        => false,
+            'agent_code_fee_paypal_enabled'        => false,
+            'agent_code_fee_bank_transfer_enabled' => true,
+            'agent_code_fee_ky_enabled'            => true,
+        ])->save();
+    }
+
+    /**
+     * La porta vera: un agente registra un nuovo privato dal suo portale.
+     *
+     * Passa dalla ROTTA e non dal servizio di proposito — il buco del
+     * 01/09/2026 era esattamente questo, un percorso che segnava la quota del
+     * codice agente e si dimenticava quella dei privati. Un test scritto sul
+     * servizio sarebbe stato verde lo stesso.
+     */
+    private function registraDalPortaleAgente(): User
+    {
+        $agente = User::create([
+            'name'                => 'Agente Sponsor',
+            'email'               => 'agente-' . Str::random(10) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'is_active'           => true,
+            'mlm_role'            => 'agente',
+            'mlm_activated_at'    => now(),
+        ]);
+        $agente->forceFill(['email_verified_at' => now()])->save();
+        $agente->agentCode();
+
+        // Minuscolo: il controller normalizza l'indirizzo con
+        // mb_strtolower() prima di salvarlo, e Str::random() sputa anche
+        // maiuscole — cercare l'utente con la stringa di partenza non lo
+        // troverebbe mai.
+        $email = mb_strtolower('nuovo-agente-' . Str::random(8) . '@test.test');
+
+        $this->actingAsWithSession($agente)->post(route('portal.mlm.agent-create.store'), [
+            'name'               => 'Luigi Nuovo Agente',
+            'email'              => $email,
+            'phone'              => '333 1234567',
+            'fiscal_code'        => 'RSSMRA85M01H501Z',
+            'birth_date'         => '1985-08-01',
+            'birth_place'        => 'Roma',
+            'residence_address'  => 'Via Roma 10',
+            'residence_zip'      => '00100',
+            'residence_city'     => 'Roma',
+            'residence_province' => 'rm',
+        ]);
+
+        return User::where('email', $email)->firstOrFail();
+    }
+
+    /**
+     * Sostituisce il verificatore di Stripe con uno che risponde quello che
+     * serve al test. Non e' una scorciatoia: e' l'unico modo di provare che
+     * il ripescaggio accredita SOLO quando la prova c'e', senza chiamare
+     * davvero i server di Stripe.
+     */
+    private function fingiStripe(bool $pagata): void
+    {
+        $this->instance(
+            \App\Services\StripeCheckoutVerifier::class,
+            new class($pagata) extends \App\Services\StripeCheckoutVerifier {
+                public function __construct(private readonly bool $pagata) {}
+
+                public function isPaidFor(?string $storedSessionId, int $expectedAmountCents, string $expectedReference, string $context = 'stripe'): bool
+                {
+                    return $this->pagata;
+                }
+            }
+        );
+    }
+
+    /** Un pagamento in euro finito male: la riga che il ripescaggio deve poter riaprire. */
+    private function pagamentoFallito(User $utente, Account $conto, string $metodo = RegistrationFeePayment::METHOD_STRIPE): RegistrationFeePayment
+    {
+        return RegistrationFeePayment::create([
+            'user_id'                    => $utente->id,
+            'account_id'                 => $conto->id,
+            'amount_eur_cents'           => self::QUOTA,
+            'ky_amount'                  => self::QUOTA,
+            'status'                     => RegistrationFeePayment::STATUS_FAILED,
+            'payment_method'             => $metodo,
+            'stripe_checkout_session_id' => $metodo === RegistrationFeePayment::METHOD_STRIPE ? 'cs_test_' . Str::random(12) : null,
+            'admin_notes'                => 'Accredito non riuscito.',
+        ]);
+    }
+
+    private function pagamentoInAttesa(User $utente, Account $conto, int $giorniFa): RegistrationFeePayment
+    {
+        $pagamento = RegistrationFeePayment::create([
+            'user_id'                    => $utente->id,
+            'account_id'                 => $conto->id,
+            'amount_eur_cents'           => self::QUOTA,
+            'ky_amount'                  => self::QUOTA,
+            'status'                     => RegistrationFeePayment::STATUS_PENDING,
+            'payment_method'             => RegistrationFeePayment::METHOD_STRIPE,
+            'stripe_checkout_session_id' => 'cs_test_' . Str::random(12),
+        ]);
+
+        $pagamento->forceFill(['created_at' => now()->subDays($giorniFa)])->save();
+
+        return $pagamento->fresh();
+    }
 
     private function attivaQuota(bool $attiva = true, int $importo = self::QUOTA): void
     {

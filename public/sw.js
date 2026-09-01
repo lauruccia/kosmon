@@ -3,7 +3,11 @@
  * Strategie: Cache-first per asset statici, Network-first per pagine HTML.
  */
 
-const CACHE_VERSION = 'kmoney-v4';
+// v5 (01/09/2026): cambiare il numero e' l'UNICO modo di buttare via le
+// pagine gia' in cache. Aggiungere un pattern a BYPASS_PATTERNS impedisce
+// di cacheare da qui in avanti, ma quello che e' gia' dentro resta li' e
+// continua a essere servito quando la rete non risponde.
+const CACHE_VERSION = 'kmoney-v5';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const PAGE_CACHE    = `${CACHE_VERSION}-pages`;
 
@@ -44,6 +48,11 @@ const BYPASS_PATTERNS = [
     /\/push\//,
     /\/health/,      // health check sempre live
     /\/ricarica/,    // pagina KYCard: form di pagamento con CSRF token + integrazione Stripe live
+    // Quote del circuito (01/09/2026): /quota-iscrizione e /mlm/quota-codice.
+    // Stesso motivo di /ricarica — sono pagine con dentro un CSRF token di
+    // sessione e i bottoni che portano su Stripe/PayPal: servite da una cache
+    // vecchia danno un 419 "sessione scaduta" a chi non ne ha nessuna colpa.
+    /\/quota-/,
 ];
 
 // ── Install ─────────────────────────────────────────────────────────

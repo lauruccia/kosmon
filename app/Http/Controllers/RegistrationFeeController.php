@@ -263,7 +263,12 @@ class RegistrationFeeController extends Controller
         // Stripe: la sessione da verificare e' quella SALVATA sul pagamento,
         // mai quella che arriva in ?session_id= — vedi StripeCheckoutVerifier
         // e il riuso del link di pagamento chiuso il 28/08.
-        if ($payment->isPending() && $payment->payment_method === RegistrationFeePayment::METHOD_STRIPE) {
+        // "Non saldata e non annullata" e non "in attesa": una riga finita
+        // `failed` (accredito andato storto, o tentativo scaduto dal comando
+        // notturno) deve poter essere ancora accreditata se Stripe dice che
+        // l'incasso c'e' stato. La prova la da' StripeCheckoutVerifier, non
+        // lo stato della riga.
+        if (! $payment->isCompleted() && ! $payment->isCancelled() && $payment->payment_method === RegistrationFeePayment::METHOD_STRIPE) {
             $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
                 $payment->stripe_checkout_session_id,
                 (int) $payment->amount_eur_cents,
@@ -426,6 +431,96 @@ class RegistrationFeeController extends Controller
 
         return redirect()->route('admin.users.show', $user)
             ->with('portal_success', 'Quota di ' . ky_format($importo) . ' KY richiesta a ' . $user->name . ': è stato avvisato per email e in notifica.');
+    }
+
+    /**
+     * «Verifica e accredita»: ripesca un pagamento in euro finito `failed`
+     * quando i soldi, in realta', sono stati incassati.
+     *
+     * QUI SI RACCOGLIE LA PROVA, e il servizio si limita ad accreditare. La
+     * differenza non e' formale: senza prova questo bottone sarebbe un modo
+     * per creare KY dal nulla premendolo su una riga qualsiasi.
+     *
+     *   - Stripe: la sessione SALVATA sul pagamento viene richiesta al server
+     *     di Stripe e deve risultare pagata, dell'importo esatto e riferita a
+     *     questo pagamento (StripeCheckoutVerifier, la stessa verifica della
+     *     pagina di successo e del webhook).
+     *   - PayPal: si rilegge l'ordine e deve essere COMPLETED, cioe'
+     *     catturato davvero.
+     *   - Bonifico: non esiste nessun server da interrogare, la prova e'
+     *     l'admin che ha visto i soldi sul conto. Percio' li' il form deve
+     *     portare una conferma esplicita (`bonifico_ricevuto`), che una POST
+     *     generica di ripescaggio non ha: e' un atto con un nome sopra, e
+     *     l'audit log lo registra come tale.
+     */
+    public function adminRetryCredit(Request $request, RegistrationFeePayment $payment): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $indietro = redirect()->route('admin.registration-fees.index');
+
+        if ($payment->isCompleted()) {
+            return $indietro->with('portal_error', 'Questa quota risulta già saldata.');
+        }
+
+        // Niente controllo su "e' un pagamento in euro?" qui: quello vive in
+        // RegistrationFeeService::retryEuroCredit(), dove protegge qualunque
+        // chiamante e non solo questa rotta. Scriverlo anche qui vorrebbe dire
+        // due difese che si nascondono a vicenda dal mutation testing —
+        // spegnendone una i test restano verdi e nessuna delle due risulta
+        // piu' provata. Un pagamento in KY finisce nel ramo finale qui sotto.
+        $metodo = $payment->payment_method;
+
+        if ($metodo === RegistrationFeePayment::METHOD_STRIPE) {
+            $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
+                $payment->stripe_checkout_session_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'regfee-retry:' . $payment->uuid,
+            );
+
+            if (! $pagata) {
+                return $indietro->with('portal_error', 'Stripe non risulta aver incassato questo pagamento: non è stato accreditato niente.');
+            }
+        } elseif ($metodo === RegistrationFeePayment::METHOD_PAYPAL) {
+            if (empty($payment->paypal_order_id)) {
+                return $indietro->with('portal_error', 'Questo tentativo PayPal non è mai arrivato a creare un ordine: non c\'è niente da verificare.');
+            }
+
+            try {
+                $ordine = Http::withToken($this->getPaypalAccessToken())
+                    ->get($this->paypalApiBase() . '/v2/checkout/orders/' . $payment->paypal_order_id)
+                    ->json();
+            } catch (\Throwable $e) {
+                Log::error('Quota iscrizione: verifica ordine PayPal fallita', [
+                    'payment' => $payment->uuid,
+                    'error'   => $e->getMessage(),
+                ]);
+
+                return $indietro->with('portal_error', 'Non è stato possibile interrogare PayPal: riprova più tardi.');
+            }
+
+            if (($ordine['status'] ?? null) !== 'COMPLETED') {
+                return $indietro->with('portal_error', 'PayPal non risulta aver incassato questo pagamento (stato: ' . ($ordine['status'] ?? 'sconosciuto') . '): non è stato accreditato niente.');
+            }
+        } elseif ($metodo === RegistrationFeePayment::METHOD_BANK_TRANSFER) {
+            // Nessun server da interrogare: la prova e' l'admin. Una spunta
+            // obbligatoria, cosi' non ci si arriva per inerzia premendo il
+            // bottone su una riga rifiutata per sbaglio.
+            if (! $request->boolean('bonifico_ricevuto')) {
+                return $indietro->with('portal_error', 'Per accreditare un bonifico devi confermare di averlo ricevuto.');
+            }
+        } else {
+            return $indietro->with('portal_error', 'Su questo pagamento non c\'è nessun incasso in euro da verificare.');
+        }
+
+        try {
+            $this->fees->retryEuroCredit($payment, $request->user(), $request->ip());
+        } catch (RuntimeException $e) {
+            return $indietro->with('portal_error', $e->getMessage());
+        }
+
+        return $indietro->with('portal_success', 'Incasso verificato: i ' . ky_format($payment->fresh()->ky_amount) . ' KY sono stati accreditati.');
     }
 
     public function adminRejectBankTransfer(Request $request, RegistrationFeePayment $payment): RedirectResponse

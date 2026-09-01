@@ -155,12 +155,36 @@
                                         </form>
                                     </div>
                                 @elseif($payment->isCompleted())
+                                    {{-- Due avvisi diversi, perche' le due strade non si disfano
+                                         allo stesso modo: in KY lo storno rimette tutto a posto da
+                                         solo, in euro i soldi veri restano incassati su Stripe o
+                                         PayPal e il rimborso lo deve fare una persona. --}}
                                     <form method="POST" action="{{ route('admin.registration-fees.cancel', $payment) }}"
-                                          onsubmit="return confirm('Annullare questa quota? Il movimento viene stornato, la quota torna da pagare e il fido aggiuntivo di {{ ky_format($payment->ky_amount) }} KY viene tolto.');">
+                                          onsubmit="return confirm('@if($payment->isPaidInEuro())Annullare questa quota? I {{ ky_format($payment->ky_amount) }} KY accreditati tornano al conto di sistema e la quota torna da pagare.\n\nATTENZIONE: i {{ number_format($payment->amount_eur, 2, ',', '.') }} euro incassati NON vengono rimborsati da qui. Il rimborso va fatto a mano dal pannello {{ $payment->payment_method === \App\Models\RegistrationFeePayment::METHOD_BANK_TRANSFER ? 'della banca' : ucfirst($payment->payment_method) }}.\n\nSe l\'utente quei KY li ha gia\' spesi, lo storno porta il suo conto sotto il fido.@else Annullare questa quota? Il movimento viene stornato, la quota torna da pagare e il fido aggiuntivo di {{ ky_format($payment->ky_amount) }} KY viene tolto.@endif');">
                                         @csrf
                                         <input type="hidden" name="admin_notes" value="Quota annullata dal backoffice.">
                                         <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Annulla quota</button>
                                     </form>
+                                @elseif($payment->status === \App\Models\RegistrationFeePayment::STATUS_FAILED && $payment->isPaidInEuro())
+                                    {{-- Pagamento in euro finito male: puo' essere un tentativo mai
+                                         arrivato in fondo (e allora qui non succede niente) oppure
+                                         un incasso vero che non e' stato accreditato. Il bottone non
+                                         accredita per fiducia: interroga Stripe/PayPal e procede solo
+                                         se risultano aver incassato. --}}
+                                    @if($payment->payment_method === \App\Models\RegistrationFeePayment::METHOD_BANK_TRANSFER)
+                                        <form method="POST" action="{{ route('admin.registration-fees.retry-credit', $payment) }}"
+                                              onsubmit="return confirm('Il bonifico di {{ number_format($payment->amount_eur, 2, ',', '.') }} euro è arrivato davvero sul conto?\n\nQui non c\'è nessuna banca da interrogare: accreditando {{ ky_format($payment->ky_amount) }} KY stai mettendo la tua firma sul fatto di averlo visto.');">
+                                            @csrf
+                                            <input type="hidden" name="bonifico_ricevuto" value="1">
+                                            <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Accredita comunque</button>
+                                        </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.registration-fees.retry-credit', $payment) }}"
+                                              onsubmit="return confirm('Chiedo a {{ ucfirst($payment->payment_method) }} se questo pagamento è stato incassato davvero. Se sì accredito {{ ky_format($payment->ky_amount) }} KY, se no non succede niente.');">
+                                            @csrf
+                                            <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Verifica e accredita</button>
+                                        </form>
+                                    @endif
                                 @else
                                     <span class="table-muted">—</span>
                                 @endif

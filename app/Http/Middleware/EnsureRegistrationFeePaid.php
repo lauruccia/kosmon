@@ -75,6 +75,18 @@ class EnsureRegistrationFeePaid
         'portal.cart.checkout',
         'portal.shop.buy',
         'portal.shop.orders.pay',
+
+        // ── Autorizzare un'app a pagare al posto tuo (01/09/2026) ────────────
+        // Concedere il mandato non muove KY di per se', ma e' il permesso a
+        // muoverli: darlo mentre il conto e' fermo vuol dire prepararsi a
+        // spendere appena si riapre, e soprattutto vuol dire una pagina che
+        // promette una cosa che non funzionera'. L'ADDEBITO vero passa da
+        // routes/api.php e non da qui: e' rifiutato in
+        // Api\V1\MandateController::charge(), che questo elenco non
+        // raggiunge. Le due difese guardano due porte diverse, non la stessa.
+        // `deny` resta aperta di proposito: revocare deve essere sempre
+        // possibile.
+        'oauth.mandate.grant',
     ];
 
     public function handle(Request $request, Closure $next): Response

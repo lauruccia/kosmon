@@ -41,8 +41,10 @@ use RuntimeException;
  */
 class AgentCodeFeeService
 {
-    public function __construct(private readonly TransferBookingService $transfers)
-    {
+    public function __construct(
+        private readonly TransferBookingService $transfers,
+        private readonly RegistrationFeeService $registrationFees,
+    ) {
     }
 
     public function settings(): SystemSetting
@@ -148,6 +150,51 @@ class AgentCodeFeeService
             'ip_address'     => $ipAddress,
             'context'        => [],
         ]);
+
+        // Chi era entrato dalla porta dell'agente aveva la quota dei privati
+        // SOSPESA (01/09/2026): rinunciando torna un privato come tutti gli
+        // altri e quella quota si accende. Senza questa riga il portale
+        // dell'agente sarebbe il modo per entrare nel circuito senza pagare
+        // niente: ci si fa registrare, si rinuncia, e non si deve piu' nulla.
+        $this->registrationFees->resumeAfterAgentPath($user->refresh(), $ipAddress);
+    }
+
+    /**
+     * Cancella il debito del codice agente quando NON e' piu' dovuto perche'
+     * il percorso si e' chiuso dall'altra parte: l'admin ha rifiutato la
+     * richiesta (Admin\MlmAgentRequestController::reject).
+     *
+     * Senza questo, un rifiuto dopo l'approvazione lasciava addosso una quota
+     * da 480 per un codice che non arrivera' mai — con il conto bloccato e
+     * una pagina che invita a pagarla.
+     *
+     * Non tocca una quota gia' PAGATA: li' ci sono soldi veri incassati e la
+     * decisione (rimborso? codice comunque?) non la puo' prendere una riga di
+     * codice dentro un rifiuto.
+     *
+     * @return bool se c'era davvero un debito da cancellare
+     */
+    public function dropUnpaidDebt(User $user, ?string $ipAddress = null): bool
+    {
+        if (! $this->isDueFor($user)) {
+            return false;
+        }
+
+        $user->forceFill([
+            'agent_code_fee_due_cents' => null,
+            'agent_code_fee_paid_at'   => null,
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $user->id,
+            'event'          => 'agent_code_fee.dropped',
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'ip_address'     => $ipAddress,
+            'context'        => [],
+        ]);
+
+        return true;
     }
 
     // ── Apertura di un tentativo di pagamento ───────────────────────────────

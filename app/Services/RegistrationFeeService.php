@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\RegistrationFeePayment;
 use App\Notifications\RegistrationFeeCancelledNotification;
+use App\Notifications\RegistrationFeePaidNotification;
 use App\Notifications\RegistrationFeeRequestedNotification;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
@@ -45,10 +46,35 @@ use RuntimeException;
  * A CHI SI APPLICA. Solo ai privati che si registrano da quando l'admin
  * accende l'interruttore. Lo decide users.registration_fee_due_cents, scritto
  * una volta alla registrazione: NULL = non deve niente, ed e' il valore che
- * hanno tutti quelli gia' iscritti.
+ * hanno tutti quelli gia' iscritti. Dal 01/09 c'e' un terzo valore, ZERO =
+ * quota SOSPESA, per chi entra dal portale di un agente e paga i 480 del
+ * codice al posto dei 30: vedi la costante SOSPESA qui sotto.
  */
 class RegistrationFeeService
 {
+    /**
+     * Valore di `users.registration_fee_due_cents` che significa "questa
+     * persona e' entrata come privato DOPO l'accensione della quota, ma dalla
+     * porta dell'agente: per ora non deve niente".
+     *
+     * I tre valori della colonna, e la differenza fra i primi due e' tutto
+     * quello che serve sapere:
+     *
+     *   NULL  = non deve niente e non dovra' mai niente. E' il valore dei
+     *           milletrecento iscritti da prima che la quota esistesse.
+     *   0     = SOSPESA. Non deve niente ORA. Se lascia il percorso agente
+     *           (rinuncia sua o rifiuto dell'admin) la quota si accende.
+     *   > 0   = la deve, ed e' quella cifra li' (scatto alla registrazione:
+     *           se domani l'admin porta la quota a 50, chi si e' registrato
+     *           a 30 continua a dovere 30).
+     *
+     * Decisione di Laura del 01/09/2026: chi entra dal portale di un agente
+     * paga i 480 del codice agente, non anche i 30 dei privati — ma se poi
+     * agente non lo diventa, i 30 tornano dovuti, altrimenti quella porta
+     * sarebbe il modo per entrare nel circuito senza pagare niente.
+     */
+    public const SOSPESA = 0;
+
     public function __construct(private readonly TransferBookingService $transfers)
     {
     }
@@ -81,6 +107,13 @@ class RegistrationFeeService
                 return;
             }
 
+            // Mai sovrascrivere una colonna gia' scritta: qui dentro passa
+            // anche chi e' stato creato dal portale di un agente e ha la
+            // quota SOSPESA (zero), e riscriverla gliela accenderebbe subito.
+            if ($user->registration_fee_due_cents !== null) {
+                return;
+            }
+
             $user->forceFill([
                 'registration_fee_due_cents' => $settings->registrationFeeAmount(),
                 'registration_fee_paid_at'   => null,
@@ -91,6 +124,132 @@ class RegistrationFeeService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    // ── La porta dell'agente (01/09/2026) ───────────────────────────────────
+
+    /**
+     * Il nuovo privato e' stato creato dal portale di un agente
+     * (MlmPortalController::registraAgenteStore): entra per diventare agente
+     * e paga i 480 del codice, non anche i 30 dei privati. La quota nasce
+     * SOSPESA — zero, non NULL — perche' la differenza fra "non la deve
+     * adesso" e "non la dovra' mai" e' esattamente quello che tiene fuori i
+     * milletrecento iscritti da prima.
+     *
+     * Non bloccante come markDueOnRegistration, e per lo stesso motivo: una
+     * registrazione persa e' peggio di una quota da segnare a mano.
+     */
+    public function suspendForAgentPath(User $user): void
+    {
+        try {
+            if (! $this->settings()->registrationFeeEnabled()) {
+                return;
+            }
+
+            if ($user->account_holder_type !== 'private') {
+                return;
+            }
+
+            // Solo su una colonna mai scritta. Chi la quota ce l'ha gia' (o
+            // l'ha gia' pagata) non la perde perche' entra nel percorso
+            // agente: le due quote restano separate, decisione del 31/08.
+            if ($user->registration_fee_due_cents !== null) {
+                return;
+            }
+
+            $user->forceFill([
+                'registration_fee_due_cents' => self::SOSPESA,
+                'registration_fee_paid_at'   => null,
+            ])->save();
+        } catch (\Throwable $e) {
+            Log::warning('Quota iscrizione: impossibile sospendere il debito', [
+                'user'  => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * L'utente lascia il percorso agente senza esserlo diventato: rinuncia
+     * sua (AgentCodeFeeService::giveUp) o rifiuto dell'admin
+     * (Admin\MlmAgentRequestController::reject). Da questo momento e' un
+     * privato come tutti gli altri e la quota sospesa si accende.
+     *
+     * Si accende SOLO se era sospesa: NULL resta NULL (i vecchi iscritti che
+     * chiedono di diventare agenti e vengono rifiutati non devono ritrovarsi
+     * un debito che non hanno mai avuto), e una quota gia' dovuta o gia'
+     * pagata non viene toccata.
+     *
+     * L'importo e' quello di OGGI e non uno scatto vecchio: la colonna
+     * conteneva zero, non c'era nessun importo da conservare. E' l'unico
+     * punto in cui la quota non segue lo scatto della registrazione, ed e'
+     * inevitabile.
+     *
+     * @return int i centesimi ora dovuti, 0 se non si e' acceso niente
+     */
+    public function resumeAfterAgentPath(User $user, ?string $ipAddress = null): int
+    {
+        $importo = $this->settings()->registrationFeeAmount();
+
+        if ($importo <= 0 || ! $this->settings()->registrationFeeEnabled()) {
+            return 0;
+        }
+
+        $acceso = false;
+
+        DB::transaction(function () use ($user, $importo, $ipAddress, &$acceso): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            // UNICA guardia su "questa quota si puo' accendere", e sta DENTRO
+            // il lock. Una copia qui fuori sembrerebbe piu' economica (niente
+            // transazione per chi non c'entra) ma sarebbe l'ennesima coppia di
+            // difese che si nascondono a vicenda dal mutation testing: con
+            // due, spegnerne una lascia tutto verde e nessuno dei due
+            // controlli risulta piu' davvero provato. Vedi la stessa scelta in
+            // requestFrom().
+            //
+            // Le tre condizioni, e perche' ognuna:
+            //   - NULL: non e' mai passato dalla porta dell'agente. E' il
+            //     valore dei milletrecento iscritti da prima, e deve restare
+            //     NULL anche se uno di loro chiede di diventare agente e viene
+            //     rifiutato — un debito che non ha mai avuto.
+            //   - diverso da SOSPESA: la quota gia' la deve, e con l'importo
+            //     suo. Riscriverla vorrebbe dire cambiargli lo scatto.
+            //   - gia' pagata: non si riapre niente.
+            if ($locked->registration_fee_due_cents === null
+                || (int) $locked->registration_fee_due_cents !== self::SOSPESA
+                || $locked->registration_fee_paid_at !== null) {
+                return;
+            }
+
+            $locked->forceFill([
+                'registration_fee_due_cents' => $importo,
+                'registration_fee_paid_at'   => null,
+            ])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $locked->id,
+                'event'          => 'registration_fee.resumed_after_agent_path',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => ['amount' => $importo],
+            ]);
+
+            $acceso = true;
+        });
+
+        if (! $acceso) {
+            return 0;
+        }
+
+        $user->refresh();
+
+        // Avvisarlo e' obbligatorio, non gentile: da adesso i bottoni di
+        // pagare/incassare/comprare sono spenti e deve sapere perche'.
+        $user->notify(new RegistrationFeeRequestedNotification($importo));
+
+        return $importo;
     }
 
     // ── Stato ───────────────────────────────────────────────────────────────
@@ -297,8 +456,14 @@ class RegistrationFeeService
         }
 
         $user->refresh();
+        $payment->refresh();
 
-        return $payment->refresh();
+        // Fuori dalla transazione: una notifica che parte da dentro verrebbe
+        // spedita anche se la transazione poi rotolasse indietro, e nessuno
+        // se la riprende piu'.
+        $user->notify(new RegistrationFeePaidNotification($payment));
+
+        return $payment;
     }
 
     // ── Pagamento in euro: KNM emette i KY ──────────────────────────────────
@@ -346,12 +511,29 @@ class RegistrationFeeService
             return;
         }
 
+        $doppia      = false;
+        $accreditato = false;
+
         try {
-            DB::transaction(function () use ($payment, $user, $account, $systemAccount, $superAdminId, $confirmedBy): void {
+            DB::transaction(function () use ($payment, $user, $account, $systemAccount, $superAdminId, $confirmedBy, &$doppia, &$accreditato): void {
                 $locked = RegistrationFeePayment::whereKey($payment->id)->lockForUpdate()->first();
                 if ($locked === null || $locked->isCompleted()) {
                     return;
                 }
+
+                // La stessa quota pagata due volte. Succede davvero: ogni
+                // click su "paga con carta" apre una riga nuova (scelta
+                // voluta — riusare la riga sovrascriverebbe la sessione
+                // Stripe e un pagamento su quella vecchia non verrebbe mai
+                // accreditato), e le sessioni restano valide. Chi ne apre
+                // due e le paga entrambe versa il doppio.
+                //
+                // I KY glieli accreditiamo lo stesso: quei soldi sono
+                // arrivati davvero e in euro la quota E' un acquisto di KY,
+                // quindi restituire il nulla sarebbe peggio. Ma non deve
+                // sparire in silenzio — questa riga e' l'unica cosa che, fra
+                // sei mesi, permettera' di rispondere a "ho pagato due volte".
+                $doppia = User::whereKey($user->id)->value('registration_fee_paid_at') !== null;
 
                 // L'emissione dal conto di sistema richiede un super admin:
                 // e' l'unico che bypassa autorizzazione e fido nel motore
@@ -388,8 +570,18 @@ class RegistrationFeeService
                         'amount'         => (int) $locked->amount_eur_cents,
                         'payment_method' => $locked->payment_method,
                         'transfer_id'    => $transfer->id,
+                        // true = la quota risultava gia' saldata da un ALTRO
+                        // pagamento: questo e' un secondo incasso per la
+                        // stessa quota, non un accredito ripetuto.
+                        'quota_gia_saldata' => $doppia,
                     ],
                 ]);
+
+                // Solo qui, e non fuori guardando lo stato: la closure puo'
+                // essere uscita prima (un'altra richiesta l'aveva gia'
+                // accreditata) e in quel caso la ricevuta l'ha gia' mandata
+                // quell'altra.
+                $accreditato = true;
             });
         } catch (\Throwable $e) {
             Log::error('Quota iscrizione: accredito KY fallito', [
@@ -401,7 +593,89 @@ class RegistrationFeeService
             return;
         }
 
+        if ($doppia) {
+            Log::warning('Quota iscrizione: incassata due volte dalla stessa persona', [
+                'payment' => $payment->uuid,
+                'user'    => $user->id,
+                'amount'  => (int) $payment->amount_eur_cents,
+                'method'  => $payment->payment_method,
+            ]);
+        }
+
         $payment->refresh();
+
+        if ($accreditato) {
+            $user->notify(new RegistrationFeePaidNotification($payment));
+        }
+    }
+
+    // ── Ripescaggio di un pagamento in euro incassato (01/09/2026) ──────────
+
+    /**
+     * Riprova l'accredito dei KY su un pagamento in euro finito `failed`.
+     *
+     * IL CASO CHE CHIUDE. completeEuroPayment(), se qualcosa va storto
+     * mentre scrive (un deadlock, il conto di sistema irraggiungibile per un
+     * istante), chiama markFailed(). Ma a quel punto Stripe o PayPal i soldi
+     * li hanno GIA' presi. Da li' in poi non si rimette in moto niente da
+     * solo: il webhook che ritenta trova `isPending()` falso e salta, la
+     * pagina di successo pure, e in backoffice Conferma/Rifiuta valgono solo
+     * sui bonifici e «Annulla quota» solo sulle quote saldate. Restava una
+     * persona che ha pagato, senza KY, e nessuna strada che non fosse il
+     * database a mano.
+     *
+     * PERCHE' NON E' UN BOTTONE CHE CREA MONETA. Questo metodo non decide
+     * niente da solo: chi lo chiama deve avere gia' in mano la PROVA
+     * dell'incasso — la sessione Stripe verificata dal server di Stripe,
+     * l'ordine PayPal risultato COMPLETED, o, per il bonifico, un admin che
+     * ha visto i soldi sul conto. Vedi
+     * RegistrationFeeController::adminRetryCredit(), dove la prova si
+     * raccoglie.
+     *
+     * L'accredito vero e' lo stesso di sempre, con la stessa
+     * idempotency_key: se per caso il transfer originale era gia' passato,
+     * il motore restituisce quello e non ne crea un secondo.
+     *
+     * @throws RuntimeException
+     */
+    public function retryEuroCredit(RegistrationFeePayment $payment, User $admin, ?string $ipAddress = null): void
+    {
+        if ($payment->isCompleted()) {
+            throw new RuntimeException('Questa quota risulta già saldata.');
+        }
+
+        if ($payment->payment_method === RegistrationFeePayment::METHOD_KY) {
+            throw new RuntimeException('Il ripescaggio vale solo per i pagamenti in euro: in KY non c\'è nessun incasso da recuperare.');
+        }
+
+        if ($payment->isCancelled()) {
+            throw new RuntimeException('Questa quota è stata annullata: riaprila prima di accreditarla.');
+        }
+
+        AuditLog::create([
+            'actor_user_id'  => $admin->id,
+            'event'          => 'registration_fee.credit_retried',
+            'auditable_type' => RegistrationFeePayment::class,
+            'auditable_id'   => $payment->id,
+            'ip_address'     => $ipAddress,
+            'context'        => [
+                'uuid'           => $payment->uuid,
+                'user_id'        => $payment->user_id,
+                'payment_method' => $payment->payment_method,
+                'stato_prima'    => $payment->status,
+                'note_prima'     => $payment->admin_notes,
+            ],
+        ]);
+
+        $this->completeEuroPayment($payment, $admin->id);
+
+        $payment->refresh();
+
+        if (! $payment->isCompleted()) {
+            // markFailed() ha gia' riscritto il motivo: ridarlo all'admin e'
+            // l'unico modo perche' non riprema il bottone all'infinito.
+            throw new RuntimeException('L\'accredito è fallito di nuovo: ' . ($payment->admin_notes ?: 'motivo non registrato'));
+        }
     }
 
     // ── Annullamento di una quota gia' saldata (01/09/2026) ─────────────────
@@ -476,7 +750,10 @@ class RegistrationFeeService
                     // pagamento, non quello di oggi in impostazioni: chi si
                     // era registrato a 30 continua a dovere 30 anche se nel
                     // frattempo la quota e' passata a 50.
-                    'registration_fee_due_cents'          => $user->registration_fee_due_cents ?? (int) $locked->amount_eur_cents,
+                    // `?:` e non `??`: vale anche per lo zero della quota
+                    // sospesa, che altrimenti resterebbe zero e la quota non
+                    // tornerebbe dovuta pur essendo stata annullata.
+                    'registration_fee_due_cents'          => $user->registration_fee_due_cents ?: (int) $locked->amount_eur_cents,
                     'registration_fee_paid_at'            => null,
                     // Il fido aggiuntivo se ne va con la quota che lo aveva
                     // motivato: era li' solo per reggere il -30.
@@ -565,7 +842,10 @@ class RegistrationFeeService
             // aprire una transazione) ma sarebbe l'ennesima coppia di difese
             // che si nascondono a vicenda dal mutation testing — verde anche
             // spegnendone una.
-            if ($locked->registration_fee_due_cents !== null && $locked->registration_fee_paid_at === null) {
+            // `> 0` e non `!== null`: zero e' la quota SOSPESA di chi e'
+            // entrato dalla porta dell'agente, e l'admin deve poterla
+            // accendere lo stesso — e' un atto esplicito con un nome sopra.
+            if ((int) ($locked->registration_fee_due_cents ?? 0) > 0 && $locked->registration_fee_paid_at === null) {
                 throw new RuntimeException("Questo utente ha già la quota da pagare.");
             }
 

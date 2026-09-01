@@ -272,7 +272,25 @@ class MlmPortalController extends Controller
         // Quota codice agente (31/08/2026): questo percorso crea l'utente
         // gia' con la richiesta 'approved', quindi salta l'approvazione admin
         // ed e' la terza porta da cui si arriva alla firma del contratto.
-        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($newAgent);
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+        $quotaAgente->markDueOnApproval($newAgent);
+
+        // Quota di iscrizione dei privati (01/09/2026, decisione di Laura).
+        // Questo utente e' un privato a tutti gli effetti, ma entra per
+        // diventare agente: paga i 480 del codice, non anche i 30. La quota
+        // dei privati resta SOSPESA e si accende solo se agente non lo
+        // diventa — rinuncia sua o rifiuto dell'admin. Se pero' la quota del
+        // codice non e' dovuta (interruttore spento, o gia' agente), allora
+        // non c'e' nessuna quota che lo copre e i 30 li deve subito come
+        // chiunque altro: altrimenti questa sarebbe la porta per entrare nel
+        // circuito senza pagare niente.
+        $quotaPrivati = app(\App\Services\RegistrationFeeService::class);
+
+        if ($quotaAgente->isDueFor($newAgent->refresh())) {
+            $quotaPrivati->suspendForAgentPath($newAgent);
+        } else {
+            $quotaPrivati->markDueOnRegistration($newAgent);
+        }
 
         AuditLog::create([
             'actor_user_id'  => $agent->id,

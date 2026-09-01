@@ -927,6 +927,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // (01/09/2026). La prima sta sulla pagina delle quote, la seconda sulla
     // scheda dell'utente: si chiede a UNO alla volta, mai a un elenco.
     Route::post('/admin/quote-iscrizione/{payment}/annulla', [RegistrationFeeController::class, 'adminCancel'])->name('admin.registration-fees.cancel')->middleware('backoffice');
+    // Ripescaggio di un pagamento in euro incassato ma finito failed
+    // (01/09/2026): la prova dell'incasso la raccoglie il controller.
+    Route::post('/admin/quote-iscrizione/{payment}/riprova-accredito', [RegistrationFeeController::class, 'adminRetryCredit'])->name('admin.registration-fees.retry-credit')->middleware('backoffice');
     Route::post('/admin/users/{user}/quota-iscrizione/richiedi', [RegistrationFeeController::class, 'adminRequest'])->name('admin.registration-fees.request')->middleware('backoffice');
     // Diagnosi Stripe (01/09/2026): pagina di sola lettura per capire, dal
     // server e non per tentativi, perche' il checkout con carta non parte.

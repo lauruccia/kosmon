@@ -393,8 +393,19 @@ class KyCardController extends PortalController
             // il webhook e la pagina di successo possono arrivare insieme:
             // l'accredito e' idempotente sulla idempotency_key del transfer,
             // non sul solo stato del pagamento.
+            //
+            // NB (01/09/2026): qui NON si guarda `isPending()` ma "non e' ne'
+            // saldata ne' annullata". La differenza conta: una riga che era
+            // finita `failed` — perche' l'accredito era andato storto, o
+            // perche' il tentativo era stato dato per abbandonato e scaduto —
+            // con `isPending()` veniva saltata, e chi aveva pagato restava
+            // senza KY per sempre. Non e' un allentamento della difesa: a
+            // decidere resta `sessionMatches()`, che chiede a Stripe se
+            // quella sessione e' stata davvero incassata, dell'importo esatto
+            // e per QUESTO pagamento. Senza quella prova non si accredita
+            // niente, qualunque sia lo stato della riga.
             $feePayment = \App\Models\RegistrationFeePayment::where('stripe_checkout_session_id', $session->id)->first();
-            if ($feePayment && $feePayment->isPending()) {
+            if ($feePayment && ! $feePayment->isCompleted() && ! $feePayment->isCancelled()) {
                 $feePayment->update(['stripe_payment_intent_id' => $session->payment_intent]);
 
                 if ($verifier->sessionMatches($session, (int) $feePayment->amount_eur_cents, $feePayment->uuid, 'regfee-webhook:' . $feePayment->uuid)) {

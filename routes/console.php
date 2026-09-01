@@ -111,3 +111,29 @@ Schedule::command('shop:solleciti-quota-euro')
     ->name('shop-euro-quota-reminders')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/shop-solleciti.log'));
+
+// Quota di iscrizione dei privati (01/09/2026).
+//
+// Due comandi diversi che non vanno confusi:
+//
+//   - `quote:scadi-tentativi` chiude le righe di pagamento rimaste appese
+//     (un click su "paga con carta" e poi piu' niente). Di notte, quando non
+//     c'e' nessuno a meta' di un checkout. Non tocca MAI i bonifici, che
+//     aspettare e' il loro mestiere, e chiudere un tentativo non impedisce
+//     di accreditarlo se il pagamento arriva lo stesso: webhook e pagina di
+//     successo accreditano qualunque riga non saldata purche' Stripe
+//     confermi l'incasso.
+//   - `quote:solleciti-iscrizione` scrive alle PERSONE che non hanno ancora
+//     saldato, una volta sola in tutto. Alle 9, per lo stesso motivo del
+//     sollecito qui sopra: una mail delle 3 di notte non la legge nessuno.
+Schedule::command('quote:scadi-tentativi')
+    ->dailyAt('04:30')
+    ->name('registration-fee-expire-attempts')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/quote-iscrizione.log'));
+
+Schedule::command('quote:solleciti-iscrizione')
+    ->dailyAt('09:15')
+    ->name('registration-fee-reminders')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/quote-iscrizione.log'));

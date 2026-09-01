@@ -90,6 +90,27 @@ class MandateController extends Controller
             ], 404)->header('Cache-Control', 'no-store');
         }
 
+        // Quote del circuito (01/09/2026). Il middleware EnsureRegistrationFeePaid
+        // e' agganciato al gruppo `web` e questa rotta sta in routes/api.php:
+        // di qui non passa. Senza questo controllo, chi deve una quota poteva
+        // concedere un mandato dal portale (la pagina del consenso non e' fra
+        // le rotte bloccate) e poi far pagare l'app collegata per suo conto —
+        // cioe' spendere KY con il conto che dovrebbe essere fermo.
+        //
+        // Si rifiuta e basta, con 403: il 402 di questa API vuol dire "manda
+        // l'utente a confermare l'acquisto", e qui non c'e' nessun acquisto
+        // da confermare finche' la quota non e' saldata.
+        $quotaPrivati = app(\App\Services\RegistrationFeeService::class);
+        $quotaAgente  = app(\App\Services\AgentCodeFeeService::class);
+
+        if ($quotaPrivati->isDueFor($token->user) || $quotaAgente->isDueFor($token->user)) {
+            return response()->json([
+                'status'  => 'refused',
+                'reason'  => 'circuit_fee_due',
+                'message' => 'Il conto non può effettuare pagamenti finché la quota del circuito non è saldata.',
+            ], 403)->header('Cache-Control', 'no-store');
+        }
+
         try {
             $esito = $this->mandates->charge($mandate, $validated, $request->ip());
         } catch (MandateException $e) {

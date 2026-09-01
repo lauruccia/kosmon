@@ -94,6 +94,16 @@ class MlmAgentRequestController extends Controller
             'mlm_agent_rejection_reason' => $validated['reason'],
         ])->save();
 
+        // Il percorso agente si chiude qui, e con lui le due quote che ci
+        // stavano appese (01/09/2026):
+        //   - i 480 del codice, se non ancora pagati, non sono piu' dovuti:
+        //     lasciarglieli addosso vuol dire conto bloccato e una pagina che
+        //     invita a pagare un codice che non arrivera' mai;
+        //   - i 30 dei privati, se erano SOSPESI perche' era entrato dal
+        //     portale di un agente, tornano dovuti: e' un privato come tutti.
+        app(\App\Services\AgentCodeFeeService::class)->dropUnpaidDebt($user, $request->ip());
+        app(\App\Services\RegistrationFeeService::class)->resumeAfterAgentPath($user->refresh(), $request->ip());
+
         $user->notify(new MlmAgentRequestReviewedNotification('rejected', $validated['reason']));
 
         AuditLog::create([

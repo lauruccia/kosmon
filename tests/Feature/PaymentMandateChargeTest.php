@@ -70,6 +70,47 @@ class PaymentMandateChargeTest extends TestCase
         $this->assertSame(3000, $sellerAccount->fresh()->available_balance);
     }
 
+    /**
+     * Le quote del circuito (01/09/2026). Questa rotta vive in routes/api.php
+     * e NON passa dal middleware EnsureRegistrationFeePaid, che e' agganciato
+     * al gruppo `web`: senza un controllo qui dentro, chi deve una quota
+     * poteva concedere un mandato dal portale e poi far pagare l'app collegata
+     * per suo conto — cioe' spendere KY con il conto che dovrebbe essere
+     * fermo. Il test guarda anche il saldo: un "no" che lascia uscire i soldi
+     * non e' un no.
+     */
+    public function test_chi_deve_una_quota_del_circuito_non_puo_far_pagare_dal_mandato(): void
+    {
+        [$user, $account] = $this->buyer(saldo: 100000);
+        [$sellerAccount]  = $this->seller();
+        $mandate          = $this->mandate($user, $account, [$sellerAccount->uuid]);
+
+        $user->forceFill(['registration_fee_due_cents' => 3000])->save();
+
+        $this->charge($user->fresh(), $mandate, $sellerAccount, amount: 3000)
+            ->assertStatus(403)
+            ->assertJsonPath('status', 'refused')
+            ->assertJsonPath('reason', 'circuit_fee_due');
+
+        $this->assertSame(100000, $account->fresh()->available_balance);
+        $this->assertSame(0, $sellerAccount->fresh()->available_balance);
+    }
+
+    public function test_anche_la_quota_del_codice_agente_ferma_il_mandato(): void
+    {
+        [$user, $account] = $this->buyer(saldo: 100000);
+        [$sellerAccount]  = $this->seller();
+        $mandate          = $this->mandate($user, $account, [$sellerAccount->uuid]);
+
+        $user->forceFill(['agent_code_fee_due_cents' => 48000])->save();
+
+        $this->charge($user->fresh(), $mandate, $sellerAccount, amount: 3000)
+            ->assertStatus(403)
+            ->assertJsonPath('reason', 'circuit_fee_due');
+
+        $this->assertSame(100000, $account->fresh()->available_balance);
+    }
+
     public function test_il_movimento_porta_lo_snapshot_dell_ordine_esterno(): void
     {
         [$user, $account] = $this->buyer();
