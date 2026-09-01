@@ -885,6 +885,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/quota-iscrizione/paypal/create-order', [RegistrationFeeController::class, 'paypalCreateOrder'])->name('portal.registration-fee.paypal-create-order')->middleware('throttle:10,1');
     Route::get('/quota-iscrizione/paypal/capture/{payment}', [RegistrationFeeController::class, 'paypalCapture'])->name('portal.registration-fee.paypal-capture');
     Route::post('/quota-iscrizione/bonifico', [RegistrationFeeController::class, 'bankTransfer'])->name('portal.registration-fee.bank-transfer');
+    Route::post('/quota-iscrizione/bonifico/annulla', [RegistrationFeeController::class, 'abandonBankTransfer'])->name('portal.registration-fee.bank-transfer.abandon');
     Route::get('/quota-iscrizione/esito/{payment}', [RegistrationFeeController::class, 'success'])->name('portal.registration-fee.success');
 
     // Admin Settori
@@ -927,6 +928,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // scheda dell'utente: si chiede a UNO alla volta, mai a un elenco.
     Route::post('/admin/quote-iscrizione/{payment}/annulla', [RegistrationFeeController::class, 'adminCancel'])->name('admin.registration-fees.cancel')->middleware('backoffice');
     Route::post('/admin/users/{user}/quota-iscrizione/richiedi', [RegistrationFeeController::class, 'adminRequest'])->name('admin.registration-fees.request')->middleware('backoffice');
+    // Diagnosi Stripe (01/09/2026): pagina di sola lettura per capire, dal
+    // server e non per tentativi, perche' il checkout con carta non parte.
+    // Vedi StripeDiagnosticsController.
+    Route::get('/admin/diagnosi-stripe', [\App\Http\Controllers\Admin\StripeDiagnosticsController::class, 'show'])->name('admin.stripe-diagnostics')->middleware('backoffice');
 
     // Quote codice agente: elenco, impostazioni e conferma dei bonifici.
     Route::get('/admin/quote-codice-agente', [AgentCodeFeeController::class, 'adminIndex'])->name('admin.agent-code-fees.index')->middleware('backoffice');

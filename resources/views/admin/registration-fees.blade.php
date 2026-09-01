@@ -77,6 +77,12 @@
                     <button type="submit" class="cta">Salva impostazioni</button>
                 </div>
             </form>
+
+            <div class="table-muted" style="margin-top:12px;font-size:12px;">
+                Il pagamento con carta non si apre?
+                <a href="{{ route('admin.stripe-diagnostics') }}" style="color:var(--primary);font-weight:600;">Apri la diagnosi Stripe</a>
+                &mdash; dice dal server qual &egrave; il motivo, senza toccare niente.
+            </div>
         </article>
     </section>
 

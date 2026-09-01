@@ -148,6 +148,71 @@ class RegistrationFeeService
         ]);
     }
 
+    // ── Bonifico gia' richiesto (01/09/2026) ────────────────────────────────
+
+    /**
+     * Il bonifico in attesa di questo utente, se ce n'e' uno.
+     *
+     * Serve perche' il bonifico non e' un pagamento istantaneo come gli altri:
+     * l'utente lo chiede, va in banca, e torna sul sito ore o giorni dopo.
+     * Se in quel momento ritrova i quattro bottoni come la prima volta non
+     * sa se la sua richiesta e' arrivata, e ne fa un'altra — con una causale
+     * diversa da quella che ha scritto sul bonifico vero.
+     */
+    public function pendingBankTransferFor(User $user): ?RegistrationFeePayment
+    {
+        return RegistrationFeePayment::query()
+            ->where('user_id', $user->id)
+            ->where('payment_method', RegistrationFeePayment::METHOD_BANK_TRANSFER)
+            ->where('status', RegistrationFeePayment::STATUS_PENDING_BANK_TRANSFER)
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * Apre la richiesta di bonifico, oppure RIPRENDE quella gia' aperta.
+     *
+     * La causale contiene l'uuid del pagamento: aprirne una nuova a ogni
+     * visita significherebbe dare all'utente una causale diversa da quella
+     * che ha gia' scritto sul bonifico, e nessuno dei due bonifici sarebbe
+     * piu' ricollegabile con certezza.
+     *
+     * @throws RuntimeException
+     */
+    public function startOrResumeBankTransfer(User $user): RegistrationFeePayment
+    {
+        $aperto = $this->pendingBankTransferFor($user);
+
+        if ($aperto !== null && $this->isDueFor($user)) {
+            return $aperto;
+        }
+
+        return $this->startPayment($user, RegistrationFeePayment::METHOD_BANK_TRANSFER);
+    }
+
+    /**
+     * L'utente rinuncia al bonifico e torna a scegliere il metodo.
+     *
+     * Non e' un fallimento del circuito ma una scelta sua, e va scritta:
+     * se il bonifico partisse comunque, l'admin deve poter capire dal
+     * pagamento perche' quella causale risulta abbandonata.
+     */
+    public function abandonBankTransfer(User $user): bool
+    {
+        $aperto = $this->pendingBankTransferFor($user);
+
+        if ($aperto === null) {
+            return false;
+        }
+
+        $aperto->update([
+            'status'      => RegistrationFeePayment::STATUS_FAILED,
+            'admin_notes' => "L'utente ha rinunciato al bonifico e ha scelto un altro metodo.",
+        ]);
+
+        return true;
+    }
+
     // ── Pagamento in KY ─────────────────────────────────────────────────────
 
     /**

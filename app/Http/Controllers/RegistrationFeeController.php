@@ -54,6 +54,10 @@ class RegistrationFeeController extends Controller
             'currentUser' => $user,
             'currentAccount' => $account,
             'saldo'       => (int) ($account?->available_balance ?? 0),
+            // Chi ha gia' chiesto il bonifico non deve ritrovare i quattro
+            // bottoni come se non avesse fatto niente: vede il bonifico in
+            // corso, e da li' o rivede i dati o cambia metodo.
+            'bonifico'    => $this->fees->pendingBankTransferFor($user),
         ]);
     }
 
@@ -217,7 +221,7 @@ class RegistrationFeeController extends Controller
     public function bankTransfer(Request $request): View|RedirectResponse
     {
         try {
-            $payment = $this->fees->startPayment($request->user(), RegistrationFeePayment::METHOD_BANK_TRANSFER);
+            $payment = $this->fees->startOrResumeBankTransfer($request->user());
         } catch (RuntimeException $e) {
             return redirect()->route('portal.registration-fee.show')->with('portal_error', $e->getMessage());
         }
@@ -232,6 +236,20 @@ class RegistrationFeeController extends Controller
             'bankName'        => config('kmoney.bank_name'),
             'bankBeneficiary' => config('kmoney.bank_beneficiary'),
         ]);
+    }
+
+    /**
+     * "Cambia metodo di pagamento": chiude la richiesta di bonifico aperta e
+     * riporta l'utente alla scelta.
+     */
+    public function abandonBankTransfer(Request $request): RedirectResponse
+    {
+        $chiuso = $this->fees->abandonBankTransfer($request->user());
+
+        return redirect()->route('portal.registration-fee.show')
+            ->with('portal_success', $chiuso
+                ? 'Richiesta di bonifico annullata: scegli pure un altro metodo.'
+                : 'Non risulta nessun bonifico in attesa.');
     }
 
     // ── Esito ───────────────────────────────────────────────────────────────

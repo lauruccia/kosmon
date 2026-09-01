@@ -32,6 +32,42 @@
             </div>
         @endif
 
+        {{-- Bonifico gia' chiesto: niente quattro bottoni come la prima volta.
+             L'utente ha in mano una causale e sta aspettando; qui deve poter
+             solo rivedere i dati o cambiare idea. --}}
+        @isset($bonifico)
+        @if($bonifico)
+            <div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:18px;margin-bottom:18px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                    <span style="font-size:20px;">&#127968;</span>
+                    <div style="font-size:15px;font-weight:800;color:var(--ink);">Hai scelto il bonifico bancario</div>
+                </div>
+
+                <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:14px;">
+                    Stiamo aspettando l'accredito. La quota risulter&agrave; saldata quando il bonifico
+                    sar&agrave; verificato, di norma entro 1-2 giorni lavorativi, e in quel momento
+                    riceverai {{ ky_format($bonifico->ky_amount) }} KY.
+                    <br>
+                    Causale da indicare: <strong style="font-family:monospace;color:#7c3aed;">{{ $bonifico->bank_transfer_reference }}</strong>
+                </div>
+
+                <div style="display:grid;gap:10px;">
+                    <form method="POST" action="{{ route('portal.registration-fee.bank-transfer') }}">
+                        @csrf
+                        <button type="submit" class="cta" style="width:100%;">Procedi con il bonifico (rivedi i dati)</button>
+                    </form>
+
+                    <form method="POST" action="{{ route('portal.registration-fee.bank-transfer.abandon') }}"
+                          onsubmit="return confirm('Annullo la richiesta di bonifico e torni a scegliere il metodo. Se il bonifico lo hai già fatto, NON annullare: arriverà comunque.');">
+                        @csrf
+                        <button type="submit" class="cta secondary" style="width:100%;">Cambia metodo di pagamento</button>
+                    </form>
+                </div>
+            </div>
+        @endif
+        @endisset
+
+        @if(empty($bonifico))
         <div style="display:grid;gap:12px;">
 
             @isset($metodi['stripe'])
@@ -66,6 +102,7 @@
             @endisset
 
         </div>
+        @endif
 
         <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--ink-muted);">
             Fino al pagamento puoi entrare e vedere il tuo conto, ma non puoi inviare KY, incassare o

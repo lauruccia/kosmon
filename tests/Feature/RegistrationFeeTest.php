@@ -870,6 +870,108 @@ class RegistrationFeeTest extends TestCase
         $this->assertSame(0, RegistrationFeePayment::count());
     }
 
+    // ─── 11. Il bonifico gia' chiesto (01/09/2026) ──────────────────────────
+
+    /**
+     * Segnalato da Laura: chi ha gia' chiesto il bonifico ritrovava i quattro
+     * bottoni identici alla prima volta, senza nessun segno che la sua
+     * richiesta fosse arrivata. Da li' o ne apriva un'altra (con una causale
+     * diversa da quella scritta sul bonifico vero) o restava fermo a chiedersi
+     * se avesse combinato qualcosa.
+     */
+    public function test_chi_ha_gia_chiesto_il_bonifico_vede_il_bonifico_in_corso(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $this->actingAs($utente)->post('/quota-iscrizione/bonifico')->assertOk();
+
+        $pagina = $this->actingAs($utente->fresh())->get('/quota-iscrizione');
+
+        $pagina->assertOk()
+            ->assertSee('Hai scelto il bonifico bancario')
+            ->assertSee('Cambia metodo di pagamento')
+            // La causale che ha in mano dev'essere sotto gli occhi.
+            ->assertSee(RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail()->bank_transfer_reference);
+
+        // E i bottoni degli altri metodi NON ci sono: sceglierne un altro
+        // adesso, senza chiudere il bonifico, vorrebbe dire pagare due volte.
+        $pagina->assertDontSee('Paga con il saldo KY', false);
+    }
+
+    public function test_riaprire_il_bonifico_non_apre_una_seconda_richiesta_ne_cambia_la_causale(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $this->actingAs($utente)->post('/quota-iscrizione/bonifico')->assertOk();
+        $primo = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        $this->actingAs($utente->fresh())->post('/quota-iscrizione/bonifico')->assertOk();
+
+        $this->assertSame(1, RegistrationFeePayment::where('user_id', $utente->id)->count());
+        $this->assertSame(
+            $primo->bank_transfer_reference,
+            RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail()->bank_transfer_reference
+        );
+    }
+
+    public function test_cambiando_metodo_il_bonifico_si_chiude_e_tornano_i_bottoni(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $this->actingAs($utente)->post('/quota-iscrizione/bonifico')->assertOk();
+
+        $this->actingAs($utente->fresh())
+            ->post('/quota-iscrizione/bonifico/annulla')
+            ->assertRedirect(route('portal.registration-fee.show'));
+
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+        $this->assertSame(RegistrationFeePayment::STATUS_FAILED, $pagamento->status);
+
+        $this->actingAs($utente->fresh())->get('/quota-iscrizione')
+            ->assertOk()
+            ->assertDontSee('Hai scelto il bonifico bancario')
+            ->assertSee('Paga con il saldo KY', false);
+
+        // E la quota resta dovuta: rinunciare al bonifico non salda niente.
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($utente->fresh()));
+    }
+
+    public function test_un_bonifico_gia_confermato_non_blocca_piu_la_pagina(): void
+    {
+        $this->makeSystemAccount(100000);
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $this->actingAs($utente)->post('/quota-iscrizione/bonifico')->assertOk();
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->completeEuroPayment($pagamento, $this->superAdmin->id);
+
+        // Quota saldata: la pagina non e' piu' raggiungibile, e non deve
+        // restare appesa al bonifico.
+        $this->actingAs($utente->fresh())->get('/quota-iscrizione')
+            ->assertRedirect(route('portal.dashboard'));
+    }
+
+    // ─── 12. Diagnosi Stripe ────────────────────────────────────────────────
+
+    public function test_la_diagnosi_stripe_e_riservata_al_backoffice(): void
+    {
+        [$utente] = $this->makePrivate(0);
+
+        $this->actingAs($utente)->get('/admin/diagnosi-stripe')->assertForbidden();
+        $this->actingAs($this->superAdmin)->get('/admin/diagnosi-stripe')->assertOk();
+    }
+
+    public function test_la_diagnosi_non_mostra_mai_una_chiave_intera(): void
+    {
+        config(['services.stripe.secret' => 'sk_test_CHIAVESEGRETISSIMA1234567890']);
+
+        $this->actingAs($this->superAdmin)->get('/admin/diagnosi-stripe')
+            ->assertOk()
+            ->assertDontSee('sk_test_CHIAVESEGRETISSIMA1234567890')
+            ->assertSee('modalità TEST');
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     private User $superAdmin;
