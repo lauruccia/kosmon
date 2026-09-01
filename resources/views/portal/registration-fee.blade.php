@@ -1,7 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
-<div style="max-width:640px;">
+<div>
 
     <div class="card" style="padding:28px;">
 
