@@ -52,6 +52,14 @@ class RegistrationFeePayment extends Model
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_FAILED = 'failed';
 
+    /**
+     * Quota annullata dall'admin dopo essere stata saldata (01/09/2026).
+     * Non e' 'failed': quella dice "non e' mai stata pagata", questa dice
+     * "era pagata e l'abbiamo disfatta" — e la differenza si vede nello
+     * storico, dove al pagamento segue il movimento di storno.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'uuid', 'user_id', 'account_id',
         'amount_eur_cents', 'ky_amount', 'status', 'payment_method',
@@ -112,6 +120,11 @@ class RegistrationFeePayment extends Model
     public function isPendingBankTransfer(): bool
     {
         return $this->status === self::STATUS_PENDING_BANK_TRANSFER;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
     }
 
     /** Pagata in euro: l'utente riceve KY. Pagata in KY: l'utente va sotto. */

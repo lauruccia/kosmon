@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureRegistrationFeePaid;
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\RegistrationFeePayment;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Notifications\RegistrationFeeCancelledNotification;
+use App\Notifications\RegistrationFeeRequestedNotification;
 use App\Services\RegistrationFeeService;
 use App\Services\TransferBookingService;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -443,6 +446,428 @@ class RegistrationFeeTest extends TestCase
             ->assertRedirect(route('portal.registration-fee.show'));
 
         $this->assertSame(0, RegistrationFeePayment::where('status', 'completed')->count());
+    }
+
+    // ─── 7. Annullamento di una quota saldata (01/09/2026) ──────────────────
+
+    public function test_annullando_una_quota_pagata_in_ky_il_saldo_torna_e_la_quota_torna_dovuta(): void
+    {
+        $sistema = $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin, 'test');
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, (int) $sistema->fresh()->available_balance);
+        $this->assertTrue($pagamento->fresh()->isCancelled());
+
+        // Le altre due cose che l'eliminazione del movimento non faceva.
+        $utente = $utente->fresh();
+        $this->assertNull($utente->registration_fee_paid_at);
+        $this->assertSame(self::QUOTA, (int) $utente->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($utente));
+        $this->assertSame(0, (int) $utente->registration_fee_ky_allowance_cents);
+    }
+
+    public function test_annullando_la_quota_il_fido_aggiuntivo_sparisce_anche_nel_massimale(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0, fido: 5000);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $this->assertSame(8000, $conto->fresh()->massimale());
+
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin);
+
+        // Se qui restasse 8000, l'utente si terrebbe per sempre 30 KY di
+        // scoperto in piu' senza avere piu' nessuna quota che li giustifica.
+        $this->assertSame(5000, $conto->fresh()->massimale());
+    }
+
+    public function test_annullando_una_quota_pagata_in_euro_i_ky_tornano_al_conto_di_sistema(): void
+    {
+        $sistema = $this->makeSystemAccount(100000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        $pagamento = app(RegistrationFeeService::class)
+            ->startPayment($utente, RegistrationFeePayment::METHOD_BANK_TRANSFER);
+        app(RegistrationFeeService::class)->completeEuroPayment($pagamento);
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+
+        app(RegistrationFeeService::class)->cancel($pagamento->fresh(), $this->superAdmin);
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(100000, (int) $sistema->fresh()->available_balance);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($utente->fresh()));
+    }
+
+    /**
+     * IL CASO DI LAURA DEL 01/09. Il movimento era gia' stato cancellato a
+     * mano da /admin/movimenti: i 30 KY erano gia' tornati sul conto, ma la
+     * quota risultava ancora pagata. Annullare adesso deve rimettere a posto
+     * la quota SENZA restituire i KY una seconda volta.
+     */
+    public function test_se_il_movimento_e_gia_sparito_l_annullamento_non_regala_i_ky_una_seconda_volta(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        // Quello che faceva la vecchia cancellazione: saldi ripristinati e
+        // movimento sparito, quota e fido intatti.
+        $movimento = Transfer::findOrFail($pagamento->transfer_id);
+        // update() diretto e non forceFill sul modello in mano: quello e'
+        // stale a 0 e Eloquent non scriverebbe niente.
+        Account::whereKey($conto->id)->update(['available_balance' => 0]);
+        $movimento->ledgerEntries()->delete();
+        $movimento->delete();
+
+        app(RegistrationFeeService::class)->cancel($pagamento->fresh(), $this->superAdmin);
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, Transfer::where('kind', 'registration_fee_reversal')->count());
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($utente->fresh()));
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_ky_allowance_cents);
+
+        // E l'audit log deve dirlo: quota annullata SENZA storno.
+        $log = AuditLog::where('event', 'registration_fee.cancelled')->firstOrFail();
+        $this->assertFalse($log->context['reversal_booked']);
+        $this->assertNull($log->context['reversal_transfer_id']);
+    }
+
+    /**
+     * L'audit log e' l'unico posto in cui, fra sei mesi, si potra' capire se
+     * a un utente i KY sono tornati indietro davvero o se erano gia' tornati
+     * per altra strada. Senza questa riga, "annullata" e "annullata ma i
+     * soldi li aveva gia' avuti" sono indistinguibili.
+     */
+    public function test_l_annullamento_lascia_traccia_dello_storno_nell_audit_log(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin, 'movimento di prova');
+
+        $log = AuditLog::where('event', 'registration_fee.cancelled')->firstOrFail();
+        $storno = Transfer::where('kind', 'registration_fee_reversal')->firstOrFail();
+
+        $this->assertSame($this->superAdmin->id, (int) $log->actor_user_id);
+        $this->assertSame($storno->id, (int) $log->context['reversal_transfer_id']);
+        $this->assertTrue($log->context['reversal_booked']);
+        $this->assertSame('movimento di prova', $log->context['reason']);
+    }
+
+    public function test_annullare_due_volte_storna_una_volta_sola(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin);
+
+        try {
+            app(RegistrationFeeService::class)->cancel($pagamento->fresh(), $this->superAdmin);
+            $this->fail('Il secondo annullamento doveva essere rifiutato.');
+        } catch (\RuntimeException $e) {
+            // atteso
+        }
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(1, Transfer::where('kind', 'registration_fee_reversal')->count());
+    }
+
+    /**
+     * LA STESSA TRAPPOLA DI SEMPRE (quarta volta). Il test qui sopra resta
+     * verde anche rendendo casuale la idempotency_key dello storno, perche' a
+     * fermare il secondo storno basta la guardia sullo stato. Qui lo stato
+     * viene riportato a mano a 'completed', come lo lascerebbe un retry
+     * finito male o un annullamento andato a meta', cosi' l'unica difesa che
+     * resta e' la chiave.
+     */
+    public function test_con_lo_stato_tornato_indietro_lo_storno_non_si_ripete(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin);
+
+        $pagamento->fresh()->forceFill(['status' => RegistrationFeePayment::STATUS_COMPLETED])->save();
+
+        app(RegistrationFeeService::class)->cancel($pagamento->fresh(), $this->superAdmin);
+
+        // Se qui uscisse 3000, il conto avrebbe ricevuto due volte lo storno
+        // di un addebito solo.
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(1, Transfer::where('kind', 'registration_fee_reversal')->count());
+    }
+
+    public function test_una_quota_non_saldata_non_si_puo_annullare(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $pagamento = app(RegistrationFeeService::class)
+            ->startPayment($utente, RegistrationFeePayment::METHOD_BANK_TRANSFER);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin);
+    }
+
+    public function test_l_admin_annulla_la_quota_dalla_pagina_delle_quote(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-iscrizione/{$pagamento->id}/annulla", ['admin_notes' => 'pagamento di prova'])
+            ->assertRedirect(route('admin.registration-fees.index'));
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertTrue($pagamento->fresh()->isCancelled());
+        $this->assertSame('pagamento di prova', $pagamento->fresh()->admin_notes);
+    }
+
+    public function test_un_utente_qualunque_non_puo_annullare_una_quota(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        $this->actingAs($utente)
+            ->post("/admin/quote-iscrizione/{$pagamento->id}/annulla")
+            ->assertForbidden();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+    }
+
+    public function test_l_utente_viene_avvisato_dell_annullamento(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $pagamento = RegistrationFeePayment::where('user_id', $utente->id)->firstOrFail();
+
+        app(RegistrationFeeService::class)->cancel($pagamento, $this->superAdmin);
+
+        Notification::assertSentTo($utente, RegistrationFeeCancelledNotification::class);
+    }
+
+    // ─── 8. I movimenti di quota non si eliminano da Movimenti ──────────────
+
+    public function test_il_movimento_della_quota_non_e_eliminabile_dalla_pagina_movimenti(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $movimento = Transfer::where('kind', 'registration_fee')->firstOrFail();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/transfers/{$movimento->id}/delete")
+            ->assertStatus(422);
+
+        // Nulla di nulla: ne' il movimento, ne' il saldo, ne' la quota.
+        $this->assertNotNull(Transfer::find($movimento->id));
+        $this->assertSame(-self::QUOTA, (int) $conto->fresh()->available_balance);
+        $this->assertNotNull($utente->fresh()->registration_fee_paid_at);
+    }
+
+    public function test_anche_il_movimento_di_accredito_in_euro_non_e_eliminabile(): void
+    {
+        $this->makeSystemAccount(100000);
+        [$utente] = $this->makePrivateConQuota(0);
+
+        $pagamento = app(RegistrationFeeService::class)
+            ->startPayment($utente, RegistrationFeePayment::METHOD_BANK_TRANSFER);
+        app(RegistrationFeeService::class)->completeEuroPayment($pagamento);
+
+        $movimento = Transfer::where('kind', 'registration_fee_credit')->firstOrFail();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/transfers/{$movimento->id}/delete")
+            ->assertStatus(422);
+
+        $this->assertNotNull(Transfer::find($movimento->id));
+    }
+
+    public function test_la_cancellazione_multipla_salta_il_movimento_di_quota_e_fa_gli_altri(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        [$altro, $contoAltro] = $this->makePrivate(10000);
+
+        app(RegistrationFeeService::class)->payWithKy($utente);
+        $quota = Transfer::where('kind', 'registration_fee')->firstOrFail();
+
+        $normale = app(TransferBookingService::class)->book([
+            'initiated_by'    => $altro->id,
+            'from_account_id' => $contoAltro->id,
+            'to_account_id'   => $conto->id,
+            'amount'          => 1000,
+            'kind'            => 'portal_transfer',
+            'idempotency_key' => 'test_' . Str::random(8),
+        ]);
+
+        $this->actingAs($this->superAdmin)
+            ->post('/admin/transfers/bulk-delete', ['transfer_ids' => [$quota->id, $normale->id]])
+            ->assertRedirect();
+
+        $this->assertNotNull(Transfer::find($quota->id));
+        $this->assertNull(Transfer::find($normale->id));
+    }
+
+    // ─── 9. L'admin chiede la quota a chi non l'ha pagata ───────────────────
+
+    public function test_l_admin_mette_la_quota_in_carico_a_un_vecchio_iscritto(): void
+    {
+        $this->attivaQuota();
+        [$vecchio] = $this->makePrivate(0);
+
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$vecchio->id}/quota-iscrizione/richiedi")
+            ->assertRedirect(route('admin.users.show', $vecchio));
+
+        $this->assertSame(self::QUOTA, (int) $vecchio->fresh()->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($vecchio->fresh()));
+        Notification::assertSentTo($vecchio, RegistrationFeeRequestedNotification::class);
+
+        // Mettere qualcuno in debito e' un atto: deve avere un nome sopra.
+        $log = AuditLog::where('event', 'registration_fee.requested_by_admin')->firstOrFail();
+        $this->assertSame($this->superAdmin->id, (int) $log->actor_user_id);
+        $this->assertSame($vecchio->id, (int) $log->auditable_id);
+        $this->assertSame(self::QUOTA, (int) $log->context['amount']);
+    }
+
+    public function test_chi_riceve_la_quota_dall_admin_viene_bloccato_subito(): void
+    {
+        $this->attivaQuota();
+        [$vecchio] = $this->makePrivate(0);
+
+        $this->actingAs($vecchio)->get('/invia')->assertOk();
+
+        app(RegistrationFeeService::class)->requestFrom($vecchio, $this->superAdmin);
+
+        $this->actingAs($vecchio->fresh())->get('/invia')
+            ->assertRedirect(route('portal.registration-fee.show'));
+    }
+
+    public function test_l_admin_non_puo_chiedere_la_quota_a_chi_ce_l_ha_gia_aperta(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        // L'admin nel frattempo ha alzato l'importo: se questa chiamata
+        // passasse, all'utente cambierebbe il debito sotto i piedi.
+        $this->attivaQuota(importo: 9900);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$utente->id}/quota-iscrizione/richiedi")
+            ->assertRedirect();
+
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    public function test_l_admin_non_puo_chiedere_la_quota_a_chi_l_ha_gia_pagata(): void
+    {
+        $this->makeSystemAccount(0);
+        [$utente] = $this->makePrivateConQuota(0);
+        app(RegistrationFeeService::class)->payWithKy($utente);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(RegistrationFeeService::class)->requestFrom($utente->fresh(), $this->superAdmin);
+    }
+
+    public function test_l_admin_non_puo_chiedere_la_quota_dei_privati_a_un_azienda(): void
+    {
+        $this->attivaQuota();
+        $azienda = $this->makeCircuitCompany();
+
+        $utenteAzienda = User::create([
+            'name'                => 'Titolare Azienda',
+            'email'               => 'az-' . Str::random(6) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'company',
+            'company_id'          => $azienda->id,
+            'role'                => 'company-owner',
+            'is_active'           => true,
+            'email_verified_at'   => now(),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(RegistrationFeeService::class)->requestFrom($utenteAzienda, $this->superAdmin);
+    }
+
+    public function test_senza_nessun_metodo_di_pagamento_la_quota_non_si_puo_chiedere(): void
+    {
+        [$vecchio] = $this->makePrivate(0);
+
+        SystemSetting::userLimitDefaults()->forceFill([
+            'registration_fee_amount_cents'          => self::QUOTA,
+            'registration_fee_stripe_enabled'        => false,
+            'registration_fee_paypal_enabled'        => false,
+            'registration_fee_bank_transfer_enabled' => false,
+            'registration_fee_ky_enabled'            => false,
+        ])->save();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$vecchio->id}/quota-iscrizione/richiedi")
+            ->assertRedirect();
+
+        // Meglio non chiedere niente che bloccare un conto su una pagina
+        // senza bottoni.
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+    }
+
+    public function test_un_utente_qualunque_non_puo_mettere_la_quota_in_carico_a_un_altro(): void
+    {
+        $this->attivaQuota();
+        [$tizio] = $this->makePrivate(0);
+        [$caio]  = $this->makePrivate(0);
+
+        $this->actingAs($tizio)
+            ->post("/admin/users/{$caio->id}/quota-iscrizione/richiedi")
+            ->assertForbidden();
+
+        $this->assertNull($caio->fresh()->registration_fee_due_cents);
+    }
+
+    // ─── 10. Stripe ─────────────────────────────────────────────────────────
+
+    public function test_senza_stripe_configurato_il_bottone_carta_rimanda_indietro_con_un_messaggio(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        config(['services.stripe.secret' => null]);
+
+        $this->actingAs($utente)->post('/quota-iscrizione/stripe')
+            ->assertRedirect(route('portal.registration-fee.show'))
+            ->assertSessionHas('portal_error');
+
+        // E soprattutto: nessuna riga di pagamento lasciata li' in sospeso.
+        $this->assertSame(0, RegistrationFeePayment::count());
     }
 
     // ─── Aiutanti ───────────────────────────────────────────────────────────

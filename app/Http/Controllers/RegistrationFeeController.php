@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\TalksToPayPal;
 use App\Models\RegistrationFeePayment;
+use App\Models\User;
 use App\Models\SystemSetting;
 use App\Services\RegistrationFeeService;
 use App\Services\StripeCheckoutVerifier;
@@ -74,7 +75,13 @@ class RegistrationFeeController extends Controller
 
     public function stripeCheckout(Request $request): RedirectResponse
     {
-        abort_unless(config('services.stripe.secret'), 503, 'Stripe non configurato.');
+        if (! config('services.stripe.secret')) {
+            // Un 503 nudo qui e' una pagina bianca senza spiegazione: meglio
+            // rimandarlo indietro con il motivo e gli altri metodi sotto gli
+            // occhi.
+            return redirect()->route('portal.registration-fee.show')
+                ->with('portal_error', 'Il pagamento con carta non è al momento disponibile. Scegli un altro metodo o riprova più tardi.');
+        }
 
         try {
             $payment = $this->fees->startPayment($request->user(), RegistrationFeePayment::METHOD_STRIPE);
@@ -108,10 +115,24 @@ class RegistrationFeeController extends Controller
 
             $payment->update(['stripe_checkout_session_id' => $session->id]);
 
+            if (empty($session->url)) {
+                throw new RuntimeException('Stripe non ha restituito un indirizzo di pagamento.');
+            }
+
             return redirect($session->url);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable e NON \Exception: se la libreria Stripe non e'
+            // installata sul server, la chiamata qui sopra solleva un \Error,
+            // che un catch(\Exception) lascia passare. Il risultato e' quello
+            // visto in produzione il 01/09/2026 — pagina di errore del server,
+            // nessun messaggio, e la riga del pagamento che resta "pending"
+            // per sempre perche' markFailed() non viene mai raggiunto.
             $this->fees->markFailed($payment, $e->getMessage());
-            Log::error('Quota iscrizione: avvio Stripe fallito', ['payment' => $payment->uuid, 'error' => $e->getMessage()]);
+            Log::error('Quota iscrizione: avvio Stripe fallito', [
+                'payment' => $payment->uuid,
+                'error'   => $e->getMessage(),
+                'class'   => $e::class,
+            ]);
 
             return redirect()->route('portal.registration-fee.show')
                 ->with('portal_error', 'Errore nell\'avvio del pagamento con carta. Riprova o scegli un altro metodo.');
@@ -340,6 +361,53 @@ class RegistrationFeeController extends Controller
 
         return redirect()->route('admin.registration-fees.index')
             ->with('portal_success', 'Bonifico confermato: i KY sono stati accreditati.');
+    }
+
+    /**
+     * Annulla una quota gia' saldata: storno, quota di nuovo dovuta, fido
+     * aggiuntivo tolto. Vive qui e non nella cancellazione dei movimenti
+     * perche' quella ripristina i saldi e nient'altro — vedi il commento in
+     * RegistrationFeeService::cancel().
+     */
+    public function adminCancel(Request $request, RegistrationFeePayment $payment): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $validated = $request->validate([
+            'admin_notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $this->fees->cancel(
+                $payment,
+                $request->user(),
+                $validated['admin_notes'] ?? null,
+                $request->ip(),
+            );
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.registration-fees.index')->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.registration-fees.index')
+            ->with('portal_success', 'Quota annullata: movimento stornato, quota di nuovo da saldare e fido aggiuntivo rimosso.');
+    }
+
+    /**
+     * Mette la quota in carico a un utente che non l'ha pagata, compresi i
+     * privati iscritti prima che la quota esistesse.
+     */
+    public function adminRequest(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        try {
+            $importo = $this->fees->requestFrom($user, $request->user(), $request->ip());
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.users.show', $user)->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('portal_success', 'Quota di ' . ky_format($importo) . ' KY richiesta a ' . $user->name . ': è stato avvisato per email e in notifica.');
     }
 
     public function adminRejectBankTransfer(Request $request, RegistrationFeePayment $payment): RedirectResponse

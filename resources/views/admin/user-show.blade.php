@@ -277,6 +277,52 @@
     </section>
     @endif
 
+    {{-- Quota di iscrizione (01/09/2026). Sta nella scheda dell'utente e non in
+         un elenco: la quota si chiede a UNA persona alla volta, con un nome e
+         un audit log dietro. Un pulsante su un elenco filtrato e' esattamente
+         il modo di mettere in debito milletrecento iscritti per sbaglio. --}}
+    @if($userRecord->account_holder_type === 'private')
+    <section class="card light-card" id="user-registration-fee" style="margin-bottom:22px;">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Circuito</span>
+                <h3 class="section-title">Quota di iscrizione</h3>
+            </div>
+            @if($userRecord->registration_fee_paid_at)
+                <span class="pill success">Saldata il {{ $userRecord->registration_fee_paid_at->format('d/m/Y') }}</span>
+            @elseif($userRecord->registration_fee_due_cents !== null)
+                <span class="pill" style="background:rgba(217,119,6,.12);color:#b45309;">Da saldare — {{ ky_format((int) $userRecord->registration_fee_due_cents) }} KY</span>
+            @else
+                <span class="pill">Non dovuta</span>
+            @endif
+        </div>
+
+        @if($userRecord->registration_fee_paid_at)
+            <p class="table-muted">
+                Quota gi&agrave; pagata. Per rimetterla in carico, annulla il pagamento dalla pagina
+                <a href="{{ route('admin.registration-fees.index') }}" style="color:var(--primary);font-weight:600;">Quote di iscrizione</a>:
+                di l&igrave; il movimento viene stornato e la quota torna dovuta.
+            </p>
+        @elseif($userRecord->registration_fee_due_cents !== null)
+            <p class="table-muted">
+                L'utente ha la quota aperta: finch&eacute; non salda non pu&ograve; pagare, incassare n&eacute; acquistare.
+                Il fido aggiuntivo &egrave; di {{ ky_format((int) ($userRecord->registration_fee_ky_allowance_cents ?? 0)) }} KY.
+            </p>
+        @else
+            <p class="table-muted" style="margin-bottom:12px;">
+                Questo utente non deve la quota: si &egrave; iscritto prima che venisse attivata, oppure la quota era spenta.
+                Puoi metterla in carico ora: verr&agrave; avvisato per email e in notifica, e fino al pagamento non potr&agrave;
+                pagare, incassare n&eacute; acquistare &mdash; vedere il conto e ricaricare s&igrave;.
+            </p>
+            <form method="post" action="{{ route('admin.registration-fees.request', $userRecord) }}"
+                  onsubmit="return confirm('Mettere la quota di iscrizione in carico a {{ $userRecord->name }}? Riceverà una email e non potrà più pagare, incassare o acquistare finché non salda.');">
+                @csrf
+                <button type="submit" class="cta secondary users-compact-cta">Richiedi la quota di iscrizione</button>
+            </form>
+        @endif
+    </section>
+    @endif
+
     <section class="card light-card" id="user-limits" style="margin-bottom:22px;">
         <div class="section-head">
             <div>

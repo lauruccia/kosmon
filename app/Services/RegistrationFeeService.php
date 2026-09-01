@@ -5,7 +5,10 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\RegistrationFeePayment;
+use App\Notifications\RegistrationFeeCancelledNotification;
+use App\Notifications\RegistrationFeeRequestedNotification;
 use App\Models\SystemSetting;
+use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -334,6 +337,195 @@ class RegistrationFeeService
         }
 
         $payment->refresh();
+    }
+
+    // ── Annullamento di una quota gia' saldata (01/09/2026) ─────────────────
+
+    /**
+     * Disfa una quota saldata: storna il movimento, rimette la quota fra
+     * quelle da pagare e toglie il fido aggiuntivo. Le tre cose insieme.
+     *
+     * PERCHE' NON SI FA ELIMINANDO IL MOVIMENTO. Cancellare il movimento da
+     * /admin/movimenti ripristina i saldi e basta: la quota resta scritta
+     * come pagata e il fido aggiuntivo resta addosso all'utente, che si
+     * ritrova dentro il circuito gratis e con 30 KY di scoperto in piu'. Per
+     * questo i movimenti di quota non sono piu' eliminabili da li'
+     * (AdminController::MOVIMENTI_DI_QUOTA) e l'unica strada e' questa.
+     *
+     * LO STORNO SI FA SOLO SE IL MOVIMENTO C'E' ANCORA. Chi ha gia' cancellato
+     * il movimento a mano — prima che quella strada venisse chiusa — ha gia'
+     * avuto indietro i suoi KY: stornare di nuovo glieli regalerebbe una
+     * seconda volta. Qui si guarda il movimento, non lo stato del pagamento.
+     *
+     * @throws RuntimeException
+     */
+    public function cancel(RegistrationFeePayment $payment, User $admin, ?string $reason = null, ?string $ipAddress = null): RegistrationFeePayment
+    {
+        if (! $payment->isCompleted()) {
+            throw new RuntimeException("Si può annullare solo una quota già saldata.");
+        }
+
+        $superAdminId = User::where('is_super_admin', true)->value('id');
+        if ($superAdminId === null) {
+            throw new RuntimeException("Nessun super admin configurato: lo storno non può essere emesso.");
+        }
+
+        DB::transaction(function () use ($payment, $admin, $reason, $ipAddress, $superAdminId): void {
+            $locked = RegistrationFeePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isCompleted()) {
+                throw new RuntimeException("Questa quota è già stata annullata.");
+            }
+
+            // Il movimento originale, se esiste ancora ed e' contabilizzato.
+            $originale = $locked->transfer_id !== null
+                ? Transfer::whereKey($locked->transfer_id)->where('status', 'booked')->first()
+                : null;
+
+            $stornoId = null;
+
+            if ($originale !== null) {
+                // Storno per inversione dei conti: funziona identico nei due
+                // versi (in KY l'utente aveva pagato il sistema, in euro il
+                // sistema aveva accreditato l'utente) senza doverli
+                // distinguere qui.
+                $storno = $this->transfers->book([
+                    'initiated_by'    => $superAdminId,
+                    'from_account_id' => $originale->to_account_id,
+                    'to_account_id'   => $originale->from_account_id,
+                    'amount'          => (int) $originale->amount,
+                    'kind'            => 'registration_fee_reversal',
+                    'description'     => 'Storno della quota di iscrizione',
+                    'idempotency_key' => 'regfee_storno_' . $locked->uuid,
+                    'ip_address'      => $ipAddress,
+                ]);
+
+                $stornoId = $storno->id;
+            }
+
+            $user = User::whereKey($locked->user_id)->lockForUpdate()->first();
+
+            if ($user !== null) {
+                $user->forceFill([
+                    // La quota torna dovuta. L'importo e' quello di questo
+                    // pagamento, non quello di oggi in impostazioni: chi si
+                    // era registrato a 30 continua a dovere 30 anche se nel
+                    // frattempo la quota e' passata a 50.
+                    'registration_fee_due_cents'          => $user->registration_fee_due_cents ?? (int) $locked->amount_eur_cents,
+                    'registration_fee_paid_at'            => null,
+                    // Il fido aggiuntivo se ne va con la quota che lo aveva
+                    // motivato: era li' solo per reggere il -30.
+                    'registration_fee_ky_allowance_cents' => 0,
+                ])->save();
+            }
+
+            $locked->update([
+                'status'       => RegistrationFeePayment::STATUS_CANCELLED,
+                'admin_notes'  => $reason ?? 'Quota annullata dal backoffice.',
+                'confirmed_by' => $admin->id,
+            ]);
+
+            AuditLog::create([
+                'actor_user_id'  => $admin->id,
+                'event'          => 'registration_fee.cancelled',
+                'auditable_type' => RegistrationFeePayment::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'uuid'                 => $locked->uuid,
+                    'user_id'              => $locked->user_id,
+                    'amount'               => (int) $locked->ky_amount,
+                    'payment_method'       => $locked->payment_method,
+                    'original_transfer_id' => $locked->transfer_id,
+                    'reversal_transfer_id' => $stornoId,
+                    // Se qui c'e' false, il movimento era gia' stato
+                    // cancellato a mano e i KY erano gia' tornati indietro.
+                    'reversal_booked'      => $stornoId !== null,
+                    'reason'               => $reason,
+                ],
+            ]);
+        });
+
+        $payment->refresh();
+
+        if ($payment->user !== null) {
+            $payment->user->notify(new RegistrationFeeCancelledNotification($payment));
+        }
+
+        return $payment;
+    }
+
+    // ── L'admin mette la quota in carico a un utente (01/09/2026) ───────────
+
+    /**
+     * Richiesta di Laura: l'admin deve poter chiedere la quota a chi non
+     * l'ha pagata, compresi i privati gia' iscritti da prima che la quota
+     * esistesse (per loro registration_fee_due_cents e' NULL).
+     *
+     * UNO ALLA VOLTA, DALLA SCHEDA DELL'UTENTE. E' l'unica differenza che
+     * conta rispetto a un UPDATE sulla colonna: quello metterebbe in debito
+     * milletrecento persone in un colpo solo e non lascerebbe traccia di chi
+     * ha deciso cosa. Qui ogni addebito ha un nome, una data e un audit log.
+     *
+     * @throws RuntimeException
+     */
+    public function requestFrom(User $user, User $admin, ?string $ipAddress = null): int
+    {
+        if ($user->account_holder_type !== 'private') {
+            throw new RuntimeException("La quota di iscrizione riguarda solo i privati: le aziende hanno i piani di abbonamento.");
+        }
+
+        if ($user->registration_fee_paid_at !== null) {
+            throw new RuntimeException("Questo utente ha già saldato la quota. Per rimettergliela in carico, annulla il pagamento dalla pagina Quote di iscrizione.");
+        }
+
+        $settings = $this->settings();
+        $importo  = $settings->registrationFeeAmount();
+
+        if ($importo <= 0) {
+            throw new RuntimeException("L'importo della quota è a zero: impostalo prima di chiederla a qualcuno.");
+        }
+
+        // Chiedere la quota a chi poi non ha nessun bottone per pagarla vuol
+        // dire bloccargli il conto senza via d'uscita.
+        if ($settings->registrationFeeMethods() === []) {
+            throw new RuntimeException("Nessun metodo di pagamento è disponibile: l'utente non avrebbe modo di saldare.");
+        }
+
+        DB::transaction(function () use ($user, $admin, $importo, $ipAddress): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            // Unica guardia su "ce l'ha gia' aperta", e sta DENTRO il lock:
+            // una copia qui fuori sembrerebbe piu' gentile (errore prima di
+            // aprire una transazione) ma sarebbe l'ennesima coppia di difese
+            // che si nascondono a vicenda dal mutation testing — verde anche
+            // spegnendone una.
+            if ($locked->registration_fee_due_cents !== null && $locked->registration_fee_paid_at === null) {
+                throw new RuntimeException("Questo utente ha già la quota da pagare.");
+            }
+
+            $locked->forceFill([
+                'registration_fee_due_cents' => $importo,
+                'registration_fee_paid_at'   => null,
+            ])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $admin->id,
+                'event'          => 'registration_fee.requested_by_admin',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'amount'    => $importo,
+                    'user_email' => $locked->email,
+                ],
+            ]);
+        });
+
+        $user->refresh();
+        $user->notify(new RegistrationFeeRequestedNotification($importo));
+
+        return $importo;
     }
 
     public function markFailed(RegistrationFeePayment $payment, ?string $reason = null): void

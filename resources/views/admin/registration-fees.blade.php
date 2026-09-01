@@ -87,11 +87,18 @@
                 <form method="GET" action="{{ route('admin.registration-fees.index') }}" style="display:flex;gap:8px;align-items:center;">
                     <select name="stato" data-no-search onchange="this.form.submit()">
                         <option value="">Tutti gli stati</option>
-                        @foreach(['pending' => 'In corso', 'pending_bank_transfer' => 'Attesa bonifico', 'completed' => 'Saldata', 'failed' => 'Fallita'] as $valore => $etichetta)
+                        @foreach(['pending' => 'In corso', 'pending_bank_transfer' => 'Attesa bonifico', 'completed' => 'Saldata', 'failed' => 'Fallita', 'cancelled' => 'Annullata'] as $valore => $etichetta)
                             <option value="{{ $valore }}" @selected($stato === $valore)>{{ $etichetta }}</option>
                         @endforeach
                     </select>
                 </form>
+            </div>
+
+            <div class="notice" style="margin-bottom:14px;">
+                Una quota saldata si disfa <strong>solo da qui</strong>, con &laquo;Annulla quota&raquo;: storna il movimento,
+                rimette la quota fra quelle da pagare e toglie il fido aggiuntivo, tutto insieme. Eliminare il movimento
+                da <em>Movimenti</em> non basta &mdash; restituirebbe i KY lasciando la quota segnata come pagata &mdash;
+                e infatti da l&igrave; non &egrave; pi&ugrave; possibile.
             </div>
 
             <div class="table-scroll">
@@ -119,8 +126,8 @@
                                 <div class="table-muted">{{ ky_format($payment->ky_amount) }} KY</div>
                             </td>
                             <td>
-                                <span class="pill {{ $payment->isCompleted() ? 'success' : 'warn' }}">
-                                    {{ $payment->status }}
+                                <span class="pill {{ $payment->isCompleted() ? 'success' : ($payment->isCancelled() ? 'danger' : 'warn') }}">
+                                    {{ $payment->isCancelled() ? 'annullata' : $payment->status }}
                                 </span>
                                 @if($payment->admin_notes)
                                     <div class="table-muted">{{ $payment->admin_notes }}</div>
@@ -141,6 +148,13 @@
                                             <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Rifiuta</button>
                                         </form>
                                     </div>
+                                @elseif($payment->isCompleted())
+                                    <form method="POST" action="{{ route('admin.registration-fees.cancel', $payment) }}"
+                                          onsubmit="return confirm('Annullare questa quota? Il movimento viene stornato, la quota torna da pagare e il fido aggiuntivo di {{ ky_format($payment->ky_amount) }} KY viene tolto.');">
+                                        @csrf
+                                        <input type="hidden" name="admin_notes" value="Quota annullata dal backoffice.">
+                                        <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Annulla quota</button>
+                                    </form>
                                 @else
                                     <span class="table-muted">—</span>
                                 @endif

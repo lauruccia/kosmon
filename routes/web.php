@@ -922,6 +922,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/quote-iscrizione/impostazioni', [RegistrationFeeController::class, 'adminUpdateSettings'])->name('admin.registration-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/conferma', [RegistrationFeeController::class, 'adminConfirmBankTransfer'])->name('admin.registration-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/rifiuta', [RegistrationFeeController::class, 'adminRejectBankTransfer'])->name('admin.registration-fees.reject')->middleware('backoffice');
+    // Annullare una quota gia' saldata e chiederla a chi non l'ha pagata
+    // (01/09/2026). La prima sta sulla pagina delle quote, la seconda sulla
+    // scheda dell'utente: si chiede a UNO alla volta, mai a un elenco.
+    Route::post('/admin/quote-iscrizione/{payment}/annulla', [RegistrationFeeController::class, 'adminCancel'])->name('admin.registration-fees.cancel')->middleware('backoffice');
+    Route::post('/admin/users/{user}/quota-iscrizione/richiedi', [RegistrationFeeController::class, 'adminRequest'])->name('admin.registration-fees.request')->middleware('backoffice');
 
     // Quote codice agente: elenco, impostazioni e conferma dei bonifici.
     Route::get('/admin/quote-codice-agente', [AgentCodeFeeController::class, 'adminIndex'])->name('admin.agent-code-fees.index')->middleware('backoffice');

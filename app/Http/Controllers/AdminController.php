@@ -43,6 +43,30 @@ use Illuminate\View\View;
 
 class AdminController extends Controller
 {
+
+    /**
+     * I movimenti generati dalle quote del circuito (quota di iscrizione dei
+     * privati e quota per il codice agente, 31/08/2026). Non sono eliminabili
+     * dalla pagina Movimenti: vedi deleteTransferWithCascade().
+     *
+     * Il valore e' il messaggio da dare all'admin, e sono due diversi perche'
+     * la situazione e' diversa: la quota dei privati si annulla per bene dalla
+     * sua pagina, quella del codice agente per ora si puo' solo non rompere.
+     *
+     * @var array<string, string>
+     */
+    private const MOVIMENTI_DI_QUOTA = [
+        'registration_fee'          => 'quota_privati',
+        'registration_fee_credit'   => 'quota_privati',
+        'registration_fee_reversal' => 'quota_privati',
+        'agent_code_fee'            => 'quota_agente',
+        'agent_code_fee_reversal'   => 'quota_agente',
+    ];
+
+    private const MESSAGGI_QUOTA = [
+        'quota_privati' => "Questo è il movimento di una quota di iscrizione: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata. Annullala da Quote di iscrizione, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
+        'quota_agente'  => "Questo è il movimento della quota per il codice agente e non si elimina da qui: cancellarlo restituirebbe i KY lasciando la quota segnata come pagata e il codice agente attivo.",
+    ];
     private const REFUND_WINDOW_DAYS = 30;
     private const USERS_PER_PAGE = 25;
 
@@ -323,8 +347,9 @@ class AdminController extends Controller
 
         $deleted = 0;
         $skipped = 0;
+        $skippedQuote = 0;
 
-        DB::transaction(function () use ($request, $validated, &$deleted, &$skipped) {
+        DB::transaction(function () use ($request, $validated, &$deleted, &$skipped, &$skippedQuote) {
             foreach ($validated['transfer_ids'] as $id) {
                 $transfer = Transfer::find($id);
 
@@ -339,6 +364,14 @@ class AdminController extends Controller
                     continue;
                 }
 
+                // Idem per i movimenti delle quote: qui vengono SALTATI invece
+                // che far fallire l'intera selezione, così chi seleziona mezza
+                // pagina di movimenti di prova non resta bloccato da uno solo.
+                if (array_key_exists($transfer->kind, self::MOVIMENTI_DI_QUOTA)) {
+                    $skippedQuote++;
+                    continue;
+                }
+
                 $result = $this->deleteTransferWithCascade($transfer, $request->user(), $request->ip());
                 $deleted += $result['deleted'];
             }
@@ -347,6 +380,9 @@ class AdminController extends Controller
         $msg = "Eliminati {$deleted} movimenti (collegati inclusi).";
         if ($skipped > 0) {
             $msg .= " {$skipped} emissioni KY di sistema sono state ignorate per sicurezza.";
+        }
+        if ($skippedQuote > 0) {
+            $msg .= " {$skippedQuote} movimenti di quota sono stati ignorati: si annullano dalla pagina della quota.";
         }
 
         return redirect()->route('admin.transfers.index', $request->only(['period', 'from_date', 'to_date', 'search', 'kind', 'status']))
@@ -380,6 +416,18 @@ class AdminController extends Controller
     private function deleteTransferWithCascade(Transfer $transfer, User $actor, ?string $ip): array
     {
         abort_if($transfer->kind === 'ky_emission', 422, "L'emissione di KY non può essere eliminata da questa pagina.");
+
+        // Le quote del circuito non si eliminano da qui (01/09/2026). Eliminare
+        // il movimento ripristina i saldi ma NON tocca la quota: l'utente si
+        // ritrova i KY restituiti e la quota ancora scritta come pagata — cioe'
+        // dentro il circuito gratis, e con addosso il fido aggiuntivo che la
+        // quota gli aveva concesso. Il posto giusto per disfare una quota e' la
+        // sua pagina, dove le tre cose si disfano insieme.
+        abort_if(
+            array_key_exists($transfer->kind, self::MOVIMENTI_DI_QUOTA),
+            422,
+            self::MESSAGGI_QUOTA[self::MOVIMENTI_DI_QUOTA[$transfer->kind] ?? 'quota_privati'] ?? ''
+        );
 
         // ── Raccogli il set di movimenti da eliminare ──────────────────────────
         $ids = collect([$transfer->id]);

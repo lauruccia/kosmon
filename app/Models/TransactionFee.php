@@ -51,7 +51,13 @@ class TransactionFee extends Model
         // mlm_wallet_credit/mlm_wallet_withdrawal (2026-07-30, cassetto kmoney,
         // vedi MlmWalletService): movimenti interni sistema↔agente, non
         // pagamenti commerciali — mai soggetti a commissione, stesso principio.
-        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade', 'mlm_wallet_credit', 'mlm_wallet_withdrawal'], true)) {
+        // Le quote del circuito (iscrizione dei privati e codice agente,
+        // 31/08/2026) seguono la stessa regola di portal_plan_upgrade: sono
+        // gia' un canone verso il circuito, non un pagamento commerciale.
+        // Commissionarle vorrebbe dire far pagare una commissione sopra una
+        // commissione — e, sul movimento di storno, addebitarla al conto di
+        // sistema che sta solo disfacendo un incasso suo.
+        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade', 'mlm_wallet_credit', 'mlm_wallet_withdrawal', 'registration_fee', 'registration_fee_credit', 'registration_fee_reversal', 'agent_code_fee'], true)) {
             return 0;
         }
 
