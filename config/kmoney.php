@@ -73,4 +73,29 @@ return [
 
     'mlm_enabled' => env('MLM_ENABLED', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Freno agli invii di massa
+    |--------------------------------------------------------------------------
+    |
+    | Quante email al massimo far partire in un'ora quando il circuito scrive
+    | a TUTTI insieme (oggi: il resoconto mensile del 1 del mese).
+    |
+    | Non e' un'ottimizzazione, e' una condizione per funzionare: il 1 luglio
+    | 2026 il resoconto ha dispacciato 1068 notifiche in pochi secondi e il
+    | server di posta le ha respinte TUTTE (1060 fallimenti con
+    | UnexpectedResponse in failed_jobs). Gli hosting condivisi hanno un tetto
+    | orario di invio, e superarlo non rallenta: fa rifiutare.
+    |
+    | Il valore giusto e' quello del proprio hosting, che va chiesto: 150
+    | all'ora e' una stima prudente che sta sotto ai limiti tipici. Con 1000
+    | destinatari vuol dire che l'ultimo riceve dopo circa sette ore — per un
+    | resoconto mensile non cambia niente, e arriva a tutti invece che a
+    | nessuno.
+    |
+    | A zero il freno e' spento e si torna al comportamento di prima.
+    |
+    */
+    'mail_max_per_hour' => (int) env('MAIL_MAX_PER_HOUR', 150),
+
 ];
