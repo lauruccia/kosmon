@@ -35,12 +35,12 @@ use Illuminate\Support\Facades\Log;
  * invece che tutta insieme. Per un resoconto mensile ricevere l'email alle 9
  * o alle 15 non cambia niente; riceverla o non riceverla si'.
  *
- * NON e' stato toccato CHI riceve il resoconto: la selezione dei conti e le
- * preferenze di notifica sono identiche a prima. Cambia solo QUANDO parte
- * ciascuna email. (Nota per un domani: quel `whereHas('company')` esclude i
- * conti dei privati, che quindi il resoconto non lo ricevono affatto. Se e'
- * una svista va corretta a parte, perche' allargherebbe il volume e va
- * deciso insieme al tetto orario.)
+ * CHI LO RICEVE (deciso da Laura il 01/09/2026): TUTTI, privati compresi.
+ * Prima un `whereHas('company')` lo riservava alle sole aziende, e i conti
+ * dei privati — la maggior parte del circuito — non lo ricevevano affatto.
+ * Il volume triplica, ed e' il motivo per cui il job parte a mezzanotte: con
+ * il tetto orario, le email dell'ultimo destinatario devono avere il tempo di
+ * uscire prima di sera.
  */
 class SendMonthlyStatements implements ShouldQueue
 {
@@ -59,14 +59,32 @@ class SendMonthlyStatements implements ShouldQueue
         $spedite  = 0;
         $esaminati = 0;
 
-        // chunkById e non get(): mille conti con azienda e intestatario
+        // chunkById e non get(): duemila conti con azienda e intestatario
         // caricati tutti insieme sono un picco di memoria inutile su un
         // hosting condiviso, ed e' proprio il momento in cui il server ha
         // gia' da fare.
         Account::query()
             ->whereNull('parent_account_id')
+            // Il conto deve essere vivo: mandare il rendiconto di un conto
+            // chiuso non informa nessuno di niente.
+            ->where('status', 'active')
             ->with(['company', 'ownerUser'])
-            ->whereHas('company', fn ($q) => $q->where('kyc_status', 'approved'))
+            // CHI RICEVE (deciso da Laura il 01/09/2026: TUTTI).
+            //
+            // Fino a oggi c'era un `whereHas('company')` secco, e la
+            // conseguenza era che il resoconto mensile arrivava SOLO alle
+            // aziende: i conti dei privati — la maggior parte del circuito —
+            // non lo ricevevano affatto, e nessuno se n'era accorto perche'
+            // dal 1 luglio non partiva comunque niente (vedi il cron morto).
+            //
+            // Ora: un conto senza azienda (il privato) entra sempre; un conto
+            // aziendale entra solo se il KYC dell'azienda e' approvato, che e'
+            // la regola di prima e resta. `whereDoesntHave` e non
+            // `whereNull('company_id')`: copre anche il conto che punta a
+            // un'azienda che non c'e' piu'.
+            ->where(fn ($q) => $q
+                ->whereDoesntHave('company')
+                ->orWhereHas('company', fn ($c) => $c->where('kyc_status', 'approved')))
             ->chunkById(200, function (Collection $accounts) use (
                 $monthStart, $monthEnd, $label, $perOra, &$spedite, &$esaminati
             ): void {
@@ -75,6 +93,15 @@ class SendMonthlyStatements implements ShouldQueue
 
                     $user = $account->ownerUser ?? $account->company?->users()->first();
                     if (! $user) {
+                        continue;
+                    }
+
+                    // Un utente disattivato non deve ricevere posta dal
+                    // circuito. Conta doppio adesso che entrano anche i
+                    // privati: fra gli iscritti importati ce ne sono di
+                    // spenti, e ogni email a un indirizzo morto e' un rimbalzo
+                    // che pesa sulla reputazione del dominio.
+                    if (! $user->is_active) {
                         continue;
                     }
 

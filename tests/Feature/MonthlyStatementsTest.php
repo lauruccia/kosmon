@@ -100,6 +100,64 @@ class MonthlyStatementsTest extends TestCase
         $this->assertNotNull($orfano->fresh(), 'Il conto orfano resta li\', semplicemente non riceve niente.');
     }
 
+    // ─── Chi lo riceve (01/09/2026: tutti) ──────────────────────────────────
+
+    public function test_anche_i_privati_ricevono_il_resoconto(): void
+    {
+        config(['kmoney.mail_max_per_hour' => 0]);
+
+        // Il caso che questi test esistono per difendere: fino al 01/09 un
+        // filtro sull'azienda teneva fuori TUTTI i conti dei privati, cioe' la
+        // maggior parte del circuito, e il resoconto mensile non lo vedevano
+        // mai. Non se n'era accorto nessuno perche' dal 1 luglio non partiva
+        // comunque niente.
+        $privato = $this->contoPrivato();
+
+        (new SendMonthlyStatements())->handle();
+
+        Notification::assertSentTo($privato, MonthlyStatementNotification::class);
+    }
+
+    public function test_l_azienda_col_kyc_non_approvato_resta_fuori(): void
+    {
+        config(['kmoney.mail_max_per_hour' => 0]);
+
+        $ammessa = $this->contoConIntestatario();
+        $esclusa = $this->contoConIntestatario(kyc: 'pending');
+
+        (new SendMonthlyStatements())->handle();
+
+        Notification::assertSentTo($ammessa, MonthlyStatementNotification::class);
+        Notification::assertNothingSentTo($esclusa);
+    }
+
+    public function test_il_conto_chiuso_non_riceve_niente(): void
+    {
+        config(['kmoney.mail_max_per_hour' => 0]);
+
+        $chiuso = $this->contoPrivato();
+        Account::where('owner_user_id', $chiuso->id)->update(['status' => 'closed']);
+
+        (new SendMonthlyStatements())->handle();
+
+        Notification::assertNothingSentTo($chiuso);
+    }
+
+    public function test_l_utente_disattivato_non_riceve_niente(): void
+    {
+        config(['kmoney.mail_max_per_hour' => 0]);
+
+        // Fra i privati importati ce ne sono di spenti: ogni email a un
+        // indirizzo morto e' un rimbalzo che pesa sulla reputazione del
+        // dominio, e con qualche migliaio di invii al mese non e' un dettaglio.
+        $spento = $this->contoPrivato();
+        $spento->forceFill(['is_active' => false])->save();
+
+        (new SendMonthlyStatements())->handle();
+
+        Notification::assertNothingSentTo($spento);
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     /**
@@ -130,9 +188,34 @@ class MonthlyStatementsTest extends TestCase
         }, $utenti);
     }
 
-    private function contoConIntestatario(): User
+    private function contoPrivato(): User
     {
-        $azienda = $this->azienda();
+        $utente = User::create([
+            'name'                => 'Privato ' . Str::random(4),
+            'email'               => 'privato-' . Str::random(8) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'role'                => 'private-member',
+            'is_active'           => true,
+            'is_super_admin'      => false,
+            'email_verified_at'   => now(),
+        ]);
+
+        Account::create([
+            'owner_user_id'     => $utente->id,
+            'owner_type'        => 'private',
+            'type'              => 'member',
+            'status'            => 'active',
+            'available_balance' => 5000,
+        ]);
+
+        return $utente;
+    }
+
+    private function contoConIntestatario(string $kyc = 'approved'): User
+    {
+        $azienda = $this->azienda($kyc);
 
         $utente = User::create([
             'name'                => 'Titolare ' . Str::random(4),
@@ -158,7 +241,7 @@ class MonthlyStatementsTest extends TestCase
         return $utente;
     }
 
-    private function azienda(): Company
+    private function azienda(string $kyc = 'approved'): Company
     {
         $slug = 'azienda-' . Str::random(8);
 
@@ -167,7 +250,7 @@ class MonthlyStatementsTest extends TestCase
             'slug'          => $slug,
             'email'         => $slug . '@test.test',
             'status'        => 'active',
-            'kyc_status'    => 'approved',
+            'kyc_status'    => $kyc,
             'currency_code' => 'KY',
             'sector'        => 'servizi',
             'description'   => 'Azienda di test',

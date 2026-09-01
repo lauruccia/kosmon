@@ -25,8 +25,19 @@ Schedule::job(new RemindPaymentRequests())->everyFiveMinutes()->name('remind-pay
 // Esegue i pagamenti programmati ogni minuto — comando diretto, no coda, no mutex
 Schedule::command('payments:run-scheduled')->everyMinute()->withoutOverlapping(5)->appendOutputTo(storage_path('logs/payments-scheduled.log'));
 
-// Resoconto mensile il 1 del mese alle 08:00
-Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '08:00')->name('send-monthly-statements')->withoutOverlapping();
+// Resoconto mensile: il 1 del mese a MEZZANOTTE, non piu' alle 08:00.
+//
+// Non e' un capriccio di orario. Da oggi il resoconto va a tutti, privati
+// compresi (erano esclusi da un filtro sull'azienda), e gli invii escono col
+// freno orario di kmoney.mail_max_per_hour — altrimenti il server di posta li
+// respinge in blocco, com'e' successo il 1 luglio 2026 con 1068 email su 1068
+// rifiutate. Con qualche migliaio di destinatari a 150 l'ora servono parecchie
+// ore: partendo a mezzanotte l'ultimo riceve nel pomeriggio, partendo alle 8
+// riceverebbe a notte fonda del giorno dopo.
+//
+// Il job dispaccia e finisce in fretta: quello che dura e' la consegna, che se
+// ne occupa la coda da sola.
+Schedule::job(new SendMonthlyStatements())->monthlyOn(1, '00:00')->name('send-monthly-statements')->withoutOverlapping();
 
 // Controlla gli avvisi saldo ogni ora
 Schedule::job(new CheckBalanceAlerts())->hourly()->name('check-balance-alerts')->withoutOverlapping();
