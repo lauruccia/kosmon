@@ -848,6 +848,89 @@ class AgentCodeFeeTest extends TestCase
         $this->assertFalse($settings->registrationFeeEnabled());
     }
 
+    // ─── 5-sexies. Le pagine si aprono davvero (01/09/2026) ─────────────────
+
+    /**
+     * QUESTO TEST NASCE DA UN 500 IN PRODUZIONE. La pagina delle quote
+     * mandava «syntax error, unexpected token "else"»: nel testo di conferma
+     * del bottone «Annulla quota» avevo scritto `@endif@if(...)` attaccati, e
+     * **Blade non riconosce una direttiva incollata a una lettera** (il suo
+     * `\B@` fallisce fra `f` e `@`). Quel secondo `@if` restava testo, il suo
+     * `@endif` chiudeva il blocco esterno, e l'`@else` piu' sotto diventava
+     * orfano.
+     *
+     * Nessuno dei 44 test lo ha visto perche' NESSUNO APRIVA LA PAGINA con
+     * una riga saldata dentro: i test parlavano tutti al controller e al
+     * servizio. Una vista si rompe solo quando la si compila, e la si compila
+     * solo se qualcosa la chiede.
+     *
+     * Per questo qui dentro ci sono TUTTI gli stati di riga insieme: ognuno
+     * accende un ramo diverso del template.
+     */
+    public function test_la_pagina_admin_delle_quote_si_apre_con_ogni_stato_di_riga(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+
+        // 1. pagata in KY (storno possibile)
+        [$inKy] = $this->makeAspiranteAgente(fido: self::QUOTA);
+        app(AgentCodeFeeService::class)->payWithKy($inKy);
+
+        // 2. pagata in euro (nessuno storno, rimborso a mano)
+        [$inEuro] = $this->makeAspiranteAgente();
+        $pagEuro = app(AgentCodeFeeService::class)->startPayment($inEuro, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagEuro, $this->superAdmin->id);
+
+        // 3. pagata da chi ha GIA' firmato (il terzo avviso nella conferma)
+        [$agente] = $this->makeAspiranteAgente();
+        $pagAgente = app(AgentCodeFeeService::class)->startPayment($agente, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagAgente, $this->superAdmin->id);
+        $agente->fresh()->forceFill(['mlm_role' => 'agente', 'mlm_activated_at' => now()])->save();
+
+        // 4. bonifico in attesa, 5. fallita, 6. annullata
+        [$inAttesa] = $this->makeAspiranteAgente();
+        app(AgentCodeFeeService::class)->startPayment($inAttesa, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+
+        [$fallita] = $this->makeAspiranteAgente();
+        $this->pagamentoAgenteFallito($fallita);
+
+        [$annullata] = $this->makeAspiranteAgente();
+        $this->pagamentoAgenteFallito($annullata)
+            ->update(['status' => AgentCodeFeePayment::STATUS_CANCELLED]);
+
+        $this->actingAs($this->superAdmin)
+            ->get('/admin/quote-codice-agente')
+            ->assertOk()
+            ->assertSee('Annulla quota');
+    }
+
+    public function test_la_scheda_utente_si_apre_con_la_quota_dovuta_esonerata_o_pagata(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+
+        // Dovuta.
+        [$dovuta] = $this->makeAspiranteAgente();
+        $this->actingAs($this->superAdmin)->get("/admin/users/{$dovuta->id}")
+            ->assertOk()->assertSee('Esonera dalla quota');
+
+        // Esonerata.
+        app(AgentCodeFeeService::class)->waive($dovuta->fresh(), $this->superAdmin, 'Accordo commerciale.');
+        $this->actingAs($this->superAdmin)->get("/admin/users/{$dovuta->id}")
+            ->assertOk()->assertSee('Revoca l\'esonero', false);
+
+        // Pagata.
+        [$pagata] = $this->makeAspiranteAgente(fido: self::QUOTA);
+        app(AgentCodeFeeService::class)->payWithKy($pagata);
+        $this->actingAs($this->superAdmin)->get("/admin/users/{$pagata->id}")
+            ->assertOk()->assertSee('Quote codice agente');
+
+        // E chi non c'entra niente col percorso agente non vede la sezione.
+        [$estraneo] = $this->makePrivate(0);
+        $this->actingAs($this->superAdmin)->get("/admin/users/{$estraneo->id}")
+            ->assertOk()->assertDontSee('Esonera dalla quota');
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     /**
