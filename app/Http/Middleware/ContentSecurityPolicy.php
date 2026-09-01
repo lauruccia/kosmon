@@ -111,7 +111,18 @@ class ContentSecurityPolicy
             "frame-ancestors 'none'",
             "object-src 'none'",
             "base-uri 'self'",
-            "form-action 'self'",
+            // form-action NON e' solo "dove si puo' inviare un form": vale su
+            // TUTTA la catena di redirect che l'invio innesca. Con 'self' da
+            // solo, il POST arrivava al nostro server, il server rispondeva
+            // "302 vai su checkout.stripe.com" e il browser BLOCCAVA quel
+            // salto in silenzio — nessun errore a video, niente nei log del
+            // server, la pagina che resta li' ferma. E' cosi' che il
+            // pagamento con carta non e' mai partito, ne' per la quota di
+            // iscrizione ne' per la ricarica KYCard (01/09/2026: sessione
+            // Stripe creata regolarmente, browser che non ci arrivava mai).
+            // Qui vanno elencate le destinazioni verso cui un NOSTRO form
+            // puo' portare l'utente, e sono solo quelle dell'incasso.
+            "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
             "upgrade-insecure-requests",
         ];
 
