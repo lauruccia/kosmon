@@ -50,8 +50,10 @@ class AdminController extends Controller
      * dalla pagina Movimenti: vedi deleteTransferWithCascade().
      *
      * Il valore e' il messaggio da dare all'admin, e sono due diversi perche'
-     * la situazione e' diversa: la quota dei privati si annulla per bene dalla
-     * sua pagina, quella del codice agente per ora si puo' solo non rompere.
+     * le due pagine si chiamano in modo diverso: dal 01/09/2026 ENTRAMBE le
+     * quote si annullano per bene dalla loro pagina, e il messaggio manda
+     * li'. Un messaggio che manda a un bottone inesistente e' peggio del
+     * blocco: e' quello che diceva questa riga fino a stamattina.
      *
      * @var array<string, string>
      */
@@ -65,7 +67,7 @@ class AdminController extends Controller
 
     private const MESSAGGI_QUOTA = [
         'quota_privati' => "Questo è il movimento di una quota di iscrizione: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata. Annullala da Quote di iscrizione, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
-        'quota_agente'  => "Questo è il movimento della quota per il codice agente e non si elimina da qui: cancellarlo restituirebbe i KY lasciando la quota segnata come pagata e il codice agente attivo.",
+        'quota_agente'  => "Questo è il movimento della quota per il codice agente: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata e il codice agente attivo. Annullala da Quote codice agente, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
     ];
     private const REFUND_WINDOW_DAYS = 30;
     private const USERS_PER_PAGE = 25;

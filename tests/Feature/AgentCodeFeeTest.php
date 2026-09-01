@@ -368,20 +368,438 @@ class AgentCodeFeeTest extends TestCase
         $this->actingAs($dopo)->get('/invia')->assertOk();
     }
 
-    public function test_chi_ha_gia_pagato_non_puo_rinunciare_per_farsi_annullare_la_quota(): void
+    /**
+     * DECISIONE DI LAURA, 01/09/2026 (cambia la regola del 31/08). Prima chi
+     * aveva pagato non poteva rinunciare: restava legato a un percorso che
+     * non voleva piu' e senza nessun bottone. Ora la richiesta si chiude, ma
+     * IL DENARO NON SI MUOVE — nessuno storno, quota ancora saldata. Se va
+     * restituita, e' l'admin ad annullarla.
+     */
+    public function test_chi_ha_gia_pagato_puo_rinunciare_ma_i_soldi_non_si_muovono(): void
     {
         $this->makeSystemAccount(0);
         $this->attivaQuota();
-        [$aspirante] = $this->makeAspiranteAgente();
+        [$aspirante, $conto] = $this->makeAspiranteAgente(fido: self::QUOTA);
 
         app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        $saldoPrima     = (int) $conto->fresh()->available_balance;
+        $movimentiPrima = Transfer::count();
 
         $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia')
             ->assertRedirect(route('portal.dashboard'));
 
-        // La richiesta resta approvata: i soldi sono usciti, non si torna indietro
-        // da soli con un bottone.
-        $this->assertTrue($aspirante->fresh()->mlmAgentAwaitingContract());
+        $dopo = $aspirante->fresh();
+
+        // Il percorso agente e' chiuso...
+        $this->assertSame('cancelled', $dopo->mlm_agent_request_status);
+        $this->assertFalse($dopo->mlmAgentAwaitingContract());
+        $this->assertTrue($dopo->canRequestMlmAgent());
+
+        // ...ma la quota resta pagata e nessun KY e' tornato indietro.
+        $this->assertNotNull($dopo->agent_code_fee_paid_at);
+        $this->assertSame(self::QUOTA, (int) $dopo->agent_code_fee_due_cents);
+        $this->assertSame($saldoPrima, (int) $conto->fresh()->available_balance);
+        $this->assertSame($movimentiPrima, Transfer::count());
+    }
+
+    public function test_chi_ha_gia_firmato_non_rinuncia_da_qui(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+        $aspirante->fresh()->forceFill(['mlm_role' => 'agente', 'mlm_activated_at' => now()])->save();
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia');
+
+        // Resta agente: la revoca di un agente e' un altro mestiere.
+        $this->assertTrue($aspirante->fresh()->isMlmAgent());
+        $this->assertNotSame('cancelled', $aspirante->fresh()->mlm_agent_request_status);
+    }
+
+    public function test_anche_l_esonerato_puo_rinunciare(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->waive($aspirante, $this->superAdmin, 'Accordo commerciale.');
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia')
+            ->assertRedirect(route('portal.dashboard'));
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame('cancelled', $dopo->mlm_agent_request_status);
+        // Non avendo pagato niente, il debito sparisce del tutto: lo zero
+        // dell'esonero non deve restare li' a coprire una richiesta futura.
+        $this->assertNull($dopo->agent_code_fee_due_cents);
+    }
+
+    // ─── 5-bis. Annullamento della quota dal backoffice (01/09/2026) ────────
+
+    public function test_annullare_una_quota_pagata_in_ky_storna_e_rimette_tutto_a_posto(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        $pagamento = app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        $this->assertSame(-self::QUOTA, (int) $conto->fresh()->available_balance);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla", ['admin_notes' => 'Rimborso concordato.'])
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(self::QUOTA, (int) $dopo->agent_code_fee_due_cents);
+        $this->assertNull($dopo->agent_code_fee_paid_at);
+        $this->assertSame(0, (int) $dopo->agent_code_fee_ky_allowance_cents);
+        $this->assertSame(AgentCodeFeePayment::STATUS_CANCELLED, $pagamento->fresh()->status);
+        $this->assertSame(1, Transfer::where('kind', 'agent_code_fee_reversal')->count());
+
+        // E il blocco e' tornato: senza quota non si firma.
+        $this->actingAs($dopo)->get('/mlm/contratto-agente')
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    /**
+     * Il pezzo che si sbaglia facilmente: chi si e' visto cancellare il
+     * movimento a mano i KY li ha GIA' riavuti. Stornare in base allo stato
+     * del pagamento glieli regalerebbe una seconda volta.
+     */
+    public function test_se_il_movimento_non_c_e_piu_non_si_storna_due_volte(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        $pagamento = app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        // Il movimento sparisce (e i KY erano gia' tornati con lui).
+        Transfer::whereKey($pagamento->fresh()->transfer_id)->delete();
+        $conto->fresh()->forceFill(['available_balance' => 0])->save();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        $this->assertSame(0, Transfer::where('kind', 'agent_code_fee_reversal')->count());
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    /**
+     * Il movimento c'e' ancora ma non e' piu' contabilizzato (`booked`): i
+     * conti sono gia' stati rimessi a posto da qualcun altro. Il filtro sullo
+     * stato serve a questo, e senza un test che lo esercita si potrebbe
+     * togliere senza che niente diventi rosso.
+     */
+    public function test_un_movimento_non_piu_contabilizzato_non_si_storna(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        $pagamento = app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        Transfer::whereKey($pagamento->fresh()->transfer_id)->update(['status' => 'reversed']);
+        $conto->fresh()->forceFill(['available_balance' => 0])->save();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        $this->assertSame(0, Transfer::where('kind', 'agent_code_fee_reversal')->count());
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+    }
+
+    /**
+     * Se la colonna e' a zero — un esonero scritto sopra un pagamento, una
+     * riparazione a mano — l'annullamento deve rimettere in carico l'importo
+     * DEL PAGAMENTO, non lasciare lo zero: con lo zero la quota risulterebbe
+     * annullata e non dovuta insieme, cioe' un modo gratis di restare dentro.
+     */
+    public function test_annullare_con_la_colonna_azzerata_rimette_in_carico_l_importo_del_pagamento(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        $pagamento = app(AgentCodeFeeService::class)->payWithKy($aspirante);
+        $aspirante->fresh()->forceFill(['agent_code_fee_due_cents' => 0])->save();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+        $this->assertTrue(app(AgentCodeFeeService::class)->isDueFor($aspirante->fresh()));
+    }
+
+    public function test_annullare_una_quota_pagata_in_euro_non_storna_niente_ma_la_rimette_dovuta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = app(AgentCodeFeeService::class)->startPayment($aspirante, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagamento, $this->superAdmin->id);
+
+        $movimentiPrima = Transfer::count();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        // In euro non era stato accreditato nessun KY: non c'e' niente da
+        // stornare, e i soldi veri restano da restituire a mano.
+        $this->assertSame($movimentiPrima, Transfer::count());
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+        $this->assertSame(AgentCodeFeePayment::STATUS_CANCELLED, $pagamento->fresh()->status);
+    }
+
+    public function test_una_quota_annullata_non_si_annulla_due_volte(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = app(AgentCodeFeeService::class)->startPayment($aspirante, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagamento, $this->superAdmin->id);
+
+        $this->actingAs($this->superAdmin)->post("/admin/quote-codice-agente/{$pagamento->id}/annulla");
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertSessionHas('portal_error');
+    }
+
+    public function test_un_pagamento_mai_saldato_non_si_annulla(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = app(AgentCodeFeeService::class)->startPayment($aspirante, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/quote-codice-agente/{$pagamento->id}/annulla")
+            ->assertSessionHas('portal_error');
+
+        $this->assertSame(AgentCodeFeePayment::STATUS_PENDING_BANK_TRANSFER, $pagamento->fresh()->status);
+    }
+
+    // ─── 5-ter. Esonero (01/09/2026) ────────────────────────────────────────
+
+    public function test_l_esonero_azzera_la_quota_e_lascia_firmare_senza_pagare(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$aspirante->id}/quota-codice-agente/esonera", ['reason' => 'Accordo commerciale con il fondatore.'])
+            ->assertSessionHasNoErrors();
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame(0, (int) $dopo->agent_code_fee_due_cents);
+        $this->assertNull($dopo->agent_code_fee_paid_at);
+        $this->assertFalse(app(AgentCodeFeeService::class)->isDueFor($dopo));
+        $this->assertTrue(app(AgentCodeFeeService::class)->isWaived($dopo));
+
+        // NESSUN pagamento finto: 480 euro mai entrati non devono comparire
+        // fra gli incassi.
+        $this->assertSame(0, AgentCodeFeePayment::where('user_id', $dopo->id)->count());
+
+        $this->actingAs($dopo)->get('/mlm/contratto-agente')->assertOk();
+    }
+
+    public function test_l_esonero_senza_motivo_non_passa(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$aspirante->id}/quota-codice-agente/esonera", ['reason' => ''])
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+    }
+
+    public function test_non_si_esonera_chi_ha_gia_pagato(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$aspirante->id}/quota-codice-agente/esonera", ['reason' => 'Ci ho ripensato.'])
+            ->assertSessionHas('portal_error');
+
+        $this->assertNotNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    public function test_non_si_esonera_chi_non_e_mai_entrato_nel_percorso(): void
+    {
+        $this->attivaQuota();
+        [$privato] = $this->makePrivate(0);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$privato->id}/quota-codice-agente/esonera", ['reason' => 'Motivo qualsiasi.'])
+            ->assertSessionHas('portal_error');
+
+        $this->assertNull($privato->fresh()->agent_code_fee_due_cents);
+
+        // IL MESSAGGIO, non solo il rifiuto: senza questa riga la guardia
+        // «non e' nel percorso» e' indistinguibile da quella «e' gia'
+        // esonerato» — (int) null fa zero, e la seconda coprirebbe la prima
+        // dicendo all'admin una cosa falsa.
+        $this->assertStringContainsString('Non ha nessuna quota', (string) session('portal_error'));
+    }
+
+    /**
+     * La revoca rimette in carico L'IMPORTO DI PRIMA, non quello di oggi in
+     * impostazioni: dopo lo zero, l'unico posto dove quella cifra e' rimasta
+     * scritta e' l'audit log dell'esonero.
+     */
+    public function test_la_revoca_dell_esonero_rimette_in_carico_l_importo_di_prima(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->waive($aspirante->fresh(), $this->superAdmin, 'Accordo commerciale.');
+
+        // Nel frattempo la quota in impostazioni cambia.
+        $this->attivaQuota(importo: 60000);
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$aspirante->id}/quota-codice-agente/revoca-esonero")
+            ->assertSessionHasNoErrors();
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame(self::QUOTA, (int) $dopo->agent_code_fee_due_cents);
+        $this->assertTrue(app(AgentCodeFeeService::class)->isDueFor($dopo));
+
+        $this->actingAs($dopo)->get('/mlm/contratto-agente')
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    public function test_l_esonero_non_si_revoca_dopo_la_firma(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->waive($aspirante->fresh(), $this->superAdmin, 'Accordo commerciale.');
+        $aspirante->fresh()->forceFill(['mlm_role' => 'agente', 'mlm_activated_at' => now()])->save();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/users/{$aspirante->id}/quota-codice-agente/revoca-esonero")
+            ->assertSessionHas('portal_error');
+
+        $this->assertSame(0, (int) $aspirante->fresh()->agent_code_fee_due_cents);
+    }
+
+    // ─── 5-quater. Il rifiuto dell'admin ────────────────────────────────────
+
+    public function test_il_rifiuto_cancella_il_debito_non_pagato(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/mlm/richieste/{$aspirante->id}/rifiuta", ['reason' => 'Documenti incompleti.'])
+            ->assertRedirect();
+
+        $this->assertNull($aspirante->fresh()->agent_code_fee_due_cents);
+    }
+
+    public function test_il_rifiuto_a_quota_gia_pagata_non_tocca_i_soldi_e_lo_dice(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+        $saldoPrima = (int) $conto->fresh()->available_balance;
+
+        $this->actingAs($this->superAdmin)
+            ->post("/admin/mlm/richieste/{$aspirante->id}/rifiuta", ['reason' => 'Documenti incompleti.'])
+            ->assertRedirect();
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame('rejected', $dopo->mlm_agent_request_status);
+        $this->assertNotNull($dopo->agent_code_fee_paid_at);
+        $this->assertSame($saldoPrima, (int) $conto->fresh()->available_balance);
+
+        // L'avviso: chi rifiuta deve sapere ADESSO che ci sono soldi fermi.
+        $this->assertStringContainsString(
+            'aveva già saldato',
+            (string) session('portal_success')
+        );
+    }
+
+    // ─── 5-quinquies. Il webhook Stripe (01/09/2026) ────────────────────────
+
+    /**
+     * Il bug che Laura ha chiesto di chiudere: una riga finita `failed`
+     * veniva saltata dal webhook, e chi aveva pagato restava senza niente per
+     * sempre. Ora la porta e' aperta, ma solo se Stripe conferma l'incasso.
+     */
+    public function test_il_webhook_ripesca_una_quota_agente_finita_failed(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(true);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+
+        $this->postWebhookStripe($pagamento->stripe_checkout_session_id)->assertOk();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertNotNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    public function test_senza_la_prova_di_stripe_il_webhook_non_salda_niente(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(false);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+
+        $this->postWebhookStripe($pagamento->stripe_checkout_session_id)->assertOk();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    /**
+     * L'altra meta' della tolleranza: `cancelled` e' una risposta gia' data.
+     * Un webhook in ritardo non deve riaprire una quota che l'admin ha
+     * annullato apposta.
+     */
+    public function test_il_webhook_non_resuscita_una_quota_annullata(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(true);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+        $pagamento->update(['status' => AgentCodeFeePayment::STATUS_CANCELLED]);
+
+        $this->postWebhookStripe($pagamento->stripe_checkout_session_id)->assertOk();
+
+        $this->assertSame(AgentCodeFeePayment::STATUS_CANCELLED, $pagamento->fresh()->status);
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
     }
 
     // ─── 6. Impostazioni admin ──────────────────────────────────────────────
@@ -431,6 +849,82 @@ class AgentCodeFeeTest extends TestCase
     }
 
     // ─── Aiutanti ───────────────────────────────────────────────────────────
+
+    /**
+     * Sostituisce il verificatore di Stripe con uno che risponde quello che
+     * serve al test: e' l'unico modo di provare che il ripescaggio accredita
+     * SOLO quando la prova c'e', senza chiamare i server di Stripe.
+     */
+    private function fingiStripe(bool $pagata): void
+    {
+        $this->instance(
+            \App\Services\StripeCheckoutVerifier::class,
+            new class($pagata) extends \App\Services\StripeCheckoutVerifier {
+                public function __construct(private readonly bool $pagata) {}
+
+                public function isPaidFor(?string $storedSessionId, int $expectedAmountCents, string $expectedReference, string $context = 'stripe'): bool
+                {
+                    return $this->pagata;
+                }
+
+                public function sessionMatches(object $session, int $expectedAmountCents, string $expectedReference, string $context = 'stripe'): bool
+                {
+                    return $this->pagata;
+                }
+            }
+        );
+    }
+
+    /** Una riga in euro finita male: quella che il webhook deve poter riaprire. */
+    private function pagamentoAgenteFallito(User $utente): AgentCodeFeePayment
+    {
+        return AgentCodeFeePayment::create([
+            'user_id'                    => $utente->id,
+            'amount_eur_cents'           => self::QUOTA,
+            'ky_amount'                  => self::QUOTA,
+            'status'                     => AgentCodeFeePayment::STATUS_FAILED,
+            'payment_method'             => AgentCodeFeePayment::METHOD_STRIPE,
+            'stripe_checkout_session_id' => 'cs_test_' . Str::random(16),
+            'admin_notes'                => 'Accredito non riuscito.',
+        ]);
+    }
+
+    /**
+     * Il webhook vero, firma compresa: la firma la controlla la libreria di
+     * Stripe prima ancora di guardare il contenuto, quindi un test che non la
+     * calcola non entra nemmeno nel metodo.
+     */
+    private function postWebhookStripe(string $sessionId): \Illuminate\Testing\TestResponse
+    {
+        config([
+            'services.stripe.secret'         => 'sk_test_finta',
+            'services.stripe.webhook_secret' => 'whsec_test_finta',
+        ]);
+
+        $payload = json_encode([
+            'id'   => 'evt_' . Str::random(12),
+            'type' => 'checkout.session.completed',
+            'data' => ['object' => [
+                'id'             => $sessionId,
+                'object'         => 'checkout.session',
+                'payment_intent' => 'pi_' . Str::random(12),
+                'amount_total'   => self::QUOTA,
+            ]],
+        ], JSON_THROW_ON_ERROR);
+
+        $t    = time();
+        $firma = hash_hmac('sha256', $t . '.' . $payload, 'whsec_test_finta');
+
+        return $this->call(
+            'POST',
+            '/stripe/webhook',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_STRIPE_SIGNATURE' => 't=' . $t . ',v1=' . $firma],
+            $payload
+        );
+    }
 
     private function attivaQuota(bool $attiva = true, int $importo = self::QUOTA): void
     {

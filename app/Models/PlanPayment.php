@@ -65,6 +65,10 @@ class PlanPayment extends Model
     public function isPendingBankTransfer(): bool { return $this->status === 'pending_bank_transfer'; }
     public function isCompleted(): bool { return $this->status === 'completed'; }
     public function isFailed(): bool { return $this->status === 'failed'; }
+    /** Annullato: lo schema della tabella lo prevede, oggi nessun codice lo
+     *  scrive. La guardia c'e' lo stesso, perche' il giorno che qualcuno
+     *  scrivera' 'cancelled' un webhook in ritardo non deve resuscitarlo. */
+    public function isCancelled(): bool { return $this->status === 'cancelled'; }
     public function isAwaitingPayment(): bool { return in_array($this->status, ['pending', 'pending_bank_transfer'], true); }
 
     /** Causale univoca per il bonifico. */

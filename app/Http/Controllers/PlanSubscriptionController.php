@@ -282,7 +282,12 @@ class PlanSubscriptionController extends Controller
         // Stessa regola della ricarica KYCard: la sessione da verificare e'
         // quella salvata sul pagamento, non quella nell'indirizzo.
         // Vedi StripeCheckoutVerifier.
-        if ($payment->isPending() && $payment->payment_method === 'stripe') {
+        // NB (01/09/2026): non `isPending()` ma "non e' ne' chiusa ne'
+        // disfatta". Una riga finita `failed` — accredito andato storto, o
+        // tentativo dato per abbandonato — deve poter essere ancora
+        // accreditata se Stripe dice che l'incasso c'e' stato. La prova la da'
+        // StripeCheckoutVerifier, non lo stato della riga.
+        if (! $payment->isCompleted() && ! $payment->isCancelled() && $payment->payment_method === 'stripe') {
             $pagata = app(\App\Services\StripeCheckoutVerifier::class)->isPaidFor(
                 $payment->stripe_checkout_session_id,
                 (int) $payment->amount_cents,

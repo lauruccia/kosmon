@@ -149,6 +149,19 @@
                                             <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Rifiuta</button>
                                         </form>
                                     </div>
+                                @elseif($payment->isCompleted())
+                                    {{-- Due avvisi diversi, perche' le due strade non si disfano
+                                         allo stesso modo: in KY lo storno rimette tutto a posto da
+                                         solo, in euro i 480 restano incassati su Stripe o PayPal e
+                                         il rimborso lo deve fare una persona. In piu' un terzo
+                                         avviso se ha gia' firmato: li' il codice agente ce l'ha
+                                         gia' in mano e la quota gli torna addosso da pagare. --}}
+                                    <form method="POST" action="{{ route('admin.agent-code-fees.cancel', $payment) }}"
+                                          onsubmit="return confirm('@if($payment->isPaidInEuro())Annullare questa quota? Torna da saldare e l\'agente non potra\' firmare finche\' non la paga.\n\nATTENZIONE: i {{ number_format($payment->amount_eur, 2, ',', '.') }} euro incassati NON vengono rimborsati da qui — in euro non era stato accreditato nessun KY, quindi non c\'e\' niente da stornare. Il rimborso va disposto a mano dal pannello {{ $payment->payment_method === \App\Models\AgentCodeFeePayment::METHOD_BANK_TRANSFER ? 'della banca' : ucfirst($payment->payment_method) }}.@else Annullare questa quota? Il movimento viene stornato: {{ ky_format($payment->ky_amount) }} KY tornano sul suo conto, la quota torna da saldare e il fido aggiuntivo viene tolto.\n\nSe quei KY li ha gia\' spesi, lo storno porta il suo conto sotto il fido.@endif@if($payment->user?->isMlmAgent())\n\nHA GIA\' FIRMATO LA NOMINA: resta agente, con il codice attivo, e la quota gli torna addosso da pagare.@endif');">
+                                        @csrf
+                                        <input type="hidden" name="admin_notes" value="Quota annullata dal backoffice.">
+                                        <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Annulla quota</button>
+                                    </form>
                                 @else
                                     <span class="table-muted">—</span>
                                 @endif

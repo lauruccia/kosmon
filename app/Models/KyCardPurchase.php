@@ -90,6 +90,8 @@ class KyCardPurchase extends Model
     public function isPendingBankTransfer(): bool { return $this->status === 'pending_bank_transfer'; }
     public function isCompleted(): bool          { return $this->status === 'completed'; }
     public function isFailed(): bool             { return $this->status === 'failed'; }
+    /** Gia' rimborsata: non si riaccredita, qualunque cosa dica Stripe. */
+    public function isRefunded(): bool           { return $this->status === 'refunded'; }
     public function isAwaitingPayment(): bool    { return in_array($this->status, ['pending', 'pending_bank_transfer']); }
 
     /** Causale univoca per il bonifico */

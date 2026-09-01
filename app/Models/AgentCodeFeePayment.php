@@ -50,6 +50,8 @@ class AgentCodeFeePayment extends Model
     public const STATUS_PENDING_BANK_TRANSFER = 'pending_bank_transfer';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_FAILED = 'failed';
+    /** Annullata dal backoffice: AgentCodeFeeService::cancel() (01/09/2026). */
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
         'uuid', 'user_id', 'account_id',
@@ -97,6 +99,11 @@ class AgentCodeFeePayment extends Model
     public function isCompleted(): bool
     {
         return $this->status === self::STATUS_COMPLETED;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
     }
 
     public function isPending(): bool

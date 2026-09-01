@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\TalksToPayPal;
 use App\Models\AgentCodeFeePayment;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Services\AgentCodeFeeService;
 use App\Services\StripeCheckoutVerifier;
 use Illuminate\Http\JsonResponse;
@@ -232,7 +233,12 @@ class AgentCodeFeeController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
-        if ($payment->isPending() && $payment->payment_method === AgentCodeFeePayment::METHOD_STRIPE) {
+        // NB (01/09/2026): non `isPending()` ma "non e' ne' chiusa ne'
+        // disfatta". Una riga finita `failed` — accredito andato storto, o
+        // tentativo dato per abbandonato — deve poter essere ancora
+        // accreditata se Stripe dice che l'incasso c'e' stato. La prova la da'
+        // StripeCheckoutVerifier, non lo stato della riga.
+        if (! $payment->isCompleted() && ! $payment->isCancelled() && $payment->payment_method === AgentCodeFeePayment::METHOD_STRIPE) {
             $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
                 $payment->stripe_checkout_session_id,
                 (int) $payment->amount_eur_cents,
@@ -338,6 +344,81 @@ class AgentCodeFeeController extends Controller
 
         return redirect()->route('admin.agent-code-fees.index')
             ->with('portal_success', 'Bonifico confermato: l\'agente può ora firmare il contratto di nomina.');
+    }
+
+    /**
+     * Annulla una quota gia' saldata: storno (solo in KY, e solo se il
+     * movimento c'e' ancora), quota di nuovo dovuta, fido aggiuntivo tolto.
+     * Vive qui e non nella cancellazione dei movimenti perche' quella
+     * ripristina i saldi e nient'altro — vedi AgentCodeFeeService::cancel().
+     */
+    public function adminCancel(Request $request, AgentCodeFeePayment $payment): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $validated = $request->validate([
+            'admin_notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $inEuro = $payment->isPaidInEuro();
+
+        try {
+            $this->fees->cancel(
+                $payment,
+                $request->user(),
+                $validated['admin_notes'] ?? null,
+                $request->ip(),
+            );
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.agent-code-fees.index')->with('portal_error', $e->getMessage());
+        }
+
+        // Due messaggi diversi perche' sono due situazioni diverse, e la
+        // seconda lascia una cosa da fare a mano: dirlo qui e' l'unico
+        // momento in cui chi ha annullato ci sta pensando.
+        return redirect()->route('admin.agent-code-fees.index')->with(
+            'portal_success',
+            $inEuro
+                ? 'Quota annullata: è di nuovo da saldare. Il pagamento era in euro, quindi NESSUN rimborso è partito: se va restituito, va disposto a mano su Stripe/PayPal o con un bonifico.'
+                : 'Quota annullata: movimento stornato, quota di nuovo da saldare e fido aggiuntivo rimosso.'
+        );
+    }
+
+    /**
+     * ESONERO: "questo agente non paga". Azzera la quota senza muovere
+     * denaro e senza scrivere un pagamento che non c'e' stato.
+     */
+    public function adminWaive(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ], [], ['reason' => 'motivo']);
+
+        try {
+            $this->fees->waive($user, $request->user(), $validated['reason'], $request->ip());
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.users.show', $user)->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('portal_success', $user->name . ' è esonerato dalla quota per il codice agente: può firmare il contratto di nomina senza pagare. È stato avvisato.');
+    }
+
+    /** Revoca dell'esonero: la quota torna dovuta. Solo prima della firma. */
+    public function adminRevokeWaiver(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        try {
+            $importo = $this->fees->revokeWaiver($user, $request->user(), $request->ip());
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.users.show', $user)->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('portal_success', 'Esonero revocato: ' . $user->name . ' deve di nuovo saldare ' . number_format($importo / 100, 2, ',', '.') . ' € prima di firmare.');
     }
 
     public function adminRejectBankTransfer(Request $request, AgentCodeFeePayment $payment): RedirectResponse

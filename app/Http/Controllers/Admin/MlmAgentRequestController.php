@@ -87,6 +87,13 @@ class MlmAgentRequestController extends Controller
             'reason' => ['required', 'string', 'min:5', 'max:1000'],
         ], [], ['reason' => 'motivo']);
 
+        // PRIMA di toccare qualsiasi cosa: aveva gia' pagato i 480? Il rifiuto
+        // non ci mette le mani — sono soldi veri incassati, e restituirli e'
+        // una decisione, non un effetto collaterale di un click su "Rifiuta"
+        // (scelta di Laura, 01/09/2026). Ma chi rifiuta lo deve sapere adesso,
+        // mentre ci sta pensando, non fra un mese leggendo una tabella.
+        $quotaGiaPagata = app(\App\Services\AgentCodeFeeService::class)->hasPaid($user);
+
         $user->forceFill([
             'mlm_agent_request_status'   => 'rejected',
             'mlm_agent_reviewed_at'      => now(),
@@ -111,10 +118,16 @@ class MlmAgentRequestController extends Controller
             'event'          => 'mlm.agent_request.rejected',
             'auditable_type' => User::class,
             'auditable_id'   => $user->id,
-            'context'        => ['reason' => $validated['reason']],
+            'context'        => ['reason' => $validated['reason'], 'quota_gia_pagata' => $quotaGiaPagata],
         ]);
 
-        return back()->with('portal_success', 'Richiesta rifiutata. ' . $user->name . ' è stato avvisato.');
+        $messaggio = 'Richiesta rifiutata. ' . $user->name . ' è stato avvisato.';
+
+        if ($quotaGiaPagata) {
+            $messaggio .= ' ATTENZIONE: aveva già saldato la quota per il codice agente e quei soldi NON sono stati toccati. Se vanno restituiti, annulla la quota da Quote codice agente.';
+        }
+
+        return back()->with('portal_success', $messaggio);
     }
 
     /**

@@ -314,7 +314,12 @@ class KyCardController extends PortalController
         // gia' pagato, incollato su acquisti nuovi, accreditava KY all'infinito).
         // Accredita solo se la sessione risulta pagata, riferita a questo
         // acquisto e dell'importo esatto.
-        if ($purchase->isPending() && $purchase->payment_method === 'stripe') {
+        // NB (01/09/2026): non `isPending()` ma "non e' ne' chiusa ne'
+        // disfatta". Una riga finita `failed` — accredito andato storto, o
+        // tentativo dato per abbandonato — deve poter essere ancora
+        // accreditata se Stripe dice che l'incasso c'e' stato. La prova la da'
+        // StripeCheckoutVerifier, non lo stato della riga.
+        if (! $purchase->isCompleted() && ! $purchase->isRefunded() && $purchase->payment_method === 'stripe') {
             $pagata = app(\App\Services\StripeCheckoutVerifier::class)->isPaidFor(
                 $purchase->stripe_checkout_session_id,
                 (int) $purchase->price_eur_cents,
@@ -364,8 +369,22 @@ class KyCardController extends PortalController
 
             $verifier = app(\App\Services\StripeCheckoutVerifier::class);
 
+            // NB (01/09/2026): la stessa tolleranza gia' adottata per la quota
+            // di iscrizione vale ora per TUTTI E QUATTRO gli incassi di questo
+            // endpoint. Non si guarda piu' `isPending()` ma "non e' ne' chiusa
+            // ne' rimborsata": una riga finita `failed` — accredito andato
+            // storto, o tentativo dato per abbandonato — veniva saltata, e chi
+            // aveva pagato restava senza niente per sempre.
+            //
+            // NON E' UN ALLENTAMENTO DELLA DIFESA: a decidere resta
+            // `sessionMatches()`, che chiede a Stripe se quella sessione e'
+            // stata davvero incassata, dell'importo esatto e per QUESTO
+            // pagamento. Senza quella prova non si accredita niente, qualunque
+            // sia lo stato della riga. Cio' che lo stato ancora vieta e' il
+            // caso in cui la risposta e' gia' stata data: `completed` (fatto)
+            // e `refunded` (disfatto apposta).
             $purchase = KyCardPurchase::where('stripe_checkout_session_id', $session->id)->first();
-            if ($purchase && $purchase->isPending()) {
+            if ($purchase && ! $purchase->isCompleted() && ! $purchase->isRefunded()) {
                 $purchase->update(['stripe_payment_intent_id' => $session->payment_intent]);
 
                 // checkout.session.completed puo' arrivare anche NON pagata
@@ -379,8 +398,9 @@ class KyCardController extends PortalController
             // Stesso endpoint webhook condiviso anche per gli upgrade piano
             // (vedi PlanSubscriptionController::stripeCheckout) — un unico
             // endpoint Stripe da configurare per tutto il circuito.
+            // Stessa tolleranza (01/09/2026).
             $planPayment = \App\Models\PlanPayment::where('stripe_checkout_session_id', $session->id)->first();
-            if ($planPayment && $planPayment->isPending()) {
+            if ($planPayment && ! $planPayment->isCompleted() && ! $planPayment->isCancelled()) {
                 $planPayment->update(['stripe_payment_intent_id' => $session->payment_intent]);
 
                 if ($verifier->sessionMatches($session, (int) $planPayment->amount_cents, $planPayment->uuid, 'plan-webhook:' . $planPayment->uuid)) {
@@ -415,7 +435,7 @@ class KyCardController extends PortalController
 
             // Quarto incasso: la quota per il codice agente (31/08/2026).
             $agentFee = \App\Models\AgentCodeFeePayment::where('stripe_checkout_session_id', $session->id)->first();
-            if ($agentFee && $agentFee->isPending()) {
+            if ($agentFee && ! $agentFee->isCompleted() && ! $agentFee->isCancelled()) {
                 $agentFee->update(['stripe_payment_intent_id' => $session->payment_intent]);
 
                 if ($verifier->sessionMatches($session, (int) $agentFee->amount_eur_cents, $agentFee->uuid, 'agentcode-webhook:' . $agentFee->uuid)) {

@@ -323,6 +323,71 @@
     </section>
     @endif
 
+    {{-- Quota per il codice agente (01/09/2026): l'esonero e la sua revoca.
+         Stessa scelta della quota privati — sta nella scheda dell'utente,
+         perche' "questo non paga" e' un atto con un nome sopra. Compare solo
+         se la quota lo riguarda davvero: chi non e' mai entrato nel percorso
+         agente ha la colonna a NULL e non vede niente. --}}
+    @if($userRecord->agent_code_fee_due_cents !== null || $userRecord->agent_code_fee_paid_at !== null)
+    <section class="card light-card" id="user-agent-code-fee" style="margin-bottom:22px;">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Percorso agente</span>
+                <h3 class="section-title">Quota per il codice agente</h3>
+            </div>
+            @if($userRecord->agent_code_fee_paid_at)
+                <span class="pill success">Saldata il {{ $userRecord->agent_code_fee_paid_at->format('d/m/Y') }}</span>
+            @elseif((int) $userRecord->agent_code_fee_due_cents === 0)
+                <span class="pill" style="background:rgba(37,99,235,.12);color:#1d4ed8;">Esonerato</span>
+            @else
+                <span class="pill" style="background:rgba(217,119,6,.12);color:#b45309;">Da saldare &mdash; {{ number_format(((int) $userRecord->agent_code_fee_due_cents) / 100, 2, ',', '.') }} &euro;</span>
+            @endif
+        </div>
+
+        @if($userRecord->agent_code_fee_paid_at)
+            <p class="table-muted">
+                Quota gi&agrave; pagata. Per rimetterla in carico &mdash; o per restituirla &mdash; annulla il pagamento
+                dalla pagina <a href="{{ route('admin.agent-code-fees.index') }}" style="color:var(--primary);font-weight:600;">Quote codice agente</a>.
+                Se era stata pagata in KY il movimento viene stornato; se era in euro il rimborso resta da disporre a mano.
+            </p>
+        @elseif((int) $userRecord->agent_code_fee_due_cents === 0)
+            <p class="table-muted" style="margin-bottom:12px;">
+                Esonerato dalla quota: pu&ograve; firmare il contratto di nomina senza pagare nulla.
+                Nessun euro e nessun KY si sono mossi &mdash; il motivo dell'esonero &egrave; nel registro attivit&agrave;.
+            </p>
+            @if($userRecord->isMlmAgent())
+                <p class="table-muted">
+                    Ha gi&agrave; firmato la nomina con l'esonero: la quota non si rimette pi&ugrave; in carico da qui.
+                </p>
+            @else
+                <form method="post" action="{{ route('admin.agent-code-fees.revoke-waiver', $userRecord) }}"
+                      onsubmit="return confirm('Revocare l\'esonero? La quota torna da saldare e {{ $userRecord->name }} non potrà firmare finché non la paga. Verrà avvisato.');">
+                    @csrf
+                    <button type="submit" class="cta secondary users-compact-cta">Revoca l'esonero</button>
+                </form>
+            @endif
+        @else
+            <p class="table-muted" style="margin-bottom:12px;">
+                Deve {{ number_format(((int) $userRecord->agent_code_fee_due_cents) / 100, 2, ',', '.') }} &euro; prima di poter firmare il contratto di nomina.
+                Puoi esonerarlo: la quota va a zero, <strong>nessun pagamento viene registrato</strong> (non risulter&agrave;
+                fra gli incassi, perch&eacute; incassi non ce ne sono stati) e potr&agrave; firmare subito. Verr&agrave; avvisato.
+            </p>
+            <form method="post" action="{{ route('admin.agent-code-fees.waive', $userRecord) }}"
+                  onsubmit="return confirm('Esonerare {{ $userRecord->name }} dalla quota di {{ number_format(((int) $userRecord->agent_code_fee_due_cents) / 100, 2, ',', '.') }} €? Potrà firmare senza pagare.');"
+                  style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+                @csrf
+                <input type="text" name="reason" required minlength="5" maxlength="500"
+                       placeholder="Motivo dell'esonero (obbligatorio)"
+                       style="flex:1;min-width:260px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
+                <button type="submit" class="cta secondary users-compact-cta">Esonera dalla quota</button>
+            </form>
+            @error('reason')
+                <div class="table-muted" style="color:#b91c1c;margin-top:6px;">{{ $message }}</div>
+            @enderror
+        @endif
+    </section>
+    @endif
+
     <section class="card light-card" id="user-limits" style="margin-bottom:22px;">
         <div class="section-head">
             <div>

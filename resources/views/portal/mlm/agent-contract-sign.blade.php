@@ -298,6 +298,22 @@
             </div>
 
         </div>
+
+        {{-- Rinuncia (01/09/2026). Prima stava SOLO sulla pagina della quota,
+             cioe' spariva nel momento esatto in cui l'utente pagava: chi
+             aveva saldato — o chi era stato esonerato — si trovava fermo su
+             questa pagina senza nessun modo di dire "ho cambiato idea".
+             Qui non si muove nessun soldo: se la quota era pagata resta
+             pagata, e l'eventuale rimborso lo decide l'amministrazione. --}}
+        <div style="text-align:center;margin-top:18px;padding-bottom:10px;">
+            <form method="POST" action="{{ route('portal.mlm.agent-code-fee.give-up') }}"
+                  onsubmit="return confirm('@if(auth()->user()?->agent_code_fee_paid_at)Rinunci a diventare agente KNM?\n\nHai gia\' saldato la quota per il codice agente: rinunciando NON ti viene restituita in automatico. Se ti spetta un rimborso, lo dispone l\'amministrazione del circuito.\n\nIl tuo conto torna pienamente operativo e potrai ricandidarti quando vorrai.@else Rinunci a diventare agente KNM? Il tuo conto tornera\' pienamente operativo e potrai ricandidarti quando vorrai.@endif');">
+                @csrf
+                <button type="submit" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;text-decoration:underline;padding:6px;">
+                    Non voglio pi&ugrave; diventare agente
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 

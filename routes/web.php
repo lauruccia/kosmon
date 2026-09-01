@@ -941,6 +941,16 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/quote-codice-agente/impostazioni', [AgentCodeFeeController::class, 'adminUpdateSettings'])->name('admin.agent-code-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-codice-agente/{payment}/conferma', [AgentCodeFeeController::class, 'adminConfirmBankTransfer'])->name('admin.agent-code-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-codice-agente/{payment}/rifiuta', [AgentCodeFeeController::class, 'adminRejectBankTransfer'])->name('admin.agent-code-fees.reject')->middleware('backoffice');
+    // Annullamento di una quota gia' saldata (01/09/2026): l'unica strada,
+    // ora che i movimenti di quota non si eliminano piu' dalla pagina
+    // Movimenti — quella rimetteva a posto i saldi e lasciava la quota
+    // segnata come pagata.
+    Route::post('/admin/quote-codice-agente/{payment}/annulla', [AgentCodeFeeController::class, 'adminCancel'])->name('admin.agent-code-fees.cancel')->middleware('backoffice');
+    // Esonero e revoca: stanno sulla SCHEDA DELL'UTENTE, non su un elenco
+    // filtrato. E' la stessa scelta fatta per la richiesta della quota
+    // privati: un atto con un nome sopra, non un UPDATE di massa.
+    Route::post('/admin/users/{user}/quota-codice-agente/esonera', [AgentCodeFeeController::class, 'adminWaive'])->name('admin.agent-code-fees.waive')->middleware('backoffice');
+    Route::post('/admin/users/{user}/quota-codice-agente/revoca-esonero', [AgentCodeFeeController::class, 'adminRevokeWaiver'])->name('admin.agent-code-fees.revoke-waiver')->middleware('backoffice');
 
     // -- Card NFC fisiche (Admin) -----------------------------------------
     Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index')->middleware('backoffice');
