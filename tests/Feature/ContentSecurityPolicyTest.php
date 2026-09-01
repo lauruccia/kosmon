@@ -24,6 +24,16 @@ class ContentSecurityPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Il contenuto di una direttiva, senza il punto e virgola. */
+    private function direttiva(string $header, string $nome): string
+    {
+        preg_match('/(?:^|; )' . preg_quote($nome, '/') . ' ([^;]+)/', $header, $trovato);
+
+        $this->assertNotEmpty($trovato, "La direttiva {$nome} deve esserci nella policy.");
+
+        return $trovato[1];
+    }
+
     public function test_il_form_puo_portare_l_utente_al_checkout_di_stripe(): void
     {
         $header = $this->get('/')->headers->get('Content-Security-Policy');
@@ -50,6 +60,45 @@ class ContentSecurityPolicyTest extends TestCase
         // form manomesso, e non va barattata per far funzionare un incasso.
         $this->assertStringNotContainsString('*;', $trovato[1] . ';');
         $this->assertStringNotContainsString("'unsafe", $trovato[1]);
+    }
+
+    // ─── PayPal: la policy si allarga da sola quando lo si configura ────────
+
+    public function test_con_paypal_configurato_la_policy_lo_lascia_lavorare(): void
+    {
+        config(['services.paypal.client_id' => 'AY-client-id-di-prova']);
+
+        $header = $this->get('/')->headers->get('Content-Security-Policy');
+
+        // I quattro punti che servono, e servono TUTTI: l'SDK, gli iframe dei
+        // bottoni, le chiamate che l'SDK fa dal browser, e il redirect verso
+        // PayPal. Bloccarne uno solo lascia i bottoni a metà o li fa sparire.
+        $this->assertStringContainsString('https://www.paypal.com', $this->direttiva($header, 'script-src'));
+        $this->assertStringContainsString('https://www.paypal.com', $this->direttiva($header, 'frame-src'));
+        $this->assertStringContainsString('https://www.paypal.com', $this->direttiva($header, 'connect-src'));
+        $this->assertStringContainsString('https://www.paypal.com', $this->direttiva($header, 'form-action'));
+
+        // L'ambiente di prova di PayPal ha un host suo: senza, chi lavora in
+        // sandbox vede i bottoni e non riesce a pagare.
+        $this->assertStringContainsString('https://www.sandbox.paypal.com', $this->direttiva($header, 'frame-src'));
+
+        // E gli host che l'SDK tira dentro da solo per l'antifrode.
+        $this->assertStringContainsString('https://c.paypal.com', $this->direttiva($header, 'script-src'));
+        $this->assertStringContainsString('https://www.paypalobjects.com', $this->direttiva($header, 'script-src'));
+
+        // Stripe non deve essersi perso per strada.
+        $this->assertStringContainsString('checkout.stripe.com', $this->direttiva($header, 'form-action'));
+    }
+
+    public function test_senza_paypal_configurato_i_suoi_host_restano_fuori(): void
+    {
+        config(['services.paypal.client_id' => null]);
+
+        $header = $this->get('/')->headers->get('Content-Security-Policy');
+
+        // Elencare host che non usiamo li apre e basta: finche' il bottone
+        // PayPal non esiste, nessuna pagina ha bisogno di raggiungerli.
+        $this->assertStringNotContainsString('paypal.com', $header);
     }
 
     public function test_le_altre_difese_di_base_restano_in_piedi(): void

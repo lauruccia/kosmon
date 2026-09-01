@@ -10,7 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Aggiunge l'header Content-Security-Policy a tutte le risposte web.
  *
  * Whitelist costruita sulle dipendenze effettive:
- *  - Stripe.js (pagamenti KY Card)
+ *  - Stripe.js e checkout.stripe.com (tutti i pagamenti con carta)
+ *  - PayPal, ma SOLO se configurato: vedi buildPolicy()
  *  - Laravel Reverb (WebSocket, porta/host da config)
  *  - Sentry ingest (error monitoring)
  *  - data: URI (QR code generati inline, font embed)
@@ -100,14 +101,45 @@ class ContentSecurityPolicy
             $scriptSrc .= " 'unsafe-eval' http://localhost:* https://localhost:*";
         }
 
+        // ── PayPal ──────────────────────────────────────────────────────────
+        //
+        // Gli host di PayPal entrano nella policy SOLO se PayPal e'
+        // configurato. Non e' pignoleria: una policy elencare host che non
+        // usiamo li apre e basta, e finche' il bottone PayPal non esiste
+        // nessuna pagina ha bisogno di raggiungerli. Il giorno che si mette
+        // PAYPAL_CLIENT_ID in .env, la policy si allarga da sola e il
+        // pagamento funziona senza doversi ricordare di questo file.
+        //
+        // Perche' proprio questi quattro punti, e non solo lo script:
+        //  - script-src: l'SDK (www.paypal.com/sdk/js) piu' paypalobjects e
+        //    c.paypal.com, che l'SDK tira dentro da solo per il controllo
+        //    antifrode. Bloccarne uno lascia i bottoni a meta'.
+        //  - frame-src: i bottoni PayPal SONO iframe. Senza, non compaiono.
+        //  - connect-src: le chiamate che l'SDK fa dal browser (le nostre a
+        //    api-m.paypal.com partono dal server e non c'entrano con la CSP).
+        //  - form-action: se l'SDK decide di portare l'utente su PayPal con
+        //    un redirect invece che con la finestra, senza questo il browser
+        //    lo blocca in silenzio — la stessa cosa che ha tenuto ferma la
+        //    carta per settimane (01/09/2026).
+        $paypalAcceso = (bool) config('services.paypal.client_id');
+
+        $paypalScript = ' https://www.paypal.com https://www.paypalobjects.com https://c.paypal.com';
+        $paypalFrame  = ' https://www.paypal.com https://www.sandbox.paypal.com https://c.paypal.com';
+        $paypalFetch  = ' https://www.paypal.com https://www.sandbox.paypal.com https://c.paypal.com https://b.stats.paypal.com';
+        $paypalForm   = ' https://www.paypal.com https://www.sandbox.paypal.com';
+
+        if ($paypalAcceso) {
+            $scriptSrc .= $paypalScript;
+        }
+
         $directives = [
             "default-src 'self'",
             "script-src {$scriptSrc}",
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
             "img-src 'self' data: https:",
             "font-src 'self' data:",
-            "connect-src 'self' {$wsOrigin} https://api.stripe.com https://*.ingest.sentry.io",
-            "frame-src 'self' https://js.stripe.com https://*.stripe.com",
+            "connect-src 'self' {$wsOrigin} https://api.stripe.com https://*.ingest.sentry.io" . ($paypalAcceso ? $paypalFetch : ''),
+            "frame-src 'self' https://js.stripe.com https://*.stripe.com" . ($paypalAcceso ? $paypalFrame : ''),
             "frame-ancestors 'none'",
             "object-src 'none'",
             "base-uri 'self'",
@@ -122,7 +154,7 @@ class ContentSecurityPolicy
             // Stripe creata regolarmente, browser che non ci arrivava mai).
             // Qui vanno elencate le destinazioni verso cui un NOSTRO form
             // puo' portare l'utente, e sono solo quelle dell'incasso.
-            "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
+            "form-action 'self' https://checkout.stripe.com https://*.stripe.com" . ($paypalAcceso ? $paypalForm : ''),
             "upgrade-insecure-requests",
         ];
 
