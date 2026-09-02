@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AgentCodeFeePayment;
 use App\Models\Company;
+use App\Notifications\AgentCodeFeePaidNotification;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
@@ -954,6 +955,14 @@ class AgentCodeFeeTest extends TestCase
         [$fallita] = $this->makeAspiranteAgente();
         $this->pagamentoAgenteFallito($fallita);
 
+        // 5-bis. fallita ma pagata con BONIFICO: e' l'altro ramo del bottone
+        // di ripescaggio (02/09/2026), quello senza nessun server da
+        // interrogare. Due rami Blade diversi, e uno non compilato e' un 500
+        // che nessun test verde vede — e' gia' successo l'01/09.
+        [$fallitaBonifico] = $this->makeAspiranteAgente();
+        $this->pagamentoAgenteFallito($fallitaBonifico)
+            ->update(['payment_method' => AgentCodeFeePayment::METHOD_BANK_TRANSFER]);
+
         [$annullata] = $this->makeAspiranteAgente();
         $this->pagamentoAgenteFallito($annullata)
             ->update(['status' => AgentCodeFeePayment::STATUS_CANCELLED]);
@@ -961,7 +970,9 @@ class AgentCodeFeeTest extends TestCase
         $this->actingAs($this->superAdmin)
             ->get('/admin/quote-codice-agente')
             ->assertOk()
-            ->assertSee('Annulla quota');
+            ->assertSee('Annulla quota')
+            ->assertSee('Verifica e salda')
+            ->assertSee('Salda comunque');
     }
 
     public function test_la_scheda_utente_si_apre_con_la_quota_dovuta_esonerata_o_pagata(): void
@@ -1120,6 +1131,344 @@ class AgentCodeFeeTest extends TestCase
             'status'                     => AgentCodeFeePayment::STATUS_PENDING,
             'payment_method'             => AgentCodeFeePayment::METHOD_STRIPE,
             'stripe_checkout_session_id' => 'cs_test_' . Str::random(16),
+        ]);
+    }
+
+    // ─── 9. La ricevuta dei 480 (02/09/2026) ────────────────────────────────
+
+    /**
+     * Per tre giorni chi pagava 480 euro non riceveva niente, mentre chi ne
+     * pagava 30 riceveva la sua ricevuta dall'01/09. L'unico segnale era la
+     * pagina di esito, che si vede solo se non si chiude la scheda.
+     */
+    public function test_chi_paga_in_ky_riceve_la_ricevuta(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        Notification::assertSentTo($aspirante, AgentCodeFeePaidNotification::class);
+    }
+
+    public function test_chi_paga_in_euro_riceve_la_ricevuta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        // Riga costruita a mano e non da startPayment(): attivaQuota() lascia
+        // Stripe spento, e qui interessa la chiusura del pagamento, non i
+        // metodi accesi.
+        $pagamento = $this->checkoutAperto($aspirante);
+
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagamento);
+
+        Notification::assertSentTo($aspirante, AgentCodeFeePaidNotification::class);
+    }
+
+    /**
+     * Webhook e pagina di esito possono arrivare insieme: la seconda chiamata
+     * esce dalla transazione senza scrivere niente, e non deve mandare una
+     * seconda ricevuta. Guardare lo stato fuori dalla transazione non
+     * basterebbe — lo troverebbe saldato in tutti e due i casi.
+     */
+    public function test_la_ricevuta_non_parte_due_volte(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = $this->checkoutAperto($aspirante);
+
+        // La stessa copia in mano a due richieste diverse: e' cosi' che la
+        // corsa avviene davvero, e la guardia in cima al metodo non scatta.
+        $copia = AgentCodeFeePayment::find($pagamento->id);
+
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagamento);
+        app(AgentCodeFeeService::class)->completeEuroPayment($copia);
+
+        Notification::assertSentToTimes($aspirante, AgentCodeFeePaidNotification::class, 1);
+    }
+
+    // ─── 10. Il bonifico si riprende, non si riapre (02/09/2026) ────────────
+
+    /**
+     * La causale contiene l'uuid del pagamento. Aprirne uno nuovo a ogni visita
+     * vuol dire dare all'utente una causale diversa da quella che ha gia'
+     * scritto sul bonifico vero, e ritrovarsi tre righe `pending_bank_transfer`
+     * per la stessa persona senza sapere quale sia quella buona.
+     */
+    public function test_il_bonifico_gia_chiesto_si_riprende_invece_di_riaprirlo(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/bonifico')->assertOk();
+        $primo = AgentCodeFeePayment::where('user_id', $aspirante->id)->latest('id')->firstOrFail();
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/bonifico')->assertOk();
+
+        $this->assertSame(1, AgentCodeFeePayment::where('user_id', $aspirante->id)->count());
+        $this->assertSame(
+            $primo->bank_transfer_reference,
+            $primo->fresh()->bank_transfer_reference
+        );
+    }
+
+    public function test_la_pagina_mostra_il_bonifico_in_corso_invece_dei_bottoni(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/bonifico')->assertOk();
+        $bonifico = AgentCodeFeePayment::where('user_id', $aspirante->id)->latest('id')->firstOrFail();
+
+        $this->actingAs($aspirante->fresh())->get('/mlm/quota-codice')
+            ->assertOk()
+            ->assertSee('Hai scelto il bonifico bancario')
+            ->assertSee($bonifico->bank_transfer_reference)
+            ->assertSee('Cambia metodo di pagamento');
+    }
+
+    /**
+     * `failed` e non `cancelled`: se il bonifico arriva lo stesso, l'admin lo
+     * deve poter ancora dare per saldato. `cancelled` e' riservato alle
+     * risposte gia' date.
+     */
+    public function test_cambia_metodo_chiude_il_bonifico_e_riporta_alla_scelta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/bonifico')->assertOk();
+        $bonifico = AgentCodeFeePayment::where('user_id', $aspirante->id)->latest('id')->firstOrFail();
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/bonifico/annulla')
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+
+        $this->assertSame(AgentCodeFeePayment::STATUS_FAILED, $bonifico->fresh()->status);
+
+        $this->actingAs($aspirante->fresh())->get('/mlm/quota-codice')
+            ->assertOk()
+            ->assertDontSee('Hai scelto il bonifico bancario');
+    }
+
+    // ─── 11. PayPal: la rete di sicurezza che non c'era (02/09/2026) ────────
+
+    /**
+     * PayPal, in questo progetto, non ha nessun webhook: l'unica strada che
+     * saldava era la `capture` sincrona al ritorno. Chi chiudeva la scheda un
+     * istante prima aveva pagato 480 euro e nessun processo lo recuperava.
+     * Ora la pagina di esito CHIEDE a PayPal, come faceva gia' con Stripe.
+     */
+    public function test_la_pagina_di_esito_salda_un_pagamento_paypal_incassato(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiPayPal(true);
+
+        $pagamento = $this->pagamentoPaypalFallito($aspirante);
+
+        $this->actingAs($aspirante)->get('/mlm/quota-codice/esito/' . $pagamento->uuid)->assertOk();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertNotNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    public function test_senza_la_prova_di_paypal_la_pagina_di_esito_non_salda_niente(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiPayPal(false);
+
+        $pagamento = $this->pagamentoPaypalFallito($aspirante);
+
+        $this->actingAs($aspirante)->get('/mlm/quota-codice/esito/' . $pagamento->uuid)->assertOk();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    /** L'altra meta': una quota annullata apposta non si riapre da sola. */
+    public function test_la_pagina_di_esito_non_resuscita_una_quota_paypal_annullata(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiPayPal(true);
+
+        $pagamento = $this->pagamentoPaypalFallito($aspirante);
+        $pagamento->update(['status' => AgentCodeFeePayment::STATUS_CANCELLED]);
+
+        $this->actingAs($aspirante)->get('/mlm/quota-codice/esito/' . $pagamento->uuid)->assertOk();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    // ─── 12. Il ripescaggio dal backoffice (02/09/2026) ─────────────────────
+
+    public function test_l_admin_ripesca_una_quota_agente_finita_failed(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(true);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.agent-code-fees.retry-credit', $pagamento))
+            ->assertRedirect(route('admin.agent-code-fees.index'));
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertNotNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    public function test_senza_prova_il_ripescaggio_non_salda_niente(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(false);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.agent-code-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    /**
+     * Il bonifico non ha nessun server da interrogare: la prova e' l'admin, e
+     * dev'essere una spunta esplicita. Senza, il bottone diventa un modo per
+     * regalare il codice agente premendolo per inerzia.
+     */
+    public function test_il_bonifico_si_salda_solo_con_la_conferma_esplicita(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+        $pagamento->update(['payment_method' => AgentCodeFeePayment::METHOD_BANK_TRANSFER]);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.agent-code-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.agent-code-fees.retry-credit', $pagamento), ['bonifico_ricevuto' => '1'])
+            ->assertRedirect();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+    }
+
+    /**
+     * IL SERVIZIO SI PRENDE IL SUO TEST, e non e' un doppione di quello qui
+     * sotto: dalla rotta un pagamento in KY finisce nel ramo finale del
+     * controller e non arriva mai alla guardia del servizio — spegnendola, la
+     * suite restava verde. E' la stessa coppia di difese che si nasconde a
+     * vicenda gia' vista undici volte, e la stessa soluzione adottata l'01/09
+     * per la gemella dei privati: la guardia resta nel servizio, dove protegge
+     * QUALUNQUE chiamante, e si prova chiamandolo direttamente.
+     */
+    public function test_il_servizio_rifiuta_il_ripescaggio_di_un_pagamento_in_ky(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+        $pagamento->update(['payment_method' => AgentCodeFeePayment::METHOD_KY]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('vale solo per i pagamenti in euro');
+
+        app(AgentCodeFeeService::class)->retryEuroCredit($pagamento, $this->superAdmin);
+    }
+
+    public function test_il_ripescaggio_non_vale_sui_pagamenti_in_ky(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+
+        $pagamento = $this->pagamentoAgenteFallito($aspirante);
+        $pagamento->update(['payment_method' => AgentCodeFeePayment::METHOD_KY]);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.agent-code-fees.retry-credit', $pagamento))
+            ->assertRedirect();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    // ─── 13. Il comando notturno legge anche questa quota (02/09/2026) ──────
+
+    public function test_il_comando_notturno_chiude_anche_i_tentativi_della_quota_agente(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $vecchio = $this->checkoutAperto($aspirante);
+        $vecchio->forceFill(['created_at' => now()->subDays(3)])->save();
+
+        $recente = $this->checkoutAperto($aspirante);
+
+        $this->artisan('quote:scadi-tentativi')->assertSuccessful();
+
+        $this->assertSame(AgentCodeFeePayment::STATUS_FAILED, $vecchio->fresh()->status);
+        $this->assertSame(AgentCodeFeePayment::STATUS_PENDING, $recente->fresh()->status);
+    }
+
+    /** I bonifici aspettare e' il loro mestiere: non si chiudono d'ufficio. */
+    public function test_il_comando_notturno_non_tocca_mai_i_bonifici_della_quota_agente(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $bonifico = app(AgentCodeFeeService::class)
+            ->startPayment($aspirante, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+        $bonifico->forceFill(['created_at' => now()->subDays(30)])->save();
+
+        $this->artisan('quote:scadi-tentativi')->assertSuccessful();
+
+        $this->assertTrue($bonifico->fresh()->isPendingBankTransfer());
+    }
+
+    /**
+     * Sostituisce il verificatore di PayPal, come si fa gia' con quello di
+     * Stripe: e' l'unico modo di provare che si salda SOLO quando la prova
+     * c'e', senza chiamare i server di PayPal.
+     */
+    private function fingiPayPal(bool $incassato): void
+    {
+        $this->instance(
+            \App\Services\PayPalOrderVerifier::class,
+            new class($incassato) extends \App\Services\PayPalOrderVerifier {
+                public function __construct(private readonly bool $incassato) {}
+
+                public function isCompletedFor(?string $storedOrderId, int $expectedAmountCents, string $expectedReference, string $context = 'paypal'): bool
+                {
+                    return $this->incassato;
+                }
+            }
+        );
+    }
+
+    /** Una riga PayPal finita male: quella che la pagina di esito deve riaprire. */
+    private function pagamentoPaypalFallito(User $utente): AgentCodeFeePayment
+    {
+        return AgentCodeFeePayment::create([
+            'user_id'          => $utente->id,
+            'amount_eur_cents' => self::QUOTA,
+            'ky_amount'        => self::QUOTA,
+            'status'           => AgentCodeFeePayment::STATUS_FAILED,
+            'payment_method'   => AgentCodeFeePayment::METHOD_PAYPAL,
+            'paypal_order_id'  => 'PAY-' . Str::random(14),
+            'admin_notes'      => 'Ritorno da PayPal mai arrivato.',
         ]);
     }
 

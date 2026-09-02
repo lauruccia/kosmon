@@ -181,10 +181,29 @@ class RegistrationFeeService
      * un debito che non hanno mai avuto), e una quota gia' dovuta o gia'
      * pagata non viene toccata.
      *
-     * L'importo e' quello di OGGI e non uno scatto vecchio: la colonna
-     * conteneva zero, non c'era nessun importo da conservare. E' l'unico
-     * punto in cui la quota non segue lo scatto della registrazione, ed e'
-     * inevitabile.
+     * L'IMPORTO E' LO SCATTO SOSPESO, quando c'e' (02/09/2026). Fino a oggi
+     * qui si leggeva sempre la cifra di OGGI, con la motivazione che «la
+     * colonna conteneva zero, non c'era nessun importo da conservare»: non e'
+     * piu' vero da quando esiste suspendOnAgentApproval(), che l'importo di
+     * prima lo scrive nell'audit log `registration_fee.suspended_on_agent_
+     * approval`. Senza leggerlo, chi si era registrato a 30 ed era stato
+     * approvato agente si ritrovava a dovere 50 se nel frattempo la quota era
+     * cambiata. E' lo stesso ripiego, e per lo stesso motivo, di
+     * AgentCodeFeeService::revokeWaiver().
+     *
+     * Resta la cifra di oggi nell'unico caso in cui non c'e' nessuno scatto da
+     * conservare: chi e' nato con la quota gia' sospesa (suspendForAgentPath,
+     * dal portale di un agente), che un importo in carico non lo ha mai avuto.
+     *
+     * L'INTERRUTTORE VALE SOLO IN QUEL SECONDO CASO, e l'asimmetria e' voluta:
+     * suspendOnAgentApproval() non lo guarda affatto — quei 30 erano gia'
+     * dovuti e vanno sospesi comunque — mentre qui, prima del 02/09, lo si
+     * guardava sempre. Il risultato era che spegnere l'interruttore un giorno e
+     * riaccenderlo il giorno dopo condonava in silenzio chiunque fosse uscito
+     * dal percorso nel frattempo: la colonna restava a zero e nessun sollecito
+     * la trovava piu' (il comando filtra `> 0`). Una quota gia' messa in carico
+     * si riaccende com'era; l'interruttore decide se la quota si CHIEDE a
+     * qualcuno di nuovo, non se un debito gia' esistente si puo' cancellare.
      *
      * CHI I 480 LI HA PAGATI DAVVERO NON DEVE ANCHE I 30 (02/09/2026). La
      * quota del codice agente e' un INGRESSO nel circuito, ed e' sedici volte
@@ -204,9 +223,23 @@ class RegistrationFeeService
      */
     public function resumeAfterAgentPath(User $user, ?string $ipAddress = null): int
     {
-        $importo = $this->settings()->registrationFeeAmount();
+        $sospeso = $this->importoSospesoInCarico($user);
 
-        if ($importo <= 0 || ! $this->settings()->registrationFeeEnabled()) {
+        if ($sospeso !== null) {
+            // Era gia' dovuta prima di essere sospesa: torna dovuta com'era, e
+            // l'interruttore non c'entra (vedi il docblock).
+            $importo = $sospeso;
+        } else {
+            // Nasceva sospesa: non e' mai stata in carico, quindi vale la
+            // regola di oggi — interruttore compreso.
+            if (! $this->settings()->registrationFeeEnabled()) {
+                return 0;
+            }
+
+            $importo = $this->settings()->registrationFeeAmount();
+        }
+
+        if ($importo <= 0) {
             return 0;
         }
 
@@ -289,6 +322,31 @@ class RegistrationFeeService
         $user->notify(new RegistrationFeeRequestedNotification($importo));
 
         return $importo;
+    }
+
+    /**
+     * Quanto doveva questa persona nel momento in cui la quota le e' stata
+     * SOSPESA, letto dall'audit log della sospensione.
+     *
+     * Dopo lo zero non resta scritto da nessun'altra parte: la colonna e'
+     * l'unico posto dove viveva l'importo, e la sospensione ce l'ha
+     * sovrascritto. Stesso ripiego di AgentCodeFeeService::revokeWaiver().
+     *
+     * @return int|null null se non e' mai stata messa in carico, cioe' se
+     *                  nasceva gia' sospesa dal portale di un agente
+     */
+    private function importoSospesoInCarico(User $user): ?int
+    {
+        $ultima = AuditLog::query()
+            ->where('event', 'registration_fee.suspended_on_agent_approval')
+            ->where('auditable_type', User::class)
+            ->where('auditable_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        $importo = (int) ($ultima?->context['amount'] ?? 0);
+
+        return $importo > 0 ? $importo : null;
     }
 
     /**

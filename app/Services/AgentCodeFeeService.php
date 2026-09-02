@@ -262,6 +262,14 @@ class AgentCodeFeeService
                     // pagamento arriva lo stesso, e' qui che si capisce perche'
                     // il webhook lo ha rifiutato.
                     'tentativi_chiusi' => $chiusi,
+                    // Il fido aggiuntivo NON se ne va con la rinuncia, e chi
+                    // legge questa riga fra un anno deve saperlo: chi ha pagato
+                    // in KY resta un privato non agente con questa capienza in
+                    // piu' del suo fido, a vita. Toglierlo qui vorrebbe dire
+                    // spingergli il conto sotto senza che abbia fatto niente —
+                    // se va tolto, si annulla la quota dal backoffice, che
+                    // storna e rimette tutto a posto insieme.
+                    'fido_aggiuntivo_residuo' => (int) ($locked->agent_code_fee_ky_allowance_cents ?? 0),
                 ],
             ]);
         });
@@ -415,6 +423,78 @@ class AgentCodeFeeService
         ]);
     }
 
+    // ── Bonifico gia' richiesto (02/09/2026) ────────────────────────────────
+
+    /**
+     * Il bonifico in attesa di questo utente, se ce n'e' uno.
+     *
+     * Arriva con tre giorni di ritardo sulla gemella dei privati, ed e' lo
+     * stesso identico problema: il bonifico non e' un pagamento istantaneo.
+     * L'utente lo chiede, va in banca, e torna sul sito ore o giorni dopo. Se
+     * in quel momento ritrova i quattro bottoni come la prima volta non sa se
+     * la sua richiesta sia arrivata, e ne fa un'altra — con una causale
+     * DIVERSA da quella che ha scritto sul bonifico vero. Su 480 euro questo
+     * pesa piu' che su 30: in /admin/quote-codice-agente comparivano tre righe
+     * `pending_bank_transfer` per la stessa persona e nessuna riconciliabile.
+     */
+    public function pendingBankTransferFor(User $user): ?AgentCodeFeePayment
+    {
+        return AgentCodeFeePayment::query()
+            ->where('user_id', $user->id)
+            ->where('payment_method', AgentCodeFeePayment::METHOD_BANK_TRANSFER)
+            ->where('status', AgentCodeFeePayment::STATUS_PENDING_BANK_TRANSFER)
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * Apre la richiesta di bonifico, oppure RIPRENDE quella gia' aperta.
+     *
+     * La causale contiene l'uuid del pagamento: aprirne una nuova a ogni
+     * visita significherebbe dare all'utente una causale diversa da quella che
+     * ha gia' scritto sul bonifico, e nessuno dei due sarebbe piu'
+     * ricollegabile con certezza.
+     *
+     * @throws RuntimeException
+     */
+    public function startOrResumeBankTransfer(User $user): AgentCodeFeePayment
+    {
+        $aperto = $this->pendingBankTransferFor($user);
+
+        if ($aperto !== null && $this->isDueFor($user)) {
+            return $aperto;
+        }
+
+        return $this->startPayment($user, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+    }
+
+    /**
+     * L'utente rinuncia al bonifico e torna a scegliere il metodo.
+     *
+     * Non e' un fallimento del circuito ma una scelta sua, e va scritta: se il
+     * bonifico partisse comunque, l'admin deve poter capire dalla riga perche'
+     * quella causale risulta abbandonata.
+     *
+     * `failed` e NON `cancelled`: se il bonifico arriva lo stesso, l'admin lo
+     * deve poter ancora accreditare. `cancelled` e' riservato alle risposte
+     * gia' date — l'annullamento dal backoffice e la chiusura del percorso.
+     */
+    public function abandonBankTransfer(User $user): bool
+    {
+        $aperto = $this->pendingBankTransferFor($user);
+
+        if ($aperto === null) {
+            return false;
+        }
+
+        $aperto->update([
+            'status'      => AgentCodeFeePayment::STATUS_FAILED,
+            'admin_notes' => "L'utente ha rinunciato al bonifico e ha scelto un altro metodo.",
+        ]);
+
+        return true;
+    }
+
     // ── Pagamento in KY ─────────────────────────────────────────────────────
 
     /** @throws RuntimeException */
@@ -489,8 +569,14 @@ class AgentCodeFeeService
         }
 
         $user->refresh();
+        $payment->refresh();
 
-        return $payment->refresh();
+        // Fuori dalla transazione: una notifica che parte da dentro verrebbe
+        // spedita anche se la transazione poi rotolasse indietro, e nessuno
+        // se la riprende piu' (stessa regola di RegistrationFeeService).
+        $user->notify(new \App\Notifications\AgentCodeFeePaidNotification($payment));
+
+        return $payment;
     }
 
     // ── Pagamento in euro: NESSUN KY viene emesso ───────────────────────────
@@ -516,6 +602,13 @@ class AgentCodeFeeService
             return;
         }
 
+        // Chi ha davvero saldato: la closure puo' uscire prima perche' un'altra
+        // richiesta ha gia' chiuso la riga (webhook e pagina di esito possono
+        // arrivare insieme), e in quel caso la ricevuta l'ha gia' mandata
+        // quell'altra. Guardare lo stato qui fuori DOPO la transazione non
+        // basterebbe: lo troverebbe saldato in tutti e due i casi.
+        $saldata = false;
+
         $user = $payment->user;
         if ($user === null) {
             Log::error('Quota codice agente: utente mancante', ['payment' => $payment->uuid]);
@@ -525,7 +618,7 @@ class AgentCodeFeeService
         }
 
         try {
-            DB::transaction(function () use ($payment, $user, $confirmedBy): void {
+            DB::transaction(function () use ($payment, $user, $confirmedBy, &$saldata): void {
                 $locked = AgentCodeFeePayment::whereKey($payment->id)->lockForUpdate()->first();
                 if ($locked === null || $locked->isCompleted()) {
                     return;
@@ -552,6 +645,8 @@ class AgentCodeFeeService
                         'payment_method' => $locked->payment_method,
                     ],
                 ]);
+
+                $saldata = true;
             });
         } catch (\Throwable $e) {
             Log::error('Quota codice agente: chiusura del pagamento fallita', [
@@ -564,6 +659,78 @@ class AgentCodeFeeService
         }
 
         $payment->refresh();
+
+        if ($saldata) {
+            $user->notify(new \App\Notifications\AgentCodeFeePaidNotification($payment));
+        }
+    }
+
+    // ── Ripescaggio di un incasso in euro (02/09/2026) ──────────────────────
+
+    /**
+     * Riprende un pagamento in euro finito `failed` quando i soldi, in realta',
+     * sono stati incassati. Gemello di
+     * RegistrationFeeService::retryEuroCredit(), con tre giorni di ritardo.
+     *
+     * IL CASO CHE CHIUDE. completeEuroPayment(), se la scrittura va storta (un
+     * deadlock, l'audit log che non passa), chiama markFailed(). Ma Stripe o
+     * PayPal i soldi li hanno GIA' presi, e da li' in poi non si rimetteva in
+     * moto niente: adminConfirmBankTransfer pretende `pending_bank_transfer` e
+     * la riga ora e' `failed`, e «Annulla quota» vale solo sulle righe saldate.
+     * Restava una persona che aveva versato 480 euro, senza codice agente e
+     * senza nessuna strada che non fosse il database a mano.
+     *
+     * PERCHE' NON E' UN BOTTONE CHE REGALA IL CODICE. Questo metodo non decide
+     * niente da solo: chi lo chiama deve avere gia' in mano la PROVA
+     * dell'incasso — la sessione Stripe verificata dal server di Stripe,
+     * l'ordine PayPal risultato COMPLETED dell'importo esatto, o, per il
+     * bonifico, un admin che ha visto i soldi sul conto. La prova si raccoglie
+     * in AgentCodeFeeController::adminRetryCredit().
+     *
+     * Qui non si muove un solo KY, come in tutta la parte in euro di questa
+     * quota: si chiude la riga e si segna la quota saldata, ed e' quello che
+     * sblocca la firma della nomina.
+     *
+     * @throws RuntimeException
+     */
+    public function retryEuroCredit(AgentCodeFeePayment $payment, User $admin, ?string $ipAddress = null): void
+    {
+        if ($payment->isCompleted()) {
+            throw new RuntimeException('Questa quota risulta già saldata.');
+        }
+
+        if ($payment->payment_method === AgentCodeFeePayment::METHOD_KY) {
+            throw new RuntimeException('Il ripescaggio vale solo per i pagamenti in euro: in KY non c\'è nessun incasso da recuperare.');
+        }
+
+        if ($payment->isCancelled()) {
+            throw new RuntimeException('Questa quota è stata annullata: riaprila prima di darla per saldata.');
+        }
+
+        AuditLog::create([
+            'actor_user_id'  => $admin->id,
+            'event'          => 'agent_code_fee.credit_retried',
+            'auditable_type' => AgentCodeFeePayment::class,
+            'auditable_id'   => $payment->id,
+            'ip_address'     => $ipAddress,
+            'context'        => [
+                'uuid'           => $payment->uuid,
+                'user_id'        => $payment->user_id,
+                'payment_method' => $payment->payment_method,
+                'stato_prima'    => $payment->status,
+                'note_prima'     => $payment->admin_notes,
+            ],
+        ]);
+
+        $this->completeEuroPayment($payment, $admin->id);
+
+        $payment->refresh();
+
+        if (! $payment->isCompleted()) {
+            // markFailed() ha gia' riscritto il motivo: ridarlo all'admin e'
+            // l'unico modo perche' non riprema il bottone all'infinito.
+            throw new RuntimeException('La chiusura è fallita di nuovo: ' . ($payment->admin_notes ?: 'motivo non registrato'));
+        }
     }
 
     // ── Annullamento di una quota gia' saldata (01/09/2026) ─────────────────

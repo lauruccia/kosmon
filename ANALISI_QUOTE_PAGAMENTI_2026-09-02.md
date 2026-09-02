@@ -1,6 +1,13 @@
 # Le due quote: come funzionano davvero, e cosa non va
 
-02/09/2026 — analisi sul codice a `220fe68`. Nessun file toccato.
+02/09/2026 — analisi sul codice a `220fe68`.
+
+> **STATO A FINE GIORNATA.** Dei 13 punti trovati ne sono stati chiusi **12**,
+> in due commit: `952be20` (i due gravi) e quello che porta questa riga. Le
+> sezioni sotto sono lasciate com'erano — servono a spiegare *perche'* una
+> cosa era rotta — e ognuna dice in testa se e' chiusa e dove. L'unico punto
+> non chiuso di proposito e' **A11**, e sotto c'e' scritto il motivo.
+> Le migliorie strutturali M1-M4 restano tutte aperte.
 
 ---
 
@@ -188,7 +195,11 @@ riaccendono.
 
 ## 4. Cosa non va
 
-### 🔴 A1 — Chi ha PAGATO i 480 e poi esce si ritrova a dovere anche i 30
+### ✅ A1 — Chi ha PAGATO i 480 e poi esce si ritrova a dovere anche i 30
+
+> **CHIUSO** in `952be20`. La quota sospesa non si riaccende a chi il codice
+> lo ha saldato, e la colonna va a NULL. La guardia e' su
+> `agent_code_fee_paid_at`: l'esonerato non ha pagato niente e i 30 li deve.
 
 `resumeAfterAgentPath()` guarda **solo** le colonne della quota privati: non
 sa niente di `agent_code_fee_paid_at`. Quindi:
@@ -208,7 +219,11 @@ pagato — la colonna può tornare a `NULL`, non all'importo.
 l'ingresso», allora va bene così, ma andrebbe scritto nel messaggio della
 notifica: oggi l'utente riceve un «devi 30 €» senza nessuna spiegazione.)*
 
-### 🔴 A2 — Rinuncia o rifiuto mentre un checkout è aperto: 480 € incassati per niente
+### ✅ A2 — Rinuncia o rifiuto mentre un checkout è aperto: 480 € incassati per niente
+
+> **CHIUSO** in `952be20`. `AgentCodeFeeService::closeOpenAttempts()`, da
+> `giveUp()` e dal rifiuto: `cancelled` e non `failed`, perche' `failed` deve
+> restare ripescabile.
 
 Né `giveUp()` né `dropUnpaidDebt()` chiudono le righe `pending`. Ma il webhook
 (e la pagina di esito) accreditano **qualunque riga non `completed` e non
@@ -228,7 +243,11 @@ Risultato: 480 € incassati, nessun codice agente, nessuna mail all'utente
 — `failed` è ancora ripescabile) le righe `pending` / `pending_bank_transfer`
 di quell'utente, dentro la stessa transazione. Stessa cosa in `reject()`.
 
-### 🟠 A3 — Il bonifico della quota agente riapre una causale nuova a ogni visita
+### ✅ A3 — Il bonifico della quota agente riapre una causale nuova a ogni visita
+
+> **CHIUSO.** `pendingBankTransferFor` / `startOrResumeBankTransfer` /
+> `abandonBankTransfer` copiati dai privati, piu' la rotta «cambia metodo» e
+> il riquadro giallo nella pagina.
 
 `AgentCodeFeeController::bankTransfer()` chiama `startPayment()` diretto.
 Non esistono `pendingBankTransferFor()`, `startOrResumeBankTransfer()` né
@@ -242,7 +261,10 @@ la stessa persona. Su 480 € questo pesa più che su 30.
 **Fix**: copiare i tre metodi dal servizio dei privati e la variabile
 `bonifico` nella view.
 
-### 🟠 A4 — Nessun ripescaggio per la quota agente
+### ✅ A4 — Nessun ripescaggio per la quota agente
+
+> **CHIUSO.** `AgentCodeFeeService::retryEuroCredit()` e il bottone «Verifica
+> e salda» / «Salda comunque» in `/admin/quote-codice-agente`.
 
 Non esiste `retryEuroCredit` né il bottone «Verifica e accredita». Se
 `completeEuroPayment()` fallisce nella scrittura (deadlock, audit log), la
@@ -251,14 +273,22 @@ riga va `failed` e da lì **non si recupera più da backoffice**:
 `failed`. Per Stripe si salva la pagina di esito (se l'utente ci ritorna);
 per PayPal e per il bonifico non si salva niente.
 
-### 🟠 A5 — Chi paga 480 € non riceve nessuna ricevuta
+### ✅ A5 — Chi paga 480 € non riceve nessuna ricevuta
+
+> **CHIUSO.** `AgentCodeFeePaidNotification`, con due testi diversi (in euro
+> il conto non viene toccato, in KY e' andato sotto) e l'azione che porta
+> alla firma, non alla dashboard.
 
 `RegistrationFeePaidNotification` esiste per i 30. Per i 480 non c'è niente:
 né in `payWithKy()` né in `completeEuroPayment()`. L'unico segnale è la pagina
 di esito, che l'utente vede solo se non chiude la scheda. Manca un
 `AgentCodeFeePaidNotification` (le altre due, Cancelled e Waiver, ci sono già).
 
-### 🟠 A6 — `resumeAfterAgentPath()` usa l'importo di OGGI, non lo scatto sospeso
+### ✅ A6 — `resumeAfterAgentPath()` usa l'importo di OGGI, non lo scatto sospeso
+
+> **CHIUSO.** Lo scatto si legge dall'audit log della sospensione, come fa
+> gia' `revokeWaiver()`. La cifra di oggi resta solo per chi nasceva sospeso,
+> che un importo in carico non lo ha mai avuto.
 
 Il commento del metodo dice «la colonna conteneva zero, non c'era nessun
 importo da conservare» — **non è più vero dal 02/09**:
@@ -270,7 +300,11 @@ dovere **50**, non 30.
 **Fix**: leggere l'audit log come fa già `revokeWaiver()`, con ripiego sulle
 impostazioni. Il modello giusto è già scritto nel progetto.
 
-### 🟠 A7 — Se l'interruttore è spento, la quota sospesa non si riaccende MAI
+### ✅ A7 — Se l'interruttore è spento, la quota sospesa non si riaccende MAI
+
+> **CHIUSO.** L'interruttore decide se la quota si CHIEDE a qualcuno di nuovo,
+> non se un debito gia' esistente si puo' cancellare: una quota gia' in carico
+> si riaccende comunque.
 
 `suspendOnAgentApproval()` non guarda l'interruttore (voluto: «se l'admin l'ha
 spenta dopo aver messo in carico i 30, quei 30 sono comunque dovuti»).
@@ -284,7 +318,11 @@ resta a zero e nessun sollecito la trova (il comando filtra `> 0`).
 quando l'importo da riaccendere viene dall'audit log (vedi A6): quella quota
 era già stata messa in carico, riaccenderla non è «attivare la quota».
 
-### 🟡 A8 — `paypalCapture()` guarda ancora `isPending()` — in tutti e due i controller
+### ✅ A8 — `paypalCapture()` guarda ancora `isPending()` — in tutti e due i controller
+
+> **CHIUSO da A9**, e senza toccare `paypalCapture()`: sulle righe non piu'
+> `pending` rimanda alla pagina di esito, che adesso interroga PayPal. Un
+> ordine gia' catturato non si cattura due volte, ma lo si puo' chiedere.
 
 La tolleranza «non saldata e non annullata» è stata portata su webhook e
 pagina di esito, ma non qui. Una riga finita `failed` (accredito andato
@@ -292,7 +330,13 @@ storto, o chiusa dal comando delle 04:30) al ritorno da PayPal viene saltata:
 `redirect` alla pagina di esito, che per PayPal non verifica niente (vedi A9).
 Nei privati resta il bottone di ripescaggio; negli agenti non resta nulla.
 
-### 🟡 A9 — La pagina di esito verifica solo Stripe, mai PayPal
+### ✅ A9 — La pagina di esito verifica solo Stripe, mai PayPal
+
+> **CHIUSO.** Nuovo `PayPalOrderVerifier`, gemello di
+> `StripeCheckoutVerifier`, usato dalle due pagine di esito e dai due
+> ripescaggi. Piu' severo di quel che c'era: non basta piu' che l'ordine
+> risulti COMPLETED, deve essere di questo importo e riferito a questo
+> pagamento.
 
 `success()` ha un solo ramo, `METHOD_STRIPE`. Non esiste nessun webhook PayPal
 in questo endpoint. Quindi per PayPal l'unica strada che accredita è il
@@ -303,7 +347,10 @@ pagamento e il ritorno, **nessun processo automatico recupera l'incasso**.
 `paypal_order_id` valorizzato, rileggere l'ordine e accreditare se `COMPLETED`
 — è esattamente ciò che fa già `adminRetryCredit()`.
 
-### 🟡 A10 — `giveUp()` senza lock né transazione
+### ✅ A10 — `giveUp()` senza lock né transazione
+
+> **CHIUSO** in `952be20`: transazione con `lockForUpdate` e le due guardie
+> dentro il lock.
 
 È l'unico dei metodi di uscita che scrive quattro campi con un `forceFill`
 nudo, fuori da `DB::transaction`. Doppio click → due audit log
@@ -314,12 +361,22 @@ girano sotto `lockForUpdate`.
 
 ### 🟡 A11 — Il fido aggiuntivo da 480 resta a vita a chi paga in KY e poi rinuncia
 
+> **NON CHIUSO, di proposito.** Toglierlo dentro la rinuncia spingerebbe il
+> conto sotto senza che l'interessato abbia fatto niente: se va tolto, si
+> annulla la quota dal backoffice, che storna e rimette tutto a posto
+> insieme. Quel che e' cambiato e' che adesso il residuo finisce nell'audit
+> log della rinuncia (`fido_aggiuntivo_residuo`), quindi fra un anno si sa
+> perche' quella persona ha quella capienza in piu'.
+
 `giveUp()` con quota pagata non tocca `agent_code_fee_ky_allowance_cents`.
 L'utente resta un privato non agente con 480 KY di capienza in più del suo
 fido, per sempre. È coerente («ha pagato»), ma è moneta: solo `cancel()` dal
 backoffice la toglie. Almeno andrebbe segnalato nel messaggio all'admin.
 
-### 🟡 A12 — Nessuna scadenza dei tentativi per la quota agente
+### ✅ A12 — Nessuna scadenza dei tentativi per la quota agente
+
+> **CHIUSO.** `quote:scadi-tentativi` legge adesso tutte e due le tabelle. I
+> bonifici restano intoccabili in entrambe.
 
 `quote:scadi-tentativi` legge solo `registration_fee_payments`. In
 `/admin/quote-codice-agente` le righe `pending` di chi ha cambiato idea non si
@@ -328,7 +385,9 @@ problema che sui privati era stato giudicato degno di un comando notturno.
 (Il **sollecito** invece è una scelta consapevole: il caso si gestisce di
 persona.)
 
-### ⚪ A13 — Messaggio sbagliato: euro chiamati KY
+### ✅ A13 — Messaggio sbagliato: euro chiamati KY
+
+> **CHIUSO.** Riga 433 (ora 462) dice «€».
 
 `RegistrationFeeController::adminRequest()` dice
 `'Quota di ' . ky_format($importo) . ' KY richiesta a …'`. La quota di
@@ -365,15 +424,28 @@ persona»**. Oggi la risposta si compone da quattro colonne e un audit log.
 
 ---
 
-## 6. Priorità suggerita
+## 6. Cosa e' stato fatto, e cosa resta
 
-| | Cosa | Perché prima |
+| | Cosa | Stato |
 |---|---|---|
-| 1 | **A2** righe `pending` non chiuse su rinuncia/rifiuto | incassa 480 € senza dare niente |
-| 2 | **A1** i 30 dopo aver pagato i 480 | chiede soldi a chi ha già pagato |
-| 3 | **A5** ricevuta della quota agente | 480 € senza nessuna conferma scritta |
-| 4 | **A3** bonifico agente riaperto ogni volta | causali non riconciliabili |
-| 5 | **A6 + A7** importo e interruttore in `resumeAfterAgentPath` | importi sbagliati, condoni silenziosi |
-| 6 | **A9 + A8** PayPal senza rete di sicurezza | incassi persi, rari ma irrecuperabili |
-| 7 | **A4, A12, A10, A11, A13** | robustezza e pulizia |
-| 8 | **M1** base comune ai due servizi | evita la prossima divergenza |
+| A2 | righe `pending` non chiuse su rinuncia/rifiuto | ✅ `952be20` |
+| A1 | i 30 dopo aver pagato i 480 | ✅ `952be20` |
+| A10 | `giveUp()` senza lock | ✅ `952be20` |
+| A5 | ricevuta della quota agente | ✅ |
+| A3 | bonifico agente riaperto ogni volta | ✅ |
+| A6 + A7 | importo e interruttore in `resumeAfterAgentPath` | ✅ |
+| A9 + A8 | PayPal senza rete di sicurezza | ✅ `PayPalOrderVerifier` |
+| A4 | ripescaggio per la quota agente | ✅ |
+| A12 | scadenza tentativi per la quota agente | ✅ |
+| A13 | euro chiamati KY | ✅ |
+| A11 | fido da 480 a vita | 🟡 lasciato apposta, ora tracciato nell'audit log |
+| M1 | base comune ai due servizi | ⬜ aperto |
+| M2 | un solo pannello «Quote» con due schede | ⬜ aperto |
+| M3 | vista di riconciliazione | ⬜ aperto |
+| M4 | un solo posto dove leggere l'ingresso pagato | ⬜ aperto |
+
+**M1 resta la cosa che conta di piu'**, ed e' anche quella che ha generato
+meta' di questa lista: A3, A4, A5 e A12 erano tutte lo stesso difetto — una
+correzione fatta su una delle due quote e mai portata sull'altra. Finche' i
+due servizi restano due copie, la prossima divergenza e' solo questione di
+tempo.

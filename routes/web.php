@@ -850,6 +850,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/mlm/quota-codice/paypal/create-order', [AgentCodeFeeController::class, 'paypalCreateOrder'])->name('portal.mlm.agent-code-fee.paypal-create-order')->middleware('throttle:10,1');
     Route::get('/mlm/quota-codice/paypal/capture/{payment}', [AgentCodeFeeController::class, 'paypalCapture'])->name('portal.mlm.agent-code-fee.paypal-capture');
     Route::post('/mlm/quota-codice/bonifico', [AgentCodeFeeController::class, 'bankTransfer'])->name('portal.mlm.agent-code-fee.bank-transfer');
+    Route::post('/mlm/quota-codice/bonifico/annulla', [AgentCodeFeeController::class, 'abandonBankTransfer'])->name('portal.mlm.agent-code-fee.bank-transfer.abandon');
     Route::get('/mlm/quota-codice/esito/{payment}', [AgentCodeFeeController::class, 'success'])->name('portal.mlm.agent-code-fee.success');
 
     Route::get('/api-tokens', [ApiTokenController::class, 'index'])->name('portal.api-tokens.index');
@@ -953,6 +954,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // Movimenti — quella rimetteva a posto i saldi e lasciava la quota
     // segnata come pagata.
     Route::post('/admin/quote-codice-agente/{payment}/annulla', [AgentCodeFeeController::class, 'adminCancel'])->name('admin.agent-code-fees.cancel')->middleware('backoffice');
+    Route::post('/admin/quote-codice-agente/{payment}/riprova-accredito', [AgentCodeFeeController::class, 'adminRetryCredit'])->name('admin.agent-code-fees.retry-credit')->middleware('backoffice');
     // Esonero e revoca: stanno sulla SCHEDA DELL'UTENTE, non su un elenco
     // filtrato. E' la stessa scelta fatta per la richiesta della quota
     // privati: un atto con un nome sopra, non un UPDATE di massa.

@@ -1994,6 +1994,180 @@ class RegistrationFeeTest extends TestCase
      * serve ne' un conto di sistema ne' un fido, e la colonna
      * agent_code_fee_paid_at si valorizza esattamente come dal sito.
      */
+    // ─── 21. PayPal, lo scatto sospeso e l'interruttore (02/09/2026) ───────
+
+    /**
+     * PayPal non ha nessun webhook in questo progetto: l'unica strada che
+     * accreditava era la `capture` sincrona al ritorno, e chi chiudeva la
+     * scheda un istante prima restava senza KY per sempre. Ora la pagina di
+     * esito CHIEDE a PayPal, come faceva gia' con Stripe.
+     */
+    public function test_la_pagina_di_esito_accredita_un_pagamento_paypal_incassato(): void
+    {
+        $this->makeSystemAccount(100000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $this->fingiPayPal(true);
+
+        $pagamento = $this->pagamentoPaypalFallito($utente);
+
+        $this->actingAs($utente)->get('/quota-iscrizione/esito/' . $pagamento->uuid)->assertOk();
+
+        $this->assertTrue($pagamento->fresh()->isCompleted());
+        $this->assertNotNull($utente->fresh()->registration_fee_paid_at);
+        // In euro la quota E' un acquisto di KY: il conto li ha ricevuti.
+        $this->assertSame(self::QUOTA, (int) $conto->fresh()->available_balance);
+    }
+
+    public function test_senza_la_prova_di_paypal_la_pagina_di_esito_non_accredita_niente(): void
+    {
+        $this->makeSystemAccount(100000);
+        [$utente, $conto] = $this->makePrivateConQuota(0);
+        $this->fingiPayPal(false);
+
+        $pagamento = $this->pagamentoPaypalFallito($utente);
+
+        $this->actingAs($utente)->get('/quota-iscrizione/esito/' . $pagamento->uuid)->assertOk();
+
+        $this->assertFalse($pagamento->fresh()->isCompleted());
+        $this->assertNull($utente->fresh()->registration_fee_paid_at);
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+    }
+
+    /**
+     * LO SCATTO SOSPESO, NON LA CIFRA DI OGGI. Fino al 02/09 qui si leggeva
+     * sempre l'importo in impostazioni, con la motivazione che «la colonna
+     * conteneva zero, non c'era niente da conservare»: non e' piu' vero da
+     * quando suspendOnAgentApproval() scrive l'importo di prima nell'audit
+     * log. Chi si era registrato a 30 e veniva rifiutato dopo un ritocco della
+     * quota si ritrovava a dovere 50.
+     */
+    public function test_la_quota_torna_dovuta_dello_scatto_sospeso_non_di_quello_di_oggi(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        // L'admin ritocca la quota DOPO la sospensione.
+        $this->attivaQuota(importo: self::QUOTA * 2);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Ripensamento.'])
+            ->assertRedirect();
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->registration_fee_due_cents);
+    }
+
+    /**
+     * Chi nasceva gia' sospeso dal portale di un agente un importo in carico
+     * non lo ha mai avuto: per lui, e solo per lui, vale la cifra di oggi.
+     * Serve che resti verde, altrimenti il ripiego sulle impostazioni sparisce
+     * senza che nessuno se ne accorga.
+     */
+    public function test_chi_nasceva_sospeso_riprende_con_la_cifra_di_oggi(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuota(importo: self::QUOTA);
+
+        // Nessun audit log di sospensione: la colonna e' nata a zero.
+        $utente->forceFill([
+            'registration_fee_due_cents' => 0,
+            'mlm_agent_request_status'   => 'approved',
+        ])->save();
+
+        $this->attivaQuota(importo: self::QUOTA * 2);
+
+        $riacceso = app(RegistrationFeeService::class)->resumeAfterAgentPath($utente->fresh());
+
+        $this->assertSame(self::QUOTA * 2, $riacceso);
+    }
+
+    /**
+     * L'INTERRUTTORE NON CONDONA UN DEBITO GIA' ESISTENTE. suspendOnAgentApproval()
+     * non lo guarda affatto — quei 30 erano gia' dovuti — mentre qui, fino al
+     * 02/09, lo si guardava sempre: spegnere l'interruttore un giorno e
+     * riaccenderlo il giorno dopo condonava in silenzio chiunque fosse uscito
+     * dal percorso nel frattempo, e la colonna restava a zero senza che
+     * nessun sollecito la trovasse piu' (il comando filtra `> 0`).
+     */
+    public function test_a_interruttore_spento_una_quota_gia_in_carico_torna_dovuta_lo_stesso(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        $this->attivaQuota(attiva: false);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Ripensamento.'])
+            ->assertRedirect();
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->registration_fee_due_cents);
+    }
+
+    /**
+     * L'altra meta': a chi la quota non e' MAI stata messa in carico,
+     * l'interruttore spento vuol dire che non gliela si chiede. Qui non c'e'
+     * nessun debito da proteggere, c'e' solo una quota che l'admin ha deciso
+     * di non chiedere piu' a nessuno.
+     */
+    public function test_a_interruttore_spento_chi_nasceva_sospeso_non_si_vede_accendere_niente(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuota(attiva: false);
+
+        $utente->forceFill([
+            'registration_fee_due_cents' => 0,
+            'mlm_agent_request_status'   => 'approved',
+        ])->save();
+
+        $riacceso = app(RegistrationFeeService::class)->resumeAfterAgentPath($utente->fresh());
+
+        $this->assertSame(0, $riacceso);
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    /**
+     * Sostituisce il verificatore di PayPal, come si fa gia' con quello di
+     * Stripe: e' l'unico modo di provare che si accredita SOLO quando la prova
+     * c'e', senza chiamare i server di PayPal.
+     */
+    private function fingiPayPal(bool $incassato): void
+    {
+        $this->instance(
+            \App\Services\PayPalOrderVerifier::class,
+            new class($incassato) extends \App\Services\PayPalOrderVerifier {
+                public function __construct(private readonly bool $incassato) {}
+
+                public function isCompletedFor(?string $storedOrderId, int $expectedAmountCents, string $expectedReference, string $context = 'paypal'): bool
+                {
+                    return $this->incassato;
+                }
+            }
+        );
+    }
+
+    /** Una riga PayPal finita male: quella che la pagina di esito deve riaprire. */
+    private function pagamentoPaypalFallito(User $utente): \App\Models\RegistrationFeePayment
+    {
+        return \App\Models\RegistrationFeePayment::create([
+            'user_id'          => $utente->id,
+            'amount_eur_cents' => self::QUOTA,
+            'ky_amount'        => self::QUOTA,
+            'status'           => \App\Models\RegistrationFeePayment::STATUS_FAILED,
+            'payment_method'   => \App\Models\RegistrationFeePayment::METHOD_PAYPAL,
+            'paypal_order_id'  => 'PAY-' . Str::random(14),
+            'admin_notes'      => 'Ritorno da PayPal mai arrivato.',
+        ]);
+    }
+
     private function pagaLaQuotaCodiceInEuro(User $utente): void
     {
         $pagamento = \App\Models\AgentCodeFeePayment::create([

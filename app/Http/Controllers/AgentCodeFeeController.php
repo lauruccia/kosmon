@@ -7,6 +7,7 @@ use App\Models\AgentCodeFeePayment;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\AgentCodeFeeService;
+use App\Services\PayPalOrderVerifier;
 use App\Services\StripeCheckoutVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +56,10 @@ class AgentCodeFeeController extends Controller
             'currentUser'    => $user,
             'currentAccount' => $account,
             'saldo'          => (int) ($account?->available_balance ?? 0),
+            // Chi ha gia' chiesto il bonifico non deve ritrovare i quattro
+            // bottoni come se non avesse fatto niente: vede il bonifico in
+            // corso, e da li' o rivede i dati o cambia metodo (02/09/2026).
+            'bonifico'       => $this->fees->pendingBankTransferFor($user),
         ]);
     }
 
@@ -208,7 +213,10 @@ class AgentCodeFeeController extends Controller
     public function bankTransfer(Request $request): View|RedirectResponse
     {
         try {
-            $payment = $this->fees->startPayment($request->user(), AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+            // RIPRENDE quello gia' aperto invece di aprirne un altro: la
+            // causale contiene l'uuid, e cambiarla a ogni visita vuol dire
+            // ritrovarsi bonifici veri che non si ricollegano a niente.
+            $payment = $this->fees->startOrResumeBankTransfer($request->user());
         } catch (RuntimeException $e) {
             return redirect()->route('portal.mlm.agent-code-fee.show')->with('portal_error', $e->getMessage());
         }
@@ -225,6 +233,20 @@ class AgentCodeFeeController extends Controller
         ]);
     }
 
+    /**
+     * "Cambia metodo di pagamento": chiude la richiesta di bonifico aperta e
+     * riporta l'utente alla scelta.
+     */
+    public function abandonBankTransfer(Request $request): RedirectResponse
+    {
+        $chiuso = $this->fees->abandonBankTransfer($request->user());
+
+        return redirect()->route('portal.mlm.agent-code-fee.show')
+            ->with('portal_success', $chiuso
+                ? 'Richiesta di bonifico annullata: scegli pure un altro metodo.'
+                : 'Non risulta nessun bonifico in attesa.');
+    }
+
     // ── Esito ───────────────────────────────────────────────────────────────
 
     public function success(Request $request, string $payment): View
@@ -238,9 +260,31 @@ class AgentCodeFeeController extends Controller
         // tentativo dato per abbandonato — deve poter essere ancora
         // accreditata se Stripe dice che l'incasso c'e' stato. La prova la da'
         // StripeCheckoutVerifier, non lo stato della riga.
-        if (! $payment->isCompleted() && ! $payment->isCancelled() && $payment->payment_method === AgentCodeFeePayment::METHOD_STRIPE) {
+        $daChiudere = ! $payment->isCompleted() && ! $payment->isCancelled();
+
+        if ($daChiudere && $payment->payment_method === AgentCodeFeePayment::METHOD_STRIPE) {
             $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
                 $payment->stripe_checkout_session_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'agentcode:' . $payment->uuid,
+            );
+
+            if ($pagata) {
+                $this->fees->completeEuroPayment($payment);
+            }
+
+            $payment->refresh();
+        }
+
+        // PAYPAL, DAL 02/09/2026. Prima questa pagina guardava solo Stripe, e
+        // per PayPal non esiste nessun webhook: l'unica strada che accreditava
+        // era la `capture` sincrona al ritorno. Chi chiudeva la scheda un
+        // istante prima, o incappava in una scrittura fallita, aveva pagato
+        // 480 euro e nessun processo lo recuperava.
+        if ($daChiudere && $payment->payment_method === AgentCodeFeePayment::METHOD_PAYPAL) {
+            $pagata = app(PayPalOrderVerifier::class)->isCompletedFor(
+                $payment->paypal_order_id,
                 (int) $payment->amount_eur_cents,
                 $payment->uuid,
                 'agentcode:' . $payment->uuid,
@@ -419,6 +463,79 @@ class AgentCodeFeeController extends Controller
 
         return redirect()->route('admin.users.show', $user)
             ->with('portal_success', 'Esonero revocato: ' . $user->name . ' deve di nuovo saldare ' . number_format($importo / 100, 2, ',', '.') . ' € prima di firmare.');
+    }
+
+    /**
+     * «Verifica e salda»: ripesca un pagamento in euro finito `failed` quando i
+     * soldi, in realta', sono stati incassati (02/09/2026).
+     *
+     * QUI SI RACCOGLIE LA PROVA, e il servizio si limita a chiudere la riga. La
+     * differenza non e' formale: senza prova questo bottone sarebbe un modo per
+     * regalare il codice agente premendolo su una riga qualsiasi.
+     *
+     *   - Stripe: la sessione SALVATA sul pagamento viene richiesta al server
+     *     di Stripe e deve risultare pagata, dell'importo esatto e riferita a
+     *     questo pagamento.
+     *   - PayPal: l'ordine SALVATO deve risultare COMPLETED, dell'importo
+     *     esatto e riferito a questo pagamento.
+     *   - Bonifico: non esiste nessun server da interrogare, la prova e' l'admin
+     *     che ha visto i soldi sul conto. Percio' li' il form deve portare una
+     *     conferma esplicita (`bonifico_ricevuto`), che una POST generica non
+     *     ha: e' un atto con un nome sopra, e l'audit log lo registra come tale.
+     */
+    public function adminRetryCredit(Request $request, AgentCodeFeePayment $payment): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $indietro = redirect()->route('admin.agent-code-fees.index');
+
+        if ($payment->isCompleted()) {
+            return $indietro->with('portal_error', 'Questa quota risulta già saldata.');
+        }
+
+        // Niente controllo su "e' un pagamento in euro?" qui: quello vive in
+        // AgentCodeFeeService::retryEuroCredit(), dove protegge qualunque
+        // chiamante e non solo questa rotta. Scriverlo anche qui vorrebbe dire
+        // due difese che si nascondono a vicenda dal mutation testing.
+        $metodo = $payment->payment_method;
+
+        if ($metodo === AgentCodeFeePayment::METHOD_STRIPE) {
+            $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
+                $payment->stripe_checkout_session_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'agentcode-retry:' . $payment->uuid,
+            );
+
+            if (! $pagata) {
+                return $indietro->with('portal_error', 'Stripe non risulta aver incassato questo pagamento: non è stato saldato niente.');
+            }
+        } elseif ($metodo === AgentCodeFeePayment::METHOD_PAYPAL) {
+            $pagata = app(PayPalOrderVerifier::class)->isCompletedFor(
+                $payment->paypal_order_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'agentcode-retry:' . $payment->uuid,
+            );
+
+            if (! $pagata) {
+                return $indietro->with('portal_error', 'PayPal non risulta aver incassato questo pagamento per questo importo: non è stato saldato niente. Il motivo esatto è nei log.');
+            }
+        } elseif ($metodo === AgentCodeFeePayment::METHOD_BANK_TRANSFER) {
+            if (! $request->boolean('bonifico_ricevuto')) {
+                return $indietro->with('portal_error', 'Per dare per saldato un bonifico devi confermare di averlo ricevuto.');
+            }
+        } else {
+            return $indietro->with('portal_error', 'Su questo pagamento non c\'è nessun incasso in euro da verificare.');
+        }
+
+        try {
+            $this->fees->retryEuroCredit($payment, $request->user(), $request->ip());
+        } catch (RuntimeException $e) {
+            return $indietro->with('portal_error', $e->getMessage());
+        }
+
+        return $indietro->with('portal_success', 'Incasso verificato: la quota risulta saldata e l\'interessato può firmare il contratto di nomina.');
     }
 
     public function adminRejectBankTransfer(Request $request, AgentCodeFeePayment $payment): RedirectResponse

@@ -162,8 +162,28 @@
                                         <input type="hidden" name="admin_notes" value="Quota annullata dal backoffice.">
                                         <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Annulla quota</button>
                                     </form>
+                                @elseif($payment->status === \App\Models\AgentCodeFeePayment::STATUS_FAILED && $payment->isPaidInEuro())
+                                    {{-- Pagamento in euro finito male (02/09/2026): puo' essere un
+                                         tentativo mai arrivato in fondo — e allora qui non succede
+                                         niente — oppure un incasso vero che non e' stato chiuso. Il
+                                         bottone non salda per fiducia: interroga Stripe/PayPal e
+                                         procede solo se risultano aver incassato QUESTO importo. --}}
+                                    @if($payment->payment_method === \App\Models\AgentCodeFeePayment::METHOD_BANK_TRANSFER)
+                                        <form method="POST" action="{{ route('admin.agent-code-fees.retry-credit', $payment) }}"
+                                              onsubmit="return confirm('Il bonifico di {{ number_format($payment->amount_eur, 2, ',', '.') }} euro è arrivato davvero sul conto?\n\nQui non c\'è nessuna banca da interrogare: dando la quota per saldata stai mettendo la tua firma sul fatto di averlo visto, e {{ $payment->user?->name ?? 'l\'interessato' }} potrà firmare la nomina.');">
+                                            @csrf
+                                            <input type="hidden" name="bonifico_ricevuto" value="1">
+                                            <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Salda comunque</button>
+                                        </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.agent-code-fees.retry-credit', $payment) }}"
+                                              onsubmit="return confirm('Chiedo a {{ ucfirst($payment->payment_method) }} se questi {{ number_format($payment->amount_eur, 2, ',', '.') }} euro sono stati incassati davvero. Se sì la quota risulta saldata e la nomina si sblocca, se no non succede niente.');">
+                                            @csrf
+                                            <button type="submit" class="cta secondary" style="padding:6px 10px;font-size:12px;">Verifica e salda</button>
+                                        </form>
+                                    @endif
                                 @else
-                                    <span class="table-muted">—</span>
+                                    <span class="table-muted">&mdash;</span>
                                 @endif
                             </td>
                         </tr>

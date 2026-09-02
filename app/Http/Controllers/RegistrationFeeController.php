@@ -7,6 +7,7 @@ use App\Models\RegistrationFeePayment;
 use App\Models\User;
 use App\Models\SystemSetting;
 use App\Services\RegistrationFeeService;
+use App\Services\PayPalOrderVerifier;
 use App\Services\StripeCheckoutVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -268,9 +269,37 @@ class RegistrationFeeController extends Controller
         // notturno) deve poter essere ancora accreditata se Stripe dice che
         // l'incasso c'e' stato. La prova la da' StripeCheckoutVerifier, non
         // lo stato della riga.
-        if (! $payment->isCompleted() && ! $payment->isCancelled() && $payment->payment_method === RegistrationFeePayment::METHOD_STRIPE) {
+        $daChiudere = ! $payment->isCompleted() && ! $payment->isCancelled();
+
+        if ($daChiudere && $payment->payment_method === RegistrationFeePayment::METHOD_STRIPE) {
             $pagata = app(StripeCheckoutVerifier::class)->isPaidFor(
                 $payment->stripe_checkout_session_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'regfee:' . $payment->uuid,
+            );
+
+            if ($pagata) {
+                $this->fees->completeEuroPayment($payment);
+            }
+
+            $payment->refresh();
+        }
+
+        // PAYPAL, DAL 02/09/2026. Prima questa pagina aveva un solo ramo,
+        // Stripe: per PayPal l'unica strada che accreditava era la `capture`
+        // sincrona al ritorno, e non esiste nessun webhook a fare da rete. Chi
+        // pagava e chiudeva la scheda un istante prima del ritorno, o
+        // incappava in una scrittura fallita, restava senza KY e senza nessun
+        // processo che lo recuperasse.
+        //
+        // E' anche cio' che rende innocua la guardia di paypalCapture(), che
+        // sulle righe non piu' `pending` rimanda qui senza catturare: un
+        // ordine gia' catturato non si cattura due volte, ma lo si puo'
+        // CHIEDERE — ed e' quello che si fa qui.
+        if ($daChiudere && $payment->payment_method === RegistrationFeePayment::METHOD_PAYPAL) {
+            $pagata = app(PayPalOrderVerifier::class)->isCompletedFor(
+                $payment->paypal_order_id,
                 (int) $payment->amount_eur_cents,
                 $payment->uuid,
                 'regfee:' . $payment->uuid,
@@ -430,7 +459,7 @@ class RegistrationFeeController extends Controller
         }
 
         return redirect()->route('admin.users.show', $user)
-            ->with('portal_success', 'Quota di ' . ky_format($importo) . ' KY richiesta a ' . $user->name . ': è stato avvisato per email e in notifica.');
+            ->with('portal_success', 'Quota di ' . ky_format($importo) . ' € richiesta a ' . $user->name . ': è stato avvisato per email e in notifica.');
     }
 
     /**
@@ -527,21 +556,21 @@ class RegistrationFeeController extends Controller
                 return $indietro->with('portal_error', 'Questo tentativo PayPal non è mai arrivato a creare un ordine: non c\'è niente da verificare.');
             }
 
-            try {
-                $ordine = Http::withToken($this->getPaypalAccessToken())
-                    ->get($this->paypalApiBase() . '/v2/checkout/orders/' . $payment->paypal_order_id)
-                    ->json();
-            } catch (\Throwable $e) {
-                Log::error('Quota iscrizione: verifica ordine PayPal fallita', [
-                    'payment' => $payment->uuid,
-                    'error'   => $e->getMessage(),
-                ]);
+            // Dal 02/09/2026 la prova la raccoglie PayPalOrderVerifier e non
+            // piu' due righe scritte qui: cosi' e' la STESSA prova che usano
+            // la pagina di esito e il ripescaggio della quota agente, ed e'
+            // piu' severa di prima — non basta piu' che l'ordine risulti
+            // COMPLETED, deve anche essere di questo importo e riferito a
+            // questo pagamento.
+            $pagata = app(PayPalOrderVerifier::class)->isCompletedFor(
+                $payment->paypal_order_id,
+                (int) $payment->amount_eur_cents,
+                $payment->uuid,
+                'regfee-retry:' . $payment->uuid,
+            );
 
-                return $indietro->with('portal_error', 'Non è stato possibile interrogare PayPal: riprova più tardi.');
-            }
-
-            if (($ordine['status'] ?? null) !== 'COMPLETED') {
-                return $indietro->with('portal_error', 'PayPal non risulta aver incassato questo pagamento (stato: ' . ($ordine['status'] ?? 'sconosciuto') . '): non è stato accreditato niente.');
+            if (! $pagata) {
+                return $indietro->with('portal_error', 'PayPal non risulta aver incassato questo pagamento per questo importo: non è stato accreditato niente. Il motivo esatto è nei log.');
             }
         } elseif ($metodo === RegistrationFeePayment::METHOD_BANK_TRANSFER) {
             // Nessun server da interrogare: la prova e' l'admin. Una spunta
