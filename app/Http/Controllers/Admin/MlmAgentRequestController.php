@@ -107,7 +107,21 @@ class MlmAgentRequestController extends Controller
         //     invita a pagare un codice che non arrivera' mai;
         //   - i 30 dei privati, se erano SOSPESI perche' era entrato dal
         //     portale di un agente, tornano dovuti: e' un privato come tutti.
-        app(\App\Services\AgentCodeFeeService::class)->dropUnpaidDebt($user, $request->ip());
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+
+        $quotaAgente->dropUnpaidDebt($user, $request->ip());
+
+        // I checkout ancora aperti si chiudono con la richiesta (02/09/2026).
+        // Senza, un pagamento fatto DOPO il rifiuto veniva accreditato lo
+        // stesso — il webhook accredita qualunque riga non gia' chiusa — e il
+        // circuito incassava 480 euro per un codice che non arrivera' mai.
+        // Vedi AgentCodeFeeService::closeOpenAttempts().
+        $tentativiChiusi = $quotaAgente->closeOpenAttempts(
+            $user,
+            'Percorso agente chiuso: richiesta rifiutata dal backoffice.',
+            $request->ip(),
+        );
+
         app(\App\Services\RegistrationFeeService::class)->resumeAfterAgentPath($user->refresh(), $request->ip());
 
         $user->notify(new MlmAgentRequestReviewedNotification('rejected', $validated['reason']));
@@ -121,6 +135,11 @@ class MlmAgentRequestController extends Controller
         ]);
 
         $messaggio = 'Richiesta rifiutata. ' . $user->name . ' è stato avvisato.';
+
+        if ($tentativiChiusi > 0) {
+            $messaggio .= ' ' . $tentativiChiusi . ' ' . ($tentativiChiusi === 1 ? 'tentativo di pagamento ancora aperto è stato chiuso' : 'tentativi di pagamento ancora aperti sono stati chiusi')
+                . ': se paga adesso su una di quelle pagine, il circuito non incasserà nulla.';
+        }
 
         if ($quotaGiaPagata) {
             $messaggio .= ' ATTENZIONE: aveva già saldato la quota per il codice agente e quei soldi NON sono stati toccati. Se vanno restituiti, annulla la quota da Quote codice agente.';

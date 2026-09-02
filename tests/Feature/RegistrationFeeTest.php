@@ -1589,6 +1589,151 @@ class RegistrationFeeTest extends TestCase
         $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($aspirante->fresh()));
     }
 
+    // ─── 19-bis. Chi i 480 li ha PAGATI non deve anche i 30 (02/09/2026) ───
+
+    /**
+     * IL BUCO CHIUSO IL 02/09/2026. La quota del codice agente e' un ingresso
+     * nel circuito, e costa sedici volte quello dei privati. Chi l'ha saldata
+     * e poi esce dal percorso ha gia' pagato per entrare: fino a oggi i 30 gli
+     * si riaccendevano lo stesso, e riceveva un «devi 30 €» senza nessuna
+     * spiegazione dopo averne versati 480 per un codice che non avra' mai.
+     *
+     * La colonna va a NULL e non resta a zero, ed e' la parte che conta:
+     * isSuspendedFor() vuol dire «nel circuito non ha ancora pagato NESSUN
+     * ingresso» ed e' cio' che il middleware legge per decidere quanto
+     * stringere. Lasciarla a zero direbbe il falso proprio su chi ha pagato di
+     * piu'.
+     */
+    public function test_chi_ha_pagato_i_quattrocentottanta_non_si_ritrova_a_dovere_i_trenta(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        // I 30 sono sospesi, i 480 dovuti: lo stato normale di chi sta per
+        // pagare il codice.
+        $this->assertSame(0, (int) $aspirante->fresh()->registration_fee_due_cents);
+
+        $this->pagaLaQuotaCodiceInEuro($aspirante->fresh());
+
+        app(\App\Services\AgentCodeFeeService::class)->giveUp($aspirante->fresh());
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertNull($dopo->registration_fee_due_cents);
+        $this->assertFalse(app(RegistrationFeeService::class)->isDueFor($dopo));
+        $this->assertFalse(app(RegistrationFeeService::class)->isSuspendedFor($dopo));
+
+        // E non gli si chiede niente: la notifica dei 30 non parte.
+        Notification::assertNotSentTo($dopo, RegistrationFeeRequestedNotification::class);
+
+        // Il conto e' operativo davvero, non solo sulla carta.
+        $this->actingAs($dopo)->get('/invia')->assertOk();
+    }
+
+    public function test_anche_il_rifiuto_dell_admin_non_riaccende_i_trenta_a_chi_ha_pagato_i_quattrocentottanta(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        $this->pagaLaQuotaCodiceInEuro($aspirante->fresh());
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Documenti non conformi.'])
+            ->assertRedirect();
+
+        $this->assertNull($aspirante->fresh()->registration_fee_due_cents);
+        Notification::assertNotSentTo($aspirante->fresh(), RegistrationFeeRequestedNotification::class);
+    }
+
+    /**
+     * L'altra meta', e serve che resti verde: chi il codice NON lo ha pagato
+     * i 30 li deve eccome. Senza questo, il portale dell'agente tornerebbe a
+     * essere il modo di entrare nel circuito senza pagare niente — ci si fa
+     * registrare, si rinuncia, e non si deve piu' nulla.
+     */
+    public function test_chi_i_quattrocentottanta_non_li_ha_pagati_i_trenta_li_deve_ancora(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        app(\App\Services\AgentCodeFeeService::class)->giveUp($aspirante->fresh());
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->registration_fee_due_cents);
+        Notification::assertSentTo($aspirante->fresh(), RegistrationFeeRequestedNotification::class);
+    }
+
+    /**
+     * L'ESONERATO NON HA PAGATO NIENTE, e la differenza va tenuta ferma: lo
+     * zero della quota agente vuol dire «condonata», non «saldata». Chi e'
+     * stato esonerato e poi rinuncia torna un privato come tutti e i 30 li
+     * deve. Il rischio era di scrivere la guardia su isOnFeePath() o sulla
+     * colonna dell'importo invece che su agent_code_fee_paid_at.
+     */
+    public function test_l_esonerato_che_rinuncia_i_trenta_li_deve(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        app(\App\Services\AgentCodeFeeService::class)
+            ->waive($aspirante->fresh(), $this->superAdmin, 'Accordo commerciale.');
+
+        app(\App\Services\AgentCodeFeeService::class)->giveUp($aspirante->fresh());
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->registration_fee_due_cents);
+    }
+
+    /**
+     * LA DOMANDA E' «HA PAGATO?», NON «E' PASSATO DI QUI?».
+     *
+     * Test nato da una mutazione sopravvissuta: scrivendo la guardia su
+     * `agent_code_fee_due_cents !== null` invece che su
+     * `agent_code_fee_paid_at` la suite restava tutta verde, perche' oggi
+     * rinuncia e rifiuto azzerano quella colonna PRIMA di arrivare qui e i
+     * due controlli non si distinguono da nessun percorso del sito. Una
+     * guardia che nessun test sa distinguere e' una guardia non provata: al
+     * primo cambiamento in giveUp() la versione sbagliata condonerebbe i 30 a
+     * chi non ha versato un euro.
+     *
+     * Lo stato qui sotto si costruisce a mano apposta — dal sito non si
+     * raggiunge — ed e' l'unico che separa le due letture.
+     */
+    public function test_la_quota_sospesa_si_riaccende_a_chi_i_quattrocentottanta_li_deve_ancora(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'registration_fee_due_cents' => 0,
+            'agent_code_fee_due_cents'   => 48000,
+            'agent_code_fee_paid_at'     => null,
+        ])->save();
+
+        $riacceso = app(RegistrationFeeService::class)->resumeAfterAgentPath($utente->fresh());
+
+        $this->assertSame(self::QUOTA, $riacceso);
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
     public function test_la_sospensione_all_approvazione_non_riguarda_le_aziende(): void
     {
         [$utente] = $this->makePrivateConQuota(0);
@@ -1843,6 +1988,26 @@ class RegistrationFeeTest extends TestCase
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     private User $superAdmin;
+
+    /**
+     * Salda i 480 per la via piu' corta: in euro non si muove nessun KY, non
+     * serve ne' un conto di sistema ne' un fido, e la colonna
+     * agent_code_fee_paid_at si valorizza esattamente come dal sito.
+     */
+    private function pagaLaQuotaCodiceInEuro(User $utente): void
+    {
+        $pagamento = \App\Models\AgentCodeFeePayment::create([
+            'user_id'          => $utente->id,
+            'amount_eur_cents' => 48000,
+            'ky_amount'        => 48000,
+            'status'           => \App\Models\AgentCodeFeePayment::STATUS_PENDING,
+            'payment_method'   => \App\Models\AgentCodeFeePayment::METHOD_STRIPE,
+        ]);
+
+        app(\App\Services\AgentCodeFeeService::class)->completeEuroPayment($pagamento);
+
+        $this->assertNotNull($utente->fresh()->agent_code_fee_paid_at);
+    }
 
     private function attivaQuotaCodiceAgente(bool $attiva = true, int $importo = 48000): void
     {

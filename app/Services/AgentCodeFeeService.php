@@ -198,49 +198,73 @@ class AgentCodeFeeService
      *     decidere chi rinuncia, e cancellare qui la quota saldata vorrebbe
      *     dire perdere la traccia di 480 euro incassati.
      *
+     * IN TUTTI E DUE I CASI i checkout ancora aperti si chiudono
+     * (closeOpenAttempts, 02/09/2026): senza, chi rinunciava con la scheda
+     * Stripe ancora aperta poteva pagare lo stesso e farsi incassare 480 euro
+     * per un codice che non avrebbe mai avuto.
+     *
      * Dopo la firma non si passa di qui: il codice agente c'e' gia' e la
      * strada e' un'altra (la revoca dell'agente, che e' un altro mestiere).
      */
     public function giveUp(User $user, ?string $ipAddress = null): void
     {
-        if ($user->isMlmAgent()) {
-            throw new RuntimeException('Hai già firmato la nomina: la rinuncia non passa da qui.');
-        }
+        DB::transaction(function () use ($user, $ipAddress): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
-        if ($user->mlm_agent_request_status !== 'approved') {
-            throw new RuntimeException('Non c\'è nessun percorso da agente aperto da annullare.');
-        }
+            // Le due guardie stanno DENTRO il lock, e ci stanno una volta
+            // sola. Fino al 02/09 questo era l'unico metodo di uscita scritto
+            // con un forceFill nudo, fuori da qualunque transazione: due click
+            // sul bottone lasciavano due audit log e una finestra in cui la
+            // richiesta era gia' 'cancelled' e il debito ancora addosso.
+            if ($locked->isMlmAgent()) {
+                throw new RuntimeException('Hai già firmato la nomina: la rinuncia non passa da qui.');
+            }
 
-        $quotaPagata = $this->hasPaid($user);
-        $eraEsonerato = $this->isWaived($user);
+            if ($locked->mlm_agent_request_status !== 'approved') {
+                throw new RuntimeException('Non c\'è nessun percorso da agente aperto da annullare.');
+            }
 
-        $campi = [
-            'mlm_agent_request_status'   => 'cancelled',
-            'mlm_agent_rejection_reason' => $quotaPagata
-                ? 'Rinuncia dell\'interessato a quota codice già saldata: la quota resta pagata, l\'eventuale rimborso si decide dal backoffice.'
-                : 'Rinuncia dell\'interessato prima del pagamento della quota codice.',
-        ];
+            $quotaPagata  = $this->hasPaid($locked);
+            $eraEsonerato = $this->isWaived($locked);
 
-        if (! $quotaPagata) {
-            $campi['agent_code_fee_due_cents'] = null;
-            $campi['agent_code_fee_paid_at']   = null;
-        }
+            $campi = [
+                'mlm_agent_request_status'   => 'cancelled',
+                'mlm_agent_rejection_reason' => $quotaPagata
+                    ? 'Rinuncia dell\'interessato a quota codice già saldata: la quota resta pagata, l\'eventuale rimborso si decide dal backoffice.'
+                    : 'Rinuncia dell\'interessato prima del pagamento della quota codice.',
+            ];
 
-        $user->forceFill($campi)->save();
+            if (! $quotaPagata) {
+                $campi['agent_code_fee_due_cents'] = null;
+                $campi['agent_code_fee_paid_at']   = null;
+            }
 
-        AuditLog::create([
-            'actor_user_id'  => $user->id,
-            'event'          => 'mlm.agent_request.given_up',
-            'auditable_type' => User::class,
-            'auditable_id'   => $user->id,
-            'ip_address'     => $ipAddress,
-            'context'        => [
-                // Le due cose che, fra sei mesi, spiegheranno perche' quella
-                // quota e' li' pagata addosso a un non-agente.
-                'quota_pagata'  => $quotaPagata,
-                'era_esonerato' => $eraEsonerato,
-            ],
-        ]);
+            $locked->forceFill($campi)->save();
+
+            $chiusi = $this->closeOpenAttempts(
+                $locked,
+                'Percorso agente chiuso: l\'interessato ha rinunciato.',
+                $ipAddress,
+            );
+
+            AuditLog::create([
+                'actor_user_id'  => $locked->id,
+                'event'          => 'mlm.agent_request.given_up',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    // Le due cose che, fra sei mesi, spiegheranno perche' quella
+                    // quota e' li' pagata addosso a un non-agente.
+                    'quota_pagata'  => $quotaPagata,
+                    'era_esonerato' => $eraEsonerato,
+                    // Quanti checkout aperti sono stati chiusi con lui: se un
+                    // pagamento arriva lo stesso, e' qui che si capisce perche'
+                    // il webhook lo ha rifiutato.
+                    'tentativi_chiusi' => $chiusi,
+                ],
+            ]);
+        });
 
         // Chi era entrato dalla porta dell'agente aveva la quota dei privati
         // SOSPESA (01/09/2026): rinunciando torna un privato come tutti gli
@@ -286,6 +310,82 @@ class AgentCodeFeeService
         ]);
 
         return true;
+    }
+
+    /**
+     * Chiude i tentativi di pagamento ancora aperti di questa persona, perche'
+     * il percorso agente si e' chiuso: rinuncia sua (giveUp) o rifiuto
+     * dell'admin (Admin\MlmAgentRequestController::reject).
+     *
+     * IL BUCO CHE CHIUDE (02/09/2026), ed e' il piu' caro dei due trovati.
+     * Ogni click su "paga con carta" apre una riga `pending` e una sessione
+     * Stripe che resta valida per ore. Dal 01/09 il webhook accredita
+     * QUALUNQUE riga che non sia gia' `completed` o `cancelled` — tolleranza
+     * voluta, serve a ripescare chi ha pagato davvero. Ma nessuno chiudeva le
+     * righe quando il percorso si chiudeva, e allora:
+     *
+     *   1. apre il checkout, la scheda resta li';
+     *   2. ci ripensa e rinuncia — quota cancellata, richiesta 'cancelled',
+     *      e i 30 dei privati che si riaccendono;
+     *   3. torna sulla scheda e paga lo stesso;
+     *   4. il webhook trova una riga `pending`, Stripe conferma l'incasso, e
+     *      la quota risulta SALDATA.
+     *
+     * Risultato: 480 euro incassati, nessun codice agente, nessuna mail (la
+     * ricevuta della quota agente non esiste ancora) e i 30 da pagare. Lo
+     * stesso vale per il rifiuto dell'admin.
+     *
+     * `cancelled` E NON `failed`, ed e' tutta la differenza: `failed` e'
+     * VOLUTO che resti ripescabile — e' lo stato in cui finisce un accredito
+     * andato storto o un tentativo dato per abbandonato, e webhook e pagina di
+     * esito devono poterlo riaprire. `cancelled` e' l'unico stato che significa
+     * "risposta gia' data, non tornarci sopra".
+     *
+     * SI CHIUDE ANCHE A CHI HA GIA' PAGATO, e non e' una svista: chi ha saldato
+     * in KY puo' avere lasciato indietro un checkout con carta abbandonato, e
+     * quella riga incasserebbe una seconda volta 480 euro senza nemmeno il
+     * `Log::warning` del doppio incasso che esiste sui privati.
+     *
+     * @return int quante righe sono state chiuse
+     */
+    public function closeOpenAttempts(User $user, string $reason, ?string $ipAddress = null): int
+    {
+        $aperti = AgentCodeFeePayment::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', [
+                AgentCodeFeePayment::STATUS_PENDING,
+                AgentCodeFeePayment::STATUS_PENDING_BANK_TRANSFER,
+            ])
+            ->get();
+
+        $chiusi = 0;
+
+        foreach ($aperti as $aperto) {
+            $statoPrima = $aperto->status;
+
+            $aperto->update([
+                'status'      => AgentCodeFeePayment::STATUS_CANCELLED,
+                'admin_notes' => $reason,
+            ]);
+
+            AuditLog::create([
+                'actor_user_id'  => $user->id,
+                'event'          => 'agent_code_fee.attempt_closed',
+                'auditable_type' => AgentCodeFeePayment::class,
+                'auditable_id'   => $aperto->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'uuid'           => $aperto->uuid,
+                    'payment_method' => $aperto->payment_method,
+                    'stato_prima'    => $statoPrima,
+                    'reason'         => $reason,
+                ],
+            ]);
+
+            $chiusi++;
+        }
+
+        return $chiusi;
     }
 
     // ── Apertura di un tentativo di pagamento ───────────────────────────────

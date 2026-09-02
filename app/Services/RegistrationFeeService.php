@@ -186,6 +186,20 @@ class RegistrationFeeService
      * punto in cui la quota non segue lo scatto della registrazione, ed e'
      * inevitabile.
      *
+     * CHI I 480 LI HA PAGATI DAVVERO NON DEVE ANCHE I 30 (02/09/2026). La
+     * quota del codice agente e' un INGRESSO nel circuito, ed e' sedici volte
+     * quello dei privati: chi l'ha saldata e poi esce dal percorso — rinuncia
+     * sua o rifiuto dell'admin — ha gia' pagato per entrare, e riaccendergli i
+     * 30 vorrebbe dire chiedere altri soldi a chi ne ha appena versati 480 per
+     * un codice che non avra' mai. Fino al 02/09 succedeva esattamente questo,
+     * e per giunta in silenzio: la notifica gli arrivava senza spiegazione.
+     *
+     * In quel caso la colonna va a NULL e non resta a zero, ed e' voluto:
+     * isSuspendedFor() significa "nel circuito non ha ancora pagato NESSUN
+     * ingresso" ed e' cio' che il middleware legge per decidere quanto
+     * stringere. Lasciarla a zero direbbe il falso su una persona che
+     * l'ingresso lo ha pagato piu' caro di tutti.
+     *
      * @return int i centesimi ora dovuti, 0 se non si e' acceso niente
      */
     public function resumeAfterAgentPath(User $user, ?string $ipAddress = null): int
@@ -220,6 +234,30 @@ class RegistrationFeeService
             if ($locked->registration_fee_due_cents === null
                 || (int) $locked->registration_fee_due_cents !== self::SOSPESA
                 || $locked->registration_fee_paid_at !== null) {
+                return;
+            }
+
+            // Ha saldato i 480 del codice agente: l'ingresso nel circuito lo
+            // ha gia' pagato, e di piu'. La quota sospesa non si riaccende e
+            // non resta nemmeno sospesa — si spegne per sempre (vedi il
+            // docblock). Nessuna notifica: non c'e' niente da comunicare,
+            // dirgli "la tua quota non e' tornata dovuta" e' rumore.
+            if ($locked->agent_code_fee_paid_at !== null) {
+                $locked->forceFill(['registration_fee_due_cents' => null])->save();
+
+                AuditLog::create([
+                    'actor_user_id'  => $locked->id,
+                    'event'          => 'registration_fee.settled_by_agent_fee',
+                    'auditable_type' => User::class,
+                    'auditable_id'   => $locked->id,
+                    'ip_address'     => $ipAddress,
+                    'context'        => [
+                        // Quanto NON gli e' stato richiesto, e perche'.
+                        'amount_not_resumed' => $importo,
+                        'agent_code_fee_paid_at' => (string) $locked->agent_code_fee_paid_at,
+                    ],
+                ]);
+
                 return;
             }
 

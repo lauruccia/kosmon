@@ -991,6 +991,138 @@ class AgentCodeFeeTest extends TestCase
             ->assertOk()->assertDontSee('Esonera dalla quota');
     }
 
+    // ─── 8. I checkout aperti si chiudono col percorso (02/09/2026) ─────────
+
+    /**
+     * IL PIU' CARO DEI BUCHI TROVATI IL 02/09/2026, e vale 480 euro a colpo.
+     *
+     * Ogni click su "paga con carta" apre una riga `pending` e una sessione
+     * Stripe che resta valida per ore. Dal 01/09 il webhook accredita
+     * QUALUNQUE riga che non sia gia' `completed` o `cancelled` — tolleranza
+     * voluta, serve a ripescare chi ha pagato davvero. Ma nessuno chiudeva le
+     * righe quando il percorso si chiudeva: si rinunciava con la scheda
+     * ancora aperta, si pagava lo stesso, e il circuito incassava 480 euro
+     * per un codice che non sarebbe mai arrivato.
+     *
+     * Questo test e' scritto dalla parte che conta — il webhook, con la firma
+     * vera e con Stripe che CONFERMA l'incasso. Se un giorno qualcuno rimette
+     * `failed` al posto di `cancelled` in closeOpenAttempts(), qui torna
+     * rosso: `failed` e' voluto che resti ripescabile.
+     */
+    public function test_dopo_la_rinuncia_il_webhook_non_incassa_piu_i_quattrocentottanta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(true);
+
+        $aperto = $this->checkoutAperto($aspirante);
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/rinuncia')
+            ->assertRedirect(route('portal.dashboard'));
+
+        $this->postWebhookStripe($aperto->stripe_checkout_session_id)->assertOk();
+
+        $this->assertFalse($aperto->fresh()->isCompleted());
+        $this->assertTrue($aperto->fresh()->isCancelled());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    public function test_dopo_il_rifiuto_dell_admin_il_webhook_non_incassa_piu_i_quattrocentottanta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+        $this->fingiStripe(true);
+
+        $aperto = $this->checkoutAperto($aspirante);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Documenti non conformi.'])
+            ->assertRedirect();
+
+        $this->postWebhookStripe($aperto->stripe_checkout_session_id)->assertOk();
+
+        $this->assertTrue($aperto->fresh()->isCancelled());
+        $this->assertNull($aspirante->fresh()->agent_code_fee_paid_at);
+    }
+
+    /**
+     * Anche il bonifico in attesa si chiude: la sua causale non deve restare
+     * viva addosso a una richiesta che non esiste piu'. E' l'unico stato,
+     * insieme a `pending`, che significa "stiamo ancora aspettando qualcosa".
+     */
+    public function test_si_chiude_anche_il_bonifico_rimasto_in_attesa(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $bonifico = app(AgentCodeFeeService::class)
+            ->startPayment($aspirante, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
+
+        $this->assertTrue($bonifico->isPendingBankTransfer());
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/rinuncia')->assertRedirect();
+
+        $this->assertTrue($bonifico->fresh()->isCancelled());
+    }
+
+    /**
+     * SI CHIUDE ANCHE A CHI HA GIA' PAGATO, e non e' un di piu': chi salda in
+     * KY puo' avere lasciato indietro un checkout con carta abbandonato, e
+     * quella riga incasserebbe una seconda volta 480 euro — senza nemmeno il
+     * Log::warning del doppio incasso che esiste sui privati, perche' qui non
+     * c'e' nessun accredito da cui accorgersene.
+     */
+    public function test_chi_ha_pagato_in_ky_non_si_fa_incassare_una_seconda_volta_dal_checkout_abbandonato(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente(fido: self::QUOTA);
+        $this->fingiStripe(true);
+
+        $abbandonato = $this->checkoutAperto($aspirante);
+        app(AgentCodeFeeService::class)->payWithKy($aspirante->fresh());
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia')->assertRedirect();
+
+        $this->postWebhookStripe($abbandonato->stripe_checkout_session_id)->assertOk();
+
+        $this->assertTrue($abbandonato->fresh()->isCancelled());
+        $this->assertSame(1, AgentCodeFeePayment::where('user_id', $aspirante->id)
+            ->where('status', AgentCodeFeePayment::STATUS_COMPLETED)->count());
+    }
+
+    /**
+     * Le righe gia' chiuse non si toccano. `failed` in particolare: e' lo
+     * stato di un accredito andato storto o di un tentativo dato per
+     * abbandonato, e webhook e pagina di esito devono poterlo ancora
+     * riaprire se il pagamento e' arrivato davvero (01/09/2026). Marcarlo
+     * `cancelled` da qui vorrebbe dire buttare via un incasso vero.
+     */
+    public function test_la_chiusura_non_tocca_le_righe_gia_chiuse(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $fallita = $this->pagamentoAgenteFallito($aspirante);
+
+        $this->actingAs($aspirante)->post('/mlm/quota-codice/rinuncia')->assertRedirect();
+
+        $this->assertSame(AgentCodeFeePayment::STATUS_FAILED, $fallita->fresh()->status);
+    }
+
+    /** Un checkout con carta aperto e mai concluso: la riga che il webhook vede. */
+    private function checkoutAperto(User $utente): AgentCodeFeePayment
+    {
+        return AgentCodeFeePayment::create([
+            'user_id'                    => $utente->id,
+            'amount_eur_cents'           => self::QUOTA,
+            'ky_amount'                  => self::QUOTA,
+            'status'                     => AgentCodeFeePayment::STATUS_PENDING,
+            'payment_method'             => AgentCodeFeePayment::METHOD_STRIPE,
+            'stripe_checkout_session_id' => 'cs_test_' . Str::random(16),
+        ]);
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     /**
