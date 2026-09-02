@@ -2134,6 +2134,170 @@ class RegistrationFeeTest extends TestCase
         $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
     }
 
+    // ─── 22. Se i 480 tornano indietro, i 30 tornano dovuti (02/09/2026) ───
+
+    /**
+     * IL BUCO APERTO DALLA CORREZIONE DI STAMATTINA. Spegnere la quota dei
+     * privati perche' «i 480 hanno pagato l'ingresso» e' giusto, ma quel fatto
+     * si puo' disfare: se l'admin annulla la quota del codice e restituisce i
+     * soldi, lo storno rimetteva a posto saldo, fido e quota agente, e lasciava
+     * in piedi la CONSEGUENZA. Restava una persona entrata dal portale di un
+     * agente, con il conto pienamente operativo, che nel circuito non aveva
+     * pagato niente.
+     */
+    public function test_annullare_i_quattrocentottanta_rimette_in_carico_i_trenta(): void
+    {
+        [$aspirante, $conto] = $this->makePrivateConQuota(0, fido: 48000);
+        $this->attivaQuotaCodiceAgente();
+        $this->makeSystemAccount(0);
+
+        // Entrato dal portale di un agente: i 30 sospesi, i 480 dovuti.
+        $aspirante->forceFill([
+            'registration_fee_due_cents' => 0,
+            'mlm_agent_request_status'   => 'approved',
+            'mlm_agent_requested_at'     => now(),
+        ])->save();
+
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+        $quotaAgente->markDueOnApproval($aspirante->fresh());
+        $quotaAgente->payWithKy($aspirante->fresh());
+        $quotaAgente->giveUp($aspirante->fresh());
+
+        // L'ingresso risulta pagato: i 30 sono spenti.
+        $this->assertNull($aspirante->fresh()->registration_fee_due_cents);
+
+        $pagamento = \App\Models\AgentCodeFeePayment::where('user_id', $aspirante->id)->firstOrFail();
+        $quotaAgente->cancel($pagamento, $this->superAdmin, 'Rimborso concordato.');
+
+        $dopo = $aspirante->fresh();
+
+        // I soldi sono tornati...
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, (int) $dopo->agent_code_fee_ky_allowance_cents);
+
+        // ...e con loro e' tornata dovuta la quota di iscrizione.
+        $this->assertSame(self::QUOTA, (int) $dopo->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($dopo));
+
+        Notification::assertSentTo($dopo, RegistrationFeeRequestedNotification::class);
+    }
+
+    /**
+     * NULL vuol dire DUE cose, e questa e' la seconda: i milletrecento iscritti
+     * da prima che la quota esistesse non la devono e non la dovranno mai.
+     * Annullare la loro quota del codice agente non deve inventargli un debito
+     * che non hanno mai avuto — ed e' il motivo per cui non basta guardare la
+     * colonna, ma serve l'evento che quel NULL lo ha scritto.
+     */
+    public function test_annullare_i_quattrocentottanta_a_un_vecchio_iscritto_non_gli_inventa_una_quota(): void
+    {
+        [$vecchio] = $this->makePrivate(0, fido: 48000);
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+        $this->makeSystemAccount(0);
+
+        // NULL da sempre: non e' mai passato dalla quota dei privati.
+        $vecchio->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'mlm_agent_requested_at'   => now(),
+        ])->save();
+
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+        $quotaAgente->markDueOnApproval($vecchio->fresh());
+        $quotaAgente->payWithKy($vecchio->fresh());
+        $quotaAgente->giveUp($vecchio->fresh());
+
+        $pagamento = \App\Models\AgentCodeFeePayment::where('user_id', $vecchio->id)->firstOrFail();
+        $quotaAgente->cancel($pagamento, $this->superAdmin, 'Rimborso concordato.');
+
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+        Notification::assertNotSentTo($vecchio->fresh(), RegistrationFeeRequestedNotification::class);
+    }
+
+    /**
+     * Se DOPO lo spegnimento e' passato un admin a chiedere o a sospendere la
+     * quota, comanda quello: la ricostruzione dall'audit log vale solo se
+     * l'evento che ha spento la colonna e' anche l'ULTIMO ad averla toccata.
+     */
+    public function test_una_decisione_dell_admin_piu_recente_comanda_sulla_ricostruzione(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0, fido: 48000);
+        $this->attivaQuotaCodiceAgente();
+        $this->makeSystemAccount(0);
+
+        $aspirante->forceFill([
+            'registration_fee_due_cents' => 0,
+            'mlm_agent_request_status'   => 'approved',
+            'mlm_agent_requested_at'     => now(),
+        ])->save();
+
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+        $quotaAgente->markDueOnApproval($aspirante->fresh());
+        $quotaAgente->payWithKy($aspirante->fresh());
+        $quotaAgente->giveUp($aspirante->fresh());
+
+        // L'admin, nel frattempo, gliela mette in carico a mano e poi la
+        // sospende di nuovo: l'ultima parola e' la sua, non quella di un
+        // annullamento che arriva dopo.
+        // Importo DIVERSO da quello spento, ed e' il punto: con la stessa
+        // cifra la ricostruzione scriverebbe lo stesso numero e nessun test
+        // vedrebbe la differenza.
+        $this->attivaQuota(importo: self::QUOTA * 3);
+        app(RegistrationFeeService::class)->requestFrom($aspirante->fresh(), $this->superAdmin);
+        $aspirante->refresh();
+        $this->assertSame(self::QUOTA * 3, (int) $aspirante->registration_fee_due_cents);
+
+        $pagamento = \App\Models\AgentCodeFeePayment::where('user_id', $aspirante->id)->firstOrFail();
+        $quotaAgente->cancel($pagamento, $this->superAdmin, 'Rimborso concordato.');
+
+        // Resta quella dell'admin, non torna quella vecchia.
+        $this->assertSame(self::QUOTA * 3, (int) $aspirante->fresh()->registration_fee_due_cents);
+    }
+
+    /**
+     * A DECIDERE E' IL NOME DELL'EVENTO, non il fatto che ci sia un importo
+     * scritto da qualche parte.
+     *
+     * Lo stato qui sotto si costruisce a mano — dal sito non si raggiunge,
+     * perche' l'unica cosa che spegne quella colonna e' lo spegnimento per
+     * ingresso gia' pagato — ma una riparazione a mano sul database lo puo'
+     * creare, ed e' l'unico stato che separa «l'ultimo evento e' QUELLO» da
+     * «c'e' un evento con un importo dentro». Senza, la mutazione che toglie
+     * il controllo sul nome sopravvive: tutti gli eventi che scrivono questa
+     * colonna portano un `amount`, e la ricostruzione prenderebbe il primo che
+     * capita.
+     */
+    public function test_a_decidere_e_l_evento_che_ha_spento_la_colonna_non_un_importo_qualunque(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0, fido: 48000);
+        $this->attivaQuotaCodiceAgente();
+        $this->makeSystemAccount(0);
+
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'mlm_agent_requested_at'   => now(),
+        ])->save();
+
+        $quotaAgente = app(\App\Services\AgentCodeFeeService::class);
+        $quotaAgente->markDueOnApproval($utente->fresh());
+
+        // L'ultimo evento sulla colonna e' una RIACCENSIONE — con il suo bravo
+        // `amount` dentro — e avviene mentre i 480 sono ancora da pagare, cosi'
+        // non e' lo spegnimento per ingresso saldato.
+        app(RegistrationFeeService::class)->suspendOnAgentApproval($utente->fresh());
+        app(RegistrationFeeService::class)->resumeAfterAgentPath($utente->fresh());
+
+        $quotaAgente->payWithKy($utente->fresh());
+
+        // E la colonna, poi, e' stata azzerata a mano sul database.
+        $utente->fresh()->forceFill(['registration_fee_due_cents' => null])->save();
+
+        $pagamento = \App\Models\AgentCodeFeePayment::where('user_id', $utente->id)->firstOrFail();
+        $quotaAgente->cancel($pagamento, $this->superAdmin, 'Rimborso concordato.');
+
+        $this->assertNull($utente->fresh()->registration_fee_due_cents);
+    }
+
     /**
      * Sostituisce il verificatore di PayPal, come si fa gia' con quello di
      * Stripe: e' l'unico modo di provare che si accredita SOLO quando la prova

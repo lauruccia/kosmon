@@ -285,8 +285,14 @@ class RegistrationFeeService
                     'auditable_id'   => $locked->id,
                     'ip_address'     => $ipAddress,
                     'context'        => [
-                        // Quanto NON gli e' stato richiesto, e perche'.
-                        'amount_not_resumed' => $importo,
+                        // Quanto NON gli e' stato richiesto. La chiave e'
+                        // `amount` come in tutti gli altri eventi che scrivono
+                        // questa colonna, e non una sua: se fosse diversa, il
+                        // controllo sul NOME dell'evento in
+                        // restoreAfterAgentFeeCancelled() non sarebbe piu'
+                        // distinguibile da un controllo sulla chiave, e
+                        // nessuna delle due risulterebbe provata.
+                        'amount' => $importo,
                         'agent_code_fee_paid_at' => (string) $locked->agent_code_fee_paid_at,
                     ],
                 ]);
@@ -424,6 +430,134 @@ class RegistrationFeeService
         });
 
         return $sospesi;
+    }
+
+    // ── L'ingresso pagato torna indietro (02/09/2026) ───────────────────────
+
+    /**
+     * Gli eventi che SCRIVONO `registration_fee_due_cents` sull'utente. Servono
+     * a sapere da dove viene il NULL che c'e' adesso nella colonna: il NULL da
+     * solo non lo dice, ed e' lo stesso valore dei milletrecento iscritti da
+     * prima che la quota esistesse.
+     *
+     * `registration_fee.cancelled` non e' qui perche' e' scritto sul PAGAMENTO,
+     * non sull'utente; `registration_fee.reminded` perche' non tocca la colonna.
+     *
+     * @var list<string>
+     */
+    private const EVENTI_CHE_SCRIVONO_LA_COLONNA = [
+        'registration_fee.resumed_after_agent_path',
+        'registration_fee.suspended_on_agent_approval',
+        'registration_fee.requested_by_admin',
+        'registration_fee.settled_by_agent_fee',
+        'registration_fee.restored_after_agent_fee_cancelled',
+    ];
+
+    /**
+     * L'admin ha annullato la quota del CODICE AGENTE: i 480 tornano indietro,
+     * e con loro deve tornare indietro anche la conclusione che ne era derivata
+     * — «l'ingresso nel circuito e' pagato».
+     *
+     * IL BUCO CHE CHIUDE, ed e' nato oggi stesso. Fino a stamattina i 30 si
+     * riaccendevano SEMPRE quando uno usciva dal percorso agente, anche a chi i
+     * 480 li aveva pagati: sbagliato, e corretto in 952be20. Ma la correzione
+     * spegneva la quota dei privati guardando un fatto che puo' essere disfatto:
+     * se poi l'admin annulla quei 480 e li restituisce, resta una persona
+     * entrata dal portale di un agente, con il conto pienamente operativo, che
+     * nel circuito non ha pagato niente. Lo storno rimetteva a posto il denaro
+     * (saldo, fido aggiuntivo, quota di nuovo dovuta) e lasciava in piedi la
+     * conseguenza.
+     *
+     * PERCHE' SI LEGGE L'AUDIT LOG E NON LA COLONNA. La colonna dice NULL, e
+     * NULL vuol dire due cose diverse: «i 480 hanno pagato il suo ingresso»
+     * (scritto da resumeAfterAgentPath) e «non l'ha mai dovuta e non la dovra'
+     * mai», che e' il valore dei milletrecento iscritti da prima. Rimettere in
+     * carico i 30 al secondo gruppo sarebbe un debito mai avuto. L'unica cosa
+     * che distingue i due casi e' l'evento che ha scritto quel NULL, e
+     * dev'essere anche l'ULTIMO ad aver toccato la colonna: se dopo e' passato
+     * un admin a chiedere o a sospendere la quota, comanda quello.
+     *
+     * L'importo e' quello che quel giorno NON gli era stato richiesto, letto
+     * dallo stesso audit log — stesso ripiego, e per lo stesso motivo, di
+     * importoSospesoInCarico() e di AgentCodeFeeService::revokeWaiver().
+     *
+     * @return int i centesimi rimessi in carico, 0 se non c'era niente da fare
+     */
+    public function restoreAfterAgentFeeCancelled(User $user, ?string $ipAddress = null): int
+    {
+        $rimesso = 0;
+
+        DB::transaction(function () use ($user, $ipAddress, &$rimesso): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            // UNICA GUARDIA, e sta dentro il lock: l'ULTIMA cosa che ha
+            // toccato questa colonna dev'essere lo spegnimento per ingresso
+            // gia' pagato. Da sola dice tutto quello che serve, e le tre
+            // condizioni che stavano qui prima — colonna NULL, non gia'
+            // pagata, e' un privato — erano implicate da questa e la
+            // nascondevano: spegnendola, i test restavano verdi (tredicesima
+            // volta in questo progetto).
+            //
+            //   · nessun evento: e' uno dei milletrecento iscritti da prima
+            //     che la quota esistesse. Non l'ha mai dovuta e non la dovra'
+            //     mai: inventargli qui un debito sarebbe il danno peggiore;
+            //   · un altro evento: qualcuno — di solito l'admin — ha deciso
+            //     dopo, e la sua decisione vale piu' di questa ricostruzione;
+            //   · questo evento: la colonna e' stata spenta perche' i 480
+            //     pagavano l'ingresso, e quei 480 stanno tornando indietro.
+            $ultimo = AuditLog::query()
+                ->whereIn('event', self::EVENTI_CHE_SCRIVONO_LA_COLONNA)
+                ->where('auditable_type', User::class)
+                ->where('auditable_id', $locked->id)
+                ->latest('id')
+                ->first();
+
+            if ($ultimo?->event !== 'registration_fee.settled_by_agent_fee') {
+                return;
+            }
+
+            $importo = (int) ($ultimo->context['amount'] ?? 0);
+
+            // RIDONDANTE, e tenuta apposta — come il filtro sui bonifici in
+            // quote:scadi-tentativi. Quando l'evento e' quello giusto
+            // l'importo e' per forza maggiore di zero (resumeAfterAgentPath
+            // scrive quel log solo in quel caso), quindi nessun test la puo'
+            // distinguere e la mutazione che la toglie sopravvive. Resta
+            // scritta perche' qui lo zero non e' "niente": e' la quota
+            // SOSPESA, e un audit log malformato scriverebbe in silenzio uno
+            // stato che significa un'altra cosa.
+            if ($importo <= 0) {
+                return;
+            }
+
+            $locked->forceFill([
+                'registration_fee_due_cents' => $importo,
+                'registration_fee_paid_at'   => null,
+            ])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $locked->id,
+                'event'          => 'registration_fee.restored_after_agent_fee_cancelled',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => ['amount' => $importo],
+            ]);
+
+            $rimesso = $importo;
+        });
+
+        if ($rimesso === 0) {
+            return 0;
+        }
+
+        $user->refresh();
+
+        // Da adesso il conto e' di nuovo fermo: deve sapere perche', e in che
+        // rapporto sta con i 480 che gli sono appena tornati indietro.
+        $user->notify(new RegistrationFeeRequestedNotification($rimesso));
+
+        return $rimesso;
     }
 
     // ── Stato ───────────────────────────────────────────────────────────────

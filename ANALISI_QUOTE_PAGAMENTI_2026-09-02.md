@@ -439,10 +439,20 @@ persona»**. Oggi la risposta si compone da quattro colonne e un audit log.
 | A12 | scadenza tentativi per la quota agente | ✅ |
 | A13 | euro chiamati KY | ✅ |
 | A11 | fido da 480 a vita | 🟡 lasciato apposta, ora tracciato nell'audit log |
+| A14 | *(trovato dopo)* annullando i 480 il conto restava operativo e senza quota | ✅ `restoreAfterAgentFeeCancelled` |
 | M1 | base comune ai due servizi | ⬜ aperto |
 | M2 | un solo pannello «Quote» con due schede | ⬜ aperto |
 | M3 | vista di riconciliazione | ⬜ aperto |
 | M4 | un solo posto dove leggere l'ingresso pagato | ⬜ aperto |
+
+**A14 e' nato dalla correzione di A1**, ed e' il caso da tenere a mente: spegnere
+la quota dei privati perche' «i 480 hanno pagato l'ingresso» e' giusto, ma quel
+fatto si puo' disfare. Se l'admin annulla la quota del codice, lo storno
+rimetteva a posto saldo, fido e quota agente, e lasciava in piedi la
+CONSEGUENZA — una persona entrata dal portale di un agente, con il conto
+pienamente operativo, che nel circuito non aveva pagato niente. **Quando una
+decisione viene presa guardando un fatto reversibile, chi disfa quel fatto deve
+disfare anche la decisione.**
 
 **M1 resta la cosa che conta di piu'**, ed e' anche quella che ha generato
 meta' di questa lista: A3, A4, A5 e A12 erano tutte lo stesso difetto — una

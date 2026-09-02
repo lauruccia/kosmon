@@ -861,6 +861,18 @@ class AgentCodeFeeService
 
         if ($payment->user !== null) {
             $payment->user->notify(new \App\Notifications\AgentCodeFeeCancelledNotification($payment));
+
+            // I 480 tornano indietro, e con loro torna indietro anche la
+            // conclusione che ne era derivata (02/09/2026). Chi era uscito dal
+            // percorso con la quota pagata si era visto SPEGNERE quella dei
+            // privati, perche' l'ingresso nel circuito risultava saldato: se
+            // adesso quei soldi gli vengono restituiti, l'ingresso non e' piu'
+            // pagato e i 30 tornano dovuti. Senza questa riga lo storno
+            // rimetteva a posto il denaro e lasciava in piedi la conseguenza —
+            // una persona nel circuito, con il conto operativo, che non ha
+            // pagato niente. Fuori dalla transazione perche' manda una
+            // notifica, e non deve partire se lo storno rotola indietro.
+            $this->registrationFees->restoreAfterAgentFeeCancelled($payment->user, $ipAddress);
         }
 
         return $payment;
