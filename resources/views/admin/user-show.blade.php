@@ -290,8 +290,12 @@
             </div>
             @if($userRecord->registration_fee_paid_at)
                 <span class="pill success">Saldata il {{ $userRecord->registration_fee_paid_at->format('d/m/Y') }}</span>
-            @elseif($userRecord->registration_fee_due_cents !== null)
+            @elseif((int) ($userRecord->registration_fee_due_cents ?? 0) > 0)
                 <span class="pill" style="background:rgba(217,119,6,.12);color:#b45309;">Da saldare — {{ ky_format((int) $userRecord->registration_fee_due_cents) }} KY</span>
+            @elseif($userRecord->registration_fee_due_cents !== null)
+                {{-- Zero: SOSPESA. Prima si leggeva «Da saldare — 0,00 KY», che
+                     non vuol dire niente. --}}
+                <span class="pill" style="background:rgba(37,99,235,.12);color:#1d4ed8;">Sospesa — percorso agente</span>
             @else
                 <span class="pill">Non dovuta</span>
             @endif
@@ -303,10 +307,33 @@
                 <a href="{{ route('admin.registration-fees.index') }}" style="color:var(--primary);font-weight:600;">Quote di iscrizione</a>:
                 di l&igrave; il movimento viene stornato e la quota torna dovuta.
             </p>
-        @elseif($userRecord->registration_fee_due_cents !== null)
-            <p class="table-muted">
+        @elseif((int) ($userRecord->registration_fee_due_cents ?? 0) > 0)
+            <p class="table-muted" style="margin-bottom:12px;">
                 L'utente ha la quota aperta: finch&eacute; non salda non pu&ograve; pagare, incassare n&eacute; acquistare.
                 Il fido aggiuntivo &egrave; di {{ ky_format((int) ($userRecord->registration_fee_ky_allowance_cents ?? 0)) }} KY.
+            </p>
+            {{-- L'arretrato del 02/09/2026: chi e' stato approvato come agente
+                 prima che la sospensione fosse automatica ha addosso tutte e
+                 due le quote, e senza questo bottone non c'e' modo di
+                 togliergliene una. Compare solo se il codice agente lo copre
+                 davvero. --}}
+            @if(app(\App\Services\AgentCodeFeeService::class)->isOnFeePath($userRecord))
+                <p class="table-muted" style="margin-bottom:12px;">
+                    Sta anche sul percorso agente: da regola paga <strong>solo</strong> il codice agente.
+                    Sospendendo questa quota non deve pi&ugrave; i {{ ky_format((int) $userRecord->registration_fee_due_cents) }} KY
+                    &mdash; che tornano dovuti da soli se rinuncia o se la richiesta viene rifiutata.
+                </p>
+                <form method="post" action="{{ route('admin.registration-fees.suspend', $userRecord) }}"
+                      onsubmit="return confirm('Sospendere la quota di iscrizione di {{ $userRecord->name }}? Pagherà solo il codice agente. Tornerà dovuta se rinuncia o viene rifiutato.');">
+                    @csrf
+                    <button type="submit" class="cta secondary users-compact-cta">Sospendi la quota di iscrizione</button>
+                </form>
+            @endif
+        @elseif($userRecord->registration_fee_due_cents !== null)
+            <p class="table-muted">
+                Quota <strong>sospesa</strong>: &egrave; sul percorso agente e al suo posto paga il codice agente.
+                Non deve niente ora, e la quota torna dovuta &mdash; all'importo del momento &mdash; se rinuncia
+                o se la richiesta viene rifiutata.
             </p>
         @else
             <p class="table-muted" style="margin-bottom:12px;">

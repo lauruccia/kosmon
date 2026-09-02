@@ -9,6 +9,8 @@
 
     <div class="card" style="padding:28px;">
 
+        @include('portal.mlm._passi', ['passo' => 1])
+
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
             <div style="width:48px;height:48px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">&#127968;</div>
             <div>

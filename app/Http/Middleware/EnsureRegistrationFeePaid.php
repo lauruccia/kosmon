@@ -15,7 +15,9 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * LE QUOTE SONO DUE e possono essere dovute dalla stessa persona in momenti
  * diversi: l'iscrizione dei privati (alla registrazione) e il codice agente
- * (all'approvazione della richiesta). Il nome della classe e' rimasto quello
+ * (all'approvazione della richiesta). Dal 02/09/2026 non fermano le stesse
+ * cose: la prima ferma sempre il conto, la seconda solo a chi nel circuito
+ * non e' ancora entrato pagando (vedi handle()). Il nome della classe e' rimasto quello
  * della prima, che e' gia' pronta per la produzione e non si e' voluta
  * rimaneggiare; l'elenco delle rotte bloccate invece e' e deve restare UNO
  * SOLO, perche' e' la stessa identica domanda — che cosa puo' fare chi deve
@@ -104,6 +106,21 @@ class EnsureRegistrationFeePaid
             $rotta     = 'portal.registration-fee.show';
             $messaggio = 'Per usare questa funzione devi prima saldare la quota di iscrizione.';
         } elseif (app(AgentCodeFeeService::class)->isDueFor($user)) {
+            // LA QUOTA DEL CODICE NON FERMA IL CONTO A TUTTI (02/09/2026,
+            // decisione di Laura). Ferma chi nel circuito non ha ancora
+            // pagato nessun ingresso — quota di iscrizione SOSPESA, cioe' i
+            // 480 sono il suo ingresso. Chi i 30 li aveva gia' pagati, o non
+            // li ha mai dovuti perche' iscritto da prima, il conto ce l'ha e
+            // continua a usarlo: gli manca solo la firma della nomina, ed e'
+            // li' che la strada resta sbarrata (MlmAgentContractController).
+            //
+            // Bloccarlo qui vorrebbe dire che a un privato gia' operativo
+            // chiedere di diventare agente costa il congelamento del conto:
+            // il contrario di quello che il percorso dovrebbe essere.
+            if (! app(RegistrationFeeService::class)->isSuspendedFor($user)) {
+                return $next($request);
+            }
+
             $rotta     = 'portal.mlm.agent-code-fee.show';
             $messaggio = 'Per usare questa funzione devi prima saldare la quota per il codice agente.';
         } else {

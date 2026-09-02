@@ -122,6 +122,11 @@
         </div>
     @endif
 
+    {{-- 02/09/2026: anche questa pagina fa parte del percorso, e chi ci
+         arriva deve vedere che e' l'ultimo passo — non un documento capitato
+         li' per caso. --}}
+    @include('portal.mlm._passi', ['passo' => 2])
+
     <div class="card">
         <div class="card-header">
             <h1>📜 Contratto di Nomina ad Agente KNM</h1>

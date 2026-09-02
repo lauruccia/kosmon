@@ -5,11 +5,13 @@
 
     <div class="card" style="padding:28px;">
 
+        @include('portal.mlm._passi', ['passo' => 1])
+
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
             <div style="width:48px;height:48px;border-radius:12px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">&#128273;</div>
             <div>
                 <div style="font-size:18px;font-weight:800;color:var(--ink);">Quota per il codice agente</div>
-                <div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">La tua richiesta &egrave; stata approvata. Manca solo questo.</div>
+                <div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Richiesta approvata. Restano due passi: questa quota, poi la firma della nomina.</div>
             </div>
         </div>
 
@@ -65,9 +67,18 @@
 
         </div>
 
+        {{-- Due situazioni diverse, e dirle uguali sarebbe una bugia in una
+             delle due (02/09/2026): chi nel circuito non e' ancora entrato
+             pagando ha il conto fermo, chi c'era gia' no. --}}
         <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--ink-muted);">
-            Fino al pagamento puoi entrare e vedere il tuo conto, ma non puoi inviare KY, incassare o
-            acquistare nel negozio. Puoi <a href="{{ route('portal.ky-cards.index') }}">ricaricare il conto</a> quando vuoi.
+            @if(app(\App\Services\RegistrationFeeService::class)->isSuspendedFor($currentUser))
+                Questa quota &egrave; anche il tuo ingresso nel circuito: fino al pagamento puoi entrare e vedere il
+                conto, ma non puoi inviare KY, incassare o acquistare nel negozio. Puoi
+                <a href="{{ route('portal.ky-cards.index') }}">ricaricare il conto</a> quando vuoi.
+            @else
+                Il tuo conto resta pienamente operativo: puoi inviare KY, incassare e acquistare come sempre.
+                Questa quota serve solo a sbloccare la firma della nomina.
+            @endif
         </div>
 
         {{-- La via d'uscita: nessuno resta intrappolato in un percorso che non

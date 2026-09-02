@@ -288,11 +288,11 @@ class RegistrationFeeService
      *
      * @return int i centesimi sospesi, 0 se non c'era niente da sospendere
      */
-    public function suspendOnAgentApproval(User $user, ?string $ipAddress = null): int
+    public function suspendOnAgentApproval(User $user, ?string $ipAddress = null, ?User $admin = null): int
     {
         $sospesi = 0;
 
-        DB::transaction(function () use ($user, $ipAddress, &$sospesi): void {
+        DB::transaction(function () use ($user, $ipAddress, $admin, &$sospesi): void {
             $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
             // UNICA guardia, e sta DENTRO il lock: una copia qui fuori sarebbe
@@ -313,7 +313,10 @@ class RegistrationFeeService
             $locked->forceFill(['registration_fee_due_cents' => self::SOSPESA])->save();
 
             AuditLog::create([
-                'actor_user_id'  => $locked->id,
+                // Chi ha deciso: l'admin che ha approvato o premuto il
+                // bottone, se c'e'; l'utente stesso quando la sospensione
+                // arriva da un percorso automatico.
+                'actor_user_id'  => $admin?->id ?? $locked->id,
                 'event'          => 'registration_fee.suspended_on_agent_approval',
                 'auditable_type' => User::class,
                 'auditable_id'   => $locked->id,
@@ -328,6 +331,27 @@ class RegistrationFeeService
     }
 
     // ── Stato ───────────────────────────────────────────────────────────────
+
+    /**
+     * La quota e' SOSPESA: zero e mai pagata. Vuol dire che questa persona
+     * nel circuito non ha ancora pagato NESSUN ingresso — sta sul percorso
+     * agente, e a coprirla sono i 480 del codice.
+     *
+     * Serve a decidere quanto stringere (02/09/2026, decisione di Laura): chi
+     * l'ingresso non l'ha mai pagato ha il conto fermo finche' non salda i
+     * 480, perche' quei 480 SONO il suo ingresso; chi invece i 30 li aveva
+     * gia' pagati — o non li ha mai dovuti, come i milletrecento iscritti da
+     * prima — continua a usare il conto e gli manca solo la firma. Bloccare
+     * anche lui vorrebbe dire che chiedere di crescere nel circuito ha come
+     * primo effetto il conto congelato.
+     */
+    public function isSuspendedFor(?User $user): bool
+    {
+        return $user !== null
+            && $user->registration_fee_due_cents !== null
+            && (int) $user->registration_fee_due_cents === self::SOSPESA
+            && $user->registration_fee_paid_at === null;
+    }
 
     /** L'utente ha una quota ancora da saldare? */
     public function isDueFor(?User $user): bool

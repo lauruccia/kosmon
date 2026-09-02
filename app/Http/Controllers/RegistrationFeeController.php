@@ -434,6 +434,46 @@ class RegistrationFeeController extends Controller
     }
 
     /**
+     * «Sospendi la quota di iscrizione» dalla scheda utente (02/09/2026).
+     *
+     * Serve per gli ARRETRATI: chi era stato approvato come agente prima che
+     * l'approvazione sospendesse la quota da sola si e' ritrovato addosso
+     * tutte e due — 30 e 480 — e per lui non esisteva nessun bottone. Non e'
+     * un'azione di massa: una persona alla volta, con un nome e un audit log
+     * dietro, come per la richiesta della quota qui sopra.
+     *
+     * L'unica guardia che serve qui e' che sia davvero sul percorso agente:
+     * fuori di li' «sospendere» vorrebbe dire condonare la quota in silenzio,
+     * e per condonare c'e' l'annullamento, che almeno storna e lascia scritto
+     * quanto. Le altre condizioni (gia' pagata, gia' sospesa, non dovuta) le
+     * conosce il servizio, dentro il suo lock, e non si ricopiano qui.
+     */
+    public function adminSuspendForAgentPath(Request $request, User $user): RedirectResponse
+    {
+        // NIENTE abort_unless(canAccessBackoffice()) qui, ed e' voluto: la
+        // rotta ha gia' il middleware `backoffice`, e le due difese si
+        // nasconderebbero a vicenda — togliendo questa i test restavano
+        // verdi, che e' il modo in cui una guardia smette di essere provata
+        // senza che nessuno se ne accorga (undicesima volta in questo
+        // progetto). La porta e' una sola, ed e' provata da un test che la
+        // bussa da utente qualunque.
+        if (! app(\App\Services\AgentCodeFeeService::class)->isOnFeePath($user)) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('portal_error', 'Questo utente non è sul percorso agente: la quota di iscrizione si sospende solo a chi al suo posto paga il codice agente.');
+        }
+
+        $sospesi = $this->fees->suspendOnAgentApproval($user, $request->ip(), $request->user());
+
+        if ($sospesi === 0) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('portal_error', 'Non c\'era niente da sospendere: la quota risulta già sospesa, già saldata, o non dovuta.');
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('portal_success', 'Quota di iscrizione sospesa: ' . $user->name . ' paga solo il codice agente. Tornerà dovuta se rinuncia o se la richiesta viene rifiutata.');
+    }
+
+    /**
      * «Verifica e accredita»: ripesca un pagamento in euro finito `failed`
      * quando i soldi, in realta', sono stati incassati.
      *

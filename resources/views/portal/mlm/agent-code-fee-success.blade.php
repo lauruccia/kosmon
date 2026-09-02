@@ -4,6 +4,10 @@
 <div style="max-width:560px;">
     <div class="card" style="padding:28px;text-align:center;">
 
+        <div style="text-align:left;">
+            @include('portal.mlm._passi', ['passo' => $payment->isCompleted() ? 2 : 1])
+        </div>
+
         @if($payment->isCompleted())
             <div style="font-size:44px;margin-bottom:10px;">&#9989;</div>
             <div style="font-size:19px;font-weight:800;color:var(--ink);">Quota saldata</div>

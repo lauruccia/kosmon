@@ -212,7 +212,7 @@ class MlmAgentRequestController extends Controller
         // (spegnendo la seconda, i test restavano verdi — e' gia' successo
         // altre nove volte in questo progetto). La guardia sta in un posto
         // solo, nel servizio; qui si guarda solo com'e' andata.
-        $sospesi = $quotaPrivati->suspendOnAgentApproval($aggiornato, $request->ip());
+        $sospesi = $quotaPrivati->suspendOnAgentApproval($aggiornato, $request->ip(), $request->user());
 
         if ($sospesi > 0) {
             return ' La quota di iscrizione da ' . ky_format($sospesi) . ' € è stata sospesa: l\'agente paga solo il codice.'

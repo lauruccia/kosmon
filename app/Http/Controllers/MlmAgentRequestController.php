@@ -17,6 +17,36 @@ use Illuminate\View\View;
  */
 class MlmAgentRequestController extends Controller
 {
+    /**
+     * GET /portale/mlm/diventa-agente — LA PORTA UNICA (02/09/2026).
+     *
+     * Il percorso ha tre pagine (richiesta, quota, firma) e fin qui ogni
+     * link ne indicava una a colpo sicuro: la mail dell'approvazione mandava
+     * alla firma, che rimbalzava sulla quota, che dopo il pagamento rimandava
+     * alla firma. Funzionava, ma chi lo percorreva vedeva solo rimbalzi.
+     *
+     * Da qui in avanti c'e' un indirizzo solo da dare a tutti — mail,
+     * notifica, banner, menu — e la scelta del passo la fa il codice, in un
+     * punto solo. Le tre pagine continuano a proteggersi da sole: questa non
+     * e' una guardia, e' un centralino.
+     */
+    public function percorso(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($user->isMlmAgent()) {
+            return redirect()->route('portal.dashboard')->with('info', 'Sei già un agente KNM.');
+        }
+
+        if ($user->mlmAgentAwaitingContract()) {
+            return app(\App\Services\AgentCodeFeeService::class)->isDueFor($user)
+                ? redirect()->route('portal.mlm.agent-code-fee.show')
+                : redirect()->route('portal.mlm.agent-contract.show');
+        }
+
+        return redirect()->route('portal.mlm.agent-request.show');
+    }
+
     /** GET /portale/mlm/richiedi-agente */
     public function show(Request $request): View|RedirectResponse
     {

@@ -2144,9 +2144,21 @@
                      30 euro e non capiva piu' cosa stesse pagando. Ora il
                      banner dei 480 esce solo quando i 30 non sono dovuti:
                      tanto e' l'ordine in cui il middleware le fa pagare. --}}
-                <div class="notice error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <span>Quota per il codice agente da saldare: fino ad allora non puoi inviare KY, incassare o acquistare, né firmare il contratto di nomina.</span>
-                    <a class="cta" href="{{ route('portal.mlm.agent-code-fee.show') }}" style="padding:6px 12px;font-size:13px;">Salda ora</a>
+                @php
+                    // Il conto e' fermo solo per chi nel circuito non e' ancora
+                    // entrato pagando (02/09/2026): agli altri manca la firma,
+                    // e un banner che grida «non puoi incassare» sarebbe falso.
+                    $contoFermo = app(\App\Services\RegistrationFeeService::class)->isSuspendedFor(auth()->user());
+                @endphp
+                <div class="notice {{ $contoFermo ? 'error' : '' }}" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span>
+                        @if($contoFermo)
+                            Quota per il codice agente da saldare: fino ad allora non puoi inviare KY, incassare o acquistare, né firmare il contratto di nomina.
+                        @else
+                            Ti manca un passo per diventare agente: la quota per il codice. Il tuo conto intanto funziona normalmente.
+                        @endif
+                    </span>
+                    <a class="cta" href="{{ route('portal.mlm.percorso') }}" style="padding:6px 12px;font-size:13px;">{{ $contoFermo ? 'Salda ora' : 'Continua' }}</a>
                 </div>
             @endif
             @if (session('portal_success'))<div class="notice success">{{ session('portal_success') }}</div>@endif

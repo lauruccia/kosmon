@@ -341,13 +341,73 @@ class AgentCodeFeeTest extends TestCase
         $this->actingAs($aspirante)->get('/movimenti')->assertOk();
     }
 
-    public function test_con_la_quota_codice_da_saldare_non_si_puo_inviare_ky(): void
+    /**
+     * 02/09/2026 — LA REGOLA E' CAMBIATA, e questo test con lei. Fino al
+     * 01/09 la quota del codice fermava il conto a chiunque. Ora ferma solo
+     * chi nel circuito non e' ancora entrato pagando: quota di iscrizione
+     * SOSPESA, cioe' i 480 sono il suo ingresso.
+     */
+    public function test_chi_non_ha_mai_pagato_l_ingresso_non_puo_inviare_ky(): void
     {
         $this->attivaQuota();
         [$aspirante] = $this->makeAspiranteAgente();
 
-        $this->actingAs($aspirante)->get('/invia')
+        // Entrato dalla porta dell'agente: la quota dei privati e' sospesa e
+        // nessun altro pagamento lo ha fatto entrare.
+        $aspirante->forceFill(['registration_fee_due_cents' => 0])->save();
+
+        $this->actingAs($aspirante->fresh())->get('/invia')
             ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    public function test_chi_nel_circuito_c_era_gia_continua_a_operare_mentre_deve_i_quattrocentottanta(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        // Colonna della quota privati a NULL: e' uno dei milletrecento
+        // iscritti da prima. Chiedere di diventare agente non gli congela il
+        // conto — gli manca solo la firma, ed e' li' che la strada e' chiusa.
+        $this->assertNull($aspirante->registration_fee_due_cents);
+
+        $this->actingAs($aspirante)->get('/invia')->assertOk();
+
+        $this->actingAs($aspirante)->get(route('portal.mlm.agent-contract.show'))
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    /**
+     * LE PAGINE DEL PERCORSO SI DEVONO APRIRE DAVVERO (02/09/2026).
+     *
+     * Lezione del 01/09, pagata con un 500 in produzione: 44 test verdi non
+     * avevano mai APERTO la pagina che si e' rotta. Da quando il percorso ha
+     * una barra dei passi inclusa in quattro viste, un errore in quella
+     * inclusione le rompe tutte insieme — e queste due erano le uniche che
+     * nessun test apriva.
+     */
+    public function test_la_pagina_di_esito_si_apre_e_indica_il_passo_dopo(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $pagamento = app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        $this->actingAs($aspirante->fresh())
+            ->get(route('portal.mlm.agent-code-fee.success', ['payment' => $pagamento->uuid]))
+            ->assertOk()
+            ->assertSee('Vai alla firma del contratto');
+    }
+
+    public function test_la_pagina_del_bonifico_si_apre(): void
+    {
+        $this->attivaQuota();
+        [$aspirante] = $this->makeAspiranteAgente();
+
+        $this->actingAs($aspirante)
+            ->post('/mlm/quota-codice/bonifico')
+            ->assertOk()
+            ->assertSee('Istruzioni per il bonifico');
     }
 
     public function test_chi_rinuncia_torna_cliente_e_riprende_a_operare(): void

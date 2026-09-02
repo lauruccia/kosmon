@@ -1645,6 +1645,201 @@ class RegistrationFeeTest extends TestCase
             ->assertSee('Quota di iscrizione da saldare', escape: false);
     }
 
+    // ─── 21. Quanto stringe la quota del codice agente (02/09/2026) ────────
+    //
+    // Decisione di Laura: la quota del codice ferma il conto SOLO a chi nel
+    // circuito non e' ancora entrato pagando — quota di iscrizione sospesa,
+    // cioe' i 480 sono il suo ingresso. Chi i 30 li aveva gia' pagati, o non
+    // li ha mai dovuti, continua a usare il conto: gli manca solo la firma.
+    // Altrimenti a un privato gia' operativo chiedere di diventare agente
+    // costerebbe il congelamento del conto, che e' il contrario del senso.
+
+    public function test_chi_non_ha_mai_pagato_l_ingresso_ha_il_conto_fermo_finche_non_salda_il_codice(): void
+    {
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        // La porta dell'agente: quota di iscrizione SOSPESA, i 480 dovuti.
+        $nuovo = $this->registraDalPortaleAgente();
+
+        $this->assertSame(0, (int) $nuovo->registration_fee_due_cents);
+
+        $this->actingAs($nuovo)->get('/invia')
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    public function test_chi_l_ingresso_l_aveva_gia_pagato_tiene_il_conto_operativo(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'registration_fee_paid_at'   => now(),
+            'mlm_agent_request_status'   => 'approved',
+            'agent_code_fee_due_cents'   => 48000,
+        ])->save();
+
+        // Deve i 480 e non ha ancora firmato, ma il conto e' suo e funziona.
+        $this->actingAs($utente->fresh())->get('/invia')->assertOk();
+        $this->actingAs($utente->fresh())->get('/incassa/qr')->assertOk();
+    }
+
+    public function test_un_vecchio_iscritto_che_diventa_agente_tiene_il_conto_operativo(): void
+    {
+        [$vecchio] = $this->makePrivate(0);
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        // Colonna NULL: non ha mai dovuto la quota di iscrizione, e nel
+        // circuito ci lavora da prima che esistesse.
+        $vecchio->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAs($vecchio->fresh())->get('/invia')->assertOk();
+    }
+
+    public function test_ma_la_firma_resta_sbarrata_a_chi_non_ha_saldato_il_codice(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'registration_fee_paid_at'  => now(),
+            'mlm_agent_request_status'  => 'approved',
+            'agent_code_fee_due_cents'  => 48000,
+        ])->save();
+
+        // Il conto e' libero, ma agente non lo diventa: la firma e' l'atto
+        // che crea l'agente ed e' li' che la strada resta chiusa.
+        $this->actingAs($utente->fresh())->get(route('portal.mlm.agent-contract.show'))
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    public function test_il_banner_non_dice_che_il_conto_e_fermo_a_chi_fermo_non_e(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'registration_fee_paid_at'  => now(),
+            'mlm_agent_request_status'  => 'approved',
+            'agent_code_fee_due_cents'  => 48000,
+        ])->save();
+
+        $this->actingAsWithSession($utente->fresh())
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Ti manca un passo per diventare agente', escape: false)
+            ->assertDontSee('fino ad allora non puoi inviare KY', escape: false);
+    }
+
+    // ─── 22. La porta unica del percorso agente (02/09/2026) ───────────────
+    //
+    // Un indirizzo solo — /mlm/diventa-agente — che manda sempre al passo
+    // giusto. Mail, notifica e banner puntano li': cosi' nessun link puo'
+    // atterrare sulla pagina sbagliata e rimbalzare.
+
+    public function test_la_porta_unica_manda_alla_richiesta_chi_non_l_ha_ancora_fatta(): void
+    {
+        [$utente] = $this->makePrivate(0);
+
+        $this->actingAs($utente)->get(route('portal.mlm.percorso'))
+            ->assertRedirect(route('portal.mlm.agent-request.show'));
+    }
+
+    public function test_la_porta_unica_manda_alla_quota_chi_e_stato_approvato(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAs($utente->fresh())->get(route('portal.mlm.percorso'))
+            ->assertRedirect(route('portal.mlm.agent-code-fee.show'));
+    }
+
+    public function test_la_porta_unica_manda_alla_firma_chi_ha_gia_saldato(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+            'agent_code_fee_paid_at'   => now(),
+        ])->save();
+
+        $this->actingAs($utente->fresh())->get(route('portal.mlm.percorso'))
+            ->assertRedirect(route('portal.mlm.agent-contract.show'));
+    }
+
+    public function test_la_porta_unica_non_rimanda_un_agente_dentro_al_percorso(): void
+    {
+        [$utente] = $this->makePrivate(0);
+        $utente->forceFill(['mlm_role' => 'agente'])->save();
+
+        $this->actingAs($utente->fresh())->get(route('portal.mlm.percorso'))
+            ->assertRedirect(route('portal.dashboard'));
+    }
+
+    // ─── 23. L'arretrato: il bottone dell'admin (02/09/2026) ───────────────
+
+    public function test_l_admin_sospende_a_mano_la_quota_di_chi_era_gia_stato_approvato(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        // Lo stato di chi e' stato approvato PRIMA che la sospensione fosse
+        // automatica: tutte e due le quote addosso, e nessun bottone.
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.suspend', $utente))
+            ->assertRedirect(route('admin.users.show', $utente));
+
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
+        $this->assertFalse(app(RegistrationFeeService::class)->isDueFor($utente->fresh()));
+    }
+
+    public function test_il_bottone_non_condona_la_quota_a_chi_non_e_sul_percorso_agente(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        // Fuori dal percorso agente «sospendere» vorrebbe dire cancellare la
+        // quota in silenzio: nessun altro pagamento la copre.
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.registration-fees.suspend', $utente))
+            ->assertRedirect(route('admin.users.show', $utente))
+            ->assertSessionHas('portal_error');
+
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    public function test_il_bottone_non_lo_puo_premere_un_utente_qualunque(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        [$altro]  = $this->makePrivate(0);
+
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAsWithSession($altro)
+            ->post(route('admin.registration-fees.suspend', $utente))
+            ->assertForbidden();
+
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     private User $superAdmin;

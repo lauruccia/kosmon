@@ -814,6 +814,10 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
         Route::post('/mlm/registra-agente', [MlmPortalController::class, 'registraAgenteStore'])->name('portal.mlm.agent-create.store');
 
         // MLM (KNM) — richiesta di diventare agente + firma contratto di nomina
+        // LA PORTA UNICA del percorso agente (02/09/2026): manda sempre al
+        // passo giusto. Mail, notifiche, banner e menu puntano qui, cosi'
+        // nessun link puo' piu' atterrare sulla pagina sbagliata.
+        Route::get('/mlm/diventa-agente', [MlmAgentRequestController::class, 'percorso'])->name('portal.mlm.percorso');
         Route::get('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'show'])->name('portal.mlm.agent-request.show');
         Route::post('/mlm/richiedi-agente', [MlmAgentRequestController::class, 'store'])->name('portal.mlm.agent-request.store');
         Route::get('/mlm/contratto-agente', [MlmAgentContractController::class, 'show'])->name('portal.mlm.agent-contract.show');
@@ -931,6 +935,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // (01/09/2026): la prova dell'incasso la raccoglie il controller.
     Route::post('/admin/quote-iscrizione/{payment}/riprova-accredito', [RegistrationFeeController::class, 'adminRetryCredit'])->name('admin.registration-fees.retry-credit')->middleware('backoffice');
     Route::post('/admin/users/{user}/quota-iscrizione/richiedi', [RegistrationFeeController::class, 'adminRequest'])->name('admin.registration-fees.request')->middleware('backoffice');
+    // L'arretrato del 02/09/2026: chi era gia' stato approvato come agente
+    // prima che la sospensione automatica esistesse.
+    Route::post('/admin/users/{user}/quota-iscrizione/sospendi', [RegistrationFeeController::class, 'adminSuspendForAgentPath'])->name('admin.registration-fees.suspend')->middleware('backoffice');
     // Diagnosi Stripe (01/09/2026): pagina di sola lettura per capire, dal
     // server e non per tentativi, perche' il checkout con carta non parte.
     // Vedi StripeDiagnosticsController.
