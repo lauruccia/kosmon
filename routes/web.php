@@ -1024,6 +1024,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/admin/accounts', [AdminAccountController::class, 'accounts'])->name('admin.accounts.index')->middleware('backoffice');
     Route::get('/admin/accounts/{account}', [AdminAccountController::class, 'showAccount'])->name('admin.accounts.show')->middleware('backoffice');
     Route::post('/admin/accounts/{account}', [AdminAccountController::class, 'updateAccount'])->name('admin.accounts.update')->middleware('backoffice');
+    Route::post('/admin/accounts/{account}/limiti-proprietario', [AdminAccountController::class, 'updateOwnerLimits'])->name('admin.accounts.owner-limits')->middleware('backoffice');
     Route::post('/admin/accounts/{account}/sblocca', [AdminAccountController::class, 'unlockAccount'])->name('admin.accounts.unlock')->middleware('backoffice');
     Route::get('/admin/accounts/{account}/purge-test', [TestDataPurgeController::class, 'confirmAccount'])->name('admin.accounts.purge-test')->middleware('backoffice');
     Route::post('/admin/accounts/{account}/purge-test', [TestDataPurgeController::class, 'purgeAccount'])->name('admin.accounts.purge-test.destroy')->middleware('backoffice');

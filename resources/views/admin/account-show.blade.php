@@ -146,21 +146,41 @@
             </div>
 
             @if ($accountRecord->ownerUser)
-                <form method="post" action="{{ route('admin.users.update', $accountRecord->ownerUser) }}" class="field-grid">
-                    @csrf
-                    <input type="hidden" name="company_id" value="{{ old('company_id', $accountRecord->ownerUser->company_id) }}">
-                    <input type="hidden" name="managed_account_id" value="{{ old('managed_account_id', $accountRecord->ownerUser->managed_account_id) }}">
-                    <input type="hidden" name="phone" value="{{ old('phone', $accountRecord->ownerUser->phone) }}">
-                    <input type="hidden" name="role_label" value="{{ old('role_label', $accountRecord->ownerUser->role) }}">
-                    <input type="hidden" name="is_active" value="{{ old('is_active', $accountRecord->ownerUser->is_active ? '1' : '0') }}">
-                    @foreach ($accountRecord->ownerUser->roles as $role)
-                        <input type="hidden" name="roles[]" value="{{ $role->id }}">
-                    @endforeach
-                    <input type="hidden" name="daily_transaction_limit" value="{{ old('daily_transaction_limit', ky_input($accountRecord->ownerUser->daily_transaction_limit)) }}">
-                    <input type="hidden" name="monthly_transaction_limit" value="{{ old('monthly_transaction_limit', ky_input($accountRecord->ownerUser->monthly_transaction_limit)) }}">
-                    <input type="hidden" name="per_movement_limit" value="{{ old('per_movement_limit', ky_input($accountRecord->ownerUser->per_movement_limit)) }}">
+                @php
+                    // Le tre fonti del massimale, esposte una per una: la pagina
+                    // mostrava un campo a 6.000 e un massimale a 15.000 senza
+                    // dire da dove venisse la differenza.
+                    $limiteIntestatario = (int) ($accountRecord->ownerTransferLimits()['negative_balance_limit'] ?? 0);
+                    $fidoAttivo = (int) ($accountRecord->activeCreditLimit()?->credit_limit ?? 0);
+                    $quoteInKy = max(0, $massimale - max($limiteIntestatario, $fidoAttivo));
+                    $vinceIlFido = $fidoAttivo > $limiteIntestatario;
+                @endphp
 
-                    <div class="field"><label>Massimale / fido (KY)</label><input name="negative_balance_limit" type="number" min="0" step="0.01" value="{{ old('negative_balance_limit', ky_input($accountRecord->ownerUser->negative_balance_limit)) }}"><div class="table-muted">`100,00` consente un saldo minimo di `-100,00 KY` e rende il saldo disponibile pari a saldo attuale + 100,00 KY.</div></div>
+                <div class="timeline-item" style="margin-bottom:18px;">
+                    <strong>Massimale effettivo: {{ ky_format($massimale) }} {{ $accountRecord->currency_code }}</strong>
+                    <div class="table-muted">Vale il piu alto fra il fido attivo e il limite dell'intestatario, piu le quote di iscrizione pagate in KY.</div>
+                    <div class="table-tags" style="margin-top:10px;">
+                        <span class="chip {{ $vinceIlFido ? 'success' : '' }}">fido attivo {{ ky_format($fidoAttivo) }}{{ $vinceIlFido ? ' — e questo che vale' : '' }}</span>
+                        <span class="chip {{ $vinceIlFido ? '' : 'success' }}">limite intestatario {{ ky_format($limiteIntestatario) }}{{ $vinceIlFido ? '' : ' — e questo che vale' }}</span>
+                        @if ($quoteInKy > 0)
+                            <span class="chip">+ quote pagate in KY {{ ky_format($quoteInKy) }}</span>
+                        @endif
+                    </div>
+                    @if ($vinceIlFido)
+                        <div class="notice error" style="margin-top:12px;">Il campo qui sotto non abbassa il massimale finche resta attivo un fido piu alto. Il fido si cambia dalla scheda azienda @if ($accountRecord->company) (<a href="{{ route('admin.companies.show', $accountRecord->company) }}">apri {{ $accountRecord->company->name }}</a>) @endif oppure revocando la concessione in <a href="{{ route('admin.credit-requests.index') }}">richieste fido</a>.</div>
+                    @endif
+                    @if (! $accountRecord->allow_negative_balance)
+                        <div class="notice error" style="margin-top:12px;">Su questo conto "Saldo negativo" e su "Non consentito": il massimale resta scritto ma non e utilizzabile.</div>
+                    @endif
+                </div>
+
+                {{-- Rotta dedicata, non admin.users.update: quel controller pretende
+                     name/email/account_holder_type (che qui non ci sono) e legge
+                     is_super_admin e primary_account_allow_negative come false
+                     quando mancano. Vedi AccountController::updateOwnerLimits(). --}}
+                <form method="post" action="{{ route('admin.accounts.owner-limits', $accountRecord) }}" class="field-grid">
+                    @csrf
+                    <div class="field"><label>Massimale / fido (KY)</label><input name="negative_balance_limit" type="number" min="0" step="0.01" value="{{ old('negative_balance_limit', ky_input($accountRecord->ownerUser->negative_balance_limit)) }}"><div class="table-muted">`100,00` consente un saldo minimo di `-100,00 KY` e rende il saldo disponibile pari a saldo attuale + 100,00 KY. Vuoto = nessun limite proprio dell'intestatario.</div></div>
                     <div class="field"><label>Disponibilita commerciale (KY)</label><input name="circuit_capacity_limit" type="number" min="0" step="0.01" value="{{ old('circuit_capacity_limit', ky_input($accountRecord->ownerUser->circuit_capacity_limit)) }}"><div class="table-muted">Valore di beni o servizi messi a disposizione nel circuito. Non aumenta il saldo disponibile.</div></div>
                     <div class="form-actions"><button type="submit" class="cta">Salva massimale e disponibilita commerciale</button></div>
                 </form>
