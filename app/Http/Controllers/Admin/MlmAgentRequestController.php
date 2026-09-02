@@ -62,8 +62,7 @@ class MlmAgentRequestController extends Controller
         ])->save();
 
 
-        // Quota codice agente (31/08/2026): il debito nasce QUI, all'approvazione.
-        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($user->fresh());
+        $avvisoQuote = $this->quoteAllApprovazione($request, $user);
 
         $user->notify(new MlmAgentRequestReviewedNotification('approved'));
 
@@ -75,7 +74,7 @@ class MlmAgentRequestController extends Controller
             'context'        => [],
         ]);
 
-        return back()->with('portal_success', 'Richiesta approvata. ' . $user->name . ' potrà ora firmare il contratto di nomina.');
+        return back()->with('portal_success', 'Richiesta approvata. ' . $user->name . ' potrà ora firmare il contratto di nomina.' . $avvisoQuote);
     }
 
     /** POST /admin/mlm/richieste/{user}/rifiuta */
@@ -152,8 +151,7 @@ class MlmAgentRequestController extends Controller
         ])->save();
 
 
-        // Quota codice agente (31/08/2026): il debito nasce QUI, all'approvazione.
-        app(\App\Services\AgentCodeFeeService::class)->markDueOnApproval($user->fresh());
+        $avvisoQuote = $this->quoteAllApprovazione($request, $user);
 
         $user->notify(new MlmAgentRequestReviewedNotification('approved'));
 
@@ -165,6 +163,67 @@ class MlmAgentRequestController extends Controller
             'context'        => [],
         ]);
 
-        return back()->with('portal_success', $user->name . ' è stato abilitato a diventare agente: riceverà un\'email per firmare il contratto di nomina.');
+        return back()->with('portal_success', $user->name . ' è stato abilitato a diventare agente: riceverà un\'email per firmare il contratto di nomina.' . $avvisoQuote);
+    }
+
+    /**
+     * LE DUE QUOTE, ALL'APERTURA DEL PERCORSO AGENTE.
+     *
+     * Sta qui, in un punto solo, perche' le porte che approvano sono due
+     * (approve e promote) e una copia per porta divergerebbe al primo
+     * cambiamento: la terza porta — l'agente che ne registra uno sotto di se'
+     * — non passa da qui perche' li' l'utente lo si sta creando adesso e la
+     * quota dei privati non e' ancora nata (MlmPortalController).
+     *
+     * Due cose in fila, e l'ordine conta:
+     *
+     *  1. nasce il debito dei 480 (31/08/2026);
+     *  2. i 30 dei privati, se erano dovuti e non pagati, restano SOSPESI:
+     *     l'agente paga una quota sola (decisione di Laura, 02/09/2026). Se
+     *     pero' i 480 NON sono dovuti — interruttore spento — non c'e' niente
+     *     che lo copra e i 30 se li tiene, altrimenti diventare agente
+     *     sarebbe la porta per entrare nel circuito senza pagare niente.
+     *
+     * Se i 30 li aveva GIA' pagati non si restituisce niente da qui: e' la
+     * stessa regola del rifiuto e della rinuncia — il denaro non si muove per
+     * effetto collaterale — ma chi approva lo deve sapere adesso, non fra un
+     * mese leggendo una tabella.
+     *
+     * @return string quel che va detto all'admin in coda al messaggio, '' se
+     *                non c'e' niente da dire
+     */
+    private function quoteAllApprovazione(Request $request, User $user): string
+    {
+        $quotaAgente  = app(\App\Services\AgentCodeFeeService::class);
+        $quotaPrivati = app(\App\Services\RegistrationFeeService::class);
+
+        $quotaAgente->markDueOnApproval($user->fresh());
+
+        $aggiornato = $user->fresh();
+
+        if (! $quotaAgente->isOnFeePath($aggiornato)) {
+            return '';
+        }
+
+        // SI PROVA E POI SI RACCONTA, non il contrario. La tentazione era di
+        // controllare qui se la quota era gia' pagata e uscire prima di
+        // chiamare il servizio: sarebbe stata la stessa guardia scritta due
+        // volte, e la copia qui fuori avrebbe nascosto quella dentro il lock
+        // (spegnendo la seconda, i test restavano verdi — e' gia' successo
+        // altre nove volte in questo progetto). La guardia sta in un posto
+        // solo, nel servizio; qui si guarda solo com'e' andata.
+        $sospesi = $quotaPrivati->suspendOnAgentApproval($aggiornato, $request->ip());
+
+        if ($sospesi > 0) {
+            return ' La quota di iscrizione da ' . ky_format($sospesi) . ' € è stata sospesa: l\'agente paga solo il codice.'
+                . ' Tornerà dovuta se rinuncia o se la richiesta viene rifiutata.';
+        }
+
+        if ($aggiornato->registration_fee_paid_at !== null) {
+            return ' ATTENZIONE: aveva già saldato la quota di iscrizione dei privati, e quei soldi NON sono stati toccati.'
+                . ' Se vanno restituiti, annulla il pagamento da Quote di iscrizione.';
+        }
+
+        return '';
     }
 }

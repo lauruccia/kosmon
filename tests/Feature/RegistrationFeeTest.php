@@ -1422,6 +1422,229 @@ class RegistrationFeeTest extends TestCase
         $this->assertStringContainsString('/\\/ricarica/', $sw);
     }
 
+    // ─── 19. Chi diventa agente paga UNA quota sola (02/09/2026) ────────────
+    //
+    // Decisione di Laura, e ribalta quella del 31/08: l'agente paga i 480 del
+    // codice e nient'altro per l'apertura del conto. Prima chi si registrava
+    // dal form pubblico e POI chiedeva il codice si ritrovava addosso tutte e
+    // due le quote — ed e' il caso normale, non un angolo: e' come entra chi
+    // scopre il circuito da solo e solo dopo decide di fare l'agente.
+    //
+    // La riga che conta e' in MlmAgentRequestController::quoteAllApprovazione(),
+    // e questi test passano dalle ROTTE dell'admin: il buco del 01/09 era
+    // proprio un percorso che segnava una quota e si dimenticava l'altra, e un
+    // test scritto sul servizio sarebbe stato verde lo stesso.
+
+    public function test_l_approvazione_della_richiesta_sospende_i_trenta(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        $aspirante->refresh();
+
+        // Zero e non NULL: se poi agente non lo diventa, i 30 si riaccendono.
+        $this->assertSame(0, (int) $aspirante->registration_fee_due_cents);
+        $this->assertFalse(app(RegistrationFeeService::class)->isDueFor($aspirante));
+        $this->assertSame(48000, (int) $aspirante->agent_code_fee_due_cents);
+    }
+
+    public function test_la_promozione_diretta_dell_admin_sospende_i_trenta(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        // Nessuna richiesta dell'interessato: e' l'admin che lo mette sul
+        // percorso. E' una porta diversa dalla precedente e si dimentica le
+        // cose per conto suo.
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.promote', $utente))
+            ->assertRedirect();
+
+        $this->assertSame(0, (int) $utente->fresh()->registration_fee_due_cents);
+        $this->assertSame(48000, (int) $utente->fresh()->agent_code_fee_due_cents);
+    }
+
+    public function test_la_sospensione_all_approvazione_lascia_scritto_quanto_doveva(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        // La colonna adesso dice zero: l'audit log e' l'unico posto in cui
+        // resta scritto che il suo scatto era 30.
+        $log = AuditLog::where('event', 'registration_fee.suspended_on_agent_approval')
+            ->where('auditable_id', $aspirante->id)
+            ->first();
+
+        $this->assertNotNull($log, 'La sospensione dei 30 deve lasciare traccia.');
+        $this->assertSame(self::QUOTA, (int) ($log->context['amount'] ?? 0));
+    }
+
+    public function test_con_la_quota_del_codice_spenta_l_approvazione_lascia_i_trenta_dovuti(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente(attiva: false);
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        $aspirante->refresh();
+
+        // Nessun 480 lo copre: allora i 30 restano suoi, altrimenti diventare
+        // agente sarebbe il modo di entrare nel circuito senza pagare niente.
+        $this->assertSame(self::QUOTA, (int) $aspirante->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($aspirante));
+        $this->assertNull($aspirante->agent_code_fee_due_cents);
+    }
+
+    public function test_i_trenta_gia_pagati_non_si_toccano_e_l_admin_lo_legge_subito(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $aspirante->forceFill(['registration_fee_paid_at' => now()])->save();
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect()
+            // Il denaro non si muove per effetto collaterale di un click su
+            // «Approva» — ma chi approva lo deve sapere adesso.
+            ->assertSessionHas('portal_success', fn (string $m): bool => str_contains($m, 'ATTENZIONE'));
+
+        $aspirante->refresh();
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->registration_fee_due_cents);
+        $this->assertNotNull($aspirante->registration_fee_paid_at);
+    }
+
+    public function test_un_vecchio_iscritto_promosso_agente_non_si_ritrova_una_quota(): void
+    {
+        [$vecchio] = $this->makePrivate(0);
+        $this->attivaQuota();
+        $this->attivaQuotaCodiceAgente();
+
+        // NULL = non la deve e non la dovra' mai (i milletrecento iscritti da
+        // prima). All'approvazione NULL deve restare NULL: scriverci zero
+        // vorrebbe dire che al primo rifiuto si ritrova un debito mai avuto.
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.promote', $vecchio))
+            ->assertRedirect();
+
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $vecchio), ['reason' => 'Ripensamento.'])
+            ->assertRedirect();
+
+        $this->assertNull($vecchio->fresh()->registration_fee_due_cents);
+    }
+
+    public function test_i_trenta_sospesi_all_approvazione_tornano_dovuti_col_rifiuto(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Documenti non conformi.'])
+            ->assertRedirect();
+
+        $aspirante->refresh();
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($aspirante));
+        $this->assertNull($aspirante->agent_code_fee_due_cents);
+
+        Notification::assertSentTo($aspirante, RegistrationFeeRequestedNotification::class);
+    }
+
+    public function test_i_trenta_sospesi_all_approvazione_tornano_dovuti_con_la_rinuncia(): void
+    {
+        [$aspirante] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+        $this->chiediDiDiventareAgente($aspirante);
+
+        $this->actingAsWithSession($this->superAdmin)
+            ->post(route('admin.mlm.requests.approve', $aspirante))
+            ->assertRedirect();
+
+        app(\App\Services\AgentCodeFeeService::class)->giveUp($aspirante->fresh());
+
+        $this->assertSame(self::QUOTA, (int) $aspirante->fresh()->registration_fee_due_cents);
+        $this->assertTrue(app(RegistrationFeeService::class)->isDueFor($aspirante->fresh()));
+    }
+
+    public function test_la_sospensione_all_approvazione_non_riguarda_le_aziende(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+
+        // Stato che dal sito non si raggiunge (la quota e' solo dei privati),
+        // ma una riparazione a mano nel database lo puo' creare. Le aziende
+        // hanno i piani di abbonamento e questa quota non le tocca, nemmeno
+        // per sospenderla.
+        $utente->forceFill(['account_holder_type' => 'company'])->save();
+
+        $sospesi = app(RegistrationFeeService::class)->suspendOnAgentApproval($utente->fresh());
+
+        $this->assertSame(0, $sospesi);
+        $this->assertSame(self::QUOTA, (int) $utente->fresh()->registration_fee_due_cents);
+    }
+
+    // ─── 20. Il banner rosso dice quale quota sta bloccando (02/09/2026) ────
+
+    public function test_sulla_pagina_dei_trenta_non_compare_il_banner_dei_quattrocentottanta(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        // Le deve tutte e due: succede quando l'admin mette in carico i 30 a
+        // chi e' gia' sul percorso agente (una scelta esplicita, con un nome
+        // sopra). Prima del 02/09 questa pagina mostrava in rosso il testo
+        // dell'ALTRA quota sopra l'importo di questa.
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        $this->actingAsWithSession($utente)
+            ->get(route('portal.registration-fee.show'))
+            ->assertOk()
+            ->assertDontSee('Quota per il codice agente da saldare', escape: false);
+    }
+
+    public function test_sulla_pagina_dei_quattrocentottanta_il_banner_dice_che_prima_vengono_i_trenta(): void
+    {
+        [$utente] = $this->makePrivateConQuota(0);
+        $this->attivaQuotaCodiceAgente();
+
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'approved',
+            'agent_code_fee_due_cents' => 48000,
+        ])->save();
+
+        // E' l'ordine in cui il middleware le fa pagare: il banner deve
+        // indicare la quota che sta bloccando davvero, non l'altra.
+        $this->actingAsWithSession($utente)
+            ->get(route('portal.mlm.agent-code-fee.show'))
+            ->assertOk()
+            ->assertSee('Quota di iscrizione da saldare', escape: false);
+    }
+
     // ─── Aiutanti ───────────────────────────────────────────────────────────
 
     private User $superAdmin;
@@ -1488,6 +1711,18 @@ class RegistrationFeeTest extends TestCase
      * il ripescaggio accredita SOLO quando la prova c'e', senza chiamare
      * davvero i server di Stripe.
      */
+    /**
+     * L'utente chiede di diventare agente: e' lo stato in cui la richiesta
+     * arriva sul tavolo dell'admin.
+     */
+    private function chiediDiDiventareAgente(User $utente): void
+    {
+        $utente->forceFill([
+            'mlm_agent_request_status' => 'pending',
+            'mlm_agent_requested_at'   => now(),
+        ])->save();
+    }
+
     private function fingiStripe(bool $pagata): void
     {
         $this->instance(

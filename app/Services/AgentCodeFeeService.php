@@ -155,6 +155,28 @@ class AgentCodeFeeService
     }
 
     /**
+     * Il percorso agente di questa persona ha una quota SUA: dovuta, gia'
+     * saldata o esonerata dall'admin. E' la domanda a cui serve rispondere per
+     * decidere se sospendere i 30 dei privati (02/09/2026): l'ingresso nel
+     * circuito lo sta gia' pagando il codice agente.
+     *
+     * Basta guardare se la colonna e' stata scritta, e copre da sola i tre
+     * casi: `> 0` la deve, `0` e' esonerato, e chi ha pagato la colonna ce
+     * l'ha comunque valorizzata (vedi completeEuroPayment/payWithKy). Una
+     * seconda condizione su `agent_code_fee_paid_at` sarebbe ridondante — e
+     * una difesa ridondante e' una difesa che non risulta mai provata.
+     *
+     * NULL invece vuol dire che nessuna quota lo copre (l'interruttore era
+     * giu' quando e' stato approvato): allora i 30, se li deve, se li tiene,
+     * altrimenti diventare agente sarebbe il modo di entrare nel circuito
+     * senza pagare niente.
+     */
+    public function isOnFeePath(?User $user): bool
+    {
+        return $user !== null && $user->agent_code_fee_due_cents !== null;
+    }
+
+    /**
      * "Non voglio piu' diventare agente."
      *
      * IL PRESUPPOSTO NON E' LA QUOTA, E' IL PERCORSO. Prima (31/08) si poteva

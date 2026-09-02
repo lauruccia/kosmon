@@ -150,9 +150,10 @@ class RegistrationFeeService
                 return;
             }
 
-            // Solo su una colonna mai scritta. Chi la quota ce l'ha gia' (o
-            // l'ha gia' pagata) non la perde perche' entra nel percorso
-            // agente: le due quote restano separate, decisione del 31/08.
+            // Solo su una colonna mai scritta. Qui dentro passa SOLO gente
+            // appena creata, quindi in pratica e' sempre NULL; la sospensione
+            // di una quota gia' segnata e' un'altra cosa e ha un metodo suo,
+            // suspendOnAgentApproval(), perche' li' NULL vuol dire l'opposto.
             if ($user->registration_fee_due_cents !== null) {
                 return;
             }
@@ -250,6 +251,80 @@ class RegistrationFeeService
         $user->notify(new RegistrationFeeRequestedNotification($importo));
 
         return $importo;
+    }
+
+    /**
+     * L'admin approva la richiesta «voglio diventare agente» (o promuove
+     * l'utente direttamente): da qui in avanti il suo ingresso nel circuito lo
+     * paga la quota del CODICE AGENTE, e i 30 dei privati restano SOSPESI
+     * finche' quel percorso e' aperto.
+     *
+     * DECISIONE DI LAURA DEL 02/09/2026, e ribalta quella del 31/08: l'agente
+     * paga una quota sola — i 480 — comunque sia entrato nel circuito. Prima
+     * chi si registrava dal form pubblico e poi chiedeva il codice si trovava
+     * addosso tutte e due le quote, 30 + 480, e la pagina dei 30 con sopra il
+     * banner rosso dei 480.
+     *
+     * QUESTO METODO E' IL GEMELLO ASIMMETRICO DI suspendForAgentPath(), e la
+     * differenza sta tutta in cosa fanno le due con una colonna NULL — sono
+     * opposte apposta:
+     *
+     *   · alla CREAZIONE dal portale di un agente, NULL diventa SOSPESA:
+     *     l'utente nasce in questo momento, la quota gli spetterebbe, e va
+     *     tenuta in caldo per il caso in cui agente non lo diventi;
+     *   · all'APPROVAZIONE, NULL resta NULL: li' dentro ci sono i
+     *     milletrecento iscritti da prima che la quota esistesse, che non la
+     *     devono e non la dovranno mai. Scriverci zero vorrebbe dire che al
+     *     primo rifiuto si ritroverebbero un debito mai avuto.
+     *
+     * Una quota GIA' PAGATA non si tocca: quei soldi sono arrivati davvero e
+     * restituirli e' una decisione dell'admin, non l'effetto collaterale di un
+     * click su «Approva» (stessa regola del rifiuto e della rinuncia). Chi
+     * approva se lo legge a schermo, mentre ci sta pensando.
+     *
+     * Nessuna guardia sull'interruttore della quota: se l'admin l'ha spenta
+     * dopo aver messo in carico i 30, quei 30 sono comunque dovuti e vanno
+     * comunque sospesi.
+     *
+     * @return int i centesimi sospesi, 0 se non c'era niente da sospendere
+     */
+    public function suspendOnAgentApproval(User $user, ?string $ipAddress = null): int
+    {
+        $sospesi = 0;
+
+        DB::transaction(function () use ($user, $ipAddress, &$sospesi): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            // UNICA guardia, e sta DENTRO il lock: una copia qui fuori sarebbe
+            // l'ennesima coppia di difese che si nascondono a vicenda dal
+            // mutation testing (stessa scelta di resumeAfterAgentPath()).
+            //
+            //   - non privato: la quota di iscrizione non lo riguarda;
+            //   - gia' pagata: non si restituisce niente da qui;
+            //   - NULL o zero: non deve niente, e NULL deve restare NULL.
+            if ($locked->account_holder_type !== 'private'
+                || $locked->registration_fee_paid_at !== null
+                || (int) ($locked->registration_fee_due_cents ?? 0) <= 0) {
+                return;
+            }
+
+            $sospesi = (int) $locked->registration_fee_due_cents;
+
+            $locked->forceFill(['registration_fee_due_cents' => self::SOSPESA])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $locked->id,
+                'event'          => 'registration_fee.suspended_on_agent_approval',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                // L'importo che DOVEVA: la colonna ora dice zero e questa e'
+                // l'unica traccia di quanto fosse lo scatto suo.
+                'context'        => ['amount' => $sospesi],
+            ]);
+        });
+
+        return $sospesi;
     }
 
     // ── Stato ───────────────────────────────────────────────────────────────

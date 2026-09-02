@@ -2122,14 +2122,28 @@
                  compra. Il banner e' l'unico avviso permanente: il resto del
                  blocco vive in EnsureRegistrationFeePaid, che pero' si fa
                  sentire solo quando l'utente prova ad agire. --}}
-            @if (! request()->routeIs('portal.registration-fee.*') && app(\App\Services\RegistrationFeeService::class)->isDueFor(auth()->user()))
+            @php
+                $quotaIscrizioneDovuta = app(\App\Services\RegistrationFeeService::class)->isDueFor(auth()->user());
+                $quotaAgenteDovuta     = app(\App\Services\AgentCodeFeeService::class)->isDueFor(auth()->user());
+            @endphp
+            @if ($quotaIscrizioneDovuta && ! request()->routeIs('portal.registration-fee.*'))
                 <div class="notice error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <span>Quota di iscrizione da saldare: fino ad allora non puoi inviare KY, incassare o acquistare.</span>
                     <a class="cta" href="{{ route('portal.registration-fee.show') }}" style="padding:6px 12px;font-size:13px;">Salda ora</a>
                 </div>
-            @elseif (! request()->routeIs('portal.mlm.agent-code-fee.*') && app(\App\Services\AgentCodeFeeService::class)->isDueFor(auth()->user()))
+            @elseif ($quotaAgenteDovuta && ! $quotaIscrizioneDovuta && ! request()->routeIs('portal.mlm.agent-code-fee.*'))
                 {{-- Una quota alla volta: se le dovesse entrambe vedrebbe due
-                     banner rossi identici e non capirebbe quale saldare. --}}
+                     banner rossi identici e non capirebbe quale saldare.
+
+                     E LA QUOTA DEL BANNER DEV'ESSERE QUELLA CHE STA
+                     BLOCCANDO. Fino al 02/09/2026 qui c'era solo il controllo
+                     sulla rotta: sulla pagina dei 30 il primo ramo si
+                     spegneva da solo e compariva il banner rosso dell'ALTRA
+                     quota, con «Salda ora» che portava altrove. Chi guardava
+                     leggeva «quota per il codice agente» sopra un importo di
+                     30 euro e non capiva piu' cosa stesse pagando. Ora il
+                     banner dei 480 esce solo quando i 30 non sono dovuti:
+                     tanto e' l'ordine in cui il middleware le fa pagare. --}}
                 <div class="notice error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <span>Quota per il codice agente da saldare: fino ad allora non puoi inviare KY, incassare o acquistare, né firmare il contratto di nomina.</span>
                     <a class="cta" href="{{ route('portal.mlm.agent-code-fee.show') }}" style="padding:6px 12px;font-size:13px;">Salda ora</a>
