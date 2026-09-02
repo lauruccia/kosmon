@@ -14,6 +14,13 @@ class MlmAgentRequestReviewedNotification extends Notification
     public function __construct(
         public readonly string  $decision, // 'approved' | 'rejected'
         public readonly ?string $reason = null,
+        /**
+         * Centesimi di fido aggiuntivo tolti insieme al percorso (02/09/2026).
+         * Arriva dal chiamante e non si rilegge dallo stato, perche' a questo
+         * punto la colonna e' gia' a zero e «tolto adesso» e «non l'ha mai
+         * avuto» sarebbero indistinguibili.
+         */
+        public readonly int     $fidoTolto = 0,
     ) {}
 
     public function via(object $notifiable): array
@@ -54,6 +61,10 @@ class MlmAgentRequestReviewedNotification extends Notification
             ->greeting('Ciao ' . $notifiable->name . ',')
             ->line('Purtroppo la tua richiesta di diventare Agente KNM non è stata approvata al momento.')
             ->when($this->reason, fn ($mail) => $mail->line('Motivo: ' . $this->reason))
+            ->when($this->fidoTolto > 0, fn ($mail) => $mail
+                ->line('La quota per il codice agente che avevi pagato resta saldata, ma il margine di '
+                    . ky_format($this->fidoTolto) . ' KY che ti era stato concesso per pagarla è stato tolto insieme al percorso: '
+                    . 'finché il saldo non risale sopra il tuo fido puoi incassare ma non inviare KY.'))
             ->line('Puoi ripresentare la richiesta in qualsiasi momento dal tuo profilo.')
             ->action('Vai al portale', route('portal.mlm.agent-request.show'))
             ->salutation('Il team KMoney');
@@ -94,7 +105,10 @@ class MlmAgentRequestReviewedNotification extends Notification
         return [
             'icon'  => '❌',
             'title' => 'Richiesta agente non approvata',
-            'body'  => $this->reason ?: 'Puoi ripresentare la richiesta in qualsiasi momento.',
+            'body'  => $this->fidoTolto > 0
+                ? ($this->reason ? $this->reason . ' ' : '')
+                    . 'Il margine di ' . ky_format($this->fidoTolto) . ' KY concesso per la quota è stato tolto: puoi incassare ma non inviare finché il saldo non risale.'
+                : ($this->reason ?: 'Puoi ripresentare la richiesta in qualsiasi momento.'),
             'link'  => route('portal.mlm.agent-request.show'),
         ];
     }

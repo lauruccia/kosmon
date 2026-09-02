@@ -359,14 +359,17 @@ nudo, fuori da `DB::transaction`. Doppio click → due audit log
 `waive`, `revokeWaiver`, `resumeAfterAgentPath`, `suspendOnAgentApproval`)
 girano sotto `lockForUpdate`.
 
-### 🟡 A11 — Il fido aggiuntivo da 480 resta a vita a chi paga in KY e poi rinuncia
+### ✅ A11 — Il fido aggiuntivo da 480 resta a vita a chi paga in KY e poi rinuncia
 
-> **NON CHIUSO, di proposito.** Toglierlo dentro la rinuncia spingerebbe il
-> conto sotto senza che l'interessato abbia fatto niente: se va tolto, si
-> annulla la quota dal backoffice, che storna e rimette tutto a posto
-> insieme. Quel che e' cambiato e' che adesso il residuo finisce nell'audit
-> log della rinuncia (`fido_aggiuntivo_residuo`), quindi fra un anno si sa
-> perche' quella persona ha quella capienza in piu'.
+> **CHIUSO, con una decisione di Laura che ribalta quel che c'era scritto qui.**
+> Il margine se ne va con il percorso, alla rinuncia **e** al rifiuto — stessa
+> regola nei due casi, altrimenti converrebbe farsi rifiutare invece di
+> rinunciare. La conseguenza e' accettata e voluta: chi aveva pagato in KY
+> resta con il conto SOTTO il limite, puo' incassare ma non inviare finche'
+> non risale. Non e' un blocco, e' il motore che rifiuta le uscite come per
+> chiunque sia oltre il proprio fido. Glielo dicono la pagina (rinuncia) e la
+> mail del rifiuto, e l'importo tolto sta nell'audit log insieme al saldo con
+> cui resta.
 
 `giveUp()` con quota pagata non tocca `agent_code_fee_ky_allowance_cents`.
 L'utente resta un privato non agente con 480 KY di capienza in più del suo
@@ -438,7 +441,7 @@ persona»**. Oggi la risposta si compone da quattro colonne e un audit log.
 | A4 | ripescaggio per la quota agente | ✅ |
 | A12 | scadenza tentativi per la quota agente | ✅ |
 | A13 | euro chiamati KY | ✅ |
-| A11 | fido da 480 a vita | 🟡 lasciato apposta, ora tracciato nell'audit log |
+| A11 | fido da 480 a vita | ✅ tolto alla rinuncia **e** al rifiuto (decisione di Laura, 02/09) |
 | A14 | *(trovato dopo)* annullando i 480 il conto restava operativo e senza quota | ✅ `restoreAfterAgentFeeCancelled` |
 | M1 | base comune ai due servizi | ⬜ aperto |
 | M2 | un solo pannello «Quote» con due schede | ⬜ aperto |

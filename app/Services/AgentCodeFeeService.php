@@ -203,12 +203,23 @@ class AgentCodeFeeService
      * Stripe ancora aperta poteva pagare lo stesso e farsi incassare 480 euro
      * per un codice che non avrebbe mai avuto.
      *
+     * E IN TUTTI E DUE I CASI il fido aggiuntivo se ne va (revokeKyAllowance,
+     * decisione di Laura del 02/09/2026): esisteva per reggere il -480 di chi
+     * pagava in KY, e chiuso il percorso non ha piu' ragione. Chi aveva pagato
+     * cosi' resta con il conto SOTTO il limite finche' non lo risale
+     * incassando — glielo si dice a schermo, non lo deve scoprire al primo
+     * pagamento rifiutato.
+     *
+     * @return int i centesimi di fido aggiuntivo tolti, 0 se non ce n'era
+     *
      * Dopo la firma non si passa di qui: il codice agente c'e' gia' e la
      * strada e' un'altra (la revoca dell'agente, che e' un altro mestiere).
      */
-    public function giveUp(User $user, ?string $ipAddress = null): void
+    public function giveUp(User $user, ?string $ipAddress = null): int
     {
-        DB::transaction(function () use ($user, $ipAddress): void {
+        $fidoTolto = 0;
+
+        DB::transaction(function () use ($user, $ipAddress, &$fidoTolto): void {
             $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
             // Le due guardie stanno DENTRO il lock, e ci stanno una volta
@@ -247,6 +258,8 @@ class AgentCodeFeeService
                 $ipAddress,
             );
 
+            $fidoTolto = $this->revokeKyAllowance($locked, $ipAddress);
+
             AuditLog::create([
                 'actor_user_id'  => $locked->id,
                 'event'          => 'mlm.agent_request.given_up',
@@ -262,14 +275,10 @@ class AgentCodeFeeService
                     // pagamento arriva lo stesso, e' qui che si capisce perche'
                     // il webhook lo ha rifiutato.
                     'tentativi_chiusi' => $chiusi,
-                    // Il fido aggiuntivo NON se ne va con la rinuncia, e chi
-                    // legge questa riga fra un anno deve saperlo: chi ha pagato
-                    // in KY resta un privato non agente con questa capienza in
-                    // piu' del suo fido, a vita. Toglierlo qui vorrebbe dire
-                    // spingergli il conto sotto senza che abbia fatto niente —
-                    // se va tolto, si annulla la quota dal backoffice, che
-                    // storna e rimette tutto a posto insieme.
-                    'fido_aggiuntivo_residuo' => (int) ($locked->agent_code_fee_ky_allowance_cents ?? 0),
+                    // Quanta capienza gli e' stata tolta insieme al percorso.
+                    // Se e' maggiore di zero, questa persona resta con il conto
+                    // sotto il limite: e' il numero che spiega perche'.
+                    'fido_aggiuntivo_tolto' => $fidoTolto,
                 ],
             ]);
         });
@@ -280,6 +289,8 @@ class AgentCodeFeeService
         // dell'agente sarebbe il modo per entrare nel circuito senza pagare
         // niente: ci si fa registrare, si rinuncia, e non si deve piu' nulla.
         $this->registrationFees->resumeAfterAgentPath($user->refresh(), $ipAddress);
+
+        return $fidoTolto;
     }
 
     /**
@@ -318,6 +329,64 @@ class AgentCodeFeeService
         ]);
 
         return true;
+    }
+
+    /**
+     * Toglie il fido aggiuntivo concesso per reggere il -480, perche' il
+     * percorso agente si e' chiuso (decisione di Laura, 02/09/2026).
+     *
+     * COSA COMPORTA, ED E' VOLUTO. Quel fido esisteva per una ragione sola:
+     * permettere a chi pagava la quota in KY di andare sotto di 480 senza
+     * mangiarsi il proprio. Chiusa la ragione, chiusa la capienza. Chi aveva
+     * pagato in KY resta quindi con il saldo a -480 e il massimale tornato al
+     * suo fido: **il conto va SOTTO il limite**, e finche' non lo risale non
+     * puo' piu' inviare KY (incassare si', ed e' cosi' che lo risale). Non e'
+     * un blocco del conto: e' il motore che rifiuta le uscite, come per
+     * chiunque sia oltre il proprio fido.
+     *
+     * VALE ANCHE PER IL RIFIUTO DELL'ADMIN, non solo per la rinuncia (scelta
+     * di Laura): stessa regola nei due casi, altrimenti converrebbe aspettare
+     * di farsi rifiutare invece di rinunciare.
+     *
+     * NON RESTITUISCE I 480. La quota resta pagata e i KY restano al conto di
+     * sistema: qui si toglie solo la capienza in piu'. Se i soldi vanno
+     * restituiti, si annulla la quota dal backoffice, che storna il movimento
+     * (e riporta il saldo a zero) tutto insieme.
+     *
+     * @return int i centesimi di capienza tolti, 0 se non ce n'era
+     */
+    public function revokeKyAllowance(User $user, ?string $ipAddress = null): int
+    {
+        $tolto = 0;
+
+        DB::transaction(function () use ($user, $ipAddress, &$tolto): void {
+            $locked = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $tolto = max(0, (int) ($locked->agent_code_fee_ky_allowance_cents ?? 0));
+
+            if ($tolto === 0) {
+                return;
+            }
+
+            $locked->forceFill(['agent_code_fee_ky_allowance_cents' => 0])->save();
+
+            AuditLog::create([
+                'actor_user_id'  => $locked->id,
+                'event'          => 'agent_code_fee.ky_allowance_revoked',
+                'auditable_type' => User::class,
+                'auditable_id'   => $locked->id,
+                'ip_address'     => $ipAddress,
+                'context'        => [
+                    'amount' => $tolto,
+                    // Il saldo con cui resta: e' il numero che serve a
+                    // rispondere, fra sei mesi, a «perche' non riesco a
+                    // pagare?».
+                    'saldo_dopo' => (int) ($this->accountFor($locked)?->available_balance ?? 0),
+                ],
+            ]);
+        });
+
+        return $tolto;
     }
 
     /**

@@ -1121,6 +1121,109 @@ class AgentCodeFeeTest extends TestCase
         $this->assertSame(AgentCodeFeePayment::STATUS_FAILED, $fallita->fresh()->status);
     }
 
+    // ─── 14. Il margine se ne va col percorso (02/09/2026) ─────────────────
+
+    /**
+     * DECISIONE DI LAURA, 02/09/2026. Il fido aggiuntivo esisteva per una
+     * ragione sola: reggere il -480 di chi pagava la quota in KY. Chiuso il
+     * percorso, chiusa la ragione. Chi aveva pagato cosi' resta con il conto
+     * SOTTO il limite — puo' incassare, non inviare — ed e' voluto: la quota
+     * resta pagata, i KY restano al circuito, e la capienza in piu' non ha
+     * piu' motivo di esistere.
+     */
+    public function test_rinunciando_il_margine_concesso_per_la_quota_se_ne_va(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        // Prima: sotto di 480, ma dentro il margine concesso.
+        $this->assertSame(-self::QUOTA, (int) $conto->fresh()->available_balance);
+        $this->assertSame(self::QUOTA, $conto->fresh()->massimale());
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia')
+            ->assertRedirect(route('portal.dashboard'))
+            ->assertSessionHas('portal_success', fn (string $m): bool => str_contains($m, 'non inviare KY'));
+
+        $dopo = $aspirante->fresh();
+
+        $this->assertSame(0, (int) $dopo->agent_code_fee_ky_allowance_cents);
+        // Il saldo NON si muove: la quota resta pagata, i KY restano al
+        // circuito. Quel che cambia e' quanto puo' scendere.
+        $this->assertSame(-self::QUOTA, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, $conto->fresh()->massimale());
+        $this->assertSame(-self::QUOTA, $conto->fresh()->saldoDisponibile());
+    }
+
+    /**
+     * Stessa regola quando a chiudere il percorso e' l'admin: altrimenti
+     * converrebbe farsi rifiutare invece di rinunciare. E l'interessato lo
+     * legge nella mail del rifiuto, non lo scopre al primo pagamento respinto.
+     */
+    public function test_anche_il_rifiuto_dell_admin_toglie_il_margine(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.mlm.requests.reject', $aspirante), ['reason' => 'Documenti non conformi.'])
+            ->assertRedirect()
+            ->assertSessionHas('portal_success', fn (string $m): bool => str_contains($m, 'sotto il limite'));
+
+        $this->assertSame(0, (int) $aspirante->fresh()->agent_code_fee_ky_allowance_cents);
+        $this->assertSame(0, $conto->fresh()->massimale());
+
+        Notification::assertSentTo(
+            $aspirante->fresh(),
+            \App\Notifications\MlmAgentRequestReviewedNotification::class,
+            fn ($notifica): bool => $notifica->fidoTolto === self::QUOTA
+        );
+    }
+
+    /** In euro nessun margine e' mai stato concesso: non c'e' niente da togliere. */
+    public function test_chi_ha_pagato_in_euro_non_ha_nessun_margine_da_perdere(): void
+    {
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente();
+
+        $pagamento = $this->checkoutAperto($aspirante);
+        app(AgentCodeFeeService::class)->completeEuroPayment($pagamento);
+
+        $this->actingAs($aspirante->fresh())->post('/mlm/quota-codice/rinuncia')
+            ->assertRedirect()
+            ->assertSessionHas('portal_success', fn (string $m): bool => str_contains($m, 'pienamente operativo'));
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, (int) $aspirante->fresh()->agent_code_fee_ky_allowance_cents);
+    }
+
+    /**
+     * La via d'uscita vera per chi vuole indietro i soldi: l'annullamento dal
+     * backoffice storna il movimento e riporta il saldo a zero. Il margine era
+     * gia' andato via con la rinuncia, e non deve tornare.
+     */
+    public function test_annullare_dopo_la_rinuncia_riporta_il_saldo_a_zero(): void
+    {
+        $this->makeSystemAccount(0);
+        $this->attivaQuota();
+        [$aspirante, $conto] = $this->makeAspiranteAgente();
+
+        app(AgentCodeFeeService::class)->payWithKy($aspirante);
+        app(AgentCodeFeeService::class)->giveUp($aspirante->fresh());
+
+        $pagamento = AgentCodeFeePayment::where('user_id', $aspirante->id)->firstOrFail();
+        app(AgentCodeFeeService::class)->cancel($pagamento, $this->superAdmin, 'Rimborso concordato.');
+
+        $this->assertSame(0, (int) $conto->fresh()->available_balance);
+        $this->assertSame(0, (int) $aspirante->fresh()->agent_code_fee_ky_allowance_cents);
+        $this->assertSame(0, $conto->fresh()->massimale());
+    }
+
     /** Un checkout con carta aperto e mai concluso: la riga che il webhook vede. */
     private function checkoutAperto(User $utente): AgentCodeFeePayment
     {

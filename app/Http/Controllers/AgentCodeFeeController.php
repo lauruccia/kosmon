@@ -68,9 +68,23 @@ class AgentCodeFeeController extends Controller
     public function giveUp(Request $request): RedirectResponse
     {
         try {
-            $this->fees->giveUp($request->user(), $request->ip());
+            $fidoTolto = $this->fees->giveUp($request->user(), $request->ip());
         } catch (RuntimeException $e) {
             return redirect()->route('portal.dashboard')->with('portal_error', $e->getMessage());
+        }
+
+        // Due messaggi diversi, e dirli uguali sarebbe una bugia in uno dei
+        // due (02/09/2026). Chi aveva pagato la quota in KY perde con il
+        // percorso anche la capienza che reggeva il suo -480: il conto resta
+        // SOTTO il limite, e finche' non lo risale incassando non puo'
+        // inviare. Deve saperlo adesso, non al primo pagamento rifiutato.
+        if ($fidoTolto > 0) {
+            return redirect()->route('portal.dashboard')->with(
+                'portal_success',
+                'Hai rinunciato a diventare agente e potrai ricandidarti quando vorrai. La quota che avevi pagato resta saldata, '
+                . 'ma il margine di ' . ky_format($fidoTolto) . ' KY che ti era stato concesso per pagarla è stato tolto insieme al percorso: '
+                . 'finché il saldo non risale sopra il tuo fido puoi incassare ma non inviare KY.'
+            );
         }
 
         return redirect()->route('portal.dashboard')

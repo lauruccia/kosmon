@@ -122,9 +122,16 @@ class MlmAgentRequestController extends Controller
             $request->ip(),
         );
 
+        // Il fido aggiuntivo se ne va con il percorso, come nella rinuncia
+        // (decisione di Laura, 02/09/2026): stessa regola nei due casi,
+        // altrimenti converrebbe farsi rifiutare invece di rinunciare. Chi
+        // aveva pagato la quota in KY resta con il conto sotto il limite, e la
+        // mail glielo dice.
+        $fidoTolto = $quotaAgente->revokeKyAllowance($user, $request->ip());
+
         app(\App\Services\RegistrationFeeService::class)->resumeAfterAgentPath($user->refresh(), $request->ip());
 
-        $user->notify(new MlmAgentRequestReviewedNotification('rejected', $validated['reason']));
+        $user->notify(new MlmAgentRequestReviewedNotification('rejected', $validated['reason'], $fidoTolto));
 
         AuditLog::create([
             'actor_user_id'  => $request->user()->id,
@@ -143,6 +150,10 @@ class MlmAgentRequestController extends Controller
 
         if ($quotaGiaPagata) {
             $messaggio .= ' ATTENZIONE: aveva già saldato la quota per il codice agente e quei soldi NON sono stati toccati. Se vanno restituiti, annulla la quota da Quote codice agente.';
+        }
+
+        if ($fidoTolto > 0) {
+            $messaggio .= ' Il margine di ' . ky_format($fidoTolto) . ' KY concesso per pagarla è stato tolto: il suo conto resta sotto il limite finché non risale incassando.';
         }
 
         return back()->with('portal_success', $messaggio);
