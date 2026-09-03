@@ -1057,6 +1057,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
 Route::get('/admin/contratto',   [AdminContractController::class, 'contractSettings'])->name('admin.contract-settings')->middleware('backoffice');
 Route::patch('/admin/contratto', [AdminContractController::class, 'contractSettingsUpdate'])->name('admin.contract-settings.update')->middleware('backoffice');
 Route::post('/admin/contratto/testo', [AdminContractController::class, 'contractTextUpdate'])->name('admin.contract-text.update')->middleware('backoffice');
+Route::post('/admin/contratto/annulla-rifirma', [AdminContractController::class, 'cancelResign'])->name('admin.contract-resign.cancel')->middleware('backoffice');
 Route::post('/admin/contratto/testo-agente', [AdminContractController::class, 'agentContractTextUpdate'])->name('admin.agent-contract-text.update')->middleware('backoffice');
 Route::post('/admin/contratto/testo-direttive-agente', [AdminContractController::class, 'agentDirectivesTextUpdate'])->name('admin.agent-directives-text.update')->middleware('backoffice');
 Route::get('/admin/contratto/firme',             [AdminContractController::class, 'contractSignatures'])->name('admin.contract-signatures')->middleware('backoffice');

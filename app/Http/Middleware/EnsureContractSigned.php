@@ -16,7 +16,8 @@ class EnsureContractSigned
      * Logica:
      *   - Admin / broker backoffice → skip
      *   - Utenti senza azienda → skip
-     *   - Già firmato → pass through
+     *   - Già firmato E versione non superata → pass through
+     *   - Già firmato ma versione superata da una revisione → rifirma
      *   - Nuovo utente (creato dopo contract_required_from) → obbligatorio, no postpone
      *   - Utente esistente + contract_force_sign=true → obbligatorio
      *   - Utente esistente + postponed entro 24h → pass through (può rimandare)
@@ -41,14 +42,33 @@ class EnsureContractSigned
             return $next($request);
         }
 
-        // Contratto già firmato: via libera
-        if ($user->contract_signed_at) {
+        // PRIMA il contratto agente, POI questo — l'ordine deciso il 31/07 e
+        // fissato da MlmAgentContractGateTest. Serve ora che esiste la
+        // rifirma: un'azienda che e' anche agente in attesa di nomina, con
+        // una rifirma in corso, verrebbe rimbalzata da qui e non arriverebbe
+        // mai alla pagina della nomina. E la quota codice agente e' l'unica
+        // strada che porta a quella firma.
+        if ($request->routeIs('portal.mlm.agent-contract.*') || $request->routeIs('portal.mlm.agent-code-fee.*')) {
+            return $next($request);
+        }
+
+        $settings = SystemSetting::contractSettings();
+
+        // RIFIRMA DOPO UNA REVISIONE (2026-09-03). Prima di questa riga qui
+        // c'era solo `if ($user->contract_signed_at) return $next()`: chi
+        // aveva firmato una volta non veniva piu' interpellato, e una
+        // revisione delle condizioni non raggiungeva nessuno. Adesso una
+        // firma vale solo fino alla soglia che l'admin alza quando pubblica
+        // una revisione sostanziale.
+        $deveRifirmare = $settings->resignRequiredFor($user);
+
+        if ($user->contract_signed_at && ! $deveRifirmare) {
             return $next($request);
         }
 
         // Carica impostazioni admin
-        $forceSign    = (bool) SystemSetting::contractSettings()->contract_force_sign;
-        $requiredFrom = SystemSetting::contractSettings()->contract_required_from;
+        $forceSign    = (bool) $settings->contract_force_sign;
+        $requiredFrom = $settings->contract_required_from;
 
         // Determina se è un nuovo utente (registrato dopo il deploy della feature)
         $isNewUser = $requiredFrom
@@ -58,7 +78,8 @@ class EnsureContractSigned
         if ($isNewUser || $forceSign) {
             // Firma obbligatoria, nessuna possibilità di rimandare
             return redirect()->route('portal.contract.sign')
-                ->with('contract_required', true);
+                ->with('contract_required', true)
+                ->with('contract_resign', $deveRifirmare);
         }
 
         // Utente esistente: verifica se ha posticipato di recente (finestra 24h)
@@ -71,6 +92,7 @@ class EnsureContractSigned
 
         // Prima visita o finestra 24h scaduta: mostra pagina firma (con opzione rimanda)
         return redirect()->route('portal.contract.sign')
-            ->with('contract_reminder', true);
+            ->with('contract_reminder', true)
+            ->with('contract_resign', $deveRifirmare);
     }
 }

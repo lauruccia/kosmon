@@ -29,6 +29,8 @@ use Illuminate\Support\Facades\Storage;
  * @property \Illuminate\Support\Carbon|null $contract_required_from
  * @property string|null $contract_text
  * @property int $contract_version
+ * @property int $contract_resign_from_version
+ * @property \Illuminate\Support\Carbon|null $contract_text_corrected_at
  * @property int|null $payment_confirm_totp_threshold
  * @property int|null $payment_pin_threshold
  * @property int $welcome_bonus_amount
@@ -107,6 +109,8 @@ class SystemSetting extends Model
         'contract_required_from',
         'contract_text',
         'contract_version',
+        'contract_resign_from_version',
+        'contract_text_corrected_at',
         'mlm_agent_contract_text',
         'mlm_agent_contract_version',
         'mlm_agent_directives_text',
@@ -123,6 +127,7 @@ class SystemSetting extends Model
         return [
             'contract_force_sign'    => 'boolean',
             'contract_required_from' => 'date',
+            'contract_text_corrected_at' => 'datetime',
             // Interruttore Bonus Diretti KNM (2026-08-14): NULL sulle righe
             // pre-migrazione = disattivati, vedi mlmDirectBonusesEnabled().
             'mlm_direct_bonuses_enabled' => 'boolean',
@@ -153,8 +158,83 @@ class SystemSetting extends Model
                 'contract_required_from' => now()->toDateString(),
                 'contract_text'          => null,
                 'contract_version'       => 1,
+                'contract_resign_from_version' => 0,
             ]
         );
+    }
+
+    /**
+     * Una CORREZIONE formale va mostrata anche su una firma già avvenuta?
+     *
+     * Le due cose che si possono fare a un contratto sono diverse e vanno
+     * trattate in modo opposto (decisione di Laura, 03/09/2026):
+     *
+     *   CORREZIONE — refuso, punteggiatura, un numero d'articolo sbagliato.
+     *     Non cambia cosa è stato pattuito, quindi non alza la versione e non
+     *     chiede firme: chi ha firmato quella versione deve semplicemente
+     *     vedere il testo giusto al posto di quello con l'errore.
+     *
+     *   REVISIONE — si aggiungono o si cambiano condizioni. Alza la versione,
+     *     vale per chi firma da adesso, e chi ha firmato prima può dover
+     *     rifirmare (vedi resignRequiredFor()).
+     *
+     * Questa funzione risponde alla prima: vero solo se una correzione c'è
+     * stata E la firma riguarda la versione ANCORA IN VIGORE. Chi ha firmato
+     * una versione precedente continua a vedere il proprio snapshot, ed è
+     * giusto: quella è un'altra cosa, non una versione con un refuso.
+     *
+     * Nota importante: `contract_signatures.contract_html_snapshot` non viene
+     * mai riscritto. I byte firmati restano dove sono e l'admin li rivede dal
+     * log firme; qui si decide solo cosa mostrare all'azienda.
+     *
+     * LIMITE NOTO, accettato: la correzione vive nella versione in vigore.
+     * Se dopo la correzione si pubblica una revisione, `contract_version`
+     * sale, `contract_text_corrected_at` torna a NULL, e chi aveva firmato la
+     * versione corretta torna a vedere il proprio snapshot — refuso compreso.
+     * Il testo corretto di una versione superata non e' salvato da nessuna
+     * parte: `contract_text` ne tiene uno solo. Tenerlo vorrebbe dire
+     * riscrivere gli snapshot di tutte le firme a ogni correzione, e la
+     * prova di cosa e' stato firmato vale piu' di un refuso su una versione
+     * non piu' in vigore.
+     */
+    public function correctionAppliesTo(?int $signedVersion): bool
+    {
+        return $this->contract_text_corrected_at !== null
+            && $signedVersion !== null
+            && (int) $signedVersion === (int) ($this->contract_version ?? 1);
+    }
+
+    /**
+     * Questo utente deve RIFIRMARE il contratto?
+     *
+     * Vero quando ha firmato una versione precedente alla soglia che l'admin
+     * ha alzato pubblicando una revisione sostanziale (spunta "richiede una
+     * nuova firma" in /admin/contratto). Soglia a 0 = nessuna rifirma in
+     * corso, che e' lo stato normale.
+     *
+     * Unico posto che lo decide: lo usano il middleware, la pagina di firma e
+     * la card in Sicurezza, cosi' non possono dissentire tra loro. Chi non ha
+     * mai firmato non "rifirma": per lui vale la firma normale.
+     *
+     * `?? 1` sulla versione firmata: una firma senza versione registrata e'
+     * antecedente a questa funzione, quindi e' vecchia, quindi vale 1 — la
+     * migrazione fa lo stesso ragionamento nel backfill.
+     */
+    public function resignRequiredFor(User $user): bool
+    {
+        $soglia = (int) ($this->contract_resign_from_version ?? 0);
+
+        // Il contratto di adesione riguarda SOLO chi ha un'azienda (vedi
+        // EnsureContractSigned, che lascia passare i privati). Senza questa
+        // riga un conto privato con una firma vecchia addosso — ce ne sono,
+        // di quando il gate era diverso — si vedrebbe il banner "condizioni
+        // aggiornate" e potrebbe rifirmare un contratto che parla di partita
+        // IVA e ragione sociale.
+        if ($soglia <= 0 || ! $user->company_id || ! $user->contract_signed_at) {
+            return false;
+        }
+
+        return (int) ($user->contract_signed_version ?? 1) < $soglia;
     }
 
     /**

@@ -17,15 +17,19 @@ class ContractController extends Controller
      */
     public function show(Request $request): View|RedirectResponse
     {
-        $user = $request->user();
+        $user     = $request->user();
+        $settings = \App\Models\SystemSetting::contractSettings();
 
-        if ($user->contract_signed_at) {
+        // 2026-09-03: "ha firmato" non basta piu' per rimandarlo indietro —
+        // se l'admin ha pubblicato una revisione che richiede una nuova
+        // firma, questa pagina deve riaprirsi.
+        $isResign = $settings->resignRequiredFor($user);
+
+        if ($user->contract_signed_at && ! $isResign) {
             return redirect()->route('portal.dashboard');
         }
 
-        $canPostpone = $this->userCanPostpone($user);
-
-        $settings     = \App\Models\SystemSetting::contractSettings();
+        $canPostpone  = $this->userCanPostpone($user);
         $contractHtml = $settings->renderContractText($user->company, $user);
         $contractVer  = $settings->contract_version ?? 1;
 
@@ -35,6 +39,8 @@ class ContractController extends Controller
             'company'      => $user->company,
             'contractHtml' => $contractHtml,
             'contractVer'  => $contractVer,
+            'isResign'     => $isResign,
+            'signedVer'    => $isResign ? (int) ($user->contract_signed_version ?? 1) : null,
         ]);
     }
 
@@ -45,7 +51,10 @@ class ContractController extends Controller
     {
         $user = $request->user();
 
-        if ($user->contract_signed_at) {
+        if (
+            $user->contract_signed_at
+            && ! SystemSetting::contractSettings()->resignRequiredFor($user)
+        ) {
             return redirect()->route('portal.dashboard');
         }
 
@@ -79,9 +88,11 @@ class ContractController extends Controller
             'otp.regex'    => 'Il codice deve contenere solo cifre.',
         ]);
 
-        $user = $request->user();
+        $user     = $request->user();
+        $settings = SystemSetting::contractSettings();
+        $isResign = $settings->resignRequiredFor($user);
 
-        if ($user->contract_signed_at) {
+        if ($user->contract_signed_at && ! $isResign) {
             return redirect()->route('portal.dashboard');
         }
 
@@ -99,7 +110,6 @@ class ContractController extends Controller
         }
 
         // Firma registrata — salva snapshot contratto
-        $settings         = SystemSetting::contractSettings();
         $contractHtml     = $settings->renderContractText($user->company, $user);
         $contractVersion  = $settings->contract_version ?? 1;
         $now              = now();
@@ -114,14 +124,23 @@ class ContractController extends Controller
             'user_agent'             => $request->userAgent(),
         ]);
 
+        // NIENTE cancellazioni: la riga in contract_signatures qui sopra si
+        // aggiunge a quelle vecchie, che restano come prova di cosa l'azienda
+        // aveva accettato prima. Qui si aggiorna solo "a che versione sta
+        // adesso". contract_postponed_at torna a zero: il rinvio riguardava
+        // la revisione appena firmata, non la prossima.
         $user->update([
             'contract_signed_at'      => $now,
+            'contract_signed_version' => $contractVersion,
+            'contract_postponed_at'   => null,
             'contract_otp'            => null,
             'contract_otp_expires_at' => null,
         ]);
 
         return redirect()->route('portal.dashboard')
-            ->with('success', 'Contratto firmato con successo. Benvenuto nel circuito KMoney!');
+            ->with('success', $isResign
+                ? 'Hai firmato la versione aggiornata del contratto (v' . $contractVersion . ').'
+                : 'Contratto firmato con successo. Benvenuto nel circuito KMoney!');
     }
 
     /**
@@ -136,6 +155,8 @@ class ContractController extends Controller
                 ->withErrors(['general' => 'La firma del contratto è obbligatoria per continuare.']);
         }
 
+        // Vale sia per la prima firma sia per una rifirma: 24 ore di respiro,
+        // poi la pagina si ripresenta (vedi EnsureContractSigned).
         $user->update(['contract_postponed_at' => now()]);
 
         return redirect()->route('portal.dashboard')
@@ -172,7 +193,21 @@ class ContractController extends Controller
             ]);
         }
 
-        return view('portal.contract-view', compact('signature'));
+        // 2026-09-03: se il testo della versione firmata e' stato CORRETTO
+        // (refuso, non condizioni), l'azienda deve vedere il testo giusto e
+        // non piu' l'errore. Lo snapshot in banca dati non si tocca: resta
+        // come prova dei byte firmati, visibile all'admin dal log firme.
+        $settings   = SystemSetting::contractSettings();
+        $corretto   = $settings->correctionAppliesTo($signature->contract_version);
+        $contractHtml = $corretto
+            ? $settings->renderContractText($user->company, $user)
+            : $signature->contract_html_snapshot;
+
+        return view('portal.contract-view', [
+            'signature'    => $signature,
+            'contractHtml' => $contractHtml,
+            'correctedAt'  => $corretto ? $settings->contract_text_corrected_at : null,
+        ]);
     }
 
     /**
@@ -189,9 +224,18 @@ class ContractController extends Controller
         $signature = \App\Models\ContractSignature::where('user_id', $user->id)
             ->latest('signed_at')->first();
 
-        $contractHtml = $signature?->contract_html_snapshot
-            ?? SystemSetting::contractSettings()->renderContractText($user->company, $user);
-        $version  = $signature?->contract_version ?? (SystemSetting::contractSettings()->contract_version ?? 1);
+        $settings = SystemSetting::contractSettings();
+
+        // Stessa regola della pagina: il PDF che scarica l'azienda riporta il
+        // testo corretto, se la correzione riguarda la sua versione. E lo
+        // DICE, in fondo al documento: un PDF che gira senza quella riga non
+        // combacia byte per byte con lo snapshot firmato e non spiega perche'.
+        $corretto     = $settings->correctionAppliesTo($signature?->contract_version);
+        $contractHtml = $corretto
+            ? $settings->renderContractText($user->company, $user)
+            : ($signature?->contract_html_snapshot
+                ?? $settings->renderContractText($user->company, $user));
+        $version  = $signature?->contract_version ?? ($settings->contract_version ?? 1);
         $signedAt = $signature?->signed_at ?? $user->contract_signed_at;
         $ipAddr   = $signature?->ip_address ?? 'n.d.';
         $companyName = $user->company?->name ?? $user->name;
@@ -217,6 +261,11 @@ li{margin-bottom:6px;}
 <div class="footer">
 Documento generato da KMoney &mdash; Firma digitale con OTP via email<br>
 ' . ($signature ? 'Codice firma: ' . strtoupper(substr(md5($signature->id . $signature->signed_at), 0, 12)) : '') . '
+' . ($corretto
+        ? '<br>Testo corretto il ' . $settings->contract_text_corrected_at->format('d/m/Y')
+          . ' per soli errori formali (refusi, punteggiatura, riferimenti): le condizioni'
+          . ' della versione ' . $version . ' non sono cambiate e la firma resta valida.'
+        : '') . '
 </div>
 </body></html>';
 

@@ -14,20 +14,128 @@ class ContractController extends Controller
     {
 
         $settings = \App\Models\SystemSetting::contractSettings();
-        $settings->update([
+
+        // DUE COSE DIVERSE, TRATTATE IN MODO OPPOSTO (03/09/2026, regola di
+        // Laura). Salvare il testo non e' un gesto unico:
+        //
+        //   'correzione' — refuso, punteggiatura, un riferimento sbagliato.
+        //     Non cambia cosa e' stato pattuito: la VERSIONE NON SALE e le
+        //     aziende che hanno firmato questa stessa versione vedono da
+        //     subito il testo corretto al posto dell'errore (vedi
+        //     SystemSetting::correctionAppliesTo() e ContractController::
+        //     viewSigned()). Nessuna firma da rifare.
+        //
+        //   'revisione' — si aggiungono o si cambiano condizioni. La versione
+        //     sale e il testo nuovo vale per chi firma da adesso; chi ha gia'
+        //     firmato non viene interpellato e continua a vedere la SUA
+        //     versione, perche' e' quella che ha accettato.
+        //
+        //   'revisione_rifirma' — come sopra, ma le aziende rimaste sotto la
+        //     nuova versione vengono riportate alla firma.
+        //
+        // Il default e' 'revisione': e' esattamente il comportamento che
+        // questa pagina aveva prima, quindi una richiesta senza il campo non
+        // cambia niente di nascosto.
+        $modo = in_array($request->input('save_mode'), ['correzione', 'revisione', 'revisione_rifirma'], true)
+            ? $request->input('save_mode')
+            : 'revisione';
+
+        $versioneAttuale = (int) ($settings->contract_version ?? 1);
+        $nuovaVersione   = $modo === 'correzione' ? $versioneAttuale : $versioneAttuale + 1;
+
+        $dati = [
             'contract_text'    => sanitize_html($request->input('contract_text')),
-            'contract_version' => ($settings->contract_version ?? 1) + 1,
-        ]);
+            'contract_version' => $nuovaVersione,
+        ];
+
+        if ($modo === 'correzione') {
+            // La data serve a dire all'azienda, sulla sua pagina, perche' il
+            // testo non e' piu' identico a quello che ha firmato.
+            $dati['contract_text_corrected_at'] = now();
+        } else {
+            // Versione nuova: parte pulita, nessuna correzione da segnalare.
+            $dati['contract_text_corrected_at'] = null;
+        }
+
+        // La soglia della rifirma si tocca SOLO quando e' chiesto: una
+        // correzione o una revisione semplice non devono ne' aprire ne'
+        // chiudere una rifirma gia' in corso.
+        if ($modo === 'revisione_rifirma') {
+            $dati['contract_resign_from_version'] = $nuovaVersione;
+        }
+
+        $daRifirmare = $modo === 'revisione_rifirma' ? $this->resignPendingCount($nuovaVersione) : 0;
+
+        $settings->update($dati);
 
         \App\Models\AuditLog::create([
             'actor_user_id'  => $request->user()->id,
             'event'          => 'admin.contract_text.update',
             'auditable_type' => \App\Models\SystemSetting::class,
             'auditable_id'   => $settings->id,
-            'context'        => ['version' => $settings->contract_version],
+            'context'        => [
+                'modo'                 => $modo,
+                'version'              => $settings->contract_version,
+                'aziende_da_rifirmare' => $daRifirmare,
+            ],
         ]);
 
-        return back()->with('success', 'Testo del contratto aggiornato (versione ' . $settings->contract_version . ').');
+        $msg = match ($modo) {
+            'correzione' => 'Correzione salvata. La versione resta la ' . $nuovaVersione
+                . ': le aziende che hanno firmato questa versione vedono da subito il testo corretto,'
+                . ' e non devono rifirmare.',
+            'revisione_rifirma' => 'Pubblicata la versione ' . $nuovaVersione . '. '
+                . $daRifirmare . ' aziende verranno riportate alla firma al prossimo accesso.',
+            default => 'Pubblicata la versione ' . $nuovaVersione
+                . '. Vale per chi firma da adesso; chi ha gia\' firmato non viene interpellato'
+                . ' e continua a vedere la propria versione.',
+        };
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Quante aziende hanno firmato una versione precedente alla soglia, e
+     * quindi si troveranno la pagina di firma davanti. Serve a dirlo PRIMA
+     * di premere il bottone, non a cose fatte.
+     */
+    private function resignPendingCount(int $soglia): int
+    {
+        if ($soglia <= 0) {
+            return 0;
+        }
+
+        return \App\Models\User::query()
+            ->where('is_super_admin', false)
+            ->whereNotNull('company_id')
+            ->whereNotNull('contract_signed_at')
+            ->whereRaw('COALESCE(contract_signed_version, 1) < ?', [$soglia])
+            ->count();
+    }
+
+    /**
+     * Annulla una richiesta di rifirma partita per errore: riporta la soglia
+     * a zero e nessuno viene piu' interpellato. Le firme gia' raccolte sulla
+     * nuova versione restano, ovviamente: sono firme vere.
+     */
+    public function cancelResign(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        $settings = \App\Models\SystemSetting::contractSettings();
+        $prima    = (int) ($settings->contract_resign_from_version ?? 0);
+
+        $settings->update(['contract_resign_from_version' => 0]);
+
+        \App\Models\AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.contract_resign.cancel',
+            'auditable_type' => \App\Models\SystemSetting::class,
+            'auditable_id'   => $settings->id,
+            'context'        => ['soglia_annullata' => $prima],
+        ]);
+
+        return back()->with('success', 'Richiesta di rifirma annullata: nessuna azienda verra\' piu\' riportata alla firma.');
     }
 
     public function contractSettings(): \Illuminate\View\View
@@ -64,6 +172,9 @@ class ContractController extends Controller
         $requiredFrom         = $settings->contract_required_from;
         $contractText         = $settings->contract_text ?? \App\Models\SystemSetting::defaultContractText();
         $contractVersion      = $settings->contract_version ?? 1;
+        $resignFromVersion    = (int) ($settings->contract_resign_from_version ?? 0);
+        $textCorrectedAt      = $settings->contract_text_corrected_at;
+        $resignPendingCount   = $this->resignPendingCount($resignFromVersion);
         $signedCount          = \App\Models\User::whereNotNull('contract_signed_at')->count();
         $totalUsers           = \App\Models\User::whereNotNull('company_id')->count();
 
@@ -81,6 +192,7 @@ class ContractController extends Controller
 
         return view('admin.contract-settings', compact(
             'forceSign', 'requiredFrom', 'contractText', 'contractVersion', 'signedCount', 'totalUsers',
+            'resignFromVersion', 'resignPendingCount', 'textCorrectedAt',
             'agentContractText', 'agentContractVersion', 'agentSignedCount', 'agentPendingCount',
             'agentDirectivesText', 'agentDirectivesVersion'
         ));

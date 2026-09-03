@@ -48,6 +48,7 @@ use Illuminate\Notifications\Notifiable;
  * @property string|null $email_change_token
  * @property string|null $email_change_expires_at
  * @property \Illuminate\Support\Carbon|null $contract_signed_at
+ * @property int|null $contract_signed_version
  * @property string|null $contract_otp
  * @property \Illuminate\Support\Carbon|null $contract_otp_expires_at
  * @property \Illuminate\Support\Carbon|null $contract_postponed_at
@@ -166,6 +167,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_recovery_codes',
         'notification_preferences',
         'contract_signed_at',
+        'contract_signed_version',
         'contract_otp',
         'contract_otp_expires_at',
         'contract_postponed_at',

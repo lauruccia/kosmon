@@ -232,12 +232,27 @@
                 <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:2px;">Contratto di Adesione</div>
                 <div style="font-size:13px;color:var(--ink-soft);">
                     Firmato il {{ auth()->user()->contract_signed_at->format('d/m/Y \\a\\l\\l\\e H:i') }}
+                    {{-- 2026-09-03: se e' uscita una revisione sostanziale, qui
+                         si vede — altrimenti la card direbbe "firmato" e
+                         basta, mentre in realta' c'e' una firma da rifare. --}}
+                    @if(\App\Models\SystemSetting::contractSettings()->resignRequiredFor(auth()->user()))
+                        <div style="margin-top:4px;color:#b45309;font-weight:600;">
+                            Le condizioni sono state aggiornate: serve una nuova firma.
+                        </div>
+                    @endif
                 </div>
             </div>
+            @if(\App\Models\SystemSetting::contractSettings()->resignRequiredFor(auth()->user()))
+            <a href="{{ route('portal.contract.sign') }}"
+               style="padding:8px 16px;background:#b45309;border:1px solid #b45309;border-radius:8px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;white-space:nowrap;">
+                Firma la nuova versione &#x2192;
+            </a>
+            @else
             <a href="{{ route('portal.contract.view') }}"
                style="padding:8px 16px;background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap;">
                 Visualizza &#x2192;
             </a>
+            @endif
         </div>
     </section>
     @endif

@@ -106,6 +106,24 @@
 <div class="page">
 
     {{-- Banners --}}
+    {{-- 2026-09-03: rifirma dopo una revisione. Va PRIMA degli altri perche'
+         cambia il senso della pagina: non e' la prima firma, e la persona
+         deve capire subito che le condizioni sono cambiate e quali. --}}
+    @if($isResign ?? false)
+        <div class="banner banner-reminder">
+            <span class="banner-icon">&#128220;</span>
+            <div>
+                <strong>Le condizioni del contratto sono state aggiornate.</strong>
+                Hai firmato la versione {{ $signedVer ?? 1 }}; quella in vigore è la
+                {{ $contractVer }}. Per continuare a operare ti chiediamo di leggere il
+                testo aggiornato qui sotto e firmarlo.
+                <div style="margin-top:6px;font-size:13px;">
+                    La tua firma precedente resta valida e archiviata: non viene cancellata.
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if(session('contract_required'))
         <div class="banner banner-required">
             <span class="banner-icon">🔒</span>
@@ -135,7 +153,13 @@
     <div class="card">
         <div class="card-header">
             <h1>📜 Contratto di Adesione al Circuito KMoney</h1>
-            <p>Versione {{ $contractVer }} — firma digitale con codice OTP via email</p>
+            <p>
+                @if($isResign ?? false)
+                    Versione {{ $contractVer }} — testo aggiornato, da firmare di nuovo con codice OTP via email
+                @else
+                    Versione {{ $contractVer }} — firma digitale con codice OTP via email
+                @endif
+            </p>
         </div>
         <div class="card-body">
 

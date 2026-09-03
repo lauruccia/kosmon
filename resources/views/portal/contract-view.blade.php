@@ -7,7 +7,13 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div>
             <h1 style="margin:0 0 4px;">&#x1F4DC; Contratto di Adesione Firmato</h1>
-            <p class="subtitle" style="margin:0;">Il contratto cos&#xEC; come lo hai firmato.</p>
+            <p class="subtitle" style="margin:0;">
+                @if($correctedAt ?? null)
+                    La versione che hai firmato, con le correzioni formali successive.
+                @else
+                    Il contratto cos&#xEC; come lo hai firmato.
+                @endif
+            </p>
         </div>
         <a href="{{ route('portal.security') }}" class="btn btn-secondary btn-sm">&#x2190; Sicurezza account</a>
     </div>
@@ -44,14 +50,22 @@
     </div>
     <div class="card-body" style="padding:0;">
         <div id="contractBody" style="padding:28px 32px;max-height:600px;overflow-y:auto;font-size:14px;line-height:1.75;border-top:1px solid #e2e8f0;">
-            {!! sanitize_html($signature->contract_html_snapshot) !!}
+            {!! sanitize_html($contractHtml ?? $signature->contract_html_snapshot) !!}
         </div>
     </div>
 </div>
 
+@if($correctedAt ?? null)
+<div style="margin-top:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;font-size:12px;color:#0369a1;line-height:1.6;">
+    Il testo di questa versione è stato corretto il {{ $correctedAt->format('d/m/Y') }} per errori formali
+    (refusi, punteggiatura, riferimenti). Le condizioni pattuite non sono cambiate: la versione resta la
+    {{ $signature->contract_version }} e la tua firma resta valida. Sopra vedi il testo corretto.
+</div>
+@else
 <div style="margin-top:12px;font-size:12px;color:#94a3b8;text-align:center;">
     Il testo sopra riporta il contratto esattamente come era al momento della firma. Eventuali aggiornamenti successivi non modificano questo documento.
 </div>
+@endif
 
 <script>
 function toggleExpand(btn) {

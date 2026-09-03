@@ -38,6 +38,33 @@
     </div>
 </div>
 
+{{-- Rifirma in corso (2026-09-03) --}}
+{{-- Compare solo quando una revisione ha alzato la soglia. E' l'unico posto
+     da cui si vede che c'e' una rifirma in giro, e da cui si annulla se e'
+     partita per sbaglio. --}}
+@if($resignFromVersion > 0)
+<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <span style="font-size:20px;">&#9997;&#65039;</span>
+    <div style="flex:1;min-width:240px;font-size:13px;color:#92400e;line-height:1.6;">
+        <strong>Rifirma richiesta dalla versione {{ $resignFromVersion }}.</strong>
+        @if($resignPendingCount > 0)
+            {{ $resignPendingCount }} aziende hanno firmato una versione precedente e trovano la
+            pagina di firma al prossimo accesso.
+        @else
+            Tutte le aziende hanno già firmato una versione pari o successiva: non resta nessuno da interpellare.
+        @endif
+        <div style="margin-top:4px;color:#a16207;">
+            Le firme precedenti restano archiviate in <a href="{{ route('admin.contract-signatures') }}" style="color:#92400e;text-decoration:underline;">Log firme</a>: nulla viene cancellato.
+        </div>
+    </div>
+    <form method="POST" action="{{ route('admin.contract-resign.cancel') }}"
+          onsubmit="return confirm('Annullare la richiesta di rifirma? Nessuna azienda verrà più riportata alla firma. Le firme già raccolte sulla nuova versione restano valide.');">
+        @csrf
+        <button type="submit" class="btn btn-secondary btn-sm" style="color:#b45309;white-space:nowrap;">&#8617; Annulla la rifirma</button>
+    </form>
+</div>
+@endif
+
 {{-- Impostazioni + Utenti senza firma --}}
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:16px;">
 
@@ -176,10 +203,67 @@
                 style="display:none;width:100%;font-family:monospace;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:6px;resize:vertical;line-height:1.6;box-sizing:border-box;"
                 placeholder="Incolla qui il testo HTML del contratto...">{{ old('contract_text', $contractText) }}</textarea>
 
+            {{-- 2026-09-03: la scelta che conta, e sta qui e non nelle
+                 impostazioni generali, perche' e' una proprieta' DI QUESTO
+                 salvataggio: correggere un refuso e cambiare le condizioni
+                 sono due gesti diversi e hanno effetti opposti su chi ha
+                 gia' firmato. --}}
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-top:12px;">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:10px;">
+                    Che tipo di modifica stai salvando?
+                </div>
+
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px 0;border-top:1px solid #eef2f7;">
+                    <input type="radio" name="save_mode" value="correzione" style="width:16px;height:16px;margin-top:2px;cursor:pointer;flex-shrink:0;">
+                    <span style="font-size:13px;color:#334155;line-height:1.6;">
+                        <strong>Correzione di un errore</strong> &mdash; refuso, punteggiatura, un riferimento sbagliato.
+                        <span style="display:block;color:#64748b;margin-top:2px;">
+                            La versione <strong>resta la {{ $contractVersion }}</strong>. Le aziende che hanno firmato
+                            questa versione vedono da subito il testo corretto al posto dell'errore, con una nota
+                            che spiega che le condizioni non sono cambiate. Nessuno deve rifirmare.
+                        </span>
+                    </span>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px 0;border-top:1px solid #eef2f7;">
+                    <input type="radio" name="save_mode" value="revisione" checked style="width:16px;height:16px;margin-top:2px;cursor:pointer;flex-shrink:0;">
+                    <span style="font-size:13px;color:#334155;line-height:1.6;">
+                        <strong>Revisione delle condizioni</strong> &mdash; aggiungi o cambi clausole.
+                        <span style="display:block;color:#64748b;margin-top:2px;">
+                            Diventa la <strong>versione {{ $contractVersion + 1 }}</strong> e vale per chi firma da adesso.
+                            Chi ha già firmato non viene interpellato e continua a vedere la propria versione.
+                        </span>
+                    </span>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:8px 0;border-top:1px solid #eef2f7;">
+                    <input type="radio" name="save_mode" value="revisione_rifirma" style="width:16px;height:16px;margin-top:2px;cursor:pointer;flex-shrink:0;">
+                    <span style="font-size:13px;color:#334155;line-height:1.6;">
+                        <strong>Revisione + rifirma obbligatoria</strong> &mdash; le nuove condizioni devono valere anche per chi c'è già.
+                        <span style="display:block;color:#64748b;margin-top:2px;">
+                            Come sopra, e in più le aziende rimaste alla versione precedente vengono riportate alla
+                            pagina di firma. Le loro firme vecchie restano archiviate.
+                        </span>
+                        @if($signedCount > 0)
+                        <span style="display:block;margin-top:6px;font-weight:600;color:#b45309;">
+                            Oggi verrebbero interpellate fino a {{ $signedCount }} aziende.
+                        </span>
+                        @endif
+                    </span>
+                </label>
+
+                @if($textCorrectedAt)
+                <div style="margin-top:10px;font-size:12px;color:#0369a1;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:8px 10px;">
+                    La versione {{ $contractVersion }} è già stata corretta il {{ $textCorrectedAt->format('d/m/Y') }}:
+                    chi l'ha firmata vede il testo corretto.
+                </div>
+                @endif
+            </div>
+
             <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;">
                 <button type="submit" class="btn btn-primary btn-sm">&#x1F4BE; Salva testo</button>
                 <button type="button" onclick="resetDefault()" class="btn btn-secondary btn-sm" style="color:#dc2626;">&#x21A9; Ripristina default</button>
-                <span style="font-size:11px;color:#94a3b8;">Il salvataggio incrementa la versione del contratto.</span>
+                <span style="font-size:11px;color:#94a3b8;">La versione sale solo per una revisione, non per una correzione.</span>
             </div>
         </form>
     </div>

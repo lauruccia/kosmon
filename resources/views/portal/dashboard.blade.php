@@ -169,13 +169,26 @@
 @endif
 
 {{-- Banner contratto da firmare (utenti esistenti che possono posticipare) --}}
-@if(auth()->user() && !auth()->user()->contract_signed_at && session('success') !== 'Contratto firmato con successo. Benvenuto nel circuito KMoney!')
+{{-- 2026-09-03: la seconda condizione copre la RIFIRMA — chi ha firmato una
+     versione ormai superata ha contract_signed_at valorizzato, quindi con la
+     sola prima condizione non avrebbe visto niente. --}}
+@php
+    $__contrattoDaRifirmare = auth()->user()
+        && auth()->user()->contract_signed_at
+        && \App\Models\SystemSetting::contractSettings()->resignRequiredFor(auth()->user());
+@endphp
+@if(auth()->user() && (!auth()->user()->contract_signed_at || $__contrattoDaRifirmare) && session('success') !== 'Contratto firmato con successo. Benvenuto nel circuito KMoney!')
 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:20px;">📋</span>
         <div>
+            @if($__contrattoDaRifirmare)
+            <strong style="font-size:14px;color:#92400e;">Condizioni del contratto aggiornate</strong>
+            <div style="font-size:13px;color:#a16207;margin-top:2px;">È stata pubblicata una nuova versione del Contratto di Adesione: leggila e firmala per continuare a operare.</div>
+            @else
             <strong style="font-size:14px;color:#92400e;">Contratto di Adesione da firmare</strong>
             <div style="font-size:13px;color:#a16207;margin-top:2px;">Completa la firma digitale per garantire il pieno utilizzo del circuito.</div>
+            @endif
         </div>
     </div>
     <a href="{{ route('portal.contract.sign') }}" style="background:#f59e0b;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">
