@@ -1640,9 +1640,10 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-cards' ? 'active' : '' }}" href="{{ route('admin.ky-cards.index') }}"><span class="nav-icon">KY</span><span>KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-bonifici' ? 'active' : '' }}" href="{{ route('admin.ky-cards.pending-transfers') }}"><span class="nav-icon">&#127968;</span><span>Bonifici KY</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'registration-fees' ? 'active' : '' }}" href="{{ route('admin.registration-fees.index') }}"><span class="nav-icon">&#127915;</span><span>Quote iscrizione</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'agent-code-fees' ? 'active' : '' }}" href="{{ route('admin.agent-code-fees.index') }}"><span class="nav-icon">&#128273;</span><span>Quote codice agente</span></a>
-                            <a class="sidebar-link {{ ($activeNav ?? '') === 'company-account-fees' ? 'active' : '' }}" href="{{ route('admin.company-account-fees.index') }}"><span class="nav-icon">&#127970;</span><span>Quote apertura conto</span></a>
+                            {{-- Una voce sola per le tre quote (04/09/2026): stanno tutte
+                                 su /admin/quote, impostazioni in cima e pagamenti in tre
+                                 schede. --}}
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'quote' ? 'active' : '' }}" href="{{ route('admin.quote.index') }}"><span class="nav-icon">&#127915;</span><span>Quote del circuito</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'cashback' ? 'active' : '' }}" href="{{ route('admin.cashback.index') }}"><span class="nav-icon">CB</span><span>Cashback</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-fees' ? 'active' : '' }}" href="{{ route('admin.fees.index') }}"><span class="nav-icon">&#x1F4B0;</span><span>Commissioni</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broadcast' ? 'active' : '' }}" href="{{ route('admin.broadcast.index') }}"><span class="nav-icon">&#x1F4E2;</span><span>Comunicazioni</span></a>

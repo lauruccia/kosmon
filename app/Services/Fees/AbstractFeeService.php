@@ -436,17 +436,145 @@ abstract class AbstractFeeService
         return $payment;
     }
 
+    // ── Le due leve: cosa riceve chi paga ───────────────────────────────────
+    //
+    // Le stesse per tutte e tre le quote (04/09/2026). NON SI INCROCIANO: chi
+    // paga in EURO riceve KY sul conto, chi paga in KY riceve il fido
+    // aggiuntivo che gli permette di andare sotto. Ognuna ha un default nel
+    // pannello e un ripiego per singolo utente sulla sua scheda; i nomi delle
+    // une e degli altri stanno in FeeDefinition, perche' le colonne restano
+    // separate per quota.
+
+    /**
+     * Quanti KY riceve questo utente pagando in EURO, in centesimi.
+     *
+     * Il ripiego sul singolo utente vince sul default del pannello, e NULL
+     * vuol dire «segui il pannello» — non «zero». La differenza conta:
+     * azzerare la restituzione per una sola persona si fa scrivendo 0, non
+     * svuotando il campo, e sono due atti diversi che l'audit log distingue.
+     *
+     * Zero = il circuito non conia niente e la quota resta solo un incasso.
+     */
+    public function kyCreditFor(User $user): int
+    {
+        $d   = $this->definition();
+        $suo = $user->{$d->kyCreditOverrideColumn};
+
+        return $suo !== null
+            ? max(0, (int) $suo)
+            : max(0, (int) ($this->settings()->{$d->kyCreditSetting} ?? 0));
+    }
+
+    /**
+     * Questo utente, pagando in KY, riceve il fido aggiuntivo pari alla quota?
+     *
+     * Stessa regola del ripiego: NULL segue il pannello. E anche sul pannello
+     * il NULL vale ACCESO — e' l'unica impostazione delle quote dove il nullo
+     * non significa spento: qui il default e' il comportamento storico (tutte
+     * e tre le quote il fido lo hanno sempre dato), non l'assenza di una
+     * scelta. Le righe di system_settings anteriori alla migrazione del 04/09
+     * arrivano qui con NULL.
+     */
+    public function kyAllowanceEnabledFor(User $user): bool
+    {
+        $d   = $this->definition();
+        $suo = $user->{$d->kyAllowanceOverrideColumn};
+
+        if ($suo !== null) {
+            return (bool) $suo;
+        }
+
+        $pannello = $this->settings()->{$d->kyAllowanceSetting};
+
+        return $pannello === null || (bool) $pannello;
+    }
+
     /**
      * Il fido aggiuntivo da concedere a chi paga questa quota in KY, in
-     * centesimi. Di regola e' l'intero importo della quota: il conto va sotto
-     * di quella cifra e il fido che l'utente aveva resta intero.
+     * centesimi: l'intero importo della quota, cosi' il conto va sotto di
+     * quella cifra e il fido che l'utente aveva resta intero.
      *
-     * Chiamato DENTRO la transazione, con la riga utente gia' bloccata, cosi'
-     * una sottoclasse puo' leggere impostazioni sue senza correre.
+     * Zero quando l'admin ha deciso di non darlo: l'utente va sotto lo stesso,
+     * ma con il fido che ha gia', e se non gli basta l'addebito viene rifiutato
+     * dal motore — ed e' il comportamento voluto, non un guasto.
+     *
+     * Chiamato DENTRO la transazione, con la riga utente gia' bloccata.
      */
     protected function kyAllowanceFor(User $user, int $amount): int
     {
-        return $amount;
+        return $this->kyAllowanceEnabledFor($user) ? $amount : 0;
+    }
+
+    /**
+     * Il trattamento di QUESTO utente: quanti KY riceve pagando in euro, e se
+     * pagando in KY ha il fido aggiuntivo. Scavalca i due default del pannello.
+     *
+     * `null` su un parametro vuol dire «torna a seguire il pannello», e non e'
+     * la stessa cosa di `0` / `false`: quelli sono decisioni prese per questa
+     * persona e restano ferme anche se domani il default cambia. La differenza
+     * e' l'unico motivo per cui questo metodo esiste invece di due update.
+     *
+     * NON tocca chi ha gia' pagato: il fido concesso e i KY accreditati sono
+     * fatti avvenuti, e si disfano annullando la quota, non cambiando la
+     * regola. Cambiare il trattamento a saldo avvenuto vale per la prossima
+     * volta — che per una quota una tantum vuol dire, in pratica, mai.
+     *
+     * @throws RuntimeException
+     */
+    public function setTreatment(
+        User $user,
+        User $admin,
+        ?int $creditCents,
+        ?bool $allowance,
+        ?string $ipAddress = null,
+    ): void {
+        $d = $this->definition();
+
+        if (! $this->treatmentApplies($user)) {
+            throw new RuntimeException($d->treatmentNotApplicableMessage);
+        }
+
+        if ($creditCents !== null && $creditCents < 0) {
+            throw new RuntimeException("La restituzione in KY non puo' essere negativa.");
+        }
+
+        $prima = [
+            'credit'    => $user->{$d->kyCreditOverrideColumn},
+            'allowance' => $user->{$d->kyAllowanceOverrideColumn},
+        ];
+
+        $user->forceFill([
+            $d->kyCreditOverrideColumn    => $creditCents,
+            $d->kyAllowanceOverrideColumn => $allowance,
+        ])->save();
+
+        AuditLog::create([
+            'actor_user_id'  => $admin->id,
+            'event'          => $d->event('treatment_set'),
+            'auditable_type' => User::class,
+            'auditable_id'   => $user->id,
+            'ip_address'     => $ipAddress,
+            'context'        => [
+                'prima' => $prima,
+                'dopo'  => ['credit' => $creditCents, 'allowance' => $allowance],
+                // Cosa vorranno dire quei due valori quando qualcuno leggera'
+                // questa riga fra sei mesi: i default di oggi.
+                'default_credit'    => max(0, (int) ($this->settings()->{$d->kyCreditSetting} ?? 0)),
+                'default_allowance' => $this->settings()->{$d->kyAllowanceSetting} === null
+                    || (bool) $this->settings()->{$d->kyAllowanceSetting},
+                'gia_saldata'       => $user->{$d->paidAtColumn} !== null,
+            ],
+        ]);
+    }
+
+    /**
+     * Questa quota riguarda questo utente al punto da potergli dare un
+     * trattamento suo? Di regola si'; la quota delle aziende restringe, perche'
+     * «azienda» sono due condizioni insieme (vedi CompanyAccountFeeService).
+     */
+    protected function treatmentApplies(User $user): bool
+    {
+        return true;
     }
 
     /**
@@ -608,16 +736,81 @@ abstract class AbstractFeeService
      * procedere. Controllato PRIMA di aprire la transazione, e il testo finisce
      * in admin_notes: e' quello che l'admin legge in backoffice per capire
      * perche' una riga e' finita `failed`.
+     *
+     * I PRESUPPOSTI DIPENDONO DA QUANTO C'E' DA RESTITUIRE. Senza restituzione
+     * non si emette moneta e basta che l'utente ci sia — e' la quota che in
+     * euro e' solo un incasso. Con la restituzione servono le tre cose che
+     * servono a coniare KY: il conto di sistema, un conto su cui accreditarli,
+     * e un super admin, che nel motore e' l'unico a bypassare autorizzazione e
+     * fido (stessa scelta di ReferralBonusService).
      */
-    abstract protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string;
+    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
+    {
+        if ($user === null) {
+            return 'Utente non disponibile.';
+        }
+
+        if ($this->kyCreditFor($user) <= 0) {
+            return null;
+        }
+
+        if (Account::systemAccount() === null) {
+            return 'Conto di sistema non disponibile.';
+        }
+
+        if (($payment->account ?? $this->accountFor($user)) === null) {
+            return 'Conto dell utente non disponibile.';
+        }
+
+        if (User::where('is_super_admin', true)->value('id') === null) {
+            return 'Nessun super admin configurato.';
+        }
+
+        return null;
+    }
 
     /**
-     * Cosa succede al denaro quando un pagamento in euro risulta incassato.
-     * Chiamato DENTRO la transazione, con la riga gia' bloccata.
+     * Cosa succede al denaro quando un pagamento in euro risulta incassato: il
+     * conto di sistema emette verso l'utente i KY della restituzione, se
+     * l'admin ne ha impostata una. Chiamato DENTRO la transazione, con la riga
+     * gia' bloccata.
+     *
+     * ZERO NON E' UN CASO PARTICOLARE, e' una quota che in euro e' soltanto un
+     * incasso — i 480 del codice agente sono nati cosi'. Allora non c'e'
+     * nessun movimento da creare, e nessuno da stornare il giorno che la quota
+     * venisse annullata.
+     *
+     * L'IMPORTO E' QUELLO DI OGGI, non uno scatto congelato dentro il
+     * pagamento: la restituzione e' una decisione commerciale che vale al
+     * momento del saldo, mentre la quota dovuta resta quella del giorno in cui
+     * e' stata messa in carico (vedi cancel()). Prima del 04/09 i privati
+     * ricevevano invece l'importo del pagamento, che era lo stesso numero solo
+     * perche' nessuno poteva ancora sceglierlo.
      *
      * @return int|null id del movimento creato, null se non se ne crea nessuno
      */
-    abstract protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int;
+    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
+    {
+        $accredito = $this->kyCreditFor($user);
+
+        if ($accredito <= 0) {
+            return null;
+        }
+
+        $d = $this->definition();
+
+        $transfer = $this->transfers->book([
+            'initiated_by'    => User::where('is_super_admin', true)->value('id'),
+            'from_account_id' => Account::systemAccount()->id,
+            'to_account_id'   => ($locked->account ?? $this->accountFor($user))->id,
+            'amount'          => $accredito,
+            'kind'            => $d->creditTransferKind,
+            'description'     => $d->creditTransferDescription,
+            'idempotency_key' => $d->idempotencyKey($locked->uuid),
+        ]);
+
+        return $transfer->id;
+    }
 
     // ── Ripescaggio di un incasso in euro ───────────────────────────────────
 

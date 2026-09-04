@@ -314,28 +314,12 @@ class CompanyAccountFeeController extends Controller
 
     // ── Backoffice ──────────────────────────────────────────────────────────
 
-    public function adminIndex(Request $request): View
-    {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-
-        $stato = $request->string('stato')->toString();
-
-        $payments = CompanyAccountFeePayment::query()
-            ->with(['user', 'confirmer'])
-            ->when($stato !== '', fn ($q) => $q->where('status', $stato))
-            ->latest('id')
-            ->paginate(25)
-            ->withQueryString();
-
-        return view('admin.company-account-fees', [
-            'pageTitle' => 'Quote apertura conto',
-            'activeNav' => 'company-account-fees',
-            'payments'  => $payments,
-            'stato'     => $stato,
-            'settings'  => SystemSetting::userLimitDefaults(),
-        ]);
-    }
-
+    /**
+     * L'elenco dei pagamenti di questa quota adesso sta nella pagina unica
+     * /admin/quote, in una delle tre schede (04/09/2026): tre pagine identiche
+     * in tutto tranne i nomi erano tre posti dove correggere la stessa cosa.
+     * Vedi QuoteAdminController.
+     */
     /**
      * Le impostazioni della quota vivono su una rotta propria e non nel form
      * dei limiti di default: salvare quello riscrive i limiti di TUTTI gli
@@ -361,7 +345,7 @@ class CompanyAccountFeeController extends Controller
             'company_account_fee_ky_enabled'            => ['nullable', 'boolean'],
             // Le due leve (04/09/2026). L'accredito non ha un tetto legato
             // alla quota: puo' essere piu' alto, ed e' una scelta commerciale.
-            'company_account_fee_ky_credit'             => ['required', 'numeric', 'min:0'],
+            'company_account_fee_ky_credit'             => ['nullable', 'numeric', 'min:0'],
             'company_account_fee_ky_allowance'          => ['nullable', 'boolean'],
         ]);
 
@@ -388,6 +372,19 @@ class CompanyAccountFeeController extends Controller
             ]);
         }
 
+        // LE DUE LEVE SI SCRIVONO SOLO SE IL FORM LE PORTA (04/09/2026),
+        // stessa regola delle altre due quote. Una casella non spuntata e una
+        // casella assente arrivano identiche, e boolean() risponde false a
+        // tutte e due: senza questa guardia una richiesta che non porta i due
+        // campi spegnerebbe il fido, e il prossimo che paga in KY si vedrebbe
+        // rifiutare l'addebito.
+        $leve = [];
+
+        if ($request->boolean('company_account_fee_form') || $request->has('company_account_fee_ky_credit')) {
+            $leve['company_account_fee_ky_credit_cents'] = ky_to_cents($request->input('company_account_fee_ky_credit') ?: 0);
+            $leve['company_account_fee_ky_allowance']    = $request->boolean('company_account_fee_ky_allowance');
+        }
+
         SystemSetting::userLimitDefaults()->forceFill([
             'company_account_fee_enabled'               => $attiva,
             'company_account_fee_amount_cents'          => $importo,
@@ -395,9 +392,7 @@ class CompanyAccountFeeController extends Controller
             'company_account_fee_paypal_enabled'        => $request->boolean('company_account_fee_paypal_enabled'),
             'company_account_fee_bank_transfer_enabled' => $request->boolean('company_account_fee_bank_transfer_enabled'),
             'company_account_fee_ky_enabled'            => $request->boolean('company_account_fee_ky_enabled'),
-            'company_account_fee_ky_credit_cents'       => ky_to_cents($validated['company_account_fee_ky_credit']),
-            'company_account_fee_ky_allowance'          => $request->boolean('company_account_fee_ky_allowance'),
-        ])->save();
+        ] + $leve)->save();
 
         return back()->with('portal_success', 'Impostazioni della quota di apertura conto aggiornate.');
     }

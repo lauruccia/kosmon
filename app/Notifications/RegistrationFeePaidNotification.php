@@ -43,10 +43,21 @@ class RegistrationFeePaidNotification extends Notification implements ShouldQueu
             ->greeting('Ciao ' . $notifiable->name . '!')
             ->line('La tua quota di iscrizione al circuito KMoney risulta saldata.');
 
+        // QUANTI KY SIANO TORNATI INDIETRO LO DICE IL MOVIMENTO, non l'importo
+        // della quota (04/09/2026): la restituzione la decide l'admin e puo'
+        // essere zero, meno o piu' di quanto e' stato pagato. Leggere
+        // l'impostazione di oggi direbbe il falso a chi ha pagato ieri, e
+        // ky_amount direbbe il falso a chiunque abbia una restituzione diversa
+        // dall'importo.
         if ($this->payment->isPaidInEuro()) {
+            $restituiti = (int) ($this->payment->transfer?->amount ?? 0);
+
             $mail->line('**Importo:** € ' . number_format($this->payment->amount_eur, 2, ',', '.')
-                . ' (' . $this->metodoLeggibile() . ')')
-                ->line('Sul tuo conto sono stati accreditati **' . ky_format($importo) . ' KY**: la quota pagata in euro non è un costo in KY, hai comprato KY.');
+                . ' (' . $this->metodoLeggibile() . ')');
+
+            if ($restituiti > 0) {
+                $mail->line('Sul tuo conto sono stati accreditati **' . ky_format($restituiti) . ' KY**.');
+            }
         } else {
             $mail->line('**Importo:** ' . ky_format($importo) . ' KY, addebitati sul tuo conto.')
                 ->line('Il saldo è sceso di ' . ky_format($importo) . ' KY. Lo recuperi invitando altre persone nel circuito: ogni persona, agente o attività che entra grazie a te ti fa incassare un bonus in KY.');
@@ -63,7 +74,9 @@ class RegistrationFeePaidNotification extends Notification implements ShouldQueu
             'type'   => 'registration_fee_paid',
             'title'  => 'Quota di iscrizione saldata',
             'body'   => $this->payment->isPaidInEuro()
-                ? 'Quota saldata: sul tuo conto sono stati accreditati ' . ky_format($this->payment->ky_amount) . ' KY.'
+                ? ((int) ($this->payment->transfer?->amount ?? 0) > 0
+                    ? 'Quota saldata: sul tuo conto sono stati accreditati ' . ky_format((int) $this->payment->transfer->amount) . ' KY.'
+                    : 'Quota di iscrizione saldata.')
                 : 'Quota saldata con il saldo KY: ' . ky_format($this->payment->ky_amount) . ' KY addebitati.',
             'url'    => '/movimenti',
             'amount' => (int) $this->payment->ky_amount,

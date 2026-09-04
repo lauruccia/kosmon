@@ -56,6 +56,7 @@ use App\Http\Controllers\KyCardController;
 use App\Http\Controllers\AgentCodeFeeController;
 use App\Http\Controllers\CompanyAccountFeeController;
 use App\Http\Controllers\RegistrationFeeController;
+use App\Http\Controllers\QuoteAdminController;
 use App\Http\Controllers\AdminKyCardController;
 use App\Http\Controllers\AdminPlanController;
 use App\Http\Controllers\PlanSubscriptionController;
@@ -939,8 +940,18 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/ky-cards/bonifici/{purchase}/reject', [KyCardController::class, 'adminRejectBankTransfer'])->name('admin.ky-cards.reject-transfer')->middleware('backoffice');
     Route::post('/admin/ky-cards/acquisti/{purchase}/retry', [KyCardController::class, 'adminRetryCredit'])->name('admin.ky-cards.retry-credit')->middleware('backoffice');
 
-    // Quote di iscrizione: elenco e conferma dei bonifici (31/08/2026).
-    Route::get('/admin/quote-iscrizione', [RegistrationFeeController::class, 'adminIndex'])->name('admin.registration-fees.index')->middleware('backoffice');
+    // ── LE TRE QUOTE IN UNA PAGINA SOLA (04/09/2026) ───────────────────────
+    // Impostazioni delle tre quote una sotto l'altra, e gli elenchi dei
+    // pagamenti in tre schede. Le rotte di SALVATAGGIO e di AZIONE sono
+    // rimaste dove stavano, una per quota: sono quelle che conoscono le
+    // regole del caso e hanno i test addosso.
+    Route::get('/admin/quote', [QuoteAdminController::class, 'index'])->name('admin.quote.index')->middleware('backoffice');
+
+    // Quote di iscrizione: conferma dei bonifici e impostazioni (31/08/2026).
+    // L'indirizzo vecchio porta alla pagina unica, sulla scheda giusta: ci
+    // puntano i link della scheda utente, i rimandi del controller dopo ogni
+    // azione e i segnalibri di chi la usa da giorni.
+    Route::get('/admin/quote-iscrizione', [QuoteAdminController::class, 'vecchiaPrivati'])->name('admin.registration-fees.index')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/impostazioni', [RegistrationFeeController::class, 'adminUpdateSettings'])->name('admin.registration-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/conferma', [RegistrationFeeController::class, 'adminConfirmBankTransfer'])->name('admin.registration-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-iscrizione/{payment}/rifiuta', [RegistrationFeeController::class, 'adminRejectBankTransfer'])->name('admin.registration-fees.reject')->middleware('backoffice');
@@ -955,13 +966,18 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // L'arretrato del 02/09/2026: chi era gia' stato approvato come agente
     // prima che la sospensione automatica esistesse.
     Route::post('/admin/users/{user}/quota-iscrizione/sospendi', [RegistrationFeeController::class, 'adminSuspendForAgentPath'])->name('admin.registration-fees.suspend')->middleware('backoffice');
+    // Il trattamento di QUESTA persona (04/09/2026): quanti KY restituiti
+    // pagando in euro, e se il fido aggiuntivo pagando in KY. Sta sulla sua
+    // scheda e non su un elenco filtrato, come la richiesta e l'esonero: e'
+    // una decisione con un nome sopra.
+    Route::post('/admin/users/{user}/quota-iscrizione/trattamento', [RegistrationFeeController::class, 'adminSetTreatment'])->name('admin.registration-fees.treatment')->middleware('backoffice');
     // Diagnosi Stripe (01/09/2026): pagina di sola lettura per capire, dal
     // server e non per tentativi, perche' il checkout con carta non parte.
     // Vedi StripeDiagnosticsController.
     Route::get('/admin/diagnosi-stripe', [\App\Http\Controllers\Admin\StripeDiagnosticsController::class, 'show'])->name('admin.stripe-diagnostics')->middleware('backoffice');
 
     // Quote codice agente: elenco, impostazioni e conferma dei bonifici.
-    Route::get('/admin/quote-codice-agente', [AgentCodeFeeController::class, 'adminIndex'])->name('admin.agent-code-fees.index')->middleware('backoffice');
+    Route::get('/admin/quote-codice-agente', [QuoteAdminController::class, 'vecchiaAgenti'])->name('admin.agent-code-fees.index')->middleware('backoffice');
     Route::post('/admin/quote-codice-agente/impostazioni', [AgentCodeFeeController::class, 'adminUpdateSettings'])->name('admin.agent-code-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-codice-agente/{payment}/conferma', [AgentCodeFeeController::class, 'adminConfirmBankTransfer'])->name('admin.agent-code-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-codice-agente/{payment}/rifiuta', [AgentCodeFeeController::class, 'adminRejectBankTransfer'])->name('admin.agent-code-fees.reject')->middleware('backoffice');
@@ -976,10 +992,11 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // privati: un atto con un nome sopra, non un UPDATE di massa.
     Route::post('/admin/users/{user}/quota-codice-agente/esonera', [AgentCodeFeeController::class, 'adminWaive'])->name('admin.agent-code-fees.waive')->middleware('backoffice');
     Route::post('/admin/users/{user}/quota-codice-agente/revoca-esonero', [AgentCodeFeeController::class, 'adminRevokeWaiver'])->name('admin.agent-code-fees.revoke-waiver')->middleware('backoffice');
+    Route::post('/admin/users/{user}/quota-codice-agente/trattamento', [AgentCodeFeeController::class, 'adminSetTreatment'])->name('admin.agent-code-fees.treatment')->middleware('backoffice');
 
     // Quote apertura conto delle aziende (03/09/2026): elenco, impostazioni,
     // bonifici, annullamento e ripescaggio. Gemelle delle altre due.
-    Route::get('/admin/quote-apertura-conto', [CompanyAccountFeeController::class, 'adminIndex'])->name('admin.company-account-fees.index')->middleware('backoffice');
+    Route::get('/admin/quote-apertura-conto', [QuoteAdminController::class, 'vecchiaAziende'])->name('admin.company-account-fees.index')->middleware('backoffice');
     Route::post('/admin/quote-apertura-conto/impostazioni', [CompanyAccountFeeController::class, 'adminUpdateSettings'])->name('admin.company-account-fees.settings')->middleware('backoffice');
     Route::post('/admin/quote-apertura-conto/{payment}/conferma', [CompanyAccountFeeController::class, 'adminConfirmBankTransfer'])->name('admin.company-account-fees.confirm')->middleware('backoffice');
     Route::post('/admin/quote-apertura-conto/{payment}/rifiuta', [CompanyAccountFeeController::class, 'adminRejectBankTransfer'])->name('admin.company-account-fees.reject')->middleware('backoffice');

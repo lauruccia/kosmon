@@ -41,7 +41,9 @@ class RegistrationFeeReminderNotification extends Notification implements Should
             ->greeting('Ciao ' . $notifiable->name . '!')
             ->line('Il tuo conto KMoney è aperto, ma la quota di iscrizione non risulta ancora saldata: finché resta così puoi entrare e vedere il tuo conto, ma non puoi inviare KY, incassare o acquistare nel negozio.')
             ->line('**Importo:** € ' . number_format($this->amountCents / 100, 2, ',', '.') . ' (oppure ' . ky_format($this->amountCents) . ' KY)')
-            ->line('Se la paghi in euro ricevi l\'equivalente in KY sul tuo conto, quindi non perdi niente: hai comprato KY. Se la paghi con il saldo KY il conto va sotto di quell\'importo, e lo recuperi invitando altre persone nel circuito.')
+            ->line('' . (\App\Models\SystemSetting::userLimitDefaults()->registrationFeeKyCredit() > 0
+                ? 'Se la paghi in euro ricevi ' . ky_format(\App\Models\SystemSetting::userLimitDefaults()->registrationFeeKyCredit()) . ' KY sul tuo conto. '
+                : '') . 'Se la paghi con il saldo KY il conto va sotto di quell\'importo, e lo recuperi invitando altre persone nel circuito.')
             ->action('Salda la quota', url('/quota-iscrizione'))
             ->line('Questo è l\'unico promemoria che riceverai: se hai cambiato idea non devi fare niente.');
     }

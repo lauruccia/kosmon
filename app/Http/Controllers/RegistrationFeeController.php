@@ -51,6 +51,10 @@ class RegistrationFeeController extends Controller
             'pageTitle'   => 'Quota di iscrizione',
             'activeNav'   => 'registration-fee',
             'amountCents' => $this->fees->amountDueFor($user),
+            // Quanti KY riceve pagando in euro (04/09/2026): fino a ieri
+            // erano sempre pari all'importo e la pagina poteva darlo per
+            // scontato, adesso lo decide l'admin e puo' essere anche zero.
+            'kyCredit'    => $this->fees->kyCreditFor($user),
             'metodi'      => $settings->registrationFeeMethods(),
             'currentUser' => $user,
             'currentAccount' => $account,
@@ -233,6 +237,7 @@ class RegistrationFeeController extends Controller
             'payment'         => $payment,
             'currentUser'     => $request->user(),
             'currentAccount'  => $this->fees->accountFor($request->user()),
+            'kyCredit'        => $this->fees->kyCreditFor($request->user()),
             'bankIban'        => config('kmoney.bank_iban'),
             'bankName'        => config('kmoney.bank_name'),
             'bankBeneficiary' => config('kmoney.bank_beneficiary'),
@@ -316,6 +321,7 @@ class RegistrationFeeController extends Controller
             'pageTitle'      => $payment->isCompleted() ? 'Quota saldata' : 'Quota in attesa',
             'activeNav'      => 'registration-fee',
             'payment'        => $payment,
+            'kyCredit'       => $this->fees->kyCreditFor($request->user()),
             'currentUser'    => $request->user(),
             'currentAccount' => $this->fees->accountFor($request->user()),
         ]);
@@ -323,28 +329,12 @@ class RegistrationFeeController extends Controller
 
     // ── Backoffice ──────────────────────────────────────────────────────────
 
-    public function adminIndex(Request $request): View
-    {
-        abort_unless($request->user()->canAccessBackoffice(), 403);
-
-        $stato = $request->string('stato')->toString();
-
-        $payments = RegistrationFeePayment::query()
-            ->with(['user', 'confirmer'])
-            ->when($stato !== '', fn ($q) => $q->where('status', $stato))
-            ->latest('id')
-            ->paginate(25)
-            ->withQueryString();
-
-        return view('admin.registration-fees', [
-            'pageTitle' => 'Quote di iscrizione',
-            'activeNav' => 'registration-fees',
-            'payments'  => $payments,
-            'stato'     => $stato,
-            'settings'  => SystemSetting::userLimitDefaults(),
-        ]);
-    }
-
+    /**
+     * L'elenco dei pagamenti di questa quota adesso sta nella pagina unica
+     * /admin/quote, in una delle tre schede (04/09/2026): tre pagine identiche
+     * in tutto tranne i nomi erano tre posti dove correggere la stessa cosa.
+     * Vedi QuoteAdminController.
+     */
     /**
      * Le impostazioni della quota vivono su una rotta propria e non nel form
      * dei limiti di default: salvare quello riscrive i limiti di TUTTI gli
@@ -356,8 +346,10 @@ class RegistrationFeeController extends Controller
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
 
-        if ($request->filled('registration_fee_amount')) {
-            $request->merge(['registration_fee_amount' => str_replace(',', '.', (string) $request->input('registration_fee_amount'))]);
+        foreach (['registration_fee_amount', 'registration_fee_ky_credit'] as $campo) {
+            if ($request->filled($campo)) {
+                $request->merge([$campo => str_replace(',', '.', (string) $request->input($campo))]);
+            }
         }
 
         $validated = $request->validate([
@@ -367,6 +359,11 @@ class RegistrationFeeController extends Controller
             'registration_fee_paypal_enabled'        => ['nullable', 'boolean'],
             'registration_fee_bank_transfer_enabled' => ['nullable', 'boolean'],
             'registration_fee_ky_enabled'            => ['nullable', 'boolean'],
+            // Le due leve (04/09/2026). La restituzione non ha un tetto
+            // legato alla quota: puo' essere piu' alta, ed e' una scelta
+            // commerciale, non un resto.
+            'registration_fee_ky_credit'             => ['nullable', 'numeric', 'min:0'],
+            'registration_fee_ky_allowance'          => ['nullable', 'boolean'],
         ]);
 
         $importo = ky_to_cents($validated['registration_fee_amount']);
@@ -392,6 +389,22 @@ class RegistrationFeeController extends Controller
             ]);
         }
 
+        // LE DUE LEVE SI SCRIVONO SOLO SE IL FORM LE PORTA (04/09/2026).
+        //
+        // Il marcatore `<prefisso>_form` lo manda la pagina /admin/quote, che
+        // e' l'unica a mostrare questi due campi. Senza questa guardia una
+        // richiesta che non li contiene — un vecchio segnalibro, uno script,
+        // un test scritto prima — spegnerebbe il fido: una casella non spuntata
+        // e una casella assente arrivano identiche, e boolean() risponde false
+        // a tutte e due. Spegnere il fido a tradimento vuol dire che il
+        // prossimo che paga in KY si vede rifiutare l'addebito.
+        $leve = [];
+
+        if ($request->boolean('registration_fee_form') || $request->has('registration_fee_ky_credit')) {
+            $leve['registration_fee_ky_credit_cents'] = ky_to_cents($request->input('registration_fee_ky_credit') ?: 0);
+            $leve['registration_fee_ky_allowance']    = $request->boolean('registration_fee_ky_allowance');
+        }
+
         SystemSetting::userLimitDefaults()->forceFill([
             'registration_fee_enabled'               => $attiva,
             'registration_fee_amount_cents'          => $importo,
@@ -399,9 +412,51 @@ class RegistrationFeeController extends Controller
             'registration_fee_paypal_enabled'        => $request->boolean('registration_fee_paypal_enabled'),
             'registration_fee_bank_transfer_enabled' => $request->boolean('registration_fee_bank_transfer_enabled'),
             'registration_fee_ky_enabled'            => $request->boolean('registration_fee_ky_enabled'),
-        ])->save();
+        ] + $leve)->save();
 
         return back()->with('portal_success', 'Impostazioni della quota di iscrizione aggiornate.');
+    }
+
+    /**
+     * IL TRATTAMENTO DI QUESTA PERSONA (04/09/2026): quanti KY le vengono
+     * restituiti se paga in euro, e se pagando in KY riceve il fido aggiuntivo.
+     * Scavalca i due default della pagina /admin/quote.
+     *
+     * TRE VALORI, NON DUE. Campo vuoto e «come da impostazioni» vogliono dire
+     * «segui il pannello» e arrivano al servizio come `null`; 0 e «no» sono
+     * decisioni prese per questa persona e restano ferme anche se domani il
+     * default cambia. E' l'unico motivo per cui esistono due colonne di
+     * ripiego invece di scrivere direttamente il numero.
+     */
+    public function adminSetTreatment(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()->canAccessBackoffice(), 403);
+
+        if ($request->filled('ky_credit')) {
+            $request->merge(['ky_credit' => str_replace(',', '.', (string) $request->input('ky_credit'))]);
+        }
+
+        $validated = $request->validate([
+            'ky_credit'    => ['nullable', 'numeric', 'min:0'],
+            'ky_allowance' => ['nullable', 'in:0,1'],
+        ]);
+
+        $credito = ! isset($validated['ky_credit']) || ($validated['ky_credit'] ?? '') === ''
+            ? null
+            : ky_to_cents($validated['ky_credit']);
+
+        $fido = ! isset($validated['ky_allowance']) || ($validated['ky_allowance'] ?? '') === ''
+            ? null
+            : (bool) $validated['ky_allowance'];
+
+        try {
+            $this->fees->setTreatment($user, $request->user(), $credito, $fido, $request->ip());
+        } catch (RuntimeException $e) {
+            return redirect()->route('admin.users.show', $user)->with('portal_error', $e->getMessage());
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('portal_success', 'Trattamento della quota aggiornato per ' . $user->name . '.');
     }
 
     public function adminConfirmBankTransfer(Request $request, RegistrationFeePayment $payment): RedirectResponse

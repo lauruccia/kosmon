@@ -9,7 +9,6 @@ use App\Models\RegistrationFeePayment;
 use App\Notifications\RegistrationFeeCancelledNotification;
 use App\Notifications\RegistrationFeePaidNotification;
 use App\Notifications\RegistrationFeeRequestedNotification;
-use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Services\Fees\AbstractFeeService;
 use App\Services\Fees\FeeDefinition;
@@ -65,9 +64,17 @@ class RegistrationFeeService extends AbstractFeeService
             allowanceColumn:             'registration_fee_ky_allowance_cents',
             auditPrefix:                 'registration_fee',
             idempotencyPrefix:           'regfee_',
-            // In euro il circuito EMETTE i KY: la quota non e' un costo, e' un
-            // acquisto di KY. E' la differenza sostanziale con i 480.
-            emitsKyInEuro:               true,
+            // Le due leve, con gli stessi nomi per tutte e tre le quote
+            // (04/09/2026). Prima qui c'era `emitsKyInEuro: true` e la
+            // restituzione era cablata nel codice all'intero importo pagato:
+            // da adesso e' una cifra che l'admin decide da /admin/quote. Il
+            // valore che la migrazione ci scrive dentro e' proprio l'importo
+            // della quota, cosi' il giorno del rilascio non cambia niente per
+            // nessuno; da li' in poi i due numeri sono indipendenti.
+            kyCreditSetting:             'registration_fee_ky_credit_cents',
+            kyCreditOverrideColumn:      'registration_fee_ky_credit_override_cents',
+            kyAllowanceSetting:          'registration_fee_ky_allowance',
+            kyAllowanceOverrideColumn:   'registration_fee_ky_allowance_override',
             paidNotification:            RegistrationFeePaidNotification::class,
             cancelledNotification:       RegistrationFeeCancelledNotification::class,
             kyTransferKind:              'registration_fee',
@@ -79,57 +86,13 @@ class RegistrationFeeService extends AbstractFeeService
             notDueMessage:               'La quota di iscrizione risulta già saldata.',
             retryOnCancelledMessage:     'Questa quota è stata annullata: riaprila prima di accreditarla.',
             retryFailedMessage:          'L\'accredito è fallito di nuovo: ',
+            treatmentNotApplicableMessage: 'Questo profilo non ha un trattamento da impostare sulla quota di iscrizione.',
         );
     }
 
     public function availableMethods(): array
     {
         return $this->settings()->registrationFeeMethods();
-    }
-
-    /**
-     * L'emissione dei KY dal conto di sistema ha tre presupposti, e ognuno
-     * spiega da solo perche' una riga puo' finire `failed` con quel testo in
-     * admin_notes.
-     */
-    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
-    {
-        if (Account::systemAccount() === null) {
-            return 'Conto di sistema non disponibile.';
-        }
-
-        if ($user === null || ($payment->account ?? $this->accountFor($user)) === null) {
-            return 'Conto dell utente non disponibile.';
-        }
-
-        // L'emissione dal conto di sistema richiede un super admin: e' l'unico
-        // che bypassa autorizzazione e fido nel motore (stessa scelta di
-        // ReferralBonusService).
-        if (User::where('is_super_admin', true)->value('id') === null) {
-            return 'Nessun super admin configurato.';
-        }
-
-        return null;
-    }
-
-    /**
-     * In euro la quota dei privati EMETTE moneta: il conto di sistema accredita
-     * all'utente l'importo della quota. Per lui la quota non e' un costo in KY,
-     * ha comprato KY — e' lo stesso identico movimento di una ricarica KYCard.
-     */
-    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
-    {
-        $transfer = $this->transfers->book([
-            'initiated_by'    => User::where('is_super_admin', true)->value('id'),
-            'from_account_id' => Account::systemAccount()->id,
-            'to_account_id'   => ($locked->account ?? $this->accountFor($user))->id,
-            'amount'          => (int) $locked->ky_amount,
-            'kind'            => $this->definition()->creditTransferKind,
-            'description'     => $this->definition()->creditTransferDescription,
-            'idempotency_key' => $this->definition()->idempotencyKey($locked->uuid),
-        ]);
-
-        return $transfer->id;
     }
 
     /**

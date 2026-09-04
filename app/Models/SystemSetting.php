@@ -99,12 +99,16 @@ class SystemSetting extends Model
         'registration_fee_paypal_enabled',
         'registration_fee_bank_transfer_enabled',
         'registration_fee_ky_enabled',
+        'registration_fee_ky_credit_cents',
+        'registration_fee_ky_allowance',
         'agent_code_fee_enabled',
         'agent_code_fee_amount_cents',
         'agent_code_fee_stripe_enabled',
         'agent_code_fee_paypal_enabled',
         'agent_code_fee_bank_transfer_enabled',
         'agent_code_fee_ky_enabled',
+        'agent_code_fee_ky_credit_cents',
+        'agent_code_fee_ky_allowance',
         'company_account_fee_enabled',
         'company_account_fee_amount_cents',
         'company_account_fee_stripe_enabled',
@@ -146,12 +150,14 @@ class SystemSetting extends Model
             'registration_fee_paypal_enabled'        => 'boolean',
             'registration_fee_bank_transfer_enabled' => 'boolean',
             'registration_fee_ky_enabled'            => 'boolean',
+            'registration_fee_ky_allowance'          => 'boolean',
             // Quota codice agente (31/08/2026): stessa convenzione.
             'agent_code_fee_enabled'                 => 'boolean',
             'agent_code_fee_stripe_enabled'          => 'boolean',
             'agent_code_fee_paypal_enabled'          => 'boolean',
             'agent_code_fee_bank_transfer_enabled'   => 'boolean',
             'agent_code_fee_ky_enabled'              => 'boolean',
+            'agent_code_fee_ky_allowance'            => 'boolean',
             // Quota di apertura conto delle aziende (03/09/2026): stessa
             // convenzione, NULL sulle righe pre-migrazione vale spento.
             'company_account_fee_enabled'                 => 'boolean',
@@ -774,9 +780,19 @@ HTML;
                 // deve essere una scelta esplicita dell'admin, mai un default.
                 'registration_fee_enabled'          => false,
                 'registration_fee_amount_cents'     => 3000, // 30,00
+                // Le due leve, uguali per tutte e tre le quote (04/09/2026).
+                // Qui la restituzione parte PARI ALL'IMPORTO: in euro la quota
+                // dei privati non e' un costo, e' un acquisto di KY, ed e' come
+                // si e' sempre comportata. Su un database gia' avviato il valore
+                // giusto lo scrive la migrazione, che legge l'importo vero.
+                'registration_fee_ky_credit_cents'  => 3000,
+                'registration_fee_ky_allowance'     => true,
                 // Anche la quota del codice agente nasce SPENTA.
                 'agent_code_fee_enabled'            => false,
                 'agent_code_fee_amount_cents'       => 48000, // 480,00
+                // Zero: i 480 non hanno mai emesso un KY.
+                'agent_code_fee_ky_credit_cents'    => 0,
+                'agent_code_fee_ky_allowance'       => true,
                 // E anche la quota di apertura conto delle aziende.
                 'company_account_fee_enabled'       => false,
                 'company_account_fee_amount_cents'  => 60000, // 600,00
@@ -903,6 +919,61 @@ HTML;
         }
 
         return $attivi;
+    }
+
+    /**
+     * Quanti KY riceve, di regola, chi paga la quota di iscrizione in EURO
+     * (04/09/2026), in centesimi.
+     *
+     * Fino al 03/09 questo numero non esisteva: in euro il circuito emetteva
+     * SEMPRE tanti KY quanti ne erano stati pagati, perche' la quota dei
+     * privati in euro non e' un costo, e' un acquisto di KY. La migrazione ci
+     * scrive dentro proprio l'importo della quota, cosi' il rilascio non
+     * cambia niente per nessuno — ma da li' in poi i due numeri sono
+     * indipendenti, e alzando la quota questo resta dov'e'.
+     *
+     * Il singolo utente puo' avere un numero suo: vedi
+     * AbstractFeeService::kyCreditFor().
+     */
+    public function registrationFeeKyCredit(): int
+    {
+        return max(0, (int) ($this->registration_fee_ky_credit_cents ?? 0));
+    }
+
+    /**
+     * Chi paga la quota di iscrizione in KY riceve il fido aggiuntivo pari
+     * alla quota? Acceso di fabbrica: e' come si e' sempre comportata. Da
+     * spento la quota si mangia il fido che l'utente ha gia', e chi non ne ha
+     * non riesce a pagare in KY.
+     *
+     * NULL vale ACCESO, ed e' l'unica famiglia di impostazioni delle quote
+     * dove il nullo non significa spento: qui il default e' il comportamento
+     * storico, non l'assenza di una scelta. Le righe anteriori alla migrazione
+     * del 04/09 arrivano qui con NULL.
+     */
+    public function registrationFeeKyAllowance(): bool
+    {
+        return $this->registration_fee_ky_allowance === null
+            || (bool) $this->registration_fee_ky_allowance;
+    }
+
+    /**
+     * Quanti KY riceve chi paga la quota del codice agente in EURO, in
+     * centesimi. Zero di partenza, ed e' il comportamento di sempre: i 480
+     * sono il prezzo della nomina, KNM incassa e il conto dell'agente non
+     * viene toccato. Se l'admin ci scrive un numero, da quel momento in euro
+     * il circuito conia.
+     */
+    public function agentCodeFeeKyCredit(): int
+    {
+        return max(0, (int) ($this->agent_code_fee_ky_credit_cents ?? 0));
+    }
+
+    /** Stessa regola dei privati, NULL compreso. */
+    public function agentCodeFeeKyAllowance(): bool
+    {
+        return $this->agent_code_fee_ky_allowance === null
+            || (bool) $this->agent_code_fee_ky_allowance;
     }
 
     // -- Quota di apertura conto delle aziende (03/09/2026) ----------------

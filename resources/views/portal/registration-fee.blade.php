@@ -19,10 +19,20 @@
         </div>
 
         <div class="notice" style="margin-bottom:22px;">
-            Puoi pagarla in <strong>euro</strong> &mdash; e in quel caso ricevi
-            <strong>{{ ky_format($amountCents) }} KY</strong> sul tuo conto, quindi non perdi niente: hai
-            comprato KY &mdash; oppure con il <strong>saldo KY</strong>, e allora il conto va sotto di
-            {{ ky_format($amountCents) }} KY. Quel saldo negativo lo recuperi invitando qualcuno: ogni
+            {{-- Quanti KY tornano indietro pagando in euro lo decide l'admin
+                 (04/09/2026): prima erano sempre pari all'importo e questa
+                 pagina lo dava per scontato. Con zero il testo non deve
+                 promettere niente. --}}
+            @if(($kyCredit ?? 0) > 0)
+                Puoi pagarla in <strong>euro</strong> &mdash; e in quel caso ricevi
+                <strong>{{ ky_format($kyCredit) }} KY</strong> sul tuo conto &mdash; oppure con il
+                <strong>saldo KY</strong>, e allora il conto va sotto di
+                {{ ky_format($amountCents) }} KY.
+            @else
+                Puoi pagarla in <strong>euro</strong> oppure con il <strong>saldo KY</strong>, e in
+                quel caso il conto va sotto di {{ ky_format($amountCents) }} KY.
+            @endif
+            Un saldo negativo lo recuperi invitando qualcuno: ogni
             persona, agente o attivit&agrave; che entra grazie a te ti fa incassare un bonus in KY.
         </div>
 
@@ -45,8 +55,10 @@
 
                 <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:14px;">
                     Stiamo aspettando l'accredito. La quota risulter&agrave; saldata quando il bonifico
-                    sar&agrave; verificato, di norma entro 1-2 giorni lavorativi, e in quel momento
-                    riceverai {{ ky_format($bonifico->ky_amount) }} KY.
+                    sar&agrave; verificato, di norma entro 1-2 giorni lavorativi.
+                    @if(($kyCredit ?? 0) > 0)
+                        In quel momento riceverai {{ ky_format($kyCredit) }} KY.
+                    @endif
                     <br>
                     Causale da indicare: <strong style="font-family:monospace;color:#7c3aed;">{{ $bonifico->bank_transfer_reference }}</strong>
                 </div>

@@ -586,9 +586,14 @@ class CompanyAccountFeeTest extends TestCase
         [$azienda] = $this->makeAzienda();
         $this->mettiInCarico($azienda);
 
+        // Dal 04/09/2026 le tre quote stanno in una pagina sola: il vecchio
+        // indirizzo ci porta, sulla scheda giusta.
         $this->actingAs($this->superAdmin)->get('/admin/quote-apertura-conto')
+            ->assertRedirect('/admin/quote?tab=aziende');
+
+        $this->actingAs($this->superAdmin)->get('/admin/quote?tab=aziende')
             ->assertOk()
-            ->assertSee('Cosa riceve l', false);
+            ->assertSee('Cosa riceve chi paga', false);
 
         $this->actingAs($this->superAdmin)->get('/admin/users/' . $azienda->id)
             ->assertOk()

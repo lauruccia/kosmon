@@ -2,11 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Account;
 use App\Models\Contracts\FeePayment;
 use App\Models\AgentCodeFeePayment;
 use App\Models\AuditLog;
-use App\Models\SystemSetting;
 use App\Models\Transfer;
 use App\Notifications\AgentCodeFeeCancelledNotification;
 use App\Notifications\AgentCodeFeePaidNotification;
@@ -98,16 +96,24 @@ class AgentCodeFeeService extends AbstractFeeService
             allowanceColumn:             'agent_code_fee_ky_allowance_cents',
             auditPrefix:                 'agent_code_fee',
             idempotencyPrefix:           'agentcode_',
-            // In euro NON si emette un solo KY: i 480 sono il prezzo del
-            // codice, non una ricarica. KNM incassa e il conto dell'agente non
-            // viene toccato affatto.
-            emitsKyInEuro:               false,
+            // Le due leve, con gli stessi nomi per tutte e tre le quote
+            // (04/09/2026). Prima qui c'era `emitsKyInEuro: false` e voleva
+            // dire "in euro non si emette un solo KY, i 480 sono il prezzo del
+            // codice". Resta vero fino a quando l'admin non scrive un numero
+            // in /admin/quote: la migrazione lascia zero, e zero e'
+            // esattamente il comportamento di sempre.
+            kyCreditSetting:             'agent_code_fee_ky_credit_cents',
+            kyCreditOverrideColumn:      'agent_code_fee_ky_credit_override_cents',
+            kyAllowanceSetting:          'agent_code_fee_ky_allowance',
+            kyAllowanceOverrideColumn:   'agent_code_fee_ky_allowance_override',
             paidNotification:            AgentCodeFeePaidNotification::class,
             cancelledNotification:       AgentCodeFeeCancelledNotification::class,
             kyTransferKind:              'agent_code_fee',
             kyTransferDescription:       'Quota per il codice agente KNM',
-            // Mai usati: in euro non si emette niente. Restano scritti perche'
-            // se un giorno la regola cambiasse, il posto dove metterli e' qui.
+            // Usati solo se l'admin imposta una restituzione maggiore di zero:
+            // sono il movimento con cui il conto di sistema emette quei KY
+            // verso l'agente. A zero — il valore di partenza — non si crea
+            // nessun movimento e questi due nomi non compaiono da nessuna parte.
             creditTransferKind:          'agent_code_fee_credit',
             creditTransferDescription:   'Quota per il codice agente pagata in euro',
             reversalTransferKind:        'agent_code_fee_reversal',
@@ -115,33 +121,13 @@ class AgentCodeFeeService extends AbstractFeeService
             notDueMessage:               'La quota per il codice agente risulta già saldata.',
             retryOnCancelledMessage:     'Questa quota è stata annullata: riaprila prima di darla per saldata.',
             retryFailedMessage:          'La chiusura è fallita di nuovo: ',
+            treatmentNotApplicableMessage: 'Questo profilo non ha un trattamento da impostare sulla quota del codice agente.',
         );
     }
 
     public function availableMethods(): array
     {
         return $this->settings()->agentCodeFeeMethods();
-    }
-
-    /**
-     * Qui non si emette moneta, quindi non servono ne' il conto di sistema ne'
-     * un super admin: basta che l'utente ci sia ancora.
-     */
-    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
-    {
-        return $user === null ? 'Utente non disponibile.' : null;
-    }
-
-    /**
-     * In euro NON si muove un solo KY, ed e' la differenza sostanziale con la
-     * quota dei privati: i 480 sono il prezzo del codice, non una ricarica. Il
-     * conto dell'agente non viene toccato affatto, e non essendoci nessun
-     * transfer non c'e' nemmeno una idempotency_key a fare da seconda difesa —
-     * motivo per cui, li', il lock non e' facoltativo.
-     */
-    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
-    {
-        return null;
     }
 
     /**

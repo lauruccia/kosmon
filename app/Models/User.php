@@ -182,9 +182,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'registration_fee_due_cents',
         'registration_fee_paid_at',
         'registration_fee_ky_allowance_cents',
+        'registration_fee_ky_credit_override_cents',
+        'registration_fee_ky_allowance_override',
         'agent_code_fee_due_cents',
         'agent_code_fee_paid_at',
         'agent_code_fee_ky_allowance_cents',
+        'agent_code_fee_ky_credit_override_cents',
+        'agent_code_fee_ky_allowance_override',
         'company_account_fee_due_cents',
         'company_account_fee_paid_at',
         'company_account_fee_ky_allowance_cents',
@@ -262,6 +266,12 @@ class User extends Authenticatable implements MustVerifyEmail
             'registration_fee_paid_at'    => 'datetime',
             'agent_code_fee_paid_at'      => 'datetime',
             'company_account_fee_paid_at' => 'datetime',
+            // I tre ripieghi del fido (04/09/2026). Il cast a booleano NON
+            // schiaccia il NULL a false — Laravel lascia stare i nulli — ed e'
+            // essenziale: NULL vuol dire «segui il pannello», false vuol dire
+            // «no, deciso per questa persona».
+            'registration_fee_ky_allowance_override'    => 'boolean',
+            'agent_code_fee_ky_allowance_override'      => 'boolean',
             'company_account_fee_ky_allowance_override' => 'boolean',
         ];
     }

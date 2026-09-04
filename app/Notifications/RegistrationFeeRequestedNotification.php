@@ -34,7 +34,9 @@ class RegistrationFeeRequestedNotification extends Notification implements Shoul
             ->greeting('Ciao ' . $notifiable->name . '!')
             ->line('Per completare la tua adesione al circuito KMoney resta da saldare la quota di iscrizione.')
             ->line('**Importo:** € ' . number_format($this->amountCents / 100, 2, ',', '.') . ' (oppure ' . ky_format($this->amountCents) . ' KY)')
-            ->line('Se la paghi in euro ricevi l\'equivalente in KY sul tuo conto, quindi non perdi niente: hai comprato KY. Se la paghi con il saldo KY, il conto va sotto di quell\'importo e lo recuperi invitando altre persone nel circuito.')
+            ->line('' . (\App\Models\SystemSetting::userLimitDefaults()->registrationFeeKyCredit() > 0
+                ? 'Se la paghi in euro ricevi ' . ky_format(\App\Models\SystemSetting::userLimitDefaults()->registrationFeeKyCredit()) . ' KY sul tuo conto. '
+                : '') . 'Se la paghi con il saldo KY, il conto va sotto di quell\'importo e lo recuperi invitando altre persone nel circuito.')
             ->action('Salda la quota', url('/quota-iscrizione'))
             ->line('Fino al pagamento puoi entrare e vedere il tuo conto, ma non puoi inviare KY, incassare o acquistare nel negozio.');
     }

@@ -4,46 +4,51 @@ namespace App\Services\Fees;
 
 /**
  * Tutto cio' che distingue una quota del circuito dall'altra, in un posto solo
- * (02/09/2026).
+ * (02/09/2026, esteso alla terza quota il 03/09 e alle due leve il 04/09).
  *
- * PERCHE' ESISTE. I due servizi delle quote — i 30 dei privati e i 480 del
- * codice agente — sono nati a un giorno di distanza, il secondo copiando il
- * primo. Il 02/09/2026, ripercorrendo tutte e due le procedure, e' venuto
- * fuori che OTTO dei nove difetti trovati erano la stessa cosa: una correzione
- * fatta su una delle due e mai portata sull'altra — il bonifico che si
- * riprende, il ripescaggio in backoffice, la ricevuta a chi paga, la scadenza
- * dei tentativi. Finche' i due servizi restano due copie, la prossima
- * divergenza e' solo questione di quando.
+ * PERCHE' ESISTE. I due servizi delle prime due quote — i 30 dei privati e i
+ * 480 del codice agente — sono nati a un giorno di distanza, il secondo
+ * copiando il primo. Il 02/09/2026, ripercorrendo tutte e due le procedure, e'
+ * venuto fuori che OTTO dei nove difetti trovati erano la stessa cosa: una
+ * correzione fatta su una delle due e mai portata sull'altra — il bonifico che
+ * si riprende, il ripescaggio in backoffice, la ricevuta a chi paga, la
+ * scadenza dei tentativi. Finche' i servizi restano copie l'uno dell'altro, la
+ * prossima divergenza e' solo questione di quando.
  *
  * Da qui questo oggetto: il motore e' uno solo (AbstractFeeService) e le
  * differenze stanno tutte scritte qui, dove si leggono in un colpo d'occhio e
  * dove aggiungerne una e' una scelta esplicita invece di un copia-incolla.
  *
- * LE DIFFERENZE VERE SONO DUE, e sono tutte e due qui dentro:
+ * DAL 04/09/2026 LE DIFFERENZE VERE SONO SOLO I NOMI. Prima ce n'era una di
+ * sostanza, `$emitsKyInEuro`: pagando in euro la quota dei privati faceva
+ * emettere KY e quella del codice agente no. Non e' piu' un fatto scritto nel
+ * codice — e' una cifra che l'admin decide quota per quota dalla pagina
+ * /admin/quote, e zero e' semplicemente il valore che rende la quota un puro
+ * incasso. Il flag e' stato tolto invece di lasciato a mentire.
  *
- *  1. `$emitsKyInEuro`. Pagando in EURO, la quota dei privati fa emettere 30 KY
- *     dal conto di sistema all'utente — in euro la quota non e' un costo, hai
- *     comprato KY. La quota del codice agente no: i 480 sono il prezzo della
- *     nomina, KNM incassa e il conto dell'agente non viene toccato affatto.
- *  2. I nomi: colonne, kind dei movimenti, eventi dell'audit log, notifiche.
- *     Sembrano cosmetici e non lo sono — sono la traccia che permette, fra sei
- *     mesi, di sapere quale delle due quote ha mosso quei soldi.
+ * Restano i nomi: colonne, chiavi delle impostazioni, kind dei movimenti,
+ * eventi dell'audit log, notifiche. Sembrano cosmetici e non lo sono — sono la
+ * traccia che permette, fra sei mesi, di sapere quale delle tre quote ha mosso
+ * quei soldi.
  *
- * Tutto il resto — i quattro metodi di pagamento, il fido aggiuntivo per il
- * pagamento in KY, l'idempotenza, lo storno, il ripescaggio — e' identico, e
- * adesso e' scritto una volta sola.
+ * LE DUE LEVE, e perche' i loro nomi stanno qui. Ogni quota ha un default nel
+ * pannello (`$kyCreditSetting`, `$kyAllowanceSetting`) e un ripiego per singolo
+ * utente sulla sua scheda (`$kyCreditOverrideColumn`,
+ * `$kyAllowanceOverrideColumn`). Le colonne sono separate per quota — non una
+ * sola condivisa — perche' le tre quote sono attive insieme e riguardano
+ * persone diverse: la stessa persona puo' avere un trattamento sui privati e
+ * nessuno sugli agenti, e con una colonna sola non si potrebbe scrivere.
  */
 final class FeeDefinition
 {
     /**
-     * @param class-string $paymentClass        modello del tentativo di pagamento
-     * @param string $dueColumn                 colonna su `users` con l'importo dovuto
-     * @param string $paidAtColumn              colonna su `users` con la data del saldo
-     * @param string $allowanceColumn           colonna su `users` con il fido aggiuntivo
-     * @param string $auditPrefix               prefisso degli eventi nell'audit log
-     * @param string $idempotencyPrefix         prefisso della idempotency_key dei movimenti
-     * @param bool   $emitsKyInEuro             pagando in euro il circuito emette KY?
-     * @param class-string $paidNotification    ricevuta a chi salda
+     * @param class-string $paymentClass          modello del tentativo di pagamento
+     * @param string $dueColumn                   colonna su `users` con l'importo dovuto
+     * @param string $paidAtColumn                colonna su `users` con la data del saldo
+     * @param string $allowanceColumn             colonna su `users` con il fido REALMENTE concesso
+     * @param string $auditPrefix                 prefisso degli eventi nell'audit log
+     * @param string $idempotencyPrefix           prefisso della idempotency_key dei movimenti
+     * @param class-string $paidNotification      ricevuta a chi salda
      * @param class-string $cancelledNotification avviso a chi si vede annullare la quota
      */
     public function __construct(
@@ -53,13 +58,27 @@ final class FeeDefinition
         public readonly string $allowanceColumn,
         public readonly string $auditPrefix,
         public readonly string $idempotencyPrefix,
-        public readonly bool $emitsKyInEuro,
         public readonly string $paidNotification,
         public readonly string $cancelledNotification,
+        /**
+         * Quanti KY riceve chi paga in EURO: chiave su `system_settings` (il
+         * default per tutti) e colonna su `users` (il ripiego per uno solo,
+         * NULL = segui il default).
+         */
+        public readonly string $kyCreditSetting,
+        public readonly string $kyCreditOverrideColumn,
+        /**
+         * Chi paga in KY riceve il fido aggiuntivo pari alla quota? Stessa
+         * coppia: default nel pannello, ripiego sul singolo utente. Sul
+         * pannello il NULL vale ACCESO — vedi
+         * AbstractFeeService::kyAllowanceEnabledFor().
+         */
+        public readonly string $kyAllowanceSetting,
+        public readonly string $kyAllowanceOverrideColumn,
         /** Movimento dell'addebito in KY. */
         public readonly string $kyTransferKind,
         public readonly string $kyTransferDescription,
-        /** Movimento di emissione dei KY quando si paga in euro (solo se $emitsKyInEuro). */
+        /** Movimento della restituzione in KY a chi paga in euro (se maggiore di zero). */
         public readonly string $creditTransferKind,
         public readonly string $creditTransferDescription,
         /** Movimento di storno, quando la quota viene annullata. */
@@ -71,6 +90,8 @@ final class FeeDefinition
         public readonly string $retryOnCancelledMessage,
         /** L'inizio del messaggio quando il ripescaggio fallisce di nuovo. */
         public readonly string $retryFailedMessage,
+        /** Il messaggio quando si prova a dare un trattamento a chi la quota non riguarda. */
+        public readonly string $treatmentNotApplicableMessage,
     ) {
     }
 

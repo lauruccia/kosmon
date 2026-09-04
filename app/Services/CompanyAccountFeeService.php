@@ -45,7 +45,10 @@ use RuntimeException;
  *      Le due leve NON si incrociano: chi paga in KY non riceve nessun
  *      accredito, chi paga in euro non riceve nessun fido. Ognuna ha un
  *      default nel pannello e un ripiego per singola azienda, sulla sua
- *      scheda — vedi kyCreditFor() e kyAllowanceEnabledFor().
+ *      scheda. Dal 04/09 le due leve sono le stesse per tutte e tre le quote
+ *      e vivono nel motore comune — vedi AbstractFeeService::kyCreditFor() e
+ *      kyAllowanceEnabledFor(); qui restano solo i nomi delle colonne, nella
+ *      definition(), e la restrizione su chi e' davvero un'azienda.
  *
  *   2. LA QUOTA NON BLOCCA IL CONTO. Questa e' la differenza vera dalle altre
  *      due, e va tenuta a mente prima di copiare qualunque riga da li'.
@@ -89,12 +92,14 @@ class CompanyAccountFeeService extends AbstractFeeService
             allowanceColumn:             'company_account_fee_ky_allowance_cents',
             auditPrefix:                 'company_account_fee',
             idempotencyPrefix:           'aperturaconto_',
-            // Puo' emettere KY pagando in euro, ma QUANTI lo decide l'admin e
-            // di partenza sono zero: il ramo vero sta in settleEuroPayment().
-            // Il motore non legge questo campo — e' documentazione — e
-            // scriverci `false` direbbe il falso appena l'admin imposta un
-            // accredito.
-            emitsKyInEuro:               true,
+            // Le due leve, con gli stessi nomi per tutte e tre le quote
+            // (04/09/2026). Qui erano nate il giorno prima, e da oggi le
+            // condividono anche i privati e gli agenti: il motore le legge da
+            // queste quattro chiavi e non sa piu' di quale quota si tratti.
+            kyCreditSetting:             'company_account_fee_ky_credit_cents',
+            kyCreditOverrideColumn:      'company_account_fee_ky_credit_override_cents',
+            kyAllowanceSetting:          'company_account_fee_ky_allowance',
+            kyAllowanceOverrideColumn:   'company_account_fee_ky_allowance_override',
             paidNotification:            CompanyAccountFeePaidNotification::class,
             cancelledNotification:       CompanyAccountFeeCancelledNotification::class,
             kyTransferKind:              'company_account_fee',
@@ -109,122 +114,13 @@ class CompanyAccountFeeService extends AbstractFeeService
             notDueMessage:               'La quota di apertura conto risulta già saldata.',
             retryOnCancelledMessage:     'Questa quota è stata annullata: riaprila prima di darla per saldata.',
             retryFailedMessage:          'La chiusura è fallita di nuovo: ',
+            treatmentNotApplicableMessage: "Questo profilo non e' un conto aziendale: non ha un trattamento da impostare.",
         );
     }
 
     public function availableMethods(): array
     {
         return $this->settings()->companyAccountFeeMethods();
-    }
-
-    /**
-     * I presupposti dipendono da quanto c'e' da accreditare: senza accredito
-     * basta che l'utente ci sia, con accredito servono le tre cose che servono
-     * a emettere moneta. Ognuno di questi testi finisce in `admin_notes` ed e'
-     * quello che l'admin legge per capire perche' una riga e' finita `failed`.
-     */
-    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
-    {
-        if ($user === null) {
-            return 'Utente non disponibile.';
-        }
-
-        if ($this->kyCreditFor($user) <= 0) {
-            return null;
-        }
-
-        if (Account::systemAccount() === null) {
-            return 'Conto di sistema non disponibile.';
-        }
-
-        if (($payment->account ?? $this->accountFor($user)) === null) {
-            return 'Conto dell azienda non disponibile.';
-        }
-
-        // L'emissione dal conto di sistema richiede un super admin: e' l'unico
-        // che bypassa autorizzazione e fido nel motore.
-        if (User::where('is_super_admin', true)->value('id') === null) {
-            return 'Nessun super admin configurato.';
-        }
-
-        return null;
-    }
-
-    /**
-     * In euro il conto viene toccato SOLO SE l'admin ha deciso un accredito:
-     * il conto di sistema emette quei KY verso l'azienda, ed e' lo stesso
-     * movimento di una ricarica. Con accredito a zero non si muove niente, e
-     * allora l'unica difesa contro il doppio incasso e' il lock di
-     * completeEuroPayment() — non c'e' nessuna idempotency_key perche' non c'e'
-     * nessun movimento.
-     *
-     * L'IMPORTO E' QUELLO DI OGGI, non uno scatto congelato alla registrazione
-     * come la quota. E' voluto: la quota e' un debito che l'azienda si e'
-     * assunta a una certa cifra, l'accredito e' una decisione commerciale del
-     * circuito, e vale quella in vigore quando i soldi arrivano. Quanto sia
-     * stato dato resta scritto nel movimento e nell'audit log.
-     */
-    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
-    {
-        $accredito = $this->kyCreditFor($user);
-
-        if ($accredito <= 0) {
-            return null;
-        }
-
-        $transfer = $this->transfers->book([
-            'initiated_by'    => User::where('is_super_admin', true)->value('id'),
-            'from_account_id' => Account::systemAccount()->id,
-            'to_account_id'   => ($locked->account ?? $this->accountFor($user))->id,
-            'amount'          => $accredito,
-            'kind'            => $this->definition()->creditTransferKind,
-            'description'     => $this->definition()->creditTransferDescription,
-            'idempotency_key' => $this->definition()->idempotencyKey($locked->uuid),
-        ]);
-
-        return $transfer->id;
-    }
-
-    // ── Le due leve: cosa riceve l'azienda in cambio ────────────────────────
-
-    /**
-     * Quanti KY riceve questa azienda pagando in EURO, in centesimi.
-     *
-     * Il ripiego sulla singola azienda vince sul default del pannello, e NULL
-     * vuol dire "segui il default" — non "zero". La differenza conta: azzerare
-     * l'accredito per una sola azienda si fa scrivendo 0, non svuotando il
-     * campo, e sono due atti diversi che l'audit log distingue.
-     */
-    public function kyCreditFor(User $user): int
-    {
-        $suo = $user->company_account_fee_ky_credit_override_cents;
-
-        return $suo !== null
-            ? max(0, (int) $suo)
-            : $this->settings()->companyAccountFeeKyCredit();
-    }
-
-    /**
-     * Questa azienda, pagando in KY, riceve il fido aggiuntivo pari alla quota?
-     * Stessa regola del ripiego: NULL segue il pannello.
-     */
-    public function kyAllowanceEnabledFor(User $user): bool
-    {
-        $suo = $user->company_account_fee_ky_allowance_override;
-
-        return $suo !== null
-            ? (bool) $suo
-            : $this->settings()->companyAccountFeeKyAllowance();
-    }
-
-    /**
-     * Il fido aggiuntivo per chi paga in KY. Zero quando l'admin ha deciso di
-     * non darlo: l'azienda va sotto lo stesso, ma con il fido che ha gia', e
-     * se non le basta l'addebito viene rifiutato dal motore.
-     */
-    protected function kyAllowanceFor(User $user, int $amount): int
-    {
-        return $this->kyAllowanceEnabledFor($user) ? $amount : 0;
     }
 
     /**
@@ -393,64 +289,17 @@ class CompanyAccountFeeService extends AbstractFeeService
         return $importo;
     }
 
-    // ── Il trattamento della singola azienda (04/09/2026) ───────────────────
-
     /**
-     * L'admin scavalca, per QUESTA azienda, i due default del pannello: quanti
-     * KY riceve pagando in euro, e se pagando in KY ha il fido aggiuntivo.
+     * IL TRATTAMENTO SI DA' SOLO A UN'AZIENDA VERA, e sono due condizioni
+     * insieme: `account_holder_type === 'company'` E `company_id` valorizzato.
+     * Con la sola prima si potrebbe scrivere un trattamento addosso a un admin
+     * o a un collaboratore invitato come sottoconto, che risultano 'company'
+     * senza avere nessuna azienda dietro e questa quota non la devono.
      *
-     * `null` su un parametro vuol dire «torna a seguire il pannello», e non e'
-     * la stessa cosa di `0` / `false`: quelli sono decisioni prese per questa
-     * azienda e restano ferme anche se domani il default cambia. La differenza
-     * e' l'unico motivo per cui questo metodo esiste invece di due update.
-     *
-     * NON tocca chi ha gia' pagato: il fido concesso e i KY accreditati sono
-     * fatti avvenuti, e si disfano annullando la quota, non cambiando la
-     * regola. Cambiare il trattamento a saldo avvenuto vale per la prossima
-     * volta — che per una quota una tantum vuol dire, in pratica, mai.
-     *
-     * @throws RuntimeException
+     * Le altre due quote non restringono niente: la loro riguarda chiunque.
      */
-    public function setTreatment(
-        User $user,
-        User $admin,
-        ?int $creditCents,
-        ?bool $allowance,
-        ?string $ipAddress = null,
-    ): void {
-        if (! $this->riguarda($user)) {
-            throw new RuntimeException("Questo profilo non e' un conto aziendale: non ha un trattamento da impostare.");
-        }
-
-        if ($creditCents !== null && $creditCents < 0) {
-            throw new RuntimeException("L'accredito in KY non puo' essere negativo.");
-        }
-
-        $prima = [
-            'credit'    => $user->company_account_fee_ky_credit_override_cents,
-            'allowance' => $user->company_account_fee_ky_allowance_override,
-        ];
-
-        $user->forceFill([
-            'company_account_fee_ky_credit_override_cents' => $creditCents,
-            'company_account_fee_ky_allowance_override'    => $allowance,
-        ])->save();
-
-        AuditLog::create([
-            'actor_user_id'  => $admin->id,
-            'event'          => 'company_account_fee.treatment_set',
-            'auditable_type' => User::class,
-            'auditable_id'   => $user->id,
-            'ip_address'     => $ipAddress,
-            'context'        => [
-                'prima'      => $prima,
-                'dopo'       => ['credit' => $creditCents, 'allowance' => $allowance],
-                // Cosa vorranno dire quei due valori quando qualcuno leggera'
-                // questa riga fra sei mesi: i default di oggi.
-                'default_credit'    => $this->settings()->companyAccountFeeKyCredit(),
-                'default_allowance' => $this->settings()->companyAccountFeeKyAllowance(),
-                'gia_saldata'       => $user->company_account_fee_paid_at !== null,
-            ],
-        ]);
+    protected function treatmentApplies(User $user): bool
+    {
+        return $this->riguarda($user);
     }
 }

@@ -347,6 +347,11 @@
                 <button type="submit" class="cta secondary users-compact-cta">Richiedi la quota di iscrizione</button>
             </form>
         @endif
+        @include('admin.quote.trattamento', [
+            'servizio' => app(\App\Services\RegistrationFeeService::class),
+            'rotta'    => 'admin.registration-fees.treatment',
+            'utente'   => $userRecord,
+        ])
     </section>
     @endif
 
@@ -396,59 +401,11 @@
             </form>
         @endif
 
-        {{-- Il trattamento di QUESTA azienda (04/09/2026): scavalca i due
-             default del pannello. Campo vuoto e «come da impostazioni» non
-             sono la stessa cosa di zero e «no»: quelli restano fermi anche se
-             domani il default cambia. --}}
-        @php
-            $quotaAzienda   = app(\App\Services\CompanyAccountFeeService::class);
-            $impostazioni   = $quotaAzienda->settings();
-            $creditoDefault = $impostazioni->companyAccountFeeKyCredit();
-            $fidoDefault    = $impostazioni->companyAccountFeeKyAllowance();
-            $creditoSuo     = $userRecord->company_account_fee_ky_credit_override_cents;
-            $fidoSuo        = $userRecord->company_account_fee_ky_allowance_override;
-        @endphp
-
-        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
-            <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Cosa riceve in cambio</div>
-            <p class="table-muted" style="margin-bottom:12px;">
-                Oggi per questa azienda vale:
-                <strong>{{ $quotaAzienda->kyCreditFor($userRecord) > 0 ? ky_format($quotaAzienda->kyCreditFor($userRecord)) . ' KY' : 'nessun KY' }}</strong>
-                pagando in euro, e <strong>{{ $quotaAzienda->kyAllowanceEnabledFor($userRecord) ? 'fido aggiuntivo' : 'nessun fido aggiuntivo' }}</strong>
-                pagando in KY.
-                @if($creditoSuo === null && $fidoSuo === null)
-                    Sono i valori del pannello (accredito {{ ky_format($creditoDefault) }} KY, fido {{ $fidoDefault ? 'acceso' : 'spento' }}).
-                @else
-                    Ha un trattamento suo: se domani cambi il pannello, questa azienda non lo segue.
-                @endif
-                @if($userRecord->company_account_fee_paid_at)
-                    <br><strong>Ha gi&agrave; saldato:</strong> cambiare qui non tocca i KY gi&agrave; accreditati n&eacute; il fido gi&agrave; concesso &mdash; per disfare quelli si annulla il pagamento.
-                @endif
-            </p>
-
-            <form method="post" action="{{ route('admin.company-account-fees.treatment', $userRecord) }}"
-                  style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end;">
-                @csrf
-                <div class="field">
-                    <label>KY se paga in euro</label>
-                    <input type="number" min="0" step="0.01" name="ky_credit"
-                           placeholder="come da impostazioni ({{ ky_input($creditoDefault) }})"
-                           value="{{ old('ky_credit', $creditoSuo !== null ? ky_input((int) $creditoSuo) : '') }}">
-                    <small style="color:var(--text-muted);">Vuoto = segui il pannello. Zero = niente, deciso per lei.</small>
-                </div>
-                <div class="field">
-                    <label>Fido se paga in KY</label>
-                    <select name="ky_allowance" data-no-search>
-                        <option value="" @selected($fidoSuo === null)>Come da impostazioni ({{ $fidoDefault ? 'sì' : 'no' }})</option>
-                        <option value="1" @selected($fidoSuo === true)>Sì: il fido che ha resta intero</option>
-                        <option value="0" @selected($fidoSuo === false)>No: la quota mangia il fido che ha già</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <button type="submit" class="cta secondary users-compact-cta">Salva trattamento</button>
-                </div>
-            </form>
-        </div>
+        @include('admin.quote.trattamento', [
+            'servizio' => app(\App\Services\CompanyAccountFeeService::class),
+            'rotta'    => 'admin.company-account-fees.treatment',
+            'utente'   => $userRecord,
+        ])
     </section>
     @endif
 
@@ -514,6 +471,11 @@
                 <div class="table-muted" style="color:#b91c1c;margin-top:6px;">{{ $message }}</div>
             @enderror
         @endif
+        @include('admin.quote.trattamento', [
+            'servizio' => app(\App\Services\AgentCodeFeeService::class),
+            'rotta'    => 'admin.agent-code-fees.treatment',
+            'utente'   => $userRecord,
+        ])
     </section>
     @endif
 

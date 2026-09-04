@@ -968,7 +968,7 @@ class AgentCodeFeeTest extends TestCase
             ->update(['status' => AgentCodeFeePayment::STATUS_CANCELLED]);
 
         $this->actingAs($this->superAdmin)
-            ->get('/admin/quote-codice-agente')
+            ->get('/admin/quote?tab=agenti')
             ->assertOk()
             ->assertSee('Annulla quota')
             ->assertSee('Verifica e salda')

@@ -39,7 +39,9 @@
         <div class="notice" style="margin-top:20px;">
             Indica la causale <strong>{{ $payment->bank_transfer_reference }}</strong> esattamente com'&egrave;
             scritta: &egrave; l'unico modo che abbiamo per collegare il bonifico al tuo conto.
-            Ad accredito avvenuto riceverai {{ ky_format($payment->ky_amount) }} KY.
+            @if(($kyCredit ?? 0) > 0)
+                Ad accredito avvenuto riceverai {{ ky_format($kyCredit) }} KY.
+            @endif
         </div>
 
     </div>
