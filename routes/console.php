@@ -137,6 +137,12 @@ Schedule::command('shop:solleciti-quota-euro')
 //   - `quote:solleciti-iscrizione` scrive alle PERSONE che non hanno ancora
 //     saldato, una volta sola in tutto. Alle 9, per lo stesso motivo del
 //     sollecito qui sopra: una mail delle 3 di notte non la legge nessuno.
+//
+// Dal 03/09/2026 tutti e due coprono anche la QUOTA DI APERTURA CONTO delle
+// aziende: il primo ne chiude i tentativi appesi, il secondo ne manda il
+// sollecito. Il nome dei comandi e' rimasto quello di allora — rinominarli
+// avrebbe voluto dire toccare la schedulazione su due server in produzione
+// per un'etichetta.
 Schedule::command('quote:scadi-tentativi')
     ->dailyAt('04:30')
     ->name('registration-fee-expire-attempts')

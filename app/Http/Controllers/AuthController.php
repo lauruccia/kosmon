@@ -148,6 +148,13 @@ class AuthController extends Controller
         // registrazione persa no. Vedi RegistrationFeeService.
         app(\App\Services\RegistrationFeeService::class)->markDueOnRegistration($user);
 
+        // Quota di apertura conto (03/09/2026): la gemella per le AZIENDE.
+        // Le due chiamate non si escludono a vicenda qui — ciascun servizio
+        // guarda da se' se il profilo lo riguarda (privato / azienda), ed e'
+        // li' che quella regola va letta e cambiata, non in questa riga.
+        // Anche questa non e' bloccante, e per lo stesso motivo.
+        app(\App\Services\CompanyAccountFeeService::class)->markDueOnRegistration($user);
+
         // Invia email di benvenuto in background (queued)
         Mail::to($user->email)->queue(
             new RegistrationConfirmation($user, $account, $company)

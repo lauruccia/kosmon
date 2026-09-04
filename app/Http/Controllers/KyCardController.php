@@ -442,6 +442,19 @@ class KyCardController extends PortalController
                     app(\App\Services\AgentCodeFeeService::class)->completeEuroPayment($agentFee);
                 }
             }
+
+            // Quinto incasso: la quota di apertura conto delle aziende
+            // (03/09/2026). Stessa tolleranza dei due qui sopra, e per lo
+            // stesso motivo: a decidere e' sessionMatches(), non lo stato
+            // della riga.
+            $companyFee = \App\Models\CompanyAccountFeePayment::where('stripe_checkout_session_id', $session->id)->first();
+            if ($companyFee && ! $companyFee->isCompleted() && ! $companyFee->isCancelled()) {
+                $companyFee->update(['stripe_payment_intent_id' => $session->payment_intent]);
+
+                if ($verifier->sessionMatches($session, (int) $companyFee->amount_eur_cents, $companyFee->uuid, 'aperturaconto-webhook:' . $companyFee->uuid)) {
+                    app(\App\Services\CompanyAccountFeeService::class)->completeEuroPayment($companyFee);
+                }
+            }
         }
 
         return response('OK', 200);

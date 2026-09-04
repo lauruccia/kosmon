@@ -980,8 +980,11 @@ class TransferBookingService
         // per tutti gli altri conti.
         // Dal 31/08 le quote sono DUE (iscrizione privati e codice agente) e
         // la stessa persona puo' doverle entrambe: si sommano.
+        // Dal 03/09 sono TRE (si e' aggiunta l'apertura conto delle aziende):
+        // si sommano tutte, come in Account::massimale().
         $quotaIscrizione = max(0, (int) ($account->ownerUser?->registration_fee_ky_allowance_cents ?? 0))
-            + max(0, (int) ($account->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0));
+            + max(0, (int) ($account->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0))
+            + max(0, (int) ($account->ownerUser?->company_account_fee_ky_allowance_cents ?? 0));
 
         if ($creditExposureLimit > 0 && $projectedBalance < -($creditExposureLimit + $quotaIscrizione)) {
             throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);

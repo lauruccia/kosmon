@@ -16,6 +16,9 @@
     <link rel="apple-touch-icon" href="/assets/brand/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/brand/icon-192.png">
 
+    {{-- Carattere del portale, self-hosted: la CSP consente solo font-src 'self'. --}}
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ asset('fonts/inter-latin-wght-normal.woff2') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>
         /* Prevent flash of unstyled theme */
@@ -30,6 +33,32 @@
            Hybrid Fineco (professional) + Revolut (modern)
            Light & Dark mode
            ============================================================ */
+
+        /* ── CARATTERE ────────────────────────────────────── */
+        /* Inter variabile (SIL OFL), servito da public/fonts/ e non da un CDN:
+           la CSP dichiara font-src 'self' data:, quindi Google Fonts sarebbe
+           bloccato in silenzio. Prima di questo il portale girava sui font di
+           sistema, e "Aptos" su Mac e Linux non esiste nemmeno. */
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-display: swap;
+            font-weight: 100 900;
+            src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                           U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                           U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-display: swap;
+            font-weight: 100 900;
+            src: url('/fonts/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                           U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+                           U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
 
         /* ── DESIGN TOKENS – LIGHT ─────────────────────────────────── */
         :root {
@@ -91,6 +120,56 @@
             --grad-hero:    linear-gradient(145deg, #10305e 0%, #0b2244 55%, #060f20 100%);
             --grad-bar-in:  linear-gradient(180deg, #60a5fa, #0f52c4);
             --grad-bar-out: linear-gradient(180deg, #a5b4fc, #4f46e5);
+
+            /* Commercio (shop) — 02/09/2026.
+               La tavolozza del portale e' bancaria e non aveva un colore
+               dell'acquisto: "Aggiungi al carrello" aveva lo stesso blu di
+               "Filtra". --buy e' l'arancio complementare al navy, e sta solo
+               sull'azione che porta soldi. */
+            --buy:            #ea580c;
+            --buy-strong:     #c2410c;
+            --buy-soft:       #fff3ea;
+            --buy-on:         #ffffff;
+            --sale:           #dc2626;
+            --sale-soft:      #fee2e2;
+            --in-stock:       #047857;
+            --in-stock-soft:  #d1fae5;
+            --in-stock-on:    #ffffff;
+            --sale-on:        #ffffff;
+            --media-veil:     rgba(13,28,48,.55);
+
+            /* Bordi e "informativo" degli avvisi (02/09/2026).
+               Servivano allo shop: le sue viste disegnavano i riquadri di
+               avviso con esadecimali scritti a mano — #fde68a, #fecaca,
+               #bfdbfe — che non avevano nessun corrispettivo scuro. */
+            --success-line:   #a7f3d0;
+            --warning-line:   #fde68a;
+            --danger-line:    #fecaca;
+            --info:           #0c4a86;
+            --info-soft:      #eff6ff;
+            --info-line:      #bfdbfe;
+            --buy-line:       #fdba74;
+            --accent-line:    #ddd6fe;
+            --danger-on:      #ffffff;
+
+            /* Testo e riquadri SOPRA una superficie che resta scura in
+               entrambi i temi (.account-hero, i veli sulle foto). Dichiarati
+               una volta sola e MAI ridefiniti nel blocco scuro: e' proprio il
+               punto — la superficie non cambia, quindi non deve cambiare
+               nemmeno cio' che ci sta sopra. Usare qui var(--ink) o
+               var(--surface-soft) e' l'errore che rendeva illeggibili quei
+               riquadri a tema invertito. */
+            --on-dark:        #f1f6fc;
+            --on-dark-soft:   #b9cbe0;
+            --on-dark-muted:  #8ba4c0;
+            --on-dark-veil:   rgba(255,255,255,.08);
+            --on-dark-line:   rgba(255,255,255,.16);
+            /* Testo scuro sopra una pastiglia BIANCA che sta dentro il pannello
+               scuro (il campo quantita', la taglia scelta): anche questa non
+               cambia col tema, quindi il testo nemmeno. */
+            --on-dark-ink:        #0d1c30;
+            --on-dark-accent:     #7dd3fc;
+            --on-dark-accent-ink: #bae6fd;
         }
 
         /* ── DESIGN TOKENS – DARK ──────────────────────────────────── */
@@ -138,6 +217,32 @@
             --grad-hero:    linear-gradient(145deg, #192c50 0%, #0d1c38 55%, #060c18 100%);
             --grad-bar-in:  linear-gradient(180deg, #93c5fd, #3a7ded);
             --grad-bar-out: linear-gradient(180deg, #c4b5fd, #7c3aed);
+
+            /* Commercio (shop) — 02/09/2026 */
+            --buy:            #fb923c;
+            --buy-strong:     #fdba74;
+            --buy-soft:       #2a1608;
+            --buy-on:         #1a0c02;
+            --sale:           #f87171;
+            --sale-soft:      #2a0d0d;
+            --in-stock:       #34d399;
+            --in-stock-soft:  #062018;
+            --in-stock-on:    #04231a;
+            --sale-on:        #2a0d0d;
+            --media-veil:     rgba(3,7,14,.72);
+
+            /* Bordi e "informativo" degli avvisi (02/09/2026) */
+            --success-line:   rgba(52,211,153,.30);
+            --warning-line:   rgba(251,191,36,.30);
+            --danger-line:    rgba(251,113,133,.30);
+            --info:           #7db3f7;
+            --info-soft:      #0a1830;
+            --info-line:      rgba(125,179,247,.28);
+            --buy-line:       rgba(251,146,60,.32);
+            --accent-line:    rgba(139,92,246,.32);
+            /* --danger in tema scuro e' un rosa chiaro: il testo sopra dev'essere
+               scuro, non bianco. */
+            --danger-on:      #2a0d0d;
         }
 
         /* ── RESET ─────────────────────────────────────────────────── */
@@ -145,7 +250,8 @@
         html { background: var(--bg); }
         body {
             margin: 0;
-            font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
+            font-family: "Inter", "Aptos", "Segoe UI", system-ui, sans-serif;
+            font-feature-settings: "cv05" 1, "ss03" 1; /* l con coda, cifre a un piano */
             font-size: 15px;
             line-height: 1.5;
             color: var(--ink);
@@ -634,7 +740,8 @@
             position: relative; z-index: 1;
             margin: 2px 0 0; font-size: 18px; font-weight: 700;
             letter-spacing: -.02em;
-            font-family: "Aptos Display", "Aptos", "Segoe UI", sans-serif;
+            font-family: "Inter", "Aptos Display", "Aptos", "Segoe UI", sans-serif;
+            letter-spacing: -.015em;
         }
         .page-intro p { position: relative; z-index: 1; margin: 3px 0 0; max-width: 720px; font-size: 12.5px; line-height: 1.45; color: var(--ink-soft); }
         .page-intro .eyebrow, .page-intro .page-actions { position: relative; z-index: 1; }
@@ -642,7 +749,8 @@
         /* Typography */
         .section-title, .card-title {
             margin: 0; font-weight: 700; letter-spacing: -.01em;
-            font-family: "Aptos Display", "Aptos", "Segoe UI", sans-serif;
+            font-family: "Inter", "Aptos Display", "Aptos", "Segoe UI", sans-serif;
+            letter-spacing: -.015em;
         }
         .section-title { font-size: 20px; color: var(--ink); }
         .card-title    { font-size: 16px; color: var(--ink); }
@@ -1534,6 +1642,7 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-ky-orders' ? 'active' : '' }}" href="{{ route('admin.ky-cards.orders') }}"><span class="nav-icon">&#128203;</span><span>Ordini KYCard</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'registration-fees' ? 'active' : '' }}" href="{{ route('admin.registration-fees.index') }}"><span class="nav-icon">&#127915;</span><span>Quote iscrizione</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'agent-code-fees' ? 'active' : '' }}" href="{{ route('admin.agent-code-fees.index') }}"><span class="nav-icon">&#128273;</span><span>Quote codice agente</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'company-account-fees' ? 'active' : '' }}" href="{{ route('admin.company-account-fees.index') }}"><span class="nav-icon">&#127970;</span><span>Quote apertura conto</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'cashback' ? 'active' : '' }}" href="{{ route('admin.cashback.index') }}"><span class="nav-icon">CB</span><span>Cashback</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-fees' ? 'active' : '' }}" href="{{ route('admin.fees.index') }}"><span class="nav-icon">&#x1F4B0;</span><span>Commissioni</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'broadcast' ? 'active' : '' }}" href="{{ route('admin.broadcast.index') }}"><span class="nav-icon">&#x1F4E2;</span><span>Comunicazioni</span></a>
@@ -2125,6 +2234,13 @@
             @php
                 $quotaIscrizioneDovuta = app(\App\Services\RegistrationFeeService::class)->isDueFor(auth()->user());
                 $quotaAgenteDovuta     = app(\App\Services\AgentCodeFeeService::class)->isDueFor(auth()->user());
+                // Quota di apertura conto delle aziende (03/09/2026). Entra in
+                // FONDO alla stessa catena, e non a lato: due banner insieme
+                // vorrebbero dire non far leggere nessuno dei due. In pratica
+                // non si incrocia mai con le altre — chi ha un conto aziendale
+                // non paga la quota dei privati e non fa l'agente — ma la
+                // catena resta l'unico posto dove si decide quale avviso esce.
+                $quotaAperturaContoDovuta = app(\App\Services\CompanyAccountFeeService::class)->isDueFor(auth()->user());
             @endphp
             @if ($quotaIscrizioneDovuta && ! request()->routeIs('portal.registration-fee.*'))
                 <div class="notice error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -2159,6 +2275,17 @@
                         @endif
                     </span>
                     <a class="cta" href="{{ route('portal.mlm.percorso') }}" style="padding:6px 12px;font-size:13px;">{{ $contoFermo ? 'Salda ora' : 'Continua' }}</a>
+                </div>
+            @elseif ($quotaAperturaContoDovuta && ! $quotaIscrizioneDovuta && ! $quotaAgenteDovuta && ! request()->routeIs('portal.company-account-fee.*'))
+                {{-- NON rosso, e non e' una svista: questa quota non blocca
+                     niente (decisione di Laura del 03/09). Il conto funziona,
+                     e un banner d'allarme direbbe il falso. Insieme al
+                     sollecito per email e' pero' l'unica cosa che chiede i 600
+                     euro, quindi resta su tutte le pagine finche' non e'
+                     saldata. --}}
+                <div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span>Quota di apertura del conto aziendale da saldare. Il conto intanto funziona normalmente.</span>
+                    <a class="cta" href="{{ route('portal.company-account-fee.show') }}" style="padding:6px 12px;font-size:13px;">Salda ora</a>
                 </div>
             @endif
             @if (session('portal_success'))<div class="notice success">{{ session('portal_success') }}</div>@endif

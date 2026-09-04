@@ -663,8 +663,12 @@ class Account extends Model
         // Si SOMMANO fra loro: chi ha pagato 30 e 480 in KY ha 510 di
         // capienza in piu' del suo fido, ed e' esattamente il debito che si
         // e' assunto.
+        // Quota di apertura conto delle aziende (03/09/2026): terza colonna,
+        // stessa regola. Si somma alle altre due: le tre quote sono distinte e
+        // il fido aggiuntivo di ciascuna vive finche' vive quella quota.
         $quote = max(0, (int) ($this->ownerUser?->registration_fee_ky_allowance_cents ?? 0))
-            + max(0, (int) ($this->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0));
+            + max(0, (int) ($this->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0))
+            + max(0, (int) ($this->ownerUser?->company_account_fee_ky_allowance_cents ?? 0));
 
         return $this->massimaleMemorizzato = max(0, $accountCreditLimit, $ownerNegativeBalanceLimit) + $quote;
     }

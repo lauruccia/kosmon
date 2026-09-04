@@ -3,8 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Models\AgentCodeFeePayment;
+use App\Models\CompanyAccountFeePayment;
 use App\Models\RegistrationFeePayment;
 use App\Services\AgentCodeFeeService;
+use App\Services\CompanyAccountFeeService;
 use App\Services\RegistrationFeeService;
 use Illuminate\Console\Command;
 
@@ -26,6 +28,11 @@ use Illuminate\Console\Command;
  * di default e' comunque piu' larga della vita di una sessione di checkout
  * Stripe, che scade da sola dopo 24 ore.
  *
+ * DAL 03/09/2026 LE QUOTE SONO TRE: si e' aggiunta l'apertura conto delle
+ * aziende, e questo comando legge anche la sua tabella. Quando ne nascera' una
+ * quarta, l'elenco da allungare e' quello dentro handle() — non esiste nessun
+ * registro che le enumeri da solo.
+ *
  * VALE PER TUTTE E DUE LE QUOTE (02/09/2026). Nato per i 30 dei privati, per
  * tre giorni ha ignorato le righe della quota codice agente, che quindi in
  * /admin/quote-codice-agente non si chiudevano mai: la colonna "Stato" era
@@ -45,9 +52,9 @@ class ExpireRegistrationFeeAttempts extends Command
                             {--ore=24 : Dopo quante ore un tentativo non pagato si considera abbandonato}
                             {--dry-run : Elenca soltanto, senza chiudere niente}';
 
-    protected $description = 'Chiude i tentativi di pagamento delle quote (iscrizione e codice agente) rimasti in sospeso';
+    protected $description = 'Chiude i tentativi di pagamento delle quote (iscrizione, codice agente e apertura conto) rimasti in sospeso';
 
-    public function handle(RegistrationFeeService $fees, AgentCodeFeeService $quoteAgente): int
+    public function handle(RegistrationFeeService $fees, AgentCodeFeeService $quoteAgente, CompanyAccountFeeService $quoteAzienda): int
     {
         $ore   = max(1, (int) $this->option('ore'));
         $prova = (bool) $this->option('dry-run');
@@ -83,6 +90,16 @@ class ExpireRegistrationFeeAttempts extends Command
                 ->where('created_at', '<=', now()->subHours($ore))
                 ->with('user')
                 ->get(), fn ($riga) => $quoteAgente->markFailed($riga, $motivo)],
+
+            ['Quota apertura conto', CompanyAccountFeePayment::query()
+                ->where('status', CompanyAccountFeePayment::STATUS_PENDING)
+                // Ridondante come le due gemelle qui sopra, e tenuta per lo
+                // stesso motivo: la riga che protegge i bonifici deve stare
+                // qui, non nella memoria di chi ha scritto il resto.
+                ->where('payment_method', '!=', CompanyAccountFeePayment::METHOD_BANK_TRANSFER)
+                ->where('created_at', '<=', now()->subHours($ore))
+                ->with('user')
+                ->get(), fn ($riga) => $quoteAzienda->markFailed($riga, $motivo)],
         ];
 
         foreach ($code as [$etichetta, $tentativi, $chiudi]) {

@@ -54,6 +54,7 @@ use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\StepUpController;
 use App\Http\Controllers\KyCardController;
 use App\Http\Controllers\AgentCodeFeeController;
+use App\Http\Controllers\CompanyAccountFeeController;
 use App\Http\Controllers\RegistrationFeeController;
 use App\Http\Controllers\AdminKyCardController;
 use App\Http\Controllers\AdminPlanController;
@@ -893,6 +894,21 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/quota-iscrizione/bonifico/annulla', [RegistrationFeeController::class, 'abandonBankTransfer'])->name('portal.registration-fee.bank-transfer.abandon');
     Route::get('/quota-iscrizione/esito/{payment}', [RegistrationFeeController::class, 'success'])->name('portal.registration-fee.success');
 
+    // ── Quota di apertura conto delle aziende (03/09/2026) ─────────────────
+    // A differenza delle altre due, questa quota NON blocca il conto
+    // (decisione di Laura): l'azienda che non ha saldato continua a pagare,
+    // incassare e vendere. Percio' qui non c'e' niente da tenere fuori da un
+    // blocco — queste rotte stanno nel gruppo autenticato come tutte le altre,
+    // e l'unica cosa che chiede i 600 euro sono il banner e il sollecito.
+    Route::get('/quota-apertura-conto', [CompanyAccountFeeController::class, 'show'])->name('portal.company-account-fee.show');
+    Route::post('/quota-apertura-conto/ky', [CompanyAccountFeeController::class, 'payWithKy'])->name('portal.company-account-fee.ky')->middleware('throttle:10,1');
+    Route::post('/quota-apertura-conto/stripe', [CompanyAccountFeeController::class, 'stripeCheckout'])->name('portal.company-account-fee.stripe')->middleware('throttle:10,1');
+    Route::post('/quota-apertura-conto/paypal/create-order', [CompanyAccountFeeController::class, 'paypalCreateOrder'])->name('portal.company-account-fee.paypal-create-order')->middleware('throttle:10,1');
+    Route::get('/quota-apertura-conto/paypal/capture/{payment}', [CompanyAccountFeeController::class, 'paypalCapture'])->name('portal.company-account-fee.paypal-capture');
+    Route::post('/quota-apertura-conto/bonifico', [CompanyAccountFeeController::class, 'bankTransfer'])->name('portal.company-account-fee.bank-transfer');
+    Route::post('/quota-apertura-conto/bonifico/annulla', [CompanyAccountFeeController::class, 'abandonBankTransfer'])->name('portal.company-account-fee.bank-transfer.abandon');
+    Route::get('/quota-apertura-conto/esito/{payment}', [CompanyAccountFeeController::class, 'success'])->name('portal.company-account-fee.success');
+
     // Admin Settori
     Route::get('/admin/settori', [AdminSectorController::class, 'index'])->name('admin.sectors.index')->middleware('backoffice');
     Route::post('/admin/settori', [AdminSectorController::class, 'store'])->name('admin.sectors.store')->middleware('backoffice');
@@ -960,6 +976,23 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     // privati: un atto con un nome sopra, non un UPDATE di massa.
     Route::post('/admin/users/{user}/quota-codice-agente/esonera', [AgentCodeFeeController::class, 'adminWaive'])->name('admin.agent-code-fees.waive')->middleware('backoffice');
     Route::post('/admin/users/{user}/quota-codice-agente/revoca-esonero', [AgentCodeFeeController::class, 'adminRevokeWaiver'])->name('admin.agent-code-fees.revoke-waiver')->middleware('backoffice');
+
+    // Quote apertura conto delle aziende (03/09/2026): elenco, impostazioni,
+    // bonifici, annullamento e ripescaggio. Gemelle delle altre due.
+    Route::get('/admin/quote-apertura-conto', [CompanyAccountFeeController::class, 'adminIndex'])->name('admin.company-account-fees.index')->middleware('backoffice');
+    Route::post('/admin/quote-apertura-conto/impostazioni', [CompanyAccountFeeController::class, 'adminUpdateSettings'])->name('admin.company-account-fees.settings')->middleware('backoffice');
+    Route::post('/admin/quote-apertura-conto/{payment}/conferma', [CompanyAccountFeeController::class, 'adminConfirmBankTransfer'])->name('admin.company-account-fees.confirm')->middleware('backoffice');
+    Route::post('/admin/quote-apertura-conto/{payment}/rifiuta', [CompanyAccountFeeController::class, 'adminRejectBankTransfer'])->name('admin.company-account-fees.reject')->middleware('backoffice');
+    Route::post('/admin/quote-apertura-conto/{payment}/annulla', [CompanyAccountFeeController::class, 'adminCancel'])->name('admin.company-account-fees.cancel')->middleware('backoffice');
+    Route::post('/admin/quote-apertura-conto/{payment}/riprova-accredito', [CompanyAccountFeeController::class, 'adminRetryCredit'])->name('admin.company-account-fees.retry-credit')->middleware('backoffice');
+    // La richiesta sta sulla SCHEDA DELL'AZIENDA e non su un elenco filtrato:
+    // e' un atto con un nome sopra, non un UPDATE di massa su milleduecento
+    // anagrafiche importate.
+    Route::post('/admin/users/{user}/quota-apertura-conto/richiedi', [CompanyAccountFeeController::class, 'adminRequest'])->name('admin.company-account-fees.request')->middleware('backoffice');
+    // Il trattamento della singola azienda (04/09/2026): quanti KY pagando in
+    // euro, e se il fido aggiuntivo pagando in KY. Sta anche questo sulla
+    // scheda, per lo stesso motivo della richiesta qui sopra.
+    Route::post('/admin/users/{user}/quota-apertura-conto/trattamento', [CompanyAccountFeeController::class, 'adminSetTreatment'])->name('admin.company-account-fees.treatment')->middleware('backoffice');
 
     // -- Card NFC fisiche (Admin) -----------------------------------------
     Route::get('/admin/nfc-cards', [AdminNfcCardController::class, 'index'])->name('admin.nfc-cards.index')->middleware('backoffice');

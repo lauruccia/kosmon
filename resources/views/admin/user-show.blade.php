@@ -350,6 +350,108 @@
     </section>
     @endif
 
+    {{-- Quota di apertura conto delle aziende (03/09/2026). Compare solo sui
+         conti aziendali veri: account_holder_type 'company' E company_id
+         valorizzato. La seconda condizione non e' pignoleria — gli admin e i
+         collaboratori invitati come sottoconto risultano 'company' senza
+         avere nessuna azienda dietro, e su di loro questo riquadro non
+         significherebbe niente. Vedi CompanyAccountFeeService::riguarda(). --}}
+    @if($userRecord->account_holder_type === 'company' && $userRecord->company_id !== null)
+    <section class="card light-card" id="user-company-account-fee" style="margin-bottom:22px;">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Circuito</span>
+                <h3 class="section-title">Quota di apertura conto</h3>
+            </div>
+            @if($userRecord->company_account_fee_paid_at)
+                <span class="pill success">Saldata il {{ $userRecord->company_account_fee_paid_at->format('d/m/Y') }}</span>
+            @elseif((int) ($userRecord->company_account_fee_due_cents ?? 0) > 0)
+                <span class="pill" style="background:rgba(217,119,6,.12);color:#b45309;">Da saldare &mdash; {{ number_format(((int) $userRecord->company_account_fee_due_cents) / 100, 2, ',', '.') }} &euro;</span>
+            @else
+                <span class="pill">Non dovuta</span>
+            @endif
+        </div>
+
+        @if($userRecord->company_account_fee_paid_at)
+            <p class="table-muted">
+                Quota gi&agrave; pagata. Per rimetterla in carico, annulla il pagamento dalla pagina
+                <a href="{{ route('admin.company-account-fees.index') }}" style="color:var(--primary);font-weight:600;">Quote apertura conto</a>.
+            </p>
+        @elseif((int) ($userRecord->company_account_fee_due_cents ?? 0) > 0)
+            <p class="table-muted">
+                L'azienda ha la quota aperta. <strong>Il conto resta operativo</strong>: pu&ograve; pagare,
+                incassare e vendere &mdash; vede il banner e riceve un sollecito, e nient'altro.
+                Il fido aggiuntivo &egrave; di {{ ky_format((int) ($userRecord->company_account_fee_ky_allowance_cents ?? 0)) }} KY.
+            </p>
+        @else
+            <p class="table-muted" style="margin-bottom:12px;">
+                Questa azienda non deve la quota: si &egrave; registrata prima che venisse attivata, oppure
+                &egrave; una delle anagrafiche importate dal vecchio sito. Puoi metterla in carico ora:
+                verr&agrave; avvisata per email e in notifica, e il conto continuer&agrave; comunque a funzionare.
+            </p>
+            <form method="post" action="{{ route('admin.company-account-fees.request', $userRecord) }}"
+                  onsubmit="return confirm('Mettere la quota di apertura conto in carico a {{ $userRecord->name }}? Riceverà una email. Il conto resta operativo.');">
+                @csrf
+                <button type="submit" class="cta secondary users-compact-cta">Richiedi la quota di apertura conto</button>
+            </form>
+        @endif
+
+        {{-- Il trattamento di QUESTA azienda (04/09/2026): scavalca i due
+             default del pannello. Campo vuoto e «come da impostazioni» non
+             sono la stessa cosa di zero e «no»: quelli restano fermi anche se
+             domani il default cambia. --}}
+        @php
+            $quotaAzienda   = app(\App\Services\CompanyAccountFeeService::class);
+            $impostazioni   = $quotaAzienda->settings();
+            $creditoDefault = $impostazioni->companyAccountFeeKyCredit();
+            $fidoDefault    = $impostazioni->companyAccountFeeKyAllowance();
+            $creditoSuo     = $userRecord->company_account_fee_ky_credit_override_cents;
+            $fidoSuo        = $userRecord->company_account_fee_ky_allowance_override;
+        @endphp
+
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Cosa riceve in cambio</div>
+            <p class="table-muted" style="margin-bottom:12px;">
+                Oggi per questa azienda vale:
+                <strong>{{ $quotaAzienda->kyCreditFor($userRecord) > 0 ? ky_format($quotaAzienda->kyCreditFor($userRecord)) . ' KY' : 'nessun KY' }}</strong>
+                pagando in euro, e <strong>{{ $quotaAzienda->kyAllowanceEnabledFor($userRecord) ? 'fido aggiuntivo' : 'nessun fido aggiuntivo' }}</strong>
+                pagando in KY.
+                @if($creditoSuo === null && $fidoSuo === null)
+                    Sono i valori del pannello (accredito {{ ky_format($creditoDefault) }} KY, fido {{ $fidoDefault ? 'acceso' : 'spento' }}).
+                @else
+                    Ha un trattamento suo: se domani cambi il pannello, questa azienda non lo segue.
+                @endif
+                @if($userRecord->company_account_fee_paid_at)
+                    <br><strong>Ha gi&agrave; saldato:</strong> cambiare qui non tocca i KY gi&agrave; accreditati n&eacute; il fido gi&agrave; concesso &mdash; per disfare quelli si annulla il pagamento.
+                @endif
+            </p>
+
+            <form method="post" action="{{ route('admin.company-account-fees.treatment', $userRecord) }}"
+                  style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end;">
+                @csrf
+                <div class="field">
+                    <label>KY se paga in euro</label>
+                    <input type="number" min="0" step="0.01" name="ky_credit"
+                           placeholder="come da impostazioni ({{ ky_input($creditoDefault) }})"
+                           value="{{ old('ky_credit', $creditoSuo !== null ? ky_input((int) $creditoSuo) : '') }}">
+                    <small style="color:var(--text-muted);">Vuoto = segui il pannello. Zero = niente, deciso per lei.</small>
+                </div>
+                <div class="field">
+                    <label>Fido se paga in KY</label>
+                    <select name="ky_allowance" data-no-search>
+                        <option value="" @selected($fidoSuo === null)>Come da impostazioni ({{ $fidoDefault ? 'sì' : 'no' }})</option>
+                        <option value="1" @selected($fidoSuo === true)>Sì: il fido che ha resta intero</option>
+                        <option value="0" @selected($fidoSuo === false)>No: la quota mangia il fido che ha già</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <button type="submit" class="cta secondary users-compact-cta">Salva trattamento</button>
+                </div>
+            </form>
+        </div>
+    </section>
+    @endif
+
     {{-- Quota per il codice agente (01/09/2026): l'esonero e la sua revoca.
          Stessa scelta della quota privati — sta nella scheda dell'utente,
          perche' "questo non paga" e' un atto con un nome sopra. Compare solo

@@ -57,7 +57,7 @@ class TransactionFee extends Model
         // Commissionarle vorrebbe dire far pagare una commissione sopra una
         // commissione — e, sul movimento di storno, addebitarla al conto di
         // sistema che sta solo disfacendo un incasso suo.
-        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade', 'mlm_wallet_credit', 'mlm_wallet_withdrawal', 'registration_fee', 'registration_fee_credit', 'registration_fee_reversal', 'agent_code_fee'], true)) {
+        if (in_array($kind, ['portal_cashback', 'portal_fee', 'portal_plan_upgrade', 'mlm_wallet_credit', 'mlm_wallet_withdrawal', 'registration_fee', 'registration_fee_credit', 'registration_fee_reversal', 'agent_code_fee', 'agent_code_fee_reversal', 'company_account_fee', 'company_account_fee_credit', 'company_account_fee_reversal'], true)) {
             return 0;
         }
 

@@ -105,6 +105,14 @@ class SystemSetting extends Model
         'agent_code_fee_paypal_enabled',
         'agent_code_fee_bank_transfer_enabled',
         'agent_code_fee_ky_enabled',
+        'company_account_fee_enabled',
+        'company_account_fee_amount_cents',
+        'company_account_fee_stripe_enabled',
+        'company_account_fee_paypal_enabled',
+        'company_account_fee_bank_transfer_enabled',
+        'company_account_fee_ky_enabled',
+        'company_account_fee_ky_credit_cents',
+        'company_account_fee_ky_allowance',
         'contract_force_sign',
         'contract_required_from',
         'contract_text',
@@ -144,6 +152,14 @@ class SystemSetting extends Model
             'agent_code_fee_paypal_enabled'          => 'boolean',
             'agent_code_fee_bank_transfer_enabled'   => 'boolean',
             'agent_code_fee_ky_enabled'              => 'boolean',
+            // Quota di apertura conto delle aziende (03/09/2026): stessa
+            // convenzione, NULL sulle righe pre-migrazione vale spento.
+            'company_account_fee_enabled'                 => 'boolean',
+            'company_account_fee_stripe_enabled'          => 'boolean',
+            'company_account_fee_paypal_enabled'          => 'boolean',
+            'company_account_fee_bank_transfer_enabled'   => 'boolean',
+            'company_account_fee_ky_enabled'              => 'boolean',
+            'company_account_fee_ky_allowance'            => 'boolean',
         ];
     }
 
@@ -761,6 +777,14 @@ HTML;
                 // Anche la quota del codice agente nasce SPENTA.
                 'agent_code_fee_enabled'            => false,
                 'agent_code_fee_amount_cents'       => 48000, // 480,00
+                // E anche la quota di apertura conto delle aziende.
+                'company_account_fee_enabled'       => false,
+                'company_account_fee_amount_cents'  => 60000, // 600,00
+                // Cosa riceve l'azienda in cambio (04/09/2026): nessun KY
+                // finche' l'admin non scrive una cifra, e il fido aggiuntivo
+                // a chi paga in KY acceso, come nelle altre due quote.
+                'company_account_fee_ky_credit_cents' => 0,
+                'company_account_fee_ky_allowance'    => true,
             ]
         );
     }
@@ -879,5 +903,78 @@ HTML;
         }
 
         return $attivi;
+    }
+
+    // -- Quota di apertura conto delle aziende (03/09/2026) ----------------
+    //
+    // Terza serie di interruttori, separata dalle altre due per lo stesso
+    // motivo per cui quelle sono separate fra loro: le tre quote sono attive
+    // insieme e riguardano persone diverse. Qui una differenza c'e' e conta —
+    // il pagamento in KY nasce SPENTO (decisione di Laura del 03/09): 600 KY
+    // di scoperto sono venti volte i 30 di un privato, e accettarli e' una
+    // concessione da fare a occhi aperti, non un default.
+
+    public function companyAccountFeeEnabled(): bool
+    {
+        return (bool) $this->company_account_fee_enabled
+            && $this->companyAccountFeeAmount() > 0
+            && $this->companyAccountFeeMethods() !== [];
+    }
+
+    /** Importo in centesimi. In euro; in KY solo se l'admin lo ha acceso. */
+    public function companyAccountFeeAmount(): int
+    {
+        return max(0, (int) ($this->company_account_fee_amount_cents ?? 0));
+    }
+
+    /** @return array<string, string> metodo => etichetta */
+    public function companyAccountFeeMethods(): array
+    {
+        $attivi = [];
+
+        if ($this->company_account_fee_stripe_enabled && config('services.stripe.secret')) {
+            $attivi[CompanyAccountFeePayment::METHOD_STRIPE] = CompanyAccountFeePayment::METHODS[CompanyAccountFeePayment::METHOD_STRIPE];
+        }
+        if ($this->company_account_fee_paypal_enabled && config('services.paypal.client_id')) {
+            $attivi[CompanyAccountFeePayment::METHOD_PAYPAL] = CompanyAccountFeePayment::METHODS[CompanyAccountFeePayment::METHOD_PAYPAL];
+        }
+        if ($this->company_account_fee_bank_transfer_enabled && config('kmoney.bank_iban')) {
+            $attivi[CompanyAccountFeePayment::METHOD_BANK_TRANSFER] = CompanyAccountFeePayment::METHODS[CompanyAccountFeePayment::METHOD_BANK_TRANSFER];
+        }
+        if ($this->company_account_fee_ky_enabled) {
+            $attivi[CompanyAccountFeePayment::METHOD_KY] = CompanyAccountFeePayment::METHODS[CompanyAccountFeePayment::METHOD_KY];
+        }
+
+        return $attivi;
+    }
+
+    /**
+     * Quanti KY riceve, di regola, l'azienda che paga la quota in EURO
+     * (04/09/2026). Zero = niente, ed e' il valore di partenza: il circuito non
+     * conia niente finche' non lo scrive qualcuno. La singola azienda puo'
+     * avere un numero suo — vedi CompanyAccountFeeService::kyCreditFor().
+     *
+     * Non e' legato all'importo della quota e puo' essere piu' basso, uguale o
+     * piu' alto: e' una decisione commerciale, non un resto.
+     */
+    public function companyAccountFeeKyCredit(): int
+    {
+        return max(0, (int) ($this->company_account_fee_ky_credit_cents ?? 0));
+    }
+
+    /**
+     * L'azienda che paga la quota in KY riceve il fido aggiuntivo pari alla
+     * quota? Acceso di fabbrica, come nelle altre due quote: da spento la
+     * quota si mangia il fido che l'azienda ha gia', e senza fido proprio il
+     * pagamento in KY viene rifiutato dal motore.
+     *
+     * NULL sulle righe pre-migrazione vale ACCESO, ed e' l'unica impostazione
+     * di questa quota dove il nullo non significa spento: qui il default e'
+     * il comportamento storico, non l'assenza di una scelta.
+     */
+    public function companyAccountFeeKyAllowance(): bool
+    {
+        return $this->company_account_fee_ky_allowance === null
+            || (bool) $this->company_account_fee_ky_allowance;
     }
 }

@@ -63,11 +63,15 @@ class AdminController extends Controller
         'registration_fee_reversal' => 'quota_privati',
         'agent_code_fee'            => 'quota_agente',
         'agent_code_fee_reversal'   => 'quota_agente',
+        'company_account_fee'          => 'quota_apertura_conto',
+        'company_account_fee_credit'   => 'quota_apertura_conto',
+        'company_account_fee_reversal' => 'quota_apertura_conto',
     ];
 
     private const MESSAGGI_QUOTA = [
         'quota_privati' => "Questo è il movimento di una quota di iscrizione: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata. Annullala da Quote di iscrizione, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
         'quota_agente'  => "Questo è il movimento della quota per il codice agente: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata e il codice agente attivo. Annullala da Quote codice agente, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
+        'quota_apertura_conto' => "Questo è il movimento della quota di apertura conto di un'azienda: eliminarlo restituirebbe i KY lasciando la quota segnata come pagata. Annullala da Quote apertura conto, dove saldo, quota dovuta e fido aggiuntivo vengono rimessi a posto insieme.",
     ];
     private const REFUND_WINDOW_DAYS = 30;
     private const USERS_PER_PAGE = 25;
