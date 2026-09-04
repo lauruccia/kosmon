@@ -3,10 +3,17 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Contracts\FeePayment;
 use App\Models\AgentCodeFeePayment;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
+use App\Notifications\AgentCodeFeeCancelledNotification;
+use App\Notifications\AgentCodeFeePaidNotification;
+use App\Services\Fees\AbstractFeeService;
+use App\Services\Fees\FeeDefinition;
+use App\Services\TransferBookingService;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,8 +47,103 @@ use RuntimeException;
  * ne registra uno sotto di se'). L'importo e' uno SCATTO: se domani l'admin
  * porta la quota da 480 a 600, chi e' stato approvato a 480 deve 480.
  */
-class AgentCodeFeeService
+class AgentCodeFeeService extends AbstractFeeService
 {
+    public function __construct(
+        TransferBookingService $transfers,
+        private readonly RegistrationFeeService $registrationFees,
+    ) {
+        parent::__construct($transfers);
+    }
+
+    /**
+     * Se ha gia' firmato, il codice agente ce l'ha in mano: la quota torna
+     * dovuta e lui resta agente. Non lo si impedisce — l'admin puo' avere buone
+     * ragioni — ma finisce nell'audit log, perche' e' l'unico modo in cui un
+     * agente puo' ritrovarsi con la quota da pagare.
+     */
+    protected function extraCancelContext(Model&FeePayment $payment): array
+    {
+        return [
+            // In euro e' sempre false che ci sia stato uno storno: nessun KY
+            // era stato emesso, e il rimborso resta da fare a mano.
+            'in_euro'        => $payment->isPaidInEuro(),
+            'era_gia_agente' => $payment->user?->isMlmAgent() ?? false,
+        ];
+    }
+
+    /**
+     * I 480 tornano indietro, e con loro torna indietro anche la conclusione
+     * che ne era derivata (02/09/2026). Chi era uscito dal percorso con la
+     * quota pagata si era visto SPEGNERE quella dei privati, perche' l'ingresso
+     * nel circuito risultava saldato: se adesso quei soldi gli vengono
+     * restituiti, l'ingresso non e' piu' pagato e i 30 tornano dovuti. Senza
+     * questo, lo storno rimetteva a posto il denaro e lasciava in piedi la
+     * conseguenza — una persona nel circuito, con il conto operativo, che non
+     * ha pagato niente.
+     */
+    protected function afterCancelled(Model&FeePayment $payment, ?string $ipAddress): void
+    {
+        if ($payment->user !== null) {
+            $this->registrationFees->restoreAfterAgentFeeCancelled($payment->user, $ipAddress);
+        }
+    }
+
+    public function definition(): FeeDefinition
+    {
+        return new FeeDefinition(
+            paymentClass:                AgentCodeFeePayment::class,
+            dueColumn:                   'agent_code_fee_due_cents',
+            paidAtColumn:                'agent_code_fee_paid_at',
+            allowanceColumn:             'agent_code_fee_ky_allowance_cents',
+            auditPrefix:                 'agent_code_fee',
+            idempotencyPrefix:           'agentcode_',
+            // In euro NON si emette un solo KY: i 480 sono il prezzo del
+            // codice, non una ricarica. KNM incassa e il conto dell'agente non
+            // viene toccato affatto.
+            emitsKyInEuro:               false,
+            paidNotification:            AgentCodeFeePaidNotification::class,
+            cancelledNotification:       AgentCodeFeeCancelledNotification::class,
+            kyTransferKind:              'agent_code_fee',
+            kyTransferDescription:       'Quota per il codice agente KNM',
+            // Mai usati: in euro non si emette niente. Restano scritti perche'
+            // se un giorno la regola cambiasse, il posto dove metterli e' qui.
+            creditTransferKind:          'agent_code_fee_credit',
+            creditTransferDescription:   'Quota per il codice agente pagata in euro',
+            reversalTransferKind:        'agent_code_fee_reversal',
+            reversalTransferDescription: 'Storno della quota per il codice agente',
+            notDueMessage:               'La quota per il codice agente risulta già saldata.',
+            retryOnCancelledMessage:     'Questa quota è stata annullata: riaprila prima di darla per saldata.',
+            retryFailedMessage:          'La chiusura è fallita di nuovo: ',
+        );
+    }
+
+    public function availableMethods(): array
+    {
+        return $this->settings()->agentCodeFeeMethods();
+    }
+
+    /**
+     * Qui non si emette moneta, quindi non servono ne' il conto di sistema ne'
+     * un super admin: basta che l'utente ci sia ancora.
+     */
+    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
+    {
+        return $user === null ? 'Utente non disponibile.' : null;
+    }
+
+    /**
+     * In euro NON si muove un solo KY, ed e' la differenza sostanziale con la
+     * quota dei privati: i 480 sono il prezzo del codice, non una ricarica. Il
+     * conto dell'agente non viene toccato affatto, e non essendoci nessun
+     * transfer non c'e' nemmeno una idempotency_key a fare da seconda difesa —
+     * motivo per cui, li', il lock non e' facoltativo.
+     */
+    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
+    {
+        return null;
+    }
+
     /**
      * ESONERO (01/09/2026). `agent_code_fee_due_cents` a ZERO vuol dire che
      * l'admin ha concesso di non pagare: l'aspirante agente puo' firmare
@@ -60,17 +162,6 @@ class AgentCodeFeeService
      *   > 0  = la deve, di quella cifra (lo scatto dell'approvazione)
      */
     public const ESONERATA = 0;
-
-    public function __construct(
-        private readonly TransferBookingService $transfers,
-        private readonly RegistrationFeeService $registrationFees,
-    ) {
-    }
-
-    public function settings(): SystemSetting
-    {
-        return SystemSetting::userLimitDefaults();
-    }
 
     // ── Nascita del debito ──────────────────────────────────────────────────
 
@@ -114,28 +205,6 @@ class AgentCodeFeeService
     }
 
     // ── Stato ───────────────────────────────────────────────────────────────
-
-    public function isDueFor(?User $user): bool
-    {
-        return $user !== null
-            && $user->agent_code_fee_due_cents !== null
-            && (int) $user->agent_code_fee_due_cents > 0
-            && $user->agent_code_fee_paid_at === null;
-    }
-
-    public function amountDueFor(User $user): int
-    {
-        return max(0, (int) ($user->agent_code_fee_due_cents ?? 0));
-    }
-
-    public function accountFor(User $user): ?Account
-    {
-        return Account::query()
-            ->where('owner_user_id', $user->id)
-            ->whereNull('parent_account_id')
-            ->where('status', 'active')
-            ->first();
-    }
 
     // ── Rinuncia ────────────────────────────────────────────────────────────
 
@@ -467,485 +536,15 @@ class AgentCodeFeeService
 
     // ── Apertura di un tentativo di pagamento ───────────────────────────────
 
-    /** @throws RuntimeException */
-    public function startPayment(User $user, string $method): AgentCodeFeePayment
-    {
-        if (! $this->isDueFor($user)) {
-            throw new RuntimeException('La quota per il codice agente risulta già saldata.');
-        }
-
-        if (! array_key_exists($method, $this->settings()->agentCodeFeeMethods())) {
-            throw new RuntimeException('Metodo di pagamento non disponibile.');
-        }
-
-        $amount = $this->amountDueFor($user);
-
-        return AgentCodeFeePayment::create([
-            'user_id'          => $user->id,
-            'account_id'       => $this->accountFor($user)?->id,
-            'amount_eur_cents' => $amount,
-            'ky_amount'        => $amount,
-            'status'           => $method === AgentCodeFeePayment::METHOD_BANK_TRANSFER
-                ? AgentCodeFeePayment::STATUS_PENDING_BANK_TRANSFER
-                : AgentCodeFeePayment::STATUS_PENDING,
-            'payment_method'   => $method,
-        ]);
-    }
-
     // ── Bonifico gia' richiesto (02/09/2026) ────────────────────────────────
-
-    /**
-     * Il bonifico in attesa di questo utente, se ce n'e' uno.
-     *
-     * Arriva con tre giorni di ritardo sulla gemella dei privati, ed e' lo
-     * stesso identico problema: il bonifico non e' un pagamento istantaneo.
-     * L'utente lo chiede, va in banca, e torna sul sito ore o giorni dopo. Se
-     * in quel momento ritrova i quattro bottoni come la prima volta non sa se
-     * la sua richiesta sia arrivata, e ne fa un'altra — con una causale
-     * DIVERSA da quella che ha scritto sul bonifico vero. Su 480 euro questo
-     * pesa piu' che su 30: in /admin/quote-codice-agente comparivano tre righe
-     * `pending_bank_transfer` per la stessa persona e nessuna riconciliabile.
-     */
-    public function pendingBankTransferFor(User $user): ?AgentCodeFeePayment
-    {
-        return AgentCodeFeePayment::query()
-            ->where('user_id', $user->id)
-            ->where('payment_method', AgentCodeFeePayment::METHOD_BANK_TRANSFER)
-            ->where('status', AgentCodeFeePayment::STATUS_PENDING_BANK_TRANSFER)
-            ->latest('id')
-            ->first();
-    }
-
-    /**
-     * Apre la richiesta di bonifico, oppure RIPRENDE quella gia' aperta.
-     *
-     * La causale contiene l'uuid del pagamento: aprirne una nuova a ogni
-     * visita significherebbe dare all'utente una causale diversa da quella che
-     * ha gia' scritto sul bonifico, e nessuno dei due sarebbe piu'
-     * ricollegabile con certezza.
-     *
-     * @throws RuntimeException
-     */
-    public function startOrResumeBankTransfer(User $user): AgentCodeFeePayment
-    {
-        $aperto = $this->pendingBankTransferFor($user);
-
-        if ($aperto !== null && $this->isDueFor($user)) {
-            return $aperto;
-        }
-
-        return $this->startPayment($user, AgentCodeFeePayment::METHOD_BANK_TRANSFER);
-    }
-
-    /**
-     * L'utente rinuncia al bonifico e torna a scegliere il metodo.
-     *
-     * Non e' un fallimento del circuito ma una scelta sua, e va scritta: se il
-     * bonifico partisse comunque, l'admin deve poter capire dalla riga perche'
-     * quella causale risulta abbandonata.
-     *
-     * `failed` e NON `cancelled`: se il bonifico arriva lo stesso, l'admin lo
-     * deve poter ancora accreditare. `cancelled` e' riservato alle risposte
-     * gia' date — l'annullamento dal backoffice e la chiusura del percorso.
-     */
-    public function abandonBankTransfer(User $user): bool
-    {
-        $aperto = $this->pendingBankTransferFor($user);
-
-        if ($aperto === null) {
-            return false;
-        }
-
-        $aperto->update([
-            'status'      => AgentCodeFeePayment::STATUS_FAILED,
-            'admin_notes' => "L'utente ha rinunciato al bonifico e ha scelto un altro metodo.",
-        ]);
-
-        return true;
-    }
 
     // ── Pagamento in KY ─────────────────────────────────────────────────────
 
-    /** @throws RuntimeException */
-    public function payWithKy(User $user, ?string $ipAddress = null): AgentCodeFeePayment
-    {
-        $payment = $this->startPayment($user, AgentCodeFeePayment::METHOD_KY);
-
-        $account = $this->accountFor($user);
-        if ($account === null) {
-            $this->markFailed($payment, 'Nessun conto attivo trovato.');
-            throw new RuntimeException('Nessun conto attivo trovato per il tuo profilo.');
-        }
-
-        $systemAccount = Account::systemAccount();
-        if ($systemAccount === null) {
-            $this->markFailed($payment, 'Conto di sistema non disponibile.');
-            throw new RuntimeException('Conto di sistema non disponibile: riprova più tardi.');
-        }
-
-        $amount = (int) $payment->ky_amount;
-
-        try {
-            DB::transaction(function () use ($user, $payment, $account, $systemAccount, $amount, $ipAddress): void {
-                $locked = User::whereKey($user->id)->lockForUpdate()->first();
-
-                if (! $this->isDueFor($locked)) {
-                    throw new RuntimeException('La quota per il codice agente risulta già saldata.');
-                }
-
-                // Il fido aggiuntivo PRIMA dell'addebito: senza, il motore
-                // rifiuterebbe di portare a -480 un conto con fido zero.
-                $locked->forceFill([
-                    'agent_code_fee_ky_allowance_cents' => $amount,
-                ])->save();
-
-                $transfer = $this->transfers->book([
-                    'initiated_by'    => $user->id,
-                    'from_account_id' => $account->id,
-                    'to_account_id'   => $systemAccount->id,
-                    'amount'          => $amount,
-                    'kind'            => 'agent_code_fee',
-                    'description'     => 'Quota per il codice agente KNM',
-                    'idempotency_key' => 'agentcode_' . $payment->uuid,
-                    'ip_address'      => $ipAddress,
-                ]);
-
-                $locked->forceFill(['agent_code_fee_paid_at' => now()])->save();
-
-                $payment->update([
-                    'transfer_id'  => $transfer->id,
-                    'account_id'   => $account->id,
-                    'status'       => AgentCodeFeePayment::STATUS_COMPLETED,
-                    'completed_at' => now(),
-                ]);
-
-                AuditLog::create([
-                    'actor_user_id'  => $user->id,
-                    'event'          => 'agent_code_fee.paid_in_ky',
-                    'auditable_type' => AgentCodeFeePayment::class,
-                    'auditable_id'   => $payment->id,
-                    'ip_address'     => $ipAddress,
-                    'context'        => [
-                        'uuid'        => $payment->uuid,
-                        'amount'      => $amount,
-                        'transfer_id' => $transfer->id,
-                    ],
-                ]);
-            });
-        } catch (\Throwable $e) {
-            $this->markFailed($payment, $e->getMessage());
-            throw new RuntimeException($e->getMessage(), 0, $e);
-        }
-
-        $user->refresh();
-        $payment->refresh();
-
-        // Fuori dalla transazione: una notifica che parte da dentro verrebbe
-        // spedita anche se la transazione poi rotolasse indietro, e nessuno
-        // se la riprende piu' (stessa regola di RegistrationFeeService).
-        $user->notify(new \App\Notifications\AgentCodeFeePaidNotification($payment));
-
-        return $payment;
-    }
-
     // ── Pagamento in euro: NESSUN KY viene emesso ───────────────────────────
-
-    /**
-     * Chiamato quando un pagamento in euro risulta incassato (Stripe, PayPal,
-     * o bonifico confermato dall'admin).
-     *
-     * Qui NON si muove un solo KY, ed e' la differenza sostanziale con la
-     * quota dei privati: i 480 euro sono il prezzo del codice, non una
-     * ricarica. Il conto dell'agente non viene toccato affatto.
-     *
-     * Idempotente sullo stato del pagamento, sotto lock: senza un transfer da
-     * scrivere non c'e' nessuna idempotency_key a fare da seconda difesa, e
-     * questa e' l'unica che c'e' — motivo per cui il lock non e' facoltativo.
-     * La corsa vera esiste eccome: webhook Stripe e pagina di successo
-     * possono arrivare insieme (e' quello che il 31/08 ha fatto assegnare i
-     * punti MLM due volte).
-     */
-    public function completeEuroPayment(AgentCodeFeePayment $payment, ?int $confirmedBy = null): void
-    {
-        if ($payment->isCompleted()) {
-            return;
-        }
-
-        // Chi ha davvero saldato: la closure puo' uscire prima perche' un'altra
-        // richiesta ha gia' chiuso la riga (webhook e pagina di esito possono
-        // arrivare insieme), e in quel caso la ricevuta l'ha gia' mandata
-        // quell'altra. Guardare lo stato qui fuori DOPO la transazione non
-        // basterebbe: lo troverebbe saldato in tutti e due i casi.
-        $saldata = false;
-
-        $user = $payment->user;
-        if ($user === null) {
-            Log::error('Quota codice agente: utente mancante', ['payment' => $payment->uuid]);
-            $this->markFailed($payment, 'Utente non disponibile.');
-
-            return;
-        }
-
-        try {
-            DB::transaction(function () use ($payment, $user, $confirmedBy, &$saldata): void {
-                $locked = AgentCodeFeePayment::whereKey($payment->id)->lockForUpdate()->first();
-                if ($locked === null || $locked->isCompleted()) {
-                    return;
-                }
-
-                $locked->update([
-                    'status'       => AgentCodeFeePayment::STATUS_COMPLETED,
-                    'confirmed_by' => $confirmedBy,
-                    'completed_at' => now(),
-                ]);
-
-                User::whereKey($user->id)
-                    ->whereNull('agent_code_fee_paid_at')
-                    ->update(['agent_code_fee_paid_at' => now()]);
-
-                AuditLog::create([
-                    'actor_user_id'  => $confirmedBy ?? $user->id,
-                    'event'          => 'agent_code_fee.paid_in_eur',
-                    'auditable_type' => AgentCodeFeePayment::class,
-                    'auditable_id'   => $locked->id,
-                    'context'        => [
-                        'uuid'           => $locked->uuid,
-                        'amount'         => (int) $locked->amount_eur_cents,
-                        'payment_method' => $locked->payment_method,
-                    ],
-                ]);
-
-                $saldata = true;
-            });
-        } catch (\Throwable $e) {
-            Log::error('Quota codice agente: chiusura del pagamento fallita', [
-                'payment' => $payment->uuid,
-                'error'   => $e->getMessage(),
-            ]);
-            $this->markFailed($payment, $e->getMessage());
-
-            return;
-        }
-
-        $payment->refresh();
-
-        if ($saldata) {
-            $user->notify(new \App\Notifications\AgentCodeFeePaidNotification($payment));
-        }
-    }
 
     // ── Ripescaggio di un incasso in euro (02/09/2026) ──────────────────────
 
-    /**
-     * Riprende un pagamento in euro finito `failed` quando i soldi, in realta',
-     * sono stati incassati. Gemello di
-     * RegistrationFeeService::retryEuroCredit(), con tre giorni di ritardo.
-     *
-     * IL CASO CHE CHIUDE. completeEuroPayment(), se la scrittura va storta (un
-     * deadlock, l'audit log che non passa), chiama markFailed(). Ma Stripe o
-     * PayPal i soldi li hanno GIA' presi, e da li' in poi non si rimetteva in
-     * moto niente: adminConfirmBankTransfer pretende `pending_bank_transfer` e
-     * la riga ora e' `failed`, e «Annulla quota» vale solo sulle righe saldate.
-     * Restava una persona che aveva versato 480 euro, senza codice agente e
-     * senza nessuna strada che non fosse il database a mano.
-     *
-     * PERCHE' NON E' UN BOTTONE CHE REGALA IL CODICE. Questo metodo non decide
-     * niente da solo: chi lo chiama deve avere gia' in mano la PROVA
-     * dell'incasso — la sessione Stripe verificata dal server di Stripe,
-     * l'ordine PayPal risultato COMPLETED dell'importo esatto, o, per il
-     * bonifico, un admin che ha visto i soldi sul conto. La prova si raccoglie
-     * in AgentCodeFeeController::adminRetryCredit().
-     *
-     * Qui non si muove un solo KY, come in tutta la parte in euro di questa
-     * quota: si chiude la riga e si segna la quota saldata, ed e' quello che
-     * sblocca la firma della nomina.
-     *
-     * @throws RuntimeException
-     */
-    public function retryEuroCredit(AgentCodeFeePayment $payment, User $admin, ?string $ipAddress = null): void
-    {
-        if ($payment->isCompleted()) {
-            throw new RuntimeException('Questa quota risulta già saldata.');
-        }
-
-        if ($payment->payment_method === AgentCodeFeePayment::METHOD_KY) {
-            throw new RuntimeException('Il ripescaggio vale solo per i pagamenti in euro: in KY non c\'è nessun incasso da recuperare.');
-        }
-
-        if ($payment->isCancelled()) {
-            throw new RuntimeException('Questa quota è stata annullata: riaprila prima di darla per saldata.');
-        }
-
-        AuditLog::create([
-            'actor_user_id'  => $admin->id,
-            'event'          => 'agent_code_fee.credit_retried',
-            'auditable_type' => AgentCodeFeePayment::class,
-            'auditable_id'   => $payment->id,
-            'ip_address'     => $ipAddress,
-            'context'        => [
-                'uuid'           => $payment->uuid,
-                'user_id'        => $payment->user_id,
-                'payment_method' => $payment->payment_method,
-                'stato_prima'    => $payment->status,
-                'note_prima'     => $payment->admin_notes,
-            ],
-        ]);
-
-        $this->completeEuroPayment($payment, $admin->id);
-
-        $payment->refresh();
-
-        if (! $payment->isCompleted()) {
-            // markFailed() ha gia' riscritto il motivo: ridarlo all'admin e'
-            // l'unico modo perche' non riprema il bottone all'infinito.
-            throw new RuntimeException('La chiusura è fallita di nuovo: ' . ($payment->admin_notes ?: 'motivo non registrato'));
-        }
-    }
-
     // ── Annullamento di una quota gia' saldata (01/09/2026) ─────────────────
-
-    /**
-     * Gemello di RegistrationFeeService::cancel(), e nasce dalla stessa
-     * ragione: una quota pagata vive in TRE posti — il movimento, la quota
-     * segnata come saldata, il fido aggiuntivo che regge il -480 — e la
-     * cancellazione del movimento dalla pagina Movimenti ne rimette a posto
-     * UNO. Per questo i movimenti di quota non sono piu' eliminabili da li'
-     * (AdminController::MOVIMENTI_DI_QUOTA) e l'unica strada e' questa.
-     *
-     * LO STORNO SI FA SOLO SE IL MOVIMENTO C'E' ANCORA. Chi lo ha gia' visto
-     * cancellare a mano i KY li ha gia' riavuti: stornare in base allo stato
-     * del pagamento («risulta completed, quindi restituisco 480») glieli
-     * regalerebbe una seconda volta. Qui si guarda il MOVIMENTO.
-     *
-     * IN EURO NON C'E' NIENTE DA STORNARE, ed e' la differenza vera con la
-     * quota dei privati: i 480 in euro non hanno mai accreditato un KY
-     * (completeEuroPayment non muove nessun conto). L'annullamento rimette la
-     * quota dovuta e basta, e **i soldi non tornano da soli**: il rimborso e'
-     * a mano su Stripe/PayPal o con un bonifico. Lo dicono il pannello a chi
-     * annulla e la mail a chi la subisce.
-     *
-     * @throws RuntimeException
-     */
-    public function cancel(AgentCodeFeePayment $payment, User $admin, ?string $reason = null, ?string $ipAddress = null): AgentCodeFeePayment
-    {
-        // NB: la guardia "e' saldata?" sta UNA VOLTA SOLA, dentro il lock qui
-        // sotto. Una copia qui fuori sarebbe la solita coppia di difese
-        // ridondanti che si nascondono a vicenda: spegnendo quella esterna la
-        // suite resta verde, e nessun test dice piu' niente su quella vera.
-        //
-        // Se ha gia' firmato, il codice agente ce l'ha in mano: la quota
-        // torna dovuta e lui resta agente. Non lo impedisco — l'admin puo'
-        // avere buone ragioni — ma finisce nell'audit log, perche' e' l'unico
-        // modo in cui un agente puo' ritrovarsi con la quota da pagare.
-        $eraGiaAgente = $payment->user?->isMlmAgent() ?? false;
-
-        DB::transaction(function () use ($payment, $admin, $reason, $ipAddress, $eraGiaAgente): void {
-            $locked = AgentCodeFeePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
-
-            if (! $locked->isCompleted()) {
-                throw new RuntimeException($locked->isCancelled()
-                    ? 'Questa quota è già stata annullata.'
-                    : 'Si può annullare solo una quota già saldata.');
-            }
-
-            $originale = $locked->transfer_id !== null
-                ? Transfer::whereKey($locked->transfer_id)->where('status', 'booked')->first()
-                : null;
-
-            $stornoId = null;
-
-            if ($originale !== null) {
-                $superAdminId = User::where('is_super_admin', true)->value('id');
-                if ($superAdminId === null) {
-                    throw new RuntimeException('Nessun super admin configurato: lo storno non può essere emesso.');
-                }
-
-                // Storno per inversione dei conti: l'utente aveva pagato il
-                // sistema, il sistema ora ripaga lui. Nessun ramo per il
-                // verso: e' lo stesso movimento letto al contrario.
-                $storno = $this->transfers->book([
-                    'initiated_by'    => $superAdminId,
-                    'from_account_id' => $originale->to_account_id,
-                    'to_account_id'   => $originale->from_account_id,
-                    'amount'          => (int) $originale->amount,
-                    'kind'            => 'agent_code_fee_reversal',
-                    'description'     => 'Storno della quota per il codice agente',
-                    'idempotency_key' => 'agentcode_storno_' . $locked->uuid,
-                    'ip_address'      => $ipAddress,
-                ]);
-
-                $stornoId = $storno->id;
-            }
-
-            $user = User::whereKey($locked->user_id)->lockForUpdate()->first();
-
-            if ($user !== null) {
-                $user->forceFill([
-                    // Torna dovuto l'importo DI QUESTO pagamento, non quello
-                    // di oggi in impostazioni: chi era stato approvato a 480
-                    // deve 480 anche se la quota nel frattempo e' passata a
-                    // 600. `?:` e non `??`: cosi' vale anche per lo zero
-                    // dell'esonero, che altrimenti resterebbe zero e la quota
-                    // non tornerebbe dovuta pur essendo stata annullata.
-                    'agent_code_fee_due_cents'          => $user->agent_code_fee_due_cents ?: (int) $locked->amount_eur_cents,
-                    'agent_code_fee_paid_at'            => null,
-                    // Il fido aggiuntivo se ne va con la quota che lo aveva
-                    // motivato: era li' solo per reggere il -480.
-                    'agent_code_fee_ky_allowance_cents' => 0,
-                ])->save();
-            }
-
-            $locked->update([
-                'status'       => AgentCodeFeePayment::STATUS_CANCELLED,
-                'admin_notes'  => $reason ?? 'Quota annullata dal backoffice.',
-                'confirmed_by' => $admin->id,
-            ]);
-
-            AuditLog::create([
-                'actor_user_id'  => $admin->id,
-                'event'          => 'agent_code_fee.cancelled',
-                'auditable_type' => AgentCodeFeePayment::class,
-                'auditable_id'   => $locked->id,
-                'ip_address'     => $ipAddress,
-                'context'        => [
-                    'uuid'                 => $locked->uuid,
-                    'user_id'              => $locked->user_id,
-                    'amount'               => (int) $locked->amount_eur_cents,
-                    'payment_method'       => $locked->payment_method,
-                    'original_transfer_id' => $locked->transfer_id,
-                    'reversal_transfer_id' => $stornoId,
-                    // false = il movimento era gia' stato cancellato a mano e
-                    // i KY erano gia' tornati indietro. In euro e' sempre
-                    // false: non c'era nessun movimento da stornare, e il
-                    // rimborso resta da fare a mano.
-                    'reversal_booked'      => $stornoId !== null,
-                    'in_euro'              => $locked->isPaidInEuro(),
-                    'era_gia_agente'       => $eraGiaAgente,
-                    'reason'               => $reason,
-                ],
-            ]);
-        });
-
-        $payment->refresh();
-
-        if ($payment->user !== null) {
-            $payment->user->notify(new \App\Notifications\AgentCodeFeeCancelledNotification($payment));
-
-            // I 480 tornano indietro, e con loro torna indietro anche la
-            // conclusione che ne era derivata (02/09/2026). Chi era uscito dal
-            // percorso con la quota pagata si era visto SPEGNERE quella dei
-            // privati, perche' l'ingresso nel circuito risultava saldato: se
-            // adesso quei soldi gli vengono restituiti, l'ingresso non e' piu'
-            // pagato e i 30 tornano dovuti. Senza questa riga lo storno
-            // rimetteva a posto il denaro e lasciava in piedi la conseguenza —
-            // una persona nel circuito, con il conto operativo, che non ha
-            // pagato niente. Fuori dalla transazione perche' manda una
-            // notifica, e non deve partire se lo storno rotola indietro.
-            $this->registrationFees->restoreAfterAgentFeeCancelled($payment->user, $ipAddress);
-        }
-
-        return $payment;
-    }
 
     // ── Esonero: l'admin concede di non pagare (01/09/2026) ─────────────────
 
@@ -1075,15 +674,4 @@ class AgentCodeFeeService
         return $importo;
     }
 
-    public function markFailed(AgentCodeFeePayment $payment, ?string $reason = null): void
-    {
-        if ($payment->isCompleted()) {
-            return;
-        }
-
-        $payment->update([
-            'status'      => AgentCodeFeePayment::STATUS_FAILED,
-            'admin_notes' => $reason ?? $payment->admin_notes,
-        ]);
-    }
 }

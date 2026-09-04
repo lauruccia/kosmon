@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Contracts\FeePayment;
 use App\Models\AuditLog;
 use App\Models\RegistrationFeePayment;
 use App\Notifications\RegistrationFeeCancelledNotification;
@@ -10,6 +11,9 @@ use App\Notifications\RegistrationFeePaidNotification;
 use App\Notifications\RegistrationFeeRequestedNotification;
 use App\Models\SystemSetting;
 use App\Models\Transfer;
+use App\Services\Fees\AbstractFeeService;
+use App\Services\Fees\FeeDefinition;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,8 +54,84 @@ use RuntimeException;
  * quota SOSPESA, per chi entra dal portale di un agente e paga i 480 del
  * codice al posto dei 30: vedi la costante SOSPESA qui sotto.
  */
-class RegistrationFeeService
+class RegistrationFeeService extends AbstractFeeService
 {
+    public function definition(): FeeDefinition
+    {
+        return new FeeDefinition(
+            paymentClass:                RegistrationFeePayment::class,
+            dueColumn:                   'registration_fee_due_cents',
+            paidAtColumn:                'registration_fee_paid_at',
+            allowanceColumn:             'registration_fee_ky_allowance_cents',
+            auditPrefix:                 'registration_fee',
+            idempotencyPrefix:           'regfee_',
+            // In euro il circuito EMETTE i KY: la quota non e' un costo, e' un
+            // acquisto di KY. E' la differenza sostanziale con i 480.
+            emitsKyInEuro:               true,
+            paidNotification:            RegistrationFeePaidNotification::class,
+            cancelledNotification:       RegistrationFeeCancelledNotification::class,
+            kyTransferKind:              'registration_fee',
+            kyTransferDescription:       'Quota di iscrizione al circuito',
+            creditTransferKind:          'registration_fee_credit',
+            creditTransferDescription:   'Quota di iscrizione pagata in euro: accredito KY',
+            reversalTransferKind:        'registration_fee_reversal',
+            reversalTransferDescription: 'Storno della quota di iscrizione',
+            notDueMessage:               'La quota di iscrizione risulta già saldata.',
+            retryOnCancelledMessage:     'Questa quota è stata annullata: riaprila prima di accreditarla.',
+            retryFailedMessage:          'L\'accredito è fallito di nuovo: ',
+        );
+    }
+
+    public function availableMethods(): array
+    {
+        return $this->settings()->registrationFeeMethods();
+    }
+
+    /**
+     * L'emissione dei KY dal conto di sistema ha tre presupposti, e ognuno
+     * spiega da solo perche' una riga puo' finire `failed` con quel testo in
+     * admin_notes.
+     */
+    protected function euroSettlementBlocker(Model&FeePayment $payment, ?User $user): ?string
+    {
+        if (Account::systemAccount() === null) {
+            return 'Conto di sistema non disponibile.';
+        }
+
+        if ($user === null || ($payment->account ?? $this->accountFor($user)) === null) {
+            return 'Conto dell utente non disponibile.';
+        }
+
+        // L'emissione dal conto di sistema richiede un super admin: e' l'unico
+        // che bypassa autorizzazione e fido nel motore (stessa scelta di
+        // ReferralBonusService).
+        if (User::where('is_super_admin', true)->value('id') === null) {
+            return 'Nessun super admin configurato.';
+        }
+
+        return null;
+    }
+
+    /**
+     * In euro la quota dei privati EMETTE moneta: il conto di sistema accredita
+     * all'utente l'importo della quota. Per lui la quota non e' un costo in KY,
+     * ha comprato KY — e' lo stesso identico movimento di una ricarica KYCard.
+     */
+    protected function settleEuroPayment(Model&FeePayment $locked, User $user): ?int
+    {
+        $transfer = $this->transfers->book([
+            'initiated_by'    => User::where('is_super_admin', true)->value('id'),
+            'from_account_id' => Account::systemAccount()->id,
+            'to_account_id'   => ($locked->account ?? $this->accountFor($user))->id,
+            'amount'          => (int) $locked->ky_amount,
+            'kind'            => $this->definition()->creditTransferKind,
+            'description'     => $this->definition()->creditTransferDescription,
+            'idempotency_key' => $this->definition()->idempotencyKey($locked->uuid),
+        ]);
+
+        return $transfer->id;
+    }
+
     /**
      * Valore di `users.registration_fee_due_cents` che significa "questa
      * persona e' entrata come privato DOPO l'accensione della quota, ma dalla
@@ -74,15 +154,6 @@ class RegistrationFeeService
      * sarebbe il modo per entrare nel circuito senza pagare niente.
      */
     public const SOSPESA = 0;
-
-    public function __construct(private readonly TransferBookingService $transfers)
-    {
-    }
-
-    public function settings(): SystemSetting
-    {
-        return SystemSetting::userLimitDefaults();
-    }
 
     // ── Registrazione ───────────────────────────────────────────────────────
 
@@ -583,548 +654,17 @@ class RegistrationFeeService
             && $user->registration_fee_paid_at === null;
     }
 
-    /** L'utente ha una quota ancora da saldare? */
-    public function isDueFor(?User $user): bool
-    {
-        return $user !== null
-            && $user->registration_fee_due_cents !== null
-            && (int) $user->registration_fee_due_cents > 0
-            && $user->registration_fee_paid_at === null;
-    }
-
-    public function amountDueFor(User $user): int
-    {
-        return max(0, (int) ($user->registration_fee_due_cents ?? 0));
-    }
-
-    /** Il conto personale su cui addebitare o accreditare la quota. */
-    public function accountFor(User $user): ?Account
-    {
-        return Account::query()
-            ->where('owner_user_id', $user->id)
-            ->whereNull('parent_account_id')
-            ->where('status', 'active')
-            ->first();
-    }
-
     // ── Apertura di un tentativo di pagamento ───────────────────────────────
-
-    /**
-     * @throws RuntimeException se la quota non e' dovuta o il metodo e' spento
-     */
-    public function startPayment(User $user, string $method): RegistrationFeePayment
-    {
-        if (! $this->isDueFor($user)) {
-            throw new RuntimeException('La quota di iscrizione risulta già saldata.');
-        }
-
-        if (! array_key_exists($method, $this->settings()->registrationFeeMethods())) {
-            throw new RuntimeException('Metodo di pagamento non disponibile.');
-        }
-
-        $amount = $this->amountDueFor($user);
-
-        return RegistrationFeePayment::create([
-            'user_id'          => $user->id,
-            'account_id'       => $this->accountFor($user)?->id,
-            'amount_eur_cents' => $amount,
-            'ky_amount'        => $amount,
-            'status'           => $method === RegistrationFeePayment::METHOD_BANK_TRANSFER
-                ? RegistrationFeePayment::STATUS_PENDING_BANK_TRANSFER
-                : RegistrationFeePayment::STATUS_PENDING,
-            'payment_method'   => $method,
-        ]);
-    }
 
     // ── Bonifico gia' richiesto (01/09/2026) ────────────────────────────────
 
-    /**
-     * Il bonifico in attesa di questo utente, se ce n'e' uno.
-     *
-     * Serve perche' il bonifico non e' un pagamento istantaneo come gli altri:
-     * l'utente lo chiede, va in banca, e torna sul sito ore o giorni dopo.
-     * Se in quel momento ritrova i quattro bottoni come la prima volta non
-     * sa se la sua richiesta e' arrivata, e ne fa un'altra — con una causale
-     * diversa da quella che ha scritto sul bonifico vero.
-     */
-    public function pendingBankTransferFor(User $user): ?RegistrationFeePayment
-    {
-        return RegistrationFeePayment::query()
-            ->where('user_id', $user->id)
-            ->where('payment_method', RegistrationFeePayment::METHOD_BANK_TRANSFER)
-            ->where('status', RegistrationFeePayment::STATUS_PENDING_BANK_TRANSFER)
-            ->latest('id')
-            ->first();
-    }
-
-    /**
-     * Apre la richiesta di bonifico, oppure RIPRENDE quella gia' aperta.
-     *
-     * La causale contiene l'uuid del pagamento: aprirne una nuova a ogni
-     * visita significherebbe dare all'utente una causale diversa da quella
-     * che ha gia' scritto sul bonifico, e nessuno dei due bonifici sarebbe
-     * piu' ricollegabile con certezza.
-     *
-     * @throws RuntimeException
-     */
-    public function startOrResumeBankTransfer(User $user): RegistrationFeePayment
-    {
-        $aperto = $this->pendingBankTransferFor($user);
-
-        if ($aperto !== null && $this->isDueFor($user)) {
-            return $aperto;
-        }
-
-        return $this->startPayment($user, RegistrationFeePayment::METHOD_BANK_TRANSFER);
-    }
-
-    /**
-     * L'utente rinuncia al bonifico e torna a scegliere il metodo.
-     *
-     * Non e' un fallimento del circuito ma una scelta sua, e va scritta:
-     * se il bonifico partisse comunque, l'admin deve poter capire dal
-     * pagamento perche' quella causale risulta abbandonata.
-     */
-    public function abandonBankTransfer(User $user): bool
-    {
-        $aperto = $this->pendingBankTransferFor($user);
-
-        if ($aperto === null) {
-            return false;
-        }
-
-        $aperto->update([
-            'status'      => RegistrationFeePayment::STATUS_FAILED,
-            'admin_notes' => "L'utente ha rinunciato al bonifico e ha scelto un altro metodo.",
-        ]);
-
-        return true;
-    }
-
     // ── Pagamento in KY ─────────────────────────────────────────────────────
-
-    /**
-     * Addebita la quota sul conto dell'utente e la accredita al conto di
-     * sistema (KNM). Il conto va sotto: e' previsto, ed e' il motivo per cui
-     * il fido aggiuntivo viene concesso PRIMA dell'addebito e dentro la
-     * stessa transazione — se l'addebito fallisce, il fido sparisce con lui.
-     *
-     * @throws RuntimeException
-     */
-    public function payWithKy(User $user, ?string $ipAddress = null): RegistrationFeePayment
-    {
-        $payment = $this->startPayment($user, RegistrationFeePayment::METHOD_KY);
-
-        $account = $this->accountFor($user);
-        if ($account === null) {
-            $this->markFailed($payment, 'Nessun conto attivo trovato.');
-            throw new RuntimeException('Nessun conto attivo trovato per il tuo profilo.');
-        }
-
-        $systemAccount = Account::systemAccount();
-        if ($systemAccount === null) {
-            $this->markFailed($payment, 'Conto di sistema non disponibile.');
-            throw new RuntimeException('Conto di sistema non disponibile: riprova più tardi.');
-        }
-
-        $amount = (int) $payment->ky_amount;
-
-        try {
-            DB::transaction(function () use ($user, $payment, $account, $systemAccount, $amount, $ipAddress): void {
-                // Lock sulla riga utente: due click sul bottone "paga in KY"
-                // non devono produrre due addebiti. Il secondo trova la quota
-                // gia' saldata e si ferma qui.
-                $locked = User::whereKey($user->id)->lockForUpdate()->first();
-
-                if (! $this->isDueFor($locked)) {
-                    throw new RuntimeException('La quota di iscrizione risulta già saldata.');
-                }
-
-                // Il fido aggiuntivo PRIMA dell'addebito: senza, il motore
-                // rifiuterebbe di portare a -30 un conto con fido zero.
-                $locked->forceFill([
-                    'registration_fee_ky_allowance_cents' => $amount,
-                ])->save();
-
-                $transfer = $this->transfers->book([
-                    'initiated_by'    => $user->id,
-                    'from_account_id' => $account->id,
-                    'to_account_id'   => $systemAccount->id,
-                    'amount'          => $amount,
-                    'kind'            => 'registration_fee',
-                    'description'     => 'Quota di iscrizione al circuito',
-                    'idempotency_key' => 'regfee_' . $payment->uuid,
-                    'ip_address'      => $ipAddress,
-                ]);
-
-                $locked->forceFill(['registration_fee_paid_at' => now()])->save();
-
-                $payment->update([
-                    'transfer_id'  => $transfer->id,
-                    'account_id'   => $account->id,
-                    'status'       => RegistrationFeePayment::STATUS_COMPLETED,
-                    'completed_at' => now(),
-                ]);
-
-                AuditLog::create([
-                    'actor_user_id'  => $user->id,
-                    'event'          => 'registration_fee.paid_in_ky',
-                    'auditable_type' => RegistrationFeePayment::class,
-                    'auditable_id'   => $payment->id,
-                    'ip_address'     => $ipAddress,
-                    'context'        => [
-                        'uuid'        => $payment->uuid,
-                        'amount'      => $amount,
-                        'transfer_id' => $transfer->id,
-                    ],
-                ]);
-            });
-        } catch (\Throwable $e) {
-            $this->markFailed($payment, $e->getMessage());
-            throw new RuntimeException($e->getMessage(), 0, $e);
-        }
-
-        $user->refresh();
-        $payment->refresh();
-
-        // Fuori dalla transazione: una notifica che parte da dentro verrebbe
-        // spedita anche se la transazione poi rotolasse indietro, e nessuno
-        // se la riprende piu'.
-        $user->notify(new RegistrationFeePaidNotification($payment));
-
-        return $payment;
-    }
 
     // ── Pagamento in euro: KNM emette i KY ──────────────────────────────────
 
-    /**
-     * Chiamato quando un pagamento in euro risulta incassato (Stripe, PayPal,
-     * o bonifico confermato dall'admin). Emette i KY dal conto di sistema
-     * verso l'utente e salda la quota.
-     *
-     * IDEMPOTENTE SU DUE LIVELLI, e servono entrambi: la guardia sullo stato
-     * ferma la seconda chiamata nel caso normale, la idempotency_key del
-     * transfer e' l'unica cosa che regge la corsa vera fra webhook Stripe e
-     * pagina di successo — la stessa corsa che il 31/08 ha fatto assegnare i
-     * punti MLM due volte (vedi fix_punti_mlm_doppi_31_08).
-     */
-    public function completeEuroPayment(RegistrationFeePayment $payment, ?int $confirmedBy = null): void
-    {
-        if ($payment->isCompleted()) {
-            return;
-        }
-
-        $systemAccount = Account::systemAccount();
-        if ($systemAccount === null) {
-            Log::error('Quota iscrizione: conto di sistema mancante', ['payment' => $payment->uuid]);
-            $this->markFailed($payment, 'Conto di sistema non disponibile.');
-
-            return;
-        }
-
-        $user = $payment->user;
-        $account = $payment->account ?? ($user ? $this->accountFor($user) : null);
-
-        if ($user === null || $account === null) {
-            Log::error('Quota iscrizione: conto utente mancante', ['payment' => $payment->uuid]);
-            $this->markFailed($payment, 'Conto dell utente non disponibile.');
-
-            return;
-        }
-
-        $superAdminId = User::where('is_super_admin', true)->value('id');
-        if ($superAdminId === null) {
-            Log::error('Quota iscrizione: nessun super admin per emettere i KY', ['payment' => $payment->uuid]);
-            $this->markFailed($payment, 'Nessun super admin configurato.');
-
-            return;
-        }
-
-        $doppia      = false;
-        $accreditato = false;
-
-        try {
-            DB::transaction(function () use ($payment, $user, $account, $systemAccount, $superAdminId, $confirmedBy, &$doppia, &$accreditato): void {
-                $locked = RegistrationFeePayment::whereKey($payment->id)->lockForUpdate()->first();
-                if ($locked === null || $locked->isCompleted()) {
-                    return;
-                }
-
-                // La stessa quota pagata due volte. Succede davvero: ogni
-                // click su "paga con carta" apre una riga nuova (scelta
-                // voluta — riusare la riga sovrascriverebbe la sessione
-                // Stripe e un pagamento su quella vecchia non verrebbe mai
-                // accreditato), e le sessioni restano valide. Chi ne apre
-                // due e le paga entrambe versa il doppio.
-                //
-                // I KY glieli accreditiamo lo stesso: quei soldi sono
-                // arrivati davvero e in euro la quota E' un acquisto di KY,
-                // quindi restituire il nulla sarebbe peggio. Ma non deve
-                // sparire in silenzio — questa riga e' l'unica cosa che, fra
-                // sei mesi, permettera' di rispondere a "ho pagato due volte".
-                $doppia = User::whereKey($user->id)->value('registration_fee_paid_at') !== null;
-
-                // L'emissione dal conto di sistema richiede un super admin:
-                // e' l'unico che bypassa autorizzazione e fido nel motore
-                // (stessa scelta di ReferralBonusService).
-                $transfer = $this->transfers->book([
-                    'initiated_by'    => $superAdminId,
-                    'from_account_id' => $systemAccount->id,
-                    'to_account_id'   => $account->id,
-                    'amount'          => (int) $locked->ky_amount,
-                    'kind'            => 'registration_fee_credit',
-                    'description'     => 'Quota di iscrizione pagata in euro: accredito KY',
-                    'idempotency_key' => 'regfee_' . $locked->uuid,
-                ]);
-
-                $locked->update([
-                    'transfer_id'  => $transfer->id,
-                    'account_id'   => $account->id,
-                    'status'       => RegistrationFeePayment::STATUS_COMPLETED,
-                    'confirmed_by' => $confirmedBy,
-                    'completed_at' => now(),
-                ]);
-
-                User::whereKey($user->id)
-                    ->whereNull('registration_fee_paid_at')
-                    ->update(['registration_fee_paid_at' => now()]);
-
-                AuditLog::create([
-                    'actor_user_id'  => $confirmedBy ?? $user->id,
-                    'event'          => 'registration_fee.paid_in_eur',
-                    'auditable_type' => RegistrationFeePayment::class,
-                    'auditable_id'   => $locked->id,
-                    'context'        => [
-                        'uuid'           => $locked->uuid,
-                        'amount'         => (int) $locked->amount_eur_cents,
-                        'payment_method' => $locked->payment_method,
-                        'transfer_id'    => $transfer->id,
-                        // true = la quota risultava gia' saldata da un ALTRO
-                        // pagamento: questo e' un secondo incasso per la
-                        // stessa quota, non un accredito ripetuto.
-                        'quota_gia_saldata' => $doppia,
-                    ],
-                ]);
-
-                // Solo qui, e non fuori guardando lo stato: la closure puo'
-                // essere uscita prima (un'altra richiesta l'aveva gia'
-                // accreditata) e in quel caso la ricevuta l'ha gia' mandata
-                // quell'altra.
-                $accreditato = true;
-            });
-        } catch (\Throwable $e) {
-            Log::error('Quota iscrizione: accredito KY fallito', [
-                'payment' => $payment->uuid,
-                'error'   => $e->getMessage(),
-            ]);
-            $this->markFailed($payment, $e->getMessage());
-
-            return;
-        }
-
-        if ($doppia) {
-            Log::warning('Quota iscrizione: incassata due volte dalla stessa persona', [
-                'payment' => $payment->uuid,
-                'user'    => $user->id,
-                'amount'  => (int) $payment->amount_eur_cents,
-                'method'  => $payment->payment_method,
-            ]);
-        }
-
-        $payment->refresh();
-
-        if ($accreditato) {
-            $user->notify(new RegistrationFeePaidNotification($payment));
-        }
-    }
-
     // ── Ripescaggio di un pagamento in euro incassato (01/09/2026) ──────────
 
-    /**
-     * Riprova l'accredito dei KY su un pagamento in euro finito `failed`.
-     *
-     * IL CASO CHE CHIUDE. completeEuroPayment(), se qualcosa va storto
-     * mentre scrive (un deadlock, il conto di sistema irraggiungibile per un
-     * istante), chiama markFailed(). Ma a quel punto Stripe o PayPal i soldi
-     * li hanno GIA' presi. Da li' in poi non si rimette in moto niente da
-     * solo: il webhook che ritenta trova `isPending()` falso e salta, la
-     * pagina di successo pure, e in backoffice Conferma/Rifiuta valgono solo
-     * sui bonifici e «Annulla quota» solo sulle quote saldate. Restava una
-     * persona che ha pagato, senza KY, e nessuna strada che non fosse il
-     * database a mano.
-     *
-     * PERCHE' NON E' UN BOTTONE CHE CREA MONETA. Questo metodo non decide
-     * niente da solo: chi lo chiama deve avere gia' in mano la PROVA
-     * dell'incasso — la sessione Stripe verificata dal server di Stripe,
-     * l'ordine PayPal risultato COMPLETED, o, per il bonifico, un admin che
-     * ha visto i soldi sul conto. Vedi
-     * RegistrationFeeController::adminRetryCredit(), dove la prova si
-     * raccoglie.
-     *
-     * L'accredito vero e' lo stesso di sempre, con la stessa
-     * idempotency_key: se per caso il transfer originale era gia' passato,
-     * il motore restituisce quello e non ne crea un secondo.
-     *
-     * @throws RuntimeException
-     */
-    public function retryEuroCredit(RegistrationFeePayment $payment, User $admin, ?string $ipAddress = null): void
-    {
-        if ($payment->isCompleted()) {
-            throw new RuntimeException('Questa quota risulta già saldata.');
-        }
-
-        if ($payment->payment_method === RegistrationFeePayment::METHOD_KY) {
-            throw new RuntimeException('Il ripescaggio vale solo per i pagamenti in euro: in KY non c\'è nessun incasso da recuperare.');
-        }
-
-        if ($payment->isCancelled()) {
-            throw new RuntimeException('Questa quota è stata annullata: riaprila prima di accreditarla.');
-        }
-
-        AuditLog::create([
-            'actor_user_id'  => $admin->id,
-            'event'          => 'registration_fee.credit_retried',
-            'auditable_type' => RegistrationFeePayment::class,
-            'auditable_id'   => $payment->id,
-            'ip_address'     => $ipAddress,
-            'context'        => [
-                'uuid'           => $payment->uuid,
-                'user_id'        => $payment->user_id,
-                'payment_method' => $payment->payment_method,
-                'stato_prima'    => $payment->status,
-                'note_prima'     => $payment->admin_notes,
-            ],
-        ]);
-
-        $this->completeEuroPayment($payment, $admin->id);
-
-        $payment->refresh();
-
-        if (! $payment->isCompleted()) {
-            // markFailed() ha gia' riscritto il motivo: ridarlo all'admin e'
-            // l'unico modo perche' non riprema il bottone all'infinito.
-            throw new RuntimeException('L\'accredito è fallito di nuovo: ' . ($payment->admin_notes ?: 'motivo non registrato'));
-        }
-    }
-
     // ── Annullamento di una quota gia' saldata (01/09/2026) ─────────────────
-
-    /**
-     * Disfa una quota saldata: storna il movimento, rimette la quota fra
-     * quelle da pagare e toglie il fido aggiuntivo. Le tre cose insieme.
-     *
-     * PERCHE' NON SI FA ELIMINANDO IL MOVIMENTO. Cancellare il movimento da
-     * /admin/movimenti ripristina i saldi e basta: la quota resta scritta
-     * come pagata e il fido aggiuntivo resta addosso all'utente, che si
-     * ritrova dentro il circuito gratis e con 30 KY di scoperto in piu'. Per
-     * questo i movimenti di quota non sono piu' eliminabili da li'
-     * (AdminController::MOVIMENTI_DI_QUOTA) e l'unica strada e' questa.
-     *
-     * LO STORNO SI FA SOLO SE IL MOVIMENTO C'E' ANCORA. Chi ha gia' cancellato
-     * il movimento a mano — prima che quella strada venisse chiusa — ha gia'
-     * avuto indietro i suoi KY: stornare di nuovo glieli regalerebbe una
-     * seconda volta. Qui si guarda il movimento, non lo stato del pagamento.
-     *
-     * @throws RuntimeException
-     */
-    public function cancel(RegistrationFeePayment $payment, User $admin, ?string $reason = null, ?string $ipAddress = null): RegistrationFeePayment
-    {
-        if (! $payment->isCompleted()) {
-            throw new RuntimeException("Si può annullare solo una quota già saldata.");
-        }
-
-        $superAdminId = User::where('is_super_admin', true)->value('id');
-        if ($superAdminId === null) {
-            throw new RuntimeException("Nessun super admin configurato: lo storno non può essere emesso.");
-        }
-
-        DB::transaction(function () use ($payment, $admin, $reason, $ipAddress, $superAdminId): void {
-            $locked = RegistrationFeePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
-
-            if (! $locked->isCompleted()) {
-                throw new RuntimeException("Questa quota è già stata annullata.");
-            }
-
-            // Il movimento originale, se esiste ancora ed e' contabilizzato.
-            $originale = $locked->transfer_id !== null
-                ? Transfer::whereKey($locked->transfer_id)->where('status', 'booked')->first()
-                : null;
-
-            $stornoId = null;
-
-            if ($originale !== null) {
-                // Storno per inversione dei conti: funziona identico nei due
-                // versi (in KY l'utente aveva pagato il sistema, in euro il
-                // sistema aveva accreditato l'utente) senza doverli
-                // distinguere qui.
-                $storno = $this->transfers->book([
-                    'initiated_by'    => $superAdminId,
-                    'from_account_id' => $originale->to_account_id,
-                    'to_account_id'   => $originale->from_account_id,
-                    'amount'          => (int) $originale->amount,
-                    'kind'            => 'registration_fee_reversal',
-                    'description'     => 'Storno della quota di iscrizione',
-                    'idempotency_key' => 'regfee_storno_' . $locked->uuid,
-                    'ip_address'      => $ipAddress,
-                ]);
-
-                $stornoId = $storno->id;
-            }
-
-            $user = User::whereKey($locked->user_id)->lockForUpdate()->first();
-
-            if ($user !== null) {
-                $user->forceFill([
-                    // La quota torna dovuta. L'importo e' quello di questo
-                    // pagamento, non quello di oggi in impostazioni: chi si
-                    // era registrato a 30 continua a dovere 30 anche se nel
-                    // frattempo la quota e' passata a 50.
-                    // `?:` e non `??`: vale anche per lo zero della quota
-                    // sospesa, che altrimenti resterebbe zero e la quota non
-                    // tornerebbe dovuta pur essendo stata annullata.
-                    'registration_fee_due_cents'          => $user->registration_fee_due_cents ?: (int) $locked->amount_eur_cents,
-                    'registration_fee_paid_at'            => null,
-                    // Il fido aggiuntivo se ne va con la quota che lo aveva
-                    // motivato: era li' solo per reggere il -30.
-                    'registration_fee_ky_allowance_cents' => 0,
-                ])->save();
-            }
-
-            $locked->update([
-                'status'       => RegistrationFeePayment::STATUS_CANCELLED,
-                'admin_notes'  => $reason ?? 'Quota annullata dal backoffice.',
-                'confirmed_by' => $admin->id,
-            ]);
-
-            AuditLog::create([
-                'actor_user_id'  => $admin->id,
-                'event'          => 'registration_fee.cancelled',
-                'auditable_type' => RegistrationFeePayment::class,
-                'auditable_id'   => $locked->id,
-                'ip_address'     => $ipAddress,
-                'context'        => [
-                    'uuid'                 => $locked->uuid,
-                    'user_id'              => $locked->user_id,
-                    'amount'               => (int) $locked->ky_amount,
-                    'payment_method'       => $locked->payment_method,
-                    'original_transfer_id' => $locked->transfer_id,
-                    'reversal_transfer_id' => $stornoId,
-                    // Se qui c'e' false, il movimento era gia' stato
-                    // cancellato a mano e i KY erano gia' tornati indietro.
-                    'reversal_booked'      => $stornoId !== null,
-                    'reason'               => $reason,
-                ],
-            ]);
-        });
-
-        $payment->refresh();
-
-        if ($payment->user !== null) {
-            $payment->user->notify(new RegistrationFeeCancelledNotification($payment));
-        }
-
-        return $payment;
-    }
 
     // ── L'admin mette la quota in carico a un utente (01/09/2026) ───────────
 
@@ -1202,15 +742,4 @@ class RegistrationFeeService
         return $importo;
     }
 
-    public function markFailed(RegistrationFeePayment $payment, ?string $reason = null): void
-    {
-        if ($payment->isCompleted()) {
-            return;
-        }
-
-        $payment->update([
-            'status'      => RegistrationFeePayment::STATUS_FAILED,
-            'admin_notes' => $reason ?? $payment->admin_notes,
-        ]);
-    }
 }

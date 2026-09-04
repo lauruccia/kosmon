@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Contracts\FeePayment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,7 +31,7 @@ use Illuminate\Support\Str;
  * @property int|null $confirmed_by
  * @property \Illuminate\Support\Carbon|null $completed_at
  */
-class AgentCodeFeePayment extends Model
+class AgentCodeFeePayment extends Model implements FeePayment
 {
     use HasFactory;
 
