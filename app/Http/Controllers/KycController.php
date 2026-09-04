@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\KycStatusChanged;
+use App\Notifications\Concerns\NotifiesAdmins;
 use App\Notifications\KycStatusChangedNotification;
 use App\Models\Account;
 use App\Models\AuditLog;
@@ -14,6 +15,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -94,6 +96,20 @@ class KycController extends Controller
 
             // Notifica il referente via email
             $this->notifyCompanyUsers($company, 'under_review');
+
+            // ...e gli admin, che sono gli unici a poter sbloccare la pratica.
+            // Non bloccante: un documento caricato non si perde perche' la
+            // posta dell'admin non risponde. Stesso identico aggancio in
+            // OnboardingController::uploadKyc(), che e' il gemello di questo
+            // metodo per chi arriva dal wizard /benvenuto.
+            try {
+                NotifiesAdmins::notifyAdminsOfKycSubmission($company);
+            } catch (\Throwable $e) {
+                Log::error('Notifica KYC agli admin fallita', [
+                    'company_id' => $company->id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
         }
 
         return back()->with('portal_success', 'Documento caricato correttamente. Il nostro team lo esaminerà a breve.');

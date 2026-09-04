@@ -622,6 +622,12 @@ class AdminController extends Controller
             'transfers'    => Transfer::query()->excludeLedgerCorrections()->count(),
             'companyUsers' => User::query()->where('account_holder_type', 'company')->count(),
             'privateUsers' => User::query()->where('account_holder_type', 'private')->count(),
+            // Aziende ferme in attesa di verifica KYC (04/09/2026): senza
+            // questo numero la tile "Verifiche e conformita" e' un link
+            // muto, e una pratica puo' restare li' per giorni senza che
+            // nessuno se ne accorga. La notifica agli admin avvisa una volta
+            // sola, questo contatore resta finche' la coda non e' vuota.
+            'kycPending'   => Company::query()->where('kyc_status', 'under_review')->count(),
         ];
     }
 

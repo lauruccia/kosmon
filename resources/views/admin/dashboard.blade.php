@@ -203,6 +203,17 @@
             font-size: 12px;
             line-height: 1.35;
         }
+        .bank-module-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: #b91c1c;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            vertical-align: middle;
+        }
         .bank-chart {
             display: grid;
             gap: 11px;
@@ -429,7 +440,7 @@
                     <a class="bank-module" href="{{ route('admin.kyc.index') }}">
                         <span class="bank-module-code">KYC</span>
                         <span>
-                            <h3>Verifiche e conformita</h3>
+                            <h3>Verifiche e conformita @if(($stats['kycPending'] ?? 0) > 0)<span class="bank-module-badge">{{ $stats['kycPending'] }} in attesa</span>@endif</h3>
                             <p>Controllo documentale, stato aziende, sospensioni e riattivazioni circuito.</p>
                         </span>
                         <span class="cta secondary">Apri</span>

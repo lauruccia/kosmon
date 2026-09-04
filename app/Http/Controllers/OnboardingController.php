@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Models\Sector;
 use App\Models\KycDocument;
+use App\Notifications\Concerns\NotifiesAdmins;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class OnboardingController extends Controller
@@ -139,9 +141,23 @@ class OnboardingController extends Controller
             'status'              => 'pending',
         ]);
 
-        // Prima volta: aggiorna lo stato KYC e notifica l'admin
+        // Prima volta: aggiorna lo stato KYC e notifica l'admin.
+        // La notifica sta DENTRO l'if di proposito: parte una volta sola, al
+        // passaggio pending -> under_review, non a ogni documento caricato.
+        // Non e' bloccante per lo stesso motivo delle quote in
+        // AuthController::register(): un documento caricato non si perde
+        // perche' la posta dell'admin non risponde.
         if ($company->kyc_status === 'pending') {
             $company->update(['kyc_status' => 'under_review']);
+
+            try {
+                NotifiesAdmins::notifyAdminsOfKycSubmission($company);
+            } catch (\Throwable $e) {
+                Log::error('Notifica KYC agli admin fallita', [
+                    'company_id' => $company->id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
         }
 
         return redirect()->route('onboarding.step2')
