@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 <section class="page-intro--row page-intro">
     <span class="eyebrow">{{ $editingListing ? 'Modifica prodotto' : 'Nuovo prodotto' }}</span>
     <h2>{{ $editingListing ? 'Modifica: ' . $editingListing->title : 'Pubblica nello shop' }}</h2>
@@ -13,9 +14,9 @@
 <div style="max-width:720px;margin:0 auto;">
 <section class="card light-card">
     @if($errors->any())
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+    <div style="background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:10px;padding:14px 18px;margin-bottom:20px;">
         @foreach($errors->all() as $error)
-            <p style="color:#991b1b;font-size:14px;margin:2px 0;">• {{ $error }}</p>
+            <p style="color:var(--danger);font-size:14px;margin:2px 0;">• {{ $error }}</p>
         @endforeach
     </div>
     @endif
@@ -40,7 +41,7 @@
                 <textarea name="description" required maxlength="2000" rows="5"
                     placeholder="Descrivi il prodotto/servizio in dettaglio: cosa include, modalità di erogazione, eventuali prerequisiti..."
                     class="field-input" style="resize:vertical;">{{ old('description', $editingListing?->description) }}</textarea>
-                <small style="color:#94a3b8;font-size:12px;">Massimo 2000 caratteri</small>
+                <small style="color:var(--ink-muted);font-size:12px;">Massimo 2000 caratteri</small>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -87,7 +88,7 @@
                     @if($required !== null)
                         {{-- Forzato: saldo negativo --}}
                         <input type="hidden" name="ky_percentage" value="100">
-                        <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#713f12;">
+                        <div style="background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--warning);">
                             <strong>100% KY obbligatorio</strong> — il tuo saldo reale è
                             {{-- available_balance è in centesimi: number_format() diretto lo mostrava
                                  grezzo (senza /100), stesso bug ×100 del 24/07. --}}
@@ -108,14 +109,14 @@
                                         style="display:none;" class="ky-pct-radio">
                                     <span class="ky-pct-btn"
                                         style="display:inline-block;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;
-                                               border:2px solid var(--border);cursor:pointer;transition:all .15s;
-                                               {{ (int)$currentPct === $pct ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:var(--card);color:var(--text);' }}">
+                                               border:2px solid var(--line-strong);cursor:pointer;transition:all .15s;
+                                               {{ (int)$currentPct === $pct ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:var(--surface);color:var(--ink);' }}">
                                         {{ $label }}
                                     </span>
                                 </label>
                             @endforeach
                         </div>
-                        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+                        <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">
                             La quota EUR viene saldata direttamente tra acquirente e venditore fuori dal circuito.
                         </div>
                     @endif
@@ -193,7 +194,7 @@
                 <input type="text" name="contact_info" maxlength="200"
                     value="{{ old('contact_info', $editingListing?->contact_info) }}"
                     placeholder="es. commerciale@azienda.it o +39 320 ..." class="field-input">
-                <small style="color:#94a3b8;font-size:12px;">Visibile agli utenti del circuito interessati al prodotto</small>
+                <small style="color:var(--ink-muted);font-size:12px;">Visibile agli utenti del circuito interessati al prodotto</small>
             </div>
 
             {{-- ── Immagini ────────────────────────────────────────────────── --}}
@@ -229,7 +230,7 @@
                 {{-- Carica nuove immagini --}}
                 <input type="file" id="new-images-input" name="images[]" multiple accept="image/jpeg,image/png,image/webp"
                     class="field-input" style="padding:8px;">
-                <small style="color:#94a3b8;font-size:12px;">
+                <small style="color:var(--ink-muted);font-size:12px;">
                     Massimo 6 immagini · JPG, PNG, WebP · max 3 MB ciascuna
                 </small>
 

@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 <div style="margin-bottom:16px;">
     <a href="{{ route('portal.shop') }}" class="shop-back-link">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -12,7 +13,7 @@
 
     <section class="card light-card" style="text-align:center;padding:48px 24px;">
         <div style="font-size:44px;line-height:1;margin-bottom:12px;">🛒</div>
-        <h2 style="font-size:20px;font-weight:700;color:#10263d;margin:0 0 8px;">Il carrello è vuoto</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--ink);margin:0 0 8px;">Il carrello è vuoto</h2>
         <p class="subtle" style="margin:0 0 20px;">Quello che aggiungi resta qui anche se cambi dispositivo.</p>
         <a href="{{ route('portal.shop') }}" class="cta" style="display:inline-block;">Vai allo shop</a>
     </section>
@@ -46,7 +47,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
                     <div>
                         <span class="eyebrow">Venditore</span>
-                        <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 0;">
+                        <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 0;">
                             <a href="{{ route('portal.shop', ['company' => $gruppo['company']->id]) }}" style="color:inherit;text-decoration:none;">
                                 {{ $gruppo['company']->name }}
                             </a>
@@ -61,35 +62,35 @@
                     $immagini = $listing->card_image_urls;
                     $motivo = $riga->motivoIndisponibilita();
                 @endphp
-                <div class="cart-row" style="display:flex;gap:14px;padding:14px 0;border-top:1px solid #eef2f7;{{ $motivo ? 'opacity:.72;' : '' }}">
+                <div class="cart-row" style="display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line);{{ $motivo ? 'opacity:.72;' : '' }}">
 
                     <a href="{{ route('portal.shop.show', $listing) }}" style="flex:0 0 72px;">
                         @if(count($immagini) > 0)
                             <img src="{{ $immagini[0] }}" alt="{{ $listing->title }}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;">
                         @else
-                            <div style="width:72px;height:72px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:22px;">📦</div>
+                            <div style="width:72px;height:72px;border-radius:10px;background:var(--surface-soft);display:flex;align-items:center;justify-content:center;font-size:22px;">📦</div>
                         @endif
                     </a>
 
                     <div style="flex:1;min-width:0;">
-                        <a href="{{ route('portal.shop.show', $listing) }}" style="font-weight:600;color:#10263d;text-decoration:none;font-size:15px;">
+                        <a href="{{ route('portal.shop.show', $listing) }}" style="font-weight:600;color:var(--ink);text-decoration:none;font-size:15px;">
                             {{ $listing->title }}
                         </a>
 
                         @if($riga->etichettaVariante())
-                            <div style="margin-top:4px;font-size:13px;color:#475569;">{{ $riga->etichettaVariante() }}</div>
+                            <div style="margin-top:4px;font-size:13px;color:var(--ink-soft);">{{ $riga->etichettaVariante() }}</div>
                         @endif
 
                         <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                             <span class="pill" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
                             @if($listing->is_on_offer)
-                                <span class="pill" style="background:#fee2e2;color:#991b1b;">🔥 -{{ $listing->offer_discount_percent }}%</span>
+                                <span class="pill" style="background:var(--danger-soft);color:var(--danger);">🔥 -{{ $listing->offer_discount_percent }}%</span>
                             @endif
                             <span class="subtle" style="font-size:12px;">{{ ky_format($riga->prezzoUnitario()) }} KY l'uno</span>
                         </div>
 
                         @if($motivo)
-                        <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 11px;margin:8px 0 0;">
+                        <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:7px 11px;margin:8px 0 0;">
                             {{ $motivo }}
                         </p>
                         @endif
@@ -143,7 +144,7 @@
                     </div>
 
                     <div style="flex:0 0 auto;text-align:right;">
-                        <div style="font-weight:700;color:#10263d;font-size:15px;">{{ ky_format($riga->totaleKy()) }} KY</div>
+                        <div style="font-weight:700;color:var(--ink);font-size:15px;">{{ ky_format($riga->totaleKy()) }} KY</div>
                         @if($riga->totaleEuro() > 0)
                             <div class="subtle" style="font-size:12.5px;margin-top:2px;">+ € {{ number_format($riga->totaleEuro() / 100, 2, ',', '.') }}</div>
                         @endif
@@ -152,7 +153,7 @@
                 @endforeach
 
                 @if($gruppo['spedizione_ky'] > 0 || $gruppo['spedizione_eur'] > 0)
-                <div style="display:flex;justify-content:space-between;padding:12px 0 0;border-top:1px solid #eef2f7;font-size:13px;color:#475569;">
+                <div style="display:flex;justify-content:space-between;padding:12px 0 0;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);">
                     <span>Spedizione <span class="subtle">(una sola per venditore)</span></span>
                     <span>
                         {{ ky_format($gruppo['spedizione_ky']) }} KY{{ $gruppo['spedizione_eur'] > 0 ? ' + € ' . number_format($gruppo['spedizione_eur'] / 100, 2, ',', '.') : '' }}
@@ -160,7 +161,7 @@
                 </div>
                 @endif
 
-                <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:10px;border-top:2px solid #10263d;font-weight:700;color:#10263d;">
+                <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:10px;border-top:2px solid var(--ink);font-weight:700;color:var(--ink);">
                     <span>Totale {{ $gruppo['company']->name }}</span>
                     <span>
                         {{ ky_format($gruppo['ky']) }} KY{{ $gruppo['eur'] > 0 ? ' + € ' . number_format($gruppo['eur'] / 100, 2, ',', '.') : '' }}
@@ -171,7 +172,7 @@
 
             <form method="POST" action="{{ route('portal.cart.clear') }}" style="text-align:right;">
                 @csrf
-                <button type="submit" style="background:none;border:none;color:#94a3b8;font-size:12.5px;cursor:pointer;"
+                <button type="submit" style="background:none;border:none;color:var(--ink-muted);font-size:12.5px;cursor:pointer;"
                         onclick="return confirm('Vuoi svuotare tutto il carrello?')">
                     Svuota il carrello
                 </button>
@@ -218,13 +219,13 @@
             <div class="quick-actions" style="margin-top:20px;">
 
                 @if($indisponibili->isNotEmpty())
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         {{ $indisponibili->count() === 1 ? "C'è un prodotto" : "Ci sono {$indisponibili->count()} prodotti" }}
                         che non si {{ $indisponibili->count() === 1 ? 'può' : 'possono' }} più acquistare.
                         {{ $indisponibili->count() === 1 ? 'Rimuovilo' : 'Rimuovili' }} o riduci la quantità per procedere.
                     </p>
                 @elseif($serveIndirizzo && ! $indirizzoCompleto)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Nel carrello ci sono prodotti da spedire: completa il tuo indirizzo di spedizione per procedere.
                     </p>
                     {{-- Dal 26/08/2026 l'indirizzo non sta piu' dentro al form del
@@ -235,7 +236,7 @@
                         Aggiungi un indirizzo di spedizione
                     </a>
                 @elseif(! $saldoBasta)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Saldo insufficiente: ti mancano {{ ky_format($totaleKy - $saldoDisponibile) }} KY.
                     </p>
                     <a href="{{ route('portal.ky-cards.index', ['redirect_to' => route('portal.cart')]) }}" class="cta" style="width:100%;text-align:center;display:block;">
@@ -259,55 +260,6 @@
 
 @endif
 
-<style>
-    .shop-back-link {
-        display: inline-flex; align-items: center; gap: 6px;
-        color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 600;
-        transition: color .15s;
-    }
-    .shop-back-link:hover { color: var(--primary); }
-
-    @media (max-width: 900px) {
-        .cart-grid { grid-template-columns: 1fr !important; }
-    }
-    @media (max-width: 560px) {
-        .cart-row { flex-wrap: wrap; }
-        .cart-row > div:last-child { text-align: left !important; width: 100%; }
-    }
-
-    /* ── Le azioni della riga (27/08/2026) ──────────────────────────────
-       Bottoni veri, non scritte: 34px di altezza minima e uno sfondo, cosi'
-       il pollice becca quello che voleva. E "Rimuovi" sta staccato dalla
-       quantita', invece che a due pixel da "Aggiorna". */
-    .riga-azioni {
-        margin-top: 10px;
-        display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
-        justify-content: space-between;
-    }
-    .qta-form { display: flex; align-items: center; gap: 8px; }
-    .qta-input {
-        width: 72px; min-height: 34px; padding: 6px 8px;
-        border: 1px solid #cbd5e1; border-radius: 7px; font-size: 14px;
-    }
-    .qta-conferma {
-        min-height: 34px; padding: 6px 12px;
-        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px;
-        color: #0c4a86; font-size: 12.5px; font-weight: 700; cursor: pointer;
-    }
-    .rimuovi-form { display: flex; align-items: center; gap: 8px; }
-    .rimuovi-avvia, .rimuovi-si, .rimuovi-no {
-        min-height: 34px; padding: 6px 12px;
-        border-radius: 7px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-    }
-    .rimuovi-avvia {
-        background: none; border: 1px solid transparent; color: #b91c1c;
-    }
-    .rimuovi-avvia:hover { border-color: #fecaca; background: #fef2f2; }
-    .rimuovi-conferma { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .rimuovi-domanda { font-size: 12.5px; color: #7f1d1d; font-weight: 600; }
-    .rimuovi-si { background: #b91c1c; border: 1px solid #b91c1c; color: #fff; }
-    .rimuovi-no { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
-</style>
 
 {{--
     Due comodita', tutte e due facoltative: senza JavaScript la pagina resta

@@ -1,0 +1,628 @@
+/* =============================================================================
+   KMoney — Foglio di stile dello SHOP
+   Creato il 02/09/2026 (fase 0 del piano ANALISI_SHOP_AVANZATO_2026-09-02.md).
+
+   PERCHE' ESISTE
+   Fino a ieri ogni vista dello shop si portava dentro il proprio blocco
+   <style>: la card prodotto era copiata quattro volte (catalogo, i-miei-
+   prodotti, offerte, striscia in evidenza) e ~190 colori erano scritti a mano
+   invece che presi dai token, con il risultato che in modalita' scura si
+   leggeva testo scuro su fondo scuro su otto viste su dodici.
+   Da qui in avanti: UN SOLO POSTO. Se una regola serve a piu' di una vista
+   dello shop, sta qui. Se serve a una sola, sta qui lo stesso — cosi' chi
+   cerca sa dove guardare.
+
+   REGOLA D'ORO: nessun colore scritto a mano. Solo var(--...) dichiarate in
+   layouts/portal.blade.php, che esistono in chiaro E in scuro. Un esadecimale
+   in questo file e' un bug, non una scorciatoia.
+
+   COME ARRIVA IN PAGINA
+   <x-shop.styles /> in cima alla vista: fa un @push('head') una volta sola,
+   con ?v=filemtime attaccato — il service worker cachea /assets/ in
+   cache-first, e senza la marca temporale servirebbe la versione vecchia per
+   sempre. Nessun passaggio di build: il file e' statico, e il deploy cPanel
+   non lancia npm.
+   ============================================================================= */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. BARRA DEI FILTRI
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.shop-toolbar-card { padding: 18px 22px; }
+
+/* UNA RIGA SOLA FINCHE' CI STA, POI A CAPO (27/08/2026 — audit 26/08, blocco 5).
+   Prima era `nowrap` con `overflow-x:auto`: i quattro campi hanno min-width per
+   790px e sotto il metro di colonna la barra scorreva in orizzontale senza
+   sembrare scorrevole, mandando "Filtra" fuori dal bordo. Su un portatile
+   stretto il filtro si compilava ma non si poteva piu' inviare. */
+.shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+
+/* Le azioni a destra: spinte in fondo quando dividono la riga con i filtri,
+   allineate a sinistra quando sono andate a capo per conto loro. */
+.shop-toolbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+
+.shop-toolbar-field label {
+    display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
+}
+.shop-toolbar-field--grow { flex: 1; min-width: 220px; }
+
+.shop-search-input { position: relative; display: flex; align-items: center; }
+.shop-search-input svg { position: absolute; left: 12px; color: var(--ink-muted); pointer-events: none; }
+.shop-search-input input {
+    width: 100%; padding: 10px 14px 10px 36px;
+    border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--ink); font-size: 14px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.shop-search-input input:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* La freccia della select e' un SVG in data-uri e il suo colore NON si puo'
+   prendere da una variabile CSS (dentro un url() le var non si risolvono).
+   Percio' e' dichiarata due volte: una per il tema chiaro e una per lo scuro,
+   ed e' l'unica eccezione ammessa alla regola d'oro di questo file. */
+.km-select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    width: 100%; padding: 10px 34px 10px 14px; font-size: 14px; font-family: inherit;
+    border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm);
+    background-color: var(--surface); color: var(--ink); cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'><path d='M1 1l4.5 4.5L10 1' stroke='%234a637d' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center; background-size: 11px 7px;
+    outline: none; transition: border-color .15s, box-shadow .15s;
+}
+[data-theme="dark"] .km-select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'><path d='M1 1l4.5 4.5L10 1' stroke='%237d96b5' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+.km-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+/* Torna indietro */
+.shop-back-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; color: var(--ink-soft);
+}
+.shop-back-link:hover { color: var(--primary); }
+
+/* Banner "stai vedendo solo i prodotti di X" */
+.shop-seller-banner {
+    margin-top: 18px; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+}
+.shop-seller-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. IL COLORE DELL'ACQUISTO
+   La tavolozza del portale e' bancaria e non aveva un colore per l'azione che
+   porta soldi: "Aggiungi al carrello" aveva lo stesso blu di "Filtra" e di
+   "Modifica". `.cta.buy` e' l'unico bottone arancio del portale, e va usato
+   SOLO sull'azione commerciale — se finisce anche su "Filtra" smette di
+   significare qualcosa.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.cta.buy {
+    background: var(--buy); color: var(--buy-on); border-color: var(--buy);
+    font-weight: 800; letter-spacing: .01em;
+    box-shadow: 0 1px 2px rgba(0,0,0,.10);
+}
+.cta.buy:hover { background: var(--buy-strong); border-color: var(--buy-strong); color: var(--buy-on); }
+.cta.buy:focus-visible { outline: 3px solid var(--buy-soft); outline-offset: 2px; }
+.cta.buy[disabled], .cta.buy:disabled { background: var(--buy); border-color: var(--buy); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. LA FOTO DEL PRODOTTO (e cio' che ci sta sopra)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.product-media {
+    position: relative; display: block; aspect-ratio: 16 / 10;
+    background: linear-gradient(150deg, var(--surface-soft), var(--surface));
+    overflow: hidden; text-decoration: none;
+}
+.product-media img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform .4s ease;
+}
+.catalog-card:hover .product-media img,
+.featured-card:hover .product-media img { transform: scale(1.07); }
+
+.product-media-placeholder {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--ink-muted);
+}
+.product-media-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    /* Unico esadecimale del file, e voluto: il velo e' scuro in ENTRAMBI i temi
+       (--media-veil), quindi il testo sopra dev'essere bianco in entrambi. */
+    background: var(--media-veil); color: #fff; font-weight: 800; font-size: 13px;
+    letter-spacing: .04em; text-transform: uppercase;
+}
+
+.product-badge {
+    position: absolute; top: 10px; font-size: 10.5px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px; letter-spacing: .02em;
+    background: var(--surface); color: var(--ink-soft);
+    box-shadow: var(--shadow-xs);
+}
+.product-badge--featured { right: 10px; background: var(--warning-soft); color: var(--warning); }
+
+/* "100% KY": e' la vera informazione utile per chi compra, quindi sta sulla
+   foto e non in un chip generico nel corpo della card (29/07/2026). */
+.product-badge--full-ky {
+    left: 10px; background: var(--in-stock); color: var(--in-stock-on); font-weight: 800;
+}
+
+/* Badge sconto "-X%" (13/08/2026): stesso angolo del badge "In evidenza". Se un
+   prodotto e' ENTRAMBI in evidenza e in offerta, il combinatore qui sotto
+   sposta giu' la stella — l'offerta, piu' urgente, resta in alto. L'ordine nel
+   markup (offerta PRIMA della stella) e' quello che lo fa funzionare. */
+.product-badge--offer { right: 10px; background: var(--sale); color: var(--sale-on); font-weight: 800; }
+.product-badge--offer ~ .product-badge--featured { top: 40px; }
+
+/* Badge di stato di "I miei prodotti": qui deve saltare all'occhio quali
+   prodotti NON sono visibili ai clienti. */
+.mine-status-badge {
+    position: absolute; top: 10px; left: 10px; font-size: 10.5px; font-weight: 800;
+    padding: 4px 10px; border-radius: 999px; letter-spacing: .02em; text-transform: uppercase;
+    box-shadow: var(--shadow-xs);
+}
+.mine-status-badge--active    { background: var(--in-stock-soft); color: var(--success); }
+.mine-status-badge--suspended { background: var(--warning-soft);  color: var(--warning); }
+.mine-status-badge--draft     { background: var(--surface-hover); color: var(--ink-soft); }
+.mine-status-badge--expired   { background: var(--danger-soft);   color: var(--danger); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. LA CARD PRODOTTO
+   Un solo blocco di regole per tutte e quattro le griglie che prima la
+   copiavano: catalogo, i-miei-prodotti, offerte, striscia in evidenza.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.catalog-card {
+    padding: 0; overflow: hidden; display: flex; flex-direction: column;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.catalog-card:hover {
+    transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--line-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+    .catalog-card, .catalog-card:hover,
+    .product-media img, .catalog-card:hover .product-media img { transition: none; transform: none; }
+}
+
+/* Prodotto sospeso/non attivo, visibile solo al proprietario e all'admin. */
+.catalog-card--inactive { opacity: .74; }
+.catalog-card--inactive:hover { opacity: 1; }
+
+.listing-hidden-note {
+    flex: 1; font-size: 12px; font-weight: 600; color: var(--ink-muted);
+    display: flex; align-items: center; justify-content: center; text-align: center;
+}
+
+.product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+
+/* Titolo bloccato a 2 righe (26/08/2026, richiesta di Laura): l'altezza e' FISSA
+   anche quando il titolo sta su una riga sola, cosi' il bianco che avanza si
+   raccoglie tutto qui sotto e non fra venditore e prezzo. min-height in EM e
+   non in px, cosi' vale anche per la variante piu' piccola delle card "in
+   evidenza" (13px) senza una seconda regola. `overflow:hidden` e' obbligatorio:
+   senza, line-clamp non taglia.
+   ATTENZIONE: questo blocco era gia' stato scritto una volta e cancellato per
+   sbaglio dal commit f46d731. Non toglierlo. */
+.product-title {
+    margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden; min-height: 2.5em;
+}
+.product-title a { color: var(--ink); text-decoration: none; }
+.product-title a:hover { color: var(--primary); }
+
+/* Il blocco venditore + prezzo + bottone e' incollato in fondo alla card
+   (26/08/2026, richiesta di Laura): l'unico `margin-top:auto` di tutto il corpo
+   card sta QUI, sulla riga del venditore, cosi' tutto lo spazio che avanza
+   finisce in un punto solo — sotto il titolo.
+   ATTENZIONE: in flexbox lo spazio libero si divide fra TUTTI i margini auto,
+   quindi se si rimette `margin-top:auto` anche su .product-price-row il bianco
+   si spacca in due e il venditore si stacca dal prezzo. */
+.catalog-card .product-body .entity-meta,
+.featured-card .product-body .entity-meta { margin-top: auto; }
+
+.product-price-row {
+    margin-top: 0; padding-top: 2px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+}
+.product-price {
+    font-size: 19px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+}
+.product-price small { font-size: 11px; font-weight: 700; margin-left: 2px; }
+.product-price-old { text-decoration: line-through; color: var(--ink-muted); font-size: 12px; }
+
+.mix-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+
+.catalog-card .page-actions { margin-top: 0 !important; }
+
+/* "Elimina" resta un bottone secondario, ma di colore diverso: prima era un
+   `style="color:#991b1b"` scritto a mano, che in tema scuro diventava rosso
+   cupo su fondo quasi nero. */
+.shop-danger-btn { color: var(--danger); }
+.shop-danger-btn:hover { color: var(--danger); border-color: var(--danger); }
+.catalog-card .page-actions .cta,
+.featured-card .product-body .cta { font-weight: 700; letter-spacing: .01em; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   5. FASCIA "IN EVIDENZA"
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.featured-strip {
+    display: flex; gap: 16px; overflow-x: auto; padding-bottom: 4px; margin-top: 4px;
+    scroll-snap-type: x proximity;
+}
+.featured-card {
+    flex: 0 0 240px; scroll-snap-align: start;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--surface); box-shadow: var(--shadow-xs);
+    overflow: hidden; display: flex; flex-direction: column;
+    transition: box-shadow .18s ease, border-color .18s ease;
+}
+.featured-card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
+.featured-card .product-body { padding: 9px 11px 11px; gap: 5px; }
+.featured-card .product-title { font-size: 13px; }
+.featured-card .product-price { font-size: 17px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   6. OFFERTE DELLA SETTIMANA
+   Un blocco a piena larghezza per ogni offerta, uno sotto l'altro
+   (14/08/2026, richiesta di Laura — niente griglia).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.offer-stack { display: flex; flex-direction: column; gap: 20px; }
+.offer-hero {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    overflow: hidden; box-shadow: var(--shadow-lg); min-height: 360px;
+}
+.offer-hero-media {
+    position: relative; display: block; overflow: hidden; text-decoration: none;
+    background: linear-gradient(150deg, var(--surface-soft), var(--surface));
+}
+.offer-hero-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.offer-hero-body {
+    padding: 32px 40px; display: flex; flex-direction: column; align-items: flex-start;
+    justify-content: center; gap: 10px;
+}
+.offer-hero-title { margin: 4px 0 0; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: -.02em; }
+.offer-hero-title a { color: var(--ink); text-decoration: none; }
+.offer-hero-title a:hover { color: var(--primary); }
+.offer-hero-price-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.offer-hero-price {
+    font-size: 38px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+}
+.offer-hero-price small { font-size: 15px; font-weight: 700; margin-left: 3px; }
+.offer-hero-price-old { text-decoration: line-through; color: var(--ink-muted); font-size: 18px; }
+.offer-hero-expiry { font-size: 13px; font-weight: 700; color: var(--warning); margin-top: 2px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   7. STATO VUOTO
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.shop-empty {
+    grid-column: 1 / -1; text-align: center; padding: 56px 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--ink-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   8. BRICIOLE DI PANE
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.shop-crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12.5px; margin-bottom: 14px; }
+.shop-crumbs a { color: var(--ink-soft); font-weight: 600; }
+.shop-crumbs a:hover { color: var(--primary); }
+.shop-crumbs .sep { color: var(--ink-muted); }
+.shop-crumbs [aria-current="page"] { color: var(--ink); font-weight: 700; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   9. SCHERMI STRETTI
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Sotto i 900px le azioni non stanno mai sulla riga dei filtri: lasciarle
+   spinte a destra vorrebbe dire una riga quasi vuota coi bottoni in fondo. */
+@media (max-width: 900px) {
+    .shop-toolbar-actions { margin-left: 0; width: 100%; }
+}
+@media (max-width: 780px) {
+    .offer-hero { grid-template-columns: 1fr; min-height: 0; }
+    .offer-hero-media { aspect-ratio: 16 / 10; }
+    .offer-hero-body { padding: 22px 20px; }
+    .offer-hero-title { font-size: 22px; }
+    .offer-hero-price { font-size: 30px; }
+}
+@media (max-width: 640px) {
+    .shop-toolbar { flex-direction: column; align-items: stretch; }
+    .shop-toolbar > div { width: 100%; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   10. PASTIGLIA DELLO STATO ORDINE
+   Usata da /ordini, /ordini/{n}, /vendite tramite
+   resources/views/portal/partials/order-status-badge.blade.php.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.order-pill {
+    display: inline-block; white-space: nowrap;
+    font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid transparent;
+}
+.order-pill--attesa      { color: var(--warning); background: var(--warning-soft); border-color: var(--warning-line); }
+.order-pill--lavorazione { color: var(--info);    background: var(--info-soft);    border-color: var(--info-line); }
+.order-pill--viaggio     { color: var(--accent);  background: var(--accent-soft);  border-color: var(--accent-line); }
+.order-pill--concluso    { color: var(--success); background: var(--success-soft); border-color: var(--success-line); }
+.order-pill--annullato   { color: var(--danger);  background: var(--danger-soft);  border-color: var(--danger-line); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   11. SCHEDA PRODOTTO — pezzi che il JavaScript accende e spegne
+   Prima erano esadecimali scritti due volte: una nel Blade e una nella stringa
+   JavaScript che li riscriveva al primo clic. Bastava cambiarne uno solo e il
+   badge cambiava colore appena si sceglieva una taglia. Ora il JavaScript
+   scambia una classe e i colori stanno in un posto solo.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.stock-pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 14px; }
+.stock-pill--in  { background: var(--success-soft); color: var(--success); }
+.stock-pill--out { background: var(--danger-soft);  color: var(--danger); }
+
+.thumb-strip-img {
+    width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer;
+    border: 2.5px solid var(--line); flex-shrink: 0; transition: border-color .15s;
+}
+.thumb-strip-img.is-active { border-color: var(--primary); }
+
+/* Riquadri dentro il pannello d'acquisto, che resta SCURO in entrambi i temi:
+   qui i token normali non vanno usati (vedi la nota su --on-dark nel layout). */
+.hero-box {
+    background: var(--on-dark-veil); border: 1px solid var(--on-dark-line);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+    font-size: 12px; color: var(--on-dark-soft);
+}
+.hero-box .hero-box-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--on-dark-muted);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   12. SCHEDA PRODOTTO — pannello d'acquisto, galleria, varianti
+   (era il blocco <style> dentro portal/shop-show.blade.php)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.shop-back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 600;
+    transition: color .15s;
+}
+.shop-back-link:hover { color: var(--primary); }
+
+
+/* Campo quantità nel box acquisto (card scura .account-hero):
+   non esisteva CSS per .field-label/.field-input, l'input era
+   completamente privo di stile. */
+.qty-field { margin-bottom: 12px; }
+.qty-field label {
+    display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700;
+    color: rgba(255,255,255,.75); text-transform: uppercase; letter-spacing: .06em;
+}
+.qty-field input {
+    width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
+    border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.95); color: var(--on-dark-ink);
+    outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
+/* ── Scelta della variante ────────────────────────────────────────────
+   Pulsanti invece di una tendina (25/08/2026): la tendina nascondeva
+   l'esistenza stessa delle taglie dietro un clic. Sono radio veri con la
+   label vestita da pulsante — nessuna riga di JavaScript. */
+/* Un riquadro suo, con uno sfondo diverso dal pannello: e' la prima cosa
+   da fare su questa pagina, e deve staccarsi dal resto invece di
+   confondersi con le altre righe (richiesta di Laura, 25/08/2026). */
+.variant-picker {
+    margin: 16px 0 18px; padding: 13px 15px 15px;
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.22);
+    border-left: 3px solid var(--on-dark-accent);
+    border-radius: 12px;
+}
+.variant-picker-title {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 12.5px; font-weight: 700; color: #fff;
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px;
+}
+.variant-picker-hint {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+    padding: 2px 7px; border-radius: 999px;
+    background: rgba(125,211,252,.22); color: var(--on-dark-accent-ink);
+}
+.variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Il radio sparisce alla vista ma NON al lettore di schermo e alla
+   tastiera: niente display:none, che lo toglierebbe dal giro del Tab. */
+.variant-radio {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ATTENZIONE ALLA SPECIFICITA' (25/08/2026). Il layout portale ha
+   ".card label { display:block; color:var(--ink-soft) }" — una regola
+   classe+elemento che BATTE un ".variant-option" da sola. La prima
+   versione di questi pulsanti la perdeva: le taglie uscivano grigie e
+   schiacciate su una riga sola, illeggibili sul pannello scuro. Il
+   selettore discendente ".variant-options .variant-option" pesa due
+   classi e vince. Se un domani questi stili tornano grigi, e' qui che si
+   guarda. */
+.variant-options .variant-option {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 52px; min-height: 40px; padding: 8px 14px;
+    border-radius: 9px; cursor: pointer;
+    margin: 0; letter-spacing: .02em; text-transform: none;
+    font-size: 15px; font-weight: 700; line-height: 1;
+    border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.10);
+    color: #fff; transition: background .15s, border-color .15s;
+}
+.variant-options .variant-option:hover {
+    background: rgba(255,255,255,.22); border-color: #fff;
+}
+
+/* Selezionata: si inverte. Il contrasto pieno e' l'unica cosa che si legge
+   davvero a colpo d'occhio su un pannello scuro. */
+.variant-options .variant-radio:checked + .variant-option {
+    background: #fff; border-color: #fff; color: var(--on-dark-ink);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.35);
+}
+
+/* Il focus da tastiera deve vedersi: senza, chi naviga col Tab non sa
+   dove si trova. */
+.variant-options .variant-radio:focus-visible + .variant-option {
+    box-shadow: 0 0 0 3px rgba(255,255,255,.55);
+}
+
+/* Esaurita: resta in elenco, tratteggiata e barrata — come le taglie finite
+   su Amazon. Sparire sarebbe peggio: chi cerca la M vuole sapere che la M
+   esiste ma e' finita, non credere che quel venditore non la faccia. */
+.variant-options .variant-option.is-out {
+    opacity: .45; cursor: not-allowed; border-style: dashed;
+    background: transparent; text-decoration: line-through;
+}
+.variant-options .variant-option.is-out:hover {
+    background: transparent; border-color: rgba(255,255,255,.35);
+}
+
+/* Tendina di riserva oltre le 12 combinazioni. */
+.variant-select {
+    width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
+    border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.95); color: var(--on-dark-ink);
+    outline: none; appearance: auto;
+}
+.variant-select:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
+/* Bottone secondario dentro il box scuro dell'acquisto: stessa forma del
+   .cta ma vuoto, per non mettere in concorrenza "Acquista" e "Aggiungi al
+   carrello". */
+.cta-outline {
+    display: block; width: 100%; margin-top: 10px; min-height: 42px;
+    padding: 10px 16px; text-align: center; font-size: 14px; font-weight: 600;
+    border-radius: 9px; cursor: pointer;
+    background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.45);
+    transition: background .15s, border-color .15s;
+}
+.cta-outline:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.75); }
+
+/* I due bottoni d'acquisto affiancati. Due trappole, tutte e due prese in
+   pieno il 27/08/2026 (i bottoni restavano incolonnati sul sito vero
+   mentre in prova sembravano a posto):
+
+   1. il form sta dentro .quick-actions, che e' gia' un flex container:
+      senza `flex:1 1 100%` il form si stringe sul contenuto e la riga dei
+      bottoni non prende la larghezza del pannello;
+   2. la colonna d'acquisto e' larga 360px, ma lo spazio DAVVERO
+      disponibile dentro la card e' ~280px: con una base di 140px per
+      bottone, 140+140+gap non ci stava e il flex-wrap li mandava a capo —
+      cioe' esattamente l'aspetto incolonnato di prima, ma per una ragione
+      diversa. Serve `flex:1 1 auto` (base = contenuto) con il testo su una
+      riga sola e un font leggermente piu' piccolo.
+
+   Sotto i ~280px vanno a capo per davvero, ed e' giusto: "Aggiungi al
+   carrello" spezzato su due righe sarebbe peggio. align-items di default
+   (stretch) li tiene alti uguali nonostante le min-height diverse. */
+.quick-actions > form { flex: 1 1 100%; }
+.acquisto-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
+.acquisto-azioni > .cta,
+.acquisto-azioni > .cta-outline {
+    flex: 1 1 auto; min-width: 0; width: auto; margin-top: 0;
+    text-align: center; font-size: 13px; padding: 8px 10px;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .product-detail-grid { grid-template-columns: 1fr !important; }
+    .product-detail-grid > div:last-child { position: static !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   13. CARRELLO
+   (era il blocco <style> dentro portal/cart.blade.php)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.shop-back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 600;
+    transition: color .15s;
+}
+.shop-back-link:hover { color: var(--primary); }
+
+@media (max-width: 900px) {
+    .cart-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 560px) {
+    .cart-row { flex-wrap: wrap; }
+    .cart-row > div:last-child { text-align: left !important; width: 100%; }
+}
+
+/* ── Le azioni della riga (27/08/2026) ──────────────────────────────
+   Bottoni veri, non scritte: 34px di altezza minima e uno sfondo, cosi'
+   il pollice becca quello che voleva. E "Rimuovi" sta staccato dalla
+   quantita', invece che a due pixel da "Aggiorna". */
+.riga-azioni {
+    margin-top: 10px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+    justify-content: space-between;
+}
+.qta-form { display: flex; align-items: center; gap: 8px; }
+.qta-input {
+    width: 72px; min-height: 34px; padding: 6px 8px;
+    border: 1px solid var(--line-strong); border-radius: 7px; font-size: 14px;
+}
+.qta-conferma {
+    min-height: 34px; padding: 6px 12px;
+    background: var(--info-soft); border: 1px solid var(--info-line); border-radius: 7px;
+    color: var(--info); font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.rimuovi-form { display: flex; align-items: center; gap: 8px; }
+.rimuovi-avvia, .rimuovi-si, .rimuovi-no {
+    min-height: 34px; padding: 6px 12px;
+    border-radius: 7px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.rimuovi-avvia {
+    background: none; border: 1px solid transparent; color: var(--danger);
+}
+.rimuovi-avvia:hover { border-color: var(--danger-line); background: var(--danger-soft); }
+.rimuovi-conferma { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rimuovi-domanda { font-size: 12.5px; color: var(--danger); font-weight: 600; }
+.rimuovi-si { background: var(--danger); border: 1px solid var(--danger); color: var(--danger-on); }
+.rimuovi-no { background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink-soft); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   14. GESTIONE VARIANTI (pagina del venditore)
+   (era il blocco <style> dentro portal/shop-variants.blade.php)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.var-back { display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; font-weight:600; }
+.var-back:hover { color:var(--primary); }
+
+.attr-box { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+.attr-box h4 { font-size:13px; font-weight:700; margin:0 0 10px; color:var(--ink); }
+.val-check { display:inline-flex; align-items:center; gap:6px; margin:0 14px 8px 0; font-size:13.5px; cursor:pointer; }
+
+.var-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+.var-table th {
+    text-align:left; padding:9px 10px; font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted);
+    border-bottom:2px solid var(--line);
+}
+.var-table td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+.var-table tr:last-child td { border-bottom:none; }
+.var-table input[type=text], .var-table input[type=number] { width:100%; font-size:13px; padding:5px 8px; }
+.col-stretta { width:120px; }
+.link-btn { background:none; border:none; font-size:12px; font-weight:600; cursor:pointer; padding:4px 2px; }
+.badge-active   { background:var(--success-soft); color:var(--success); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
+.badge-inactive { background:var(--surface-soft); color:var(--ink-muted); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }

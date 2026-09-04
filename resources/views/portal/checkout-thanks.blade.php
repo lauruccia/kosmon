@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 {{--
     La pagina "grazie" (fase A, 26/08/2026).
 
@@ -20,7 +21,7 @@
 
 <section class="card light-card" style="text-align:center;padding:40px 24px 32px;">
     <div style="font-size:46px;line-height:1;margin-bottom:10px;">✅</div>
-    <h2 style="font-size:22px;font-weight:700;color:#10263d;margin:0 0 8px;">
+    <h2 style="font-size:22px;font-weight:700;color:var(--ink);margin:0 0 8px;">
         {{ $ordini->count() === 1 ? 'Ordine confermato' : 'Ordini confermati' }}
     </h2>
     <p class="subtle" style="margin:0;font-size:14px;">
@@ -29,16 +30,16 @@
 </section>
 
 @if($daPagare->isNotEmpty())
-<section class="card light-card" style="border:1px solid #fde68a;background:#fffbeb;">
-    <h3 style="font-size:16px;font-weight:700;color:#92400e;margin:0 0 6px;">
+<section class="card light-card" style="border:1px solid var(--warning-line);background:var(--warning-soft);">
+    <h3 style="font-size:16px;font-weight:700;color:var(--warning);margin:0 0 6px;">
         {{ $daPagare->count() === 1 ? 'Resta una quota in euro da saldare' : 'Restano ' . $daPagare->count() . ' quote in euro da saldare' }}
     </h3>
-    <p style="font-size:13px;color:#92400e;margin:0 0 14px;">
+    <p style="font-size:13px;color:var(--warning);margin:0 0 14px;">
         La parte in KY è già pagata. La quota in euro si salda fuori dal circuito, con carta o bonifico.
     </p>
     @foreach($daPagare as $ordine)
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid #fde68a;">
-        <span style="font-size:13.5px;color:#78350f;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--warning-line);">
+        <span style="font-size:13.5px;color:var(--warning);">
             <strong>{{ $ordine->company->name }}</strong> — € {{ number_format($ordine->total_eur / 100, 2, ',', '.') }}
         </span>
         <a href="{{ route('portal.shop.orders.pay', $ordine->payment) }}" class="cta" style="padding:8px 16px;font-size:13px;">
@@ -54,39 +55,39 @@
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
             <span class="eyebrow">Ordine</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;">
                 {{ strtoupper(substr($ordine->uuid, 0, 8)) }}
             </h3>
             <p class="subtle" style="font-size:12.5px;margin:4px 0 0;">
                 {{ $ordine->company->name }} · {{ $ordine->placed_at?->format('d/m/Y H:i') }}
             </p>
         </div>
-        <span style="font-weight:700;color:#10263d;font-size:16px;">
+        <span style="font-weight:700;color:var(--ink);font-size:16px;">
             {{ ky_format($ordine->total_ky) }} KY{{ $ordine->total_eur > 0 ? ' + € ' . number_format($ordine->total_eur / 100, 2, ',', '.') : '' }}
         </span>
     </div>
 
     @foreach($ordine->items as $item)
-    <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13.5px;color:#475569;border-top:1px solid #f1f5f9;">
+    <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13.5px;color:var(--ink-soft);border-top:1px solid var(--line);">
         <span>
             {{ $item->quantity }} × {{ $item->title }}
             @if($item->variant_label)<span class="subtle">— {{ $item->variant_label }}</span>@endif
         </span>
-        <span style="white-space:nowrap;color:#10263d;font-weight:600;">{{ ky_format($item->line_ky_amount) }} KY</span>
+        <span style="white-space:nowrap;color:var(--ink);font-weight:600;">{{ ky_format($item->line_ky_amount) }} KY</span>
     </div>
     @endforeach
 
     @if($ordine->shipping_ky > 0 || $ordine->shipping_eur > 0)
-    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:#475569;border-top:1px solid #f1f5f9;">
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:var(--ink-soft);border-top:1px solid var(--line);">
         <span>Spedizione</span>
         <span>{{ ky_format($ordine->shipping_ky) }} KY{{ $ordine->shipping_eur > 0 ? ' + € ' . number_format($ordine->shipping_eur / 100, 2, ',', '.') : '' }}</span>
     </div>
     @endif
 
     @if($ordine->shipping_address)
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #eef2f7;">
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
         <span class="eyebrow">Spedizione a</span>
-        <p style="font-size:13.5px;color:#334155;line-height:1.6;margin:6px 0 0;">
+        <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:6px 0 0;">
             {{ $ordine->shipping_recipient_name }}<br>
             {{ $ordine->shipping_address }}<br>
             {{ trim($ordine->shipping_postal_code . ' ' . $ordine->shipping_city . ($ordine->shipping_province ? ' (' . $ordine->shipping_province . ')' : '')) }}
@@ -96,17 +97,17 @@
     @endif
 
     @if($ordine->buyer_note)
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #eef2f7;">
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
         <span class="eyebrow">La tua nota al venditore</span>
-        <p style="font-size:13.5px;color:#334155;line-height:1.6;margin:6px 0 0;white-space:pre-line;">{{ $ordine->buyer_note }}</p>
+        <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:6px 0 0;white-space:pre-line;">{{ $ordine->buyer_note }}</p>
     </div>
     @endif
 </section>
 @endforeach
 
 <section class="card light-card">
-    <h3 style="font-size:16px;font-weight:700;color:#10263d;margin:0 0 10px;">Che cosa succede adesso</h3>
-    <ul style="margin:0;padding-left:20px;font-size:13.5px;color:#475569;line-height:1.75;">
+    <h3 style="font-size:16px;font-weight:700;color:var(--ink);margin:0 0 10px;">Che cosa succede adesso</h3>
+    <ul style="margin:0;padding-left:20px;font-size:13.5px;color:var(--ink-soft);line-height:1.75;">
         <li>{{ $ordini->count() === 1 ? 'Il venditore è stato avvisato' : 'I venditori sono stati avvisati' }} e prepara{{ $ordini->count() === 1 ? '' : 'no' }} l'ordine.</li>
         <li>Trovi il movimento in <a href="{{ route('portal.movements') }}">Movimenti</a>, con il dettaglio di quanto è stato addebitato.</li>
         @if($daPagare->isNotEmpty())

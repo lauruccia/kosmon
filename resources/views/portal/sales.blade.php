@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 {{--
     "Ordini ricevuti" — fase B, 27/08/2026.
 
@@ -35,11 +36,11 @@
 @endif
 
 @if(($resiDaRispondere ?? 0) > 0)
-<section class="card light-card" style="margin-bottom:16px;border-color:#fdba74;background:#fff7ed;">
-    <div style="font-size:14px;font-weight:700;color:#7c2d12;">
+<section class="card light-card" style="margin-bottom:16px;border-color:var(--buy-line);background:var(--buy-soft);">
+    <div style="font-size:14px;font-weight:700;color:var(--buy-strong);">
         {{ $resiDaRispondere }} {{ $resiDaRispondere === 1 ? 'richiesta di reso aspetta' : 'richieste di reso aspettano' }} una risposta
     </div>
-    <p class="subtle" style="font-size:12.5px;margin:6px 0 0;color:#9a3412;">
+    <p class="subtle" style="font-size:12.5px;margin:6px 0 0;color:var(--buy-strong);">
         Finché non rispondi, il cliente resta senza merce e senza KY.
     </p>
 </section>
@@ -58,7 +59,7 @@
 
     <section class="card light-card" style="text-align:center;padding:48px 24px;">
         <div style="font-size:44px;line-height:1;margin-bottom:12px;">🧾</div>
-        <h2 style="font-size:20px;font-weight:700;color:#10263d;margin:0 0 8px;">Nessun ordine ricevuto</h2>
+        <h2 style="font-size:20px;font-weight:700;color:var(--ink);margin:0 0 8px;">Nessun ordine ricevuto</h2>
         <p class="subtle" style="margin:0 0 20px;">
             {{ $eAdmin
                 ? 'Quando i negozi del circuito riceveranno ordini, li troverai qui e potrai gestirli per loro conto.'
@@ -79,10 +80,10 @@
 
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                 <div style="min-width:0;">
-                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);">
                         Ordine {{ $order->numero }}
                     </div>
-                    <div style="font-size:16px;font-weight:700;color:#10263d;margin:3px 0 2px;">
+                    <div style="font-size:16px;font-weight:700;color:var(--ink);margin:3px 0 2px;">
                         {{ $order->summary_title }}
                     </div>
                     <div class="subtle" style="font-size:12.5px;">
@@ -96,7 +97,7 @@
 
                 <div style="text-align:right;">
                     @include('portal.partials.order-status-badge', ['order' => $order])
-                    <div style="font-size:15px;font-weight:700;color:#10263d;margin-top:7px;white-space:nowrap;">
+                    <div style="font-size:15px;font-weight:700;color:var(--ink);margin-top:7px;white-space:nowrap;">
                         {{ ky_format($order->total_ky) }} KY
                     </div>
                 </div>
@@ -106,18 +107,18 @@
                  sola cosa in questa lista che il venditore deve fare OGGI, e
                  che se ignora finisce all'assistenza del circuito. --}}
             @if($order->resoInCorso())
-            <div style="margin-top:12px;font-size:12.5px;color:#7c2d12;background:#fff7ed;
-                        border:1px solid #fdba74;border-radius:8px;padding:9px 12px;">
+            <div style="margin-top:12px;font-size:12.5px;color:var(--buy-strong);background:var(--buy-soft);
+                        border:1px solid var(--buy-line);border-radius:8px;padding:9px 12px;">
                 <strong>Richiesta di reso in attesa di risposta.</strong> Aprila per accettare o rifiutare.
             </div>
             @elseif($order->isInAttesaDiEuro())
-            <div style="margin-top:12px;font-size:12.5px;color:#92400e;background:#fffbeb;
-                        border:1px solid #fde68a;border-radius:8px;padding:9px 12px;">
+            <div style="margin-top:12px;font-size:12.5px;color:var(--warning);background:var(--warning-soft);
+                        border:1px solid var(--warning-line);border-radius:8px;padding:9px 12px;">
                 Non spedire ancora: la quota in euro non è stata saldata.
             </div>
             @elseif($order->buyer_note)
-            <div style="margin-top:12px;font-size:12.5px;color:#0c4a86;background:#eff6ff;
-                        border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;">
+            <div style="margin-top:12px;font-size:12.5px;color:var(--info);background:var(--info-soft);
+                        border:1px solid var(--info-line);border-radius:8px;padding:9px 12px;">
                 Nota del cliente: {{ \Illuminate\Support\Str::limit($order->buyer_note, 140) }}
             </div>
             @endif

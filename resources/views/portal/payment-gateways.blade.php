@@ -4,7 +4,7 @@
 <div style="max-width:720px;">
 
     <div style="margin-bottom:20px;">
-        <a href="{{ route('portal.shop') }}" style="font-size:13px;color:var(--primary,#0c4a86);text-decoration:none;">&larr; Torna allo shop</a>
+        <a href="{{ route('portal.shop') }}" style="font-size:13px;color:var(--primary);text-decoration:none;">&larr; Torna allo shop</a>
     </div>
 
     <section class="card light-card" style="margin-bottom:22px;padding:20px 24px;">

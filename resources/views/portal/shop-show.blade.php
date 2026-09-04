@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 <div style="margin-bottom:16px;">
     <a href="{{ route('portal.shop') }}" class="shop-back-link">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -16,7 +17,7 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
                 <div>
                     <span class="eyebrow">{{ $listing->category_label }}</span>
-                    <h2 style="font-size:26px;font-weight:700;color:#10263d;margin:6px 0 0;">{{ $listing->title }}</h2>
+                    <h2 style="font-size:26px;font-weight:700;color:var(--ink);margin:6px 0 0;">{{ $listing->title }}</h2>
                     <div class="subtle" style="margin-top:6px;">
                         Pubblicato da <strong>{{ $listing->company->name }}</strong>
                         · {{ $listing->created_at->locale('it')->isoFormat('D MMM YYYY') }}
@@ -25,7 +26,7 @@
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     @if($listing->is_on_offer)
-                        <span class="pill" style="background:#fee2e2;color:#991b1b;">🔥 -{{ $listing->offer_discount_percent }}% offerta</span>
+                        <span class="pill" style="background:var(--danger-soft);color:var(--danger);">🔥 -{{ $listing->offer_discount_percent }}% offerta</span>
                     @endif
                     @if($listing->featured)
                         <span class="pill warn">★ In evidenza</span>
@@ -48,7 +49,7 @@
             @if(count($urls) > 0)
             <div style="margin-top:20px;">
                 {{-- Immagine principale --}}
-                <div style="position:relative;border-radius:12px;overflow:hidden;background:#f1f5f9;cursor:zoom-in;" onclick="openLightbox(0)">
+                <div style="position:relative;border-radius:12px;overflow:hidden;background:var(--surface-soft);cursor:zoom-in;" onclick="openLightbox(0)">
                     <img id="gallery-main"
                          src="{{ $medi[0] ?? $urls[0] }}"
                          alt="{{ $listing->title }}"
@@ -72,35 +73,35 @@
                          alt="Foto {{ $i + 1 }}"
                          onclick="selectThumb({{ $i }})"
                          id="thumb-{{ $i }}"
-                         style="width:72px;height:72px;object-fit:cover;border-radius:8px;cursor:pointer;border:2.5px solid {{ $i === 0 ? '#0c4a86' : '#e2e8f0' }};flex-shrink:0;transition:border-color .15s;">
+                         class="thumb-strip-img{{ $i === 0 ? ' is-active' : '' }}">
                     @endforeach
                 </div>
                 @endif
             </div>
             @else
-            <div style="margin-top:20px;border-radius:12px;background:linear-gradient(150deg,#f8fafc,#fff);border:1px solid #f1f5f9;display:flex;align-items:center;justify-content:center;height:220px;color:#94a3b8;">
+            <div style="margin-top:20px;border-radius:12px;background:linear-gradient(150deg,var(--surface-soft),var(--surface));border:1px solid var(--line);display:flex;align-items:center;justify-content:center;height:220px;color:var(--ink-muted);">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             @endif
 
-            <hr style="border:none;border-top:1px solid #f1f5f9;margin:20px 0;">
+            <hr style="border:none;border-top:1px solid var(--line);margin:20px 0;">
 
-            <div style="font-size:15px;line-height:1.8;color:#334155;white-space:pre-line;">{{ $listing->description }}</div>
+            <div style="font-size:15px;line-height:1.8;color:var(--ink-soft);white-space:pre-line;">{{ $listing->description }}</div>
 
-            <div style="margin-top:20px;background:#eff6ff;border-left:3px solid #0c4a86;border-radius:8px;padding:12px 16px;font-size:14px;color:#1e3a5f;">
+            <div style="margin-top:20px;background:var(--info-soft);border-left:3px solid var(--info);border-radius:8px;padding:12px 16px;font-size:14px;color:var(--ink);">
                 🚚 <strong>{{ $listing->delivery_type_label }}</strong>
                 @if($listing->delivery_note)
                     — {{ $listing->delivery_note }}
                 @endif
                 @if($listing->requiresShippingAddress() && $listing->shipping_cost)
-                <div style="margin-top:4px;font-size:12.5px;color:#0369a1;">
+                <div style="margin-top:4px;font-size:12.5px;color:var(--info);">
                     Costo di spedizione: <strong>{{ ky_format($listing->shipping_cost) }} KY</strong>
                 </div>
                 @endif
             </div>
 
             @if($listing->expires_at)
-            <div style="margin-top:12px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:8px;padding:12px 16px;font-size:14px;color:#78350f;">
+            <div style="margin-top:12px;background:var(--warning-soft);border-left:3px solid var(--warning-line);border-radius:8px;padding:12px 16px;font-size:14px;color:var(--warning);">
                 ⏱ <strong>Offerta valida fino al:</strong> {{ $listing->expires_at->locale('it')->isoFormat('D MMMM YYYY') }}
             </div>
             @endif
@@ -110,7 +111,7 @@
                  questo è lo sconto a tempo su prezzo/percentuale KY, vedi
                  Listing::activeOffer()/ListingOffer. --}}
             @if($listing->is_on_offer)
-            <div style="margin-top:12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:8px;padding:12px 16px;font-size:14px;color:#7f1d1d;">
+            <div style="margin-top:12px;background:var(--danger-soft);border-left:3px solid var(--danger);border-radius:8px;padding:12px 16px;font-size:14px;color:var(--danger);">
                 🔥 <strong>Offerta della settimana:</strong> -{{ $listing->offer_discount_percent }}% rispetto al prezzo pieno,
                 scade il {{ $listing->activeOffer->expires_at->locale('it')->isoFormat('D MMMM YYYY, HH:mm') }}.
             </div>
@@ -124,13 +125,13 @@
             </div>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 @foreach($related as $rel)
-                <article style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+                <article style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);">
                     <div>
-                        <div style="font-weight:600;font-size:14px;color:#10263d;">{{ $rel->title }}</div>
+                        <div style="font-weight:600;font-size:14px;color:var(--ink);">{{ $rel->title }}</div>
                         <div class="subtle">{{ $rel->company->name }}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <strong style="color:#0c4a86;">{{ ky_format($rel->effective_price_ky) }} KY</strong>
+                        <strong style="color:var(--info);">{{ ky_format($rel->effective_price_ky) }} KY</strong>
                         <a href="{{ route('portal.shop.show', $rel) }}" class="cta secondary" style="padding:6px 14px;font-size:13px;">Vedi</a>
                     </div>
                 </article>
@@ -293,12 +294,12 @@
                     sotto ci scrive quante ne restano DI QUELLA.
                 --}}
                 <span id="badge-scorte"
-                      style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:14px;{{ $inStock ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;' }}">
+                      class="stock-pill {{ $inStock ? 'stock-pill--in' : 'stock-pill--out' }}">
                     {{ $etichettaScorte }}
                 </span>
             </div>
             @if($listing->effective_ky_percentage < 100)
-            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0369a1;">
+            <div style="background:var(--info-soft);border:1px solid var(--info-line);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--info);">
                 <strong>Pagamento misto:</strong>
                 Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->effective_ky_amount) }} KY nel circuito
                 {{-- euro_amount = price_ky - ky_amount, quindi anche questo è in centesimi:
@@ -328,10 +329,10 @@
             </div>
 
             @if($needsShippingAddress && $hasShippingAddress && ! $isOwnCompany && $inStock)
-            <div style="background:var(--bg,#f8fafc);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#334155;">
+            <div class="hero-box">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">Spedizione a</div>
-                    <a href="{{ $shippingEditUrl }}" style="font-size:11px;font-weight:600;color:#0c4a86;text-decoration:none;white-space:nowrap;">Modifica</a>
+                    <div class="hero-box-label">Spedizione a</div>
+                    <a href="{{ $shippingEditUrl }}" style="font-size:11px;font-weight:600;color:var(--info);text-decoration:none;white-space:nowrap;">Modifica</a>
                 </div>
                 @foreach($currentAccount->shipping_address_lines as $line)
                     {{ $line }}@if(! $loop->last)<br>@endif
@@ -346,28 +347,28 @@
                      proporre il carrello o "ricarica il conto" a chi comunque
                      non puo' concludere. --}}
                 @if($venditoreSospeso)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0;">
                         Questo venditore non è al momento operativo nel circuito: i suoi prodotti non sono acquistabili.
                     </p>
                 @elseif($compratoreSospeso)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0;">
                         La tua azienda è sospesa: non puoi effettuare acquisti finché la sospensione è attiva. Contatta il supporto.
                     </p>
                 @elseif($isOwnCompany)
-                    <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">È un prodotto pubblicato dalla tua azienda.</p>
+                    <p style="font-size:12px;color:var(--ink-muted);text-align:center;margin:0;">È un prodotto pubblicato dalla tua azienda.</p>
                 @elseif(! $inStock)
                     <button disabled class="cta" style="width:100%;text-align:center;opacity:.5;cursor:not-allowed;">
                         Prodotto esaurito
                     </button>
                 @elseif($needsShippingAddress && ! $hasShippingAddress)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Questo prodotto va spedito: completa il tuo indirizzo di spedizione nella sezione dedicata del tuo profilo per poterlo acquistare.
                     </p>
                     <a href="{{ $shippingEditUrl }}" class="cta" style="width:100%;text-align:center;display:block;">
                         Completa indirizzo di spedizione
                     </a>
                 @elseif(! $canAfford)
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                         Saldo insufficiente: ti mancano {{ ky_format($requiredKy - $currentAccount->saldoDisponibile()) }} KY per acquistare questo prodotto.
                     </p>
                     <a href="{{ route('portal.ky-cards.index', ['redirect_to' => route('portal.shop.show', $listing)]) }}" class="cta" style="width:100%;text-align:center;display:block;">
@@ -394,7 +395,7 @@
                          gira, l'acquisto viene rifiutato li' con lo stesso
                          messaggio, e nessun KY si muove. --}}
                     <p id="avviso-saldo-variante"
-                       style="display:none;font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 10px;">
+                       style="display:none;font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;margin:0 0 10px;">
                     </p>
 
                     {{-- Il form punta al CARRELLO, non ai soldi (audit 26/08,
@@ -446,7 +447,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                 <div>
                     <span class="eyebrow">Varianti</span>
-                    <p style="margin:6px 0 0;font-size:13.5px;color:#334155;">
+                    <p style="margin:6px 0 0;font-size:13.5px;color:var(--ink-soft);">
                         @if($listing->isVariabile())
                             Questo prodotto ha <strong>{{ $listing->variantiAttive->count() }}</strong>
                             {{ $listing->variantiAttive->count() === 1 ? 'combinazione in vendita' : 'combinazioni in vendita' }}.
@@ -467,7 +468,7 @@
                 <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary" style="text-align:center;">Modifica</a>
                 <form method="POST" action="{{ route('portal.shop.destroy', $listing) }}" onsubmit="return confirm('Rimuovere questo prodotto dallo shop?')">
                     @csrf @method('DELETE')
-                    <button type="submit" style="width:100%;padding:10px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-weight:600;cursor:pointer;">Rimuovi</button>
+                    <button type="submit" style="width:100%;padding:10px;background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line);border-radius:10px;font-weight:600;cursor:pointer;">Rimuovi</button>
                 </form>
             </div>
         </section>
@@ -524,7 +525,7 @@
         const counter = document.querySelector('#gallery-main + div');
         if (counter) counter.textContent = `${idx + 1} / ${urls.length}`;
         document.querySelectorAll('[id^="thumb-"]').forEach((el, i) => {
-            el.style.borderColor = i === idx ? '#0c4a86' : '#e2e8f0';
+            el.classList.toggle('is-active', i === idx);
         });
     };
 
@@ -539,161 +540,6 @@
 </script>
 @endif
 
-<style>
-    .shop-back-link {
-        display: inline-flex; align-items: center; gap: 6px;
-        color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 600;
-        transition: color .15s;
-    }
-    .shop-back-link:hover { color: var(--primary); }
-
-
-    /* Campo quantità nel box acquisto (card scura .account-hero):
-       non esisteva CSS per .field-label/.field-input, l'input era
-       completamente privo di stile. */
-    .qty-field { margin-bottom: 12px; }
-    .qty-field label {
-        display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700;
-        color: rgba(255,255,255,.75); text-transform: uppercase; letter-spacing: .06em;
-    }
-    .qty-field input {
-        width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
-        border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
-        background: rgba(255,255,255,.95); color: #0d1c30;
-        outline: none; transition: border-color .15s, box-shadow .15s;
-    }
-    .qty-field input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
-
-    /* ── Scelta della variante ────────────────────────────────────────────
-       Pulsanti invece di una tendina (25/08/2026): la tendina nascondeva
-       l'esistenza stessa delle taglie dietro un clic. Sono radio veri con la
-       label vestita da pulsante — nessuna riga di JavaScript. */
-    /* Un riquadro suo, con uno sfondo diverso dal pannello: e' la prima cosa
-       da fare su questa pagina, e deve staccarsi dal resto invece di
-       confondersi con le altre righe (richiesta di Laura, 25/08/2026). */
-    .variant-picker {
-        margin: 16px 0 18px; padding: 13px 15px 15px;
-        background: rgba(255,255,255,.10);
-        border: 1px solid rgba(255,255,255,.22);
-        border-left: 3px solid #7dd3fc;
-        border-radius: 12px;
-    }
-    .variant-picker-title {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        font-size: 12.5px; font-weight: 700; color: #fff;
-        text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px;
-    }
-    .variant-picker-hint {
-        font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
-        padding: 2px 7px; border-radius: 999px;
-        background: rgba(125,211,252,.22); color: #bae6fd;
-    }
-    .variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
-
-    /* Il radio sparisce alla vista ma NON al lettore di schermo e alla
-       tastiera: niente display:none, che lo toglierebbe dal giro del Tab. */
-    .variant-radio {
-        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-    }
-
-    /* ATTENZIONE ALLA SPECIFICITA' (25/08/2026). Il layout portale ha
-       ".card label { display:block; color:var(--ink-soft) }" — una regola
-       classe+elemento che BATTE un ".variant-option" da sola. La prima
-       versione di questi pulsanti la perdeva: le taglie uscivano grigie e
-       schiacciate su una riga sola, illeggibili sul pannello scuro. Il
-       selettore discendente ".variant-options .variant-option" pesa due
-       classi e vince. Se un domani questi stili tornano grigi, e' qui che si
-       guarda. */
-    .variant-options .variant-option {
-        display: flex; align-items: center; justify-content: center;
-        min-width: 52px; min-height: 40px; padding: 8px 14px;
-        border-radius: 9px; cursor: pointer;
-        margin: 0; letter-spacing: .02em; text-transform: none;
-        font-size: 15px; font-weight: 700; line-height: 1;
-        border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.10);
-        color: #fff; transition: background .15s, border-color .15s;
-    }
-    .variant-options .variant-option:hover {
-        background: rgba(255,255,255,.22); border-color: #fff;
-    }
-
-    /* Selezionata: si inverte. Il contrasto pieno e' l'unica cosa che si legge
-       davvero a colpo d'occhio su un pannello scuro. */
-    .variant-options .variant-radio:checked + .variant-option {
-        background: #fff; border-color: #fff; color: #0d1c30;
-        box-shadow: 0 0 0 2px rgba(255,255,255,.35);
-    }
-
-    /* Il focus da tastiera deve vedersi: senza, chi naviga col Tab non sa
-       dove si trova. */
-    .variant-options .variant-radio:focus-visible + .variant-option {
-        box-shadow: 0 0 0 3px rgba(255,255,255,.55);
-    }
-
-    /* Esaurita: resta in elenco, tratteggiata e barrata — come le taglie finite
-       su Amazon. Sparire sarebbe peggio: chi cerca la M vuole sapere che la M
-       esiste ma e' finita, non credere che quel venditore non la faccia. */
-    .variant-options .variant-option.is-out {
-        opacity: .45; cursor: not-allowed; border-style: dashed;
-        background: transparent; text-decoration: line-through;
-    }
-    .variant-options .variant-option.is-out:hover {
-        background: transparent; border-color: rgba(255,255,255,.35);
-    }
-
-    /* Tendina di riserva oltre le 12 combinazioni. */
-    .variant-select {
-        width: 100%; min-height: 42px; padding: 9px 14px; font-size: 14px;
-        border-radius: 9px; border: 1px solid rgba(255,255,255,.25);
-        background: rgba(255,255,255,.95); color: #0d1c30;
-        outline: none; appearance: auto;
-    }
-    .variant-select:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
-
-    /* Bottone secondario dentro il box scuro dell'acquisto: stessa forma del
-       .cta ma vuoto, per non mettere in concorrenza "Acquista" e "Aggiungi al
-       carrello". */
-    .cta-outline {
-        display: block; width: 100%; margin-top: 10px; min-height: 42px;
-        padding: 10px 16px; text-align: center; font-size: 14px; font-weight: 600;
-        border-radius: 9px; cursor: pointer;
-        background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.45);
-        transition: background .15s, border-color .15s;
-    }
-    .cta-outline:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.75); }
-
-    /* I due bottoni d'acquisto affiancati. Due trappole, tutte e due prese in
-       pieno il 27/08/2026 (i bottoni restavano incolonnati sul sito vero
-       mentre in prova sembravano a posto):
-
-       1. il form sta dentro .quick-actions, che e' gia' un flex container:
-          senza `flex:1 1 100%` il form si stringe sul contenuto e la riga dei
-          bottoni non prende la larghezza del pannello;
-       2. la colonna d'acquisto e' larga 360px, ma lo spazio DAVVERO
-          disponibile dentro la card e' ~280px: con una base di 140px per
-          bottone, 140+140+gap non ci stava e il flex-wrap li mandava a capo —
-          cioe' esattamente l'aspetto incolonnato di prima, ma per una ragione
-          diversa. Serve `flex:1 1 auto` (base = contenuto) con il testo su una
-          riga sola e un font leggermente piu' piccolo.
-
-       Sotto i ~280px vanno a capo per davvero, ed e' giusto: "Aggiungi al
-       carrello" spezzato su due righe sarebbe peggio. align-items di default
-       (stretch) li tiene alti uguali nonostante le min-height diverse. */
-    .quick-actions > form { flex: 1 1 100%; }
-    .acquisto-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
-    .acquisto-azioni > .cta,
-    .acquisto-azioni > .cta-outline {
-        flex: 1 1 auto; min-width: 0; width: auto; margin-top: 0;
-        text-align: center; font-size: 13px; padding: 8px 10px;
-        white-space: nowrap;
-    }
-
-    @media (max-width: 900px) {
-        .product-detail-grid { grid-template-columns: 1fr !important; }
-        .product-detail-grid > div:last-child { position: static !important; }
-    }
-</style>
 
 @if($mostraSelettoreVarianti)
 {{--
@@ -749,8 +595,9 @@
             scorte.textContent = etichetta;
 
             var ceNe = elemento.getAttribute('data-disponibile') !== '0';
-            scorte.style.background = ceNe ? '#dcfce7' : '#fee2e2';
-            scorte.style.color      = ceNe ? '#166534' : '#991b1b';
+            // I colori stanno nel foglio di stile (stock-pill--in/--out), non qui:
+            // prima erano scritti due volte, e il badge cambiava tinta al primo clic.
+            scorte.className = 'stock-pill ' + (ceNe ? 'stock-pill--in' : 'stock-pill--out');
         }
 
         if (! avviso || ! bottone || isNaN(richiede)) { return; }

@@ -1,28 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
-<style>
-    .var-back { display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; font-weight:600; }
-    .var-back:hover { color:var(--primary); }
-
-    .attr-box { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
-    .attr-box h4 { font-size:13px; font-weight:700; margin:0 0 10px; color:var(--ink); }
-    .val-check { display:inline-flex; align-items:center; gap:6px; margin:0 14px 8px 0; font-size:13.5px; cursor:pointer; }
-
-    .var-table { width:100%; border-collapse:collapse; font-size:13.5px; }
-    .var-table th {
-        text-align:left; padding:9px 10px; font-size:11px; font-weight:700;
-        text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted);
-        border-bottom:2px solid var(--line);
-    }
-    .var-table td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
-    .var-table tr:last-child td { border-bottom:none; }
-    .var-table input[type=text], .var-table input[type=number] { width:100%; font-size:13px; padding:5px 8px; }
-    .col-stretta { width:120px; }
-    .link-btn { background:none; border:none; font-size:12px; font-weight:600; cursor:pointer; padding:4px 2px; }
-    .badge-active   { background:#d1fae5; color:#065f46; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
-    .badge-inactive { background:#f3f4f6; color:#6b7280; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
-</style>
+<x-shop.styles />
 
 <div style="margin-bottom:16px;">
     <a href="{{ route('portal.shop.show', $listing) }}" class="var-back">
@@ -40,12 +19,12 @@
 
 <section class="card light-card" style="margin-bottom:20px;">
     <span class="eyebrow">Varianti</span>
-    <h2 style="font-size:20px;font-weight:700;color:#10263d;margin:6px 0 4px;">{{ $listing->title }}</h2>
+    <h2 style="font-size:20px;font-weight:700;color:var(--ink);margin:6px 0 4px;">{{ $listing->title }}</h2>
     <p class="subtle" style="margin:0;font-size:13px;">
         Prezzo di listino <strong>{{ ky_format($listing->price_ky) }} KY</strong>
         · mix {{ $listing->ky_badge_label }}
         @if($listing->is_on_offer)
-            · <span style="color:#b91c1c;font-weight:600;">in offerta a {{ ky_format($listing->effective_price_ky) }} KY</span>
+            · <span style="color:var(--danger);font-weight:600;">in offerta a {{ ky_format($listing->effective_price_ky) }} KY</span>
         @endif
     </p>
 </section>
@@ -157,11 +136,11 @@
                                  form che ha gia' il suo @method finirebbe per
                                  mandare due verbi diversi nella stessa richiesta. --}}
                             <td style="white-space:nowrap;text-align:right;">
-                                <button type="submit" class="link-btn" style="color:#0c4a86;"
+                                <button type="submit" class="link-btn" style="color:var(--info);"
                                         form="toggle-{{ $variante->id }}">
                                     {{ $variante->is_active ? 'Disattiva' : 'Riattiva' }}
                                 </button>
-                                <button type="submit" class="link-btn" style="color:#b91c1c;"
+                                <button type="submit" class="link-btn" style="color:var(--danger);"
                                         form="elimina-{{ $variante->id }}"
                                         onclick="return confirm('Eliminare la combinazione «{{ $variante->etichetta }}»?')">
                                     Elimina

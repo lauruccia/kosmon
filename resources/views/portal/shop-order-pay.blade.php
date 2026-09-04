@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 {{-- $isSeller arriva dal controller (PaymentController::show), stessa regola
      usata per autorizzare la conferma del bonifico — non ricalcolarla qui
      solo sul company_id, altrimenti un utente aziendale senza permesso
@@ -10,9 +11,9 @@
 
     <div style="margin-bottom:20px;">
         @if($payment->listing)
-            <a href="{{ route('portal.shop.show', $payment->listing) }}" style="font-size:13px;color:var(--primary,#0c4a86);text-decoration:none;">&larr; Torna al prodotto</a>
+            <a href="{{ route('portal.shop.show', $payment->listing) }}" style="font-size:13px;color:var(--primary);text-decoration:none;">&larr; Torna al prodotto</a>
         @else
-            <a href="{{ route('portal.shop') }}" style="font-size:13px;color:var(--primary,#0c4a86);text-decoration:none;">&larr; Torna allo shop</a>
+            <a href="{{ route('portal.shop') }}" style="font-size:13px;color:var(--primary);text-decoration:none;">&larr; Torna allo shop</a>
         @endif
     </div>
 
@@ -25,12 +26,12 @@
 
     {{-- Riepilogo ordine --}}
     <div class="card" style="padding:20px 22px;margin-bottom:18px;">
-        <div style="font-size:11px;font-weight:700;color:var(--ink-muted,#7a95aa);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Riepilogo ordine</div>
+        <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Riepilogo ordine</div>
         <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px;">
             <span>{{ $payment->listing?->title ?? 'Prodotto shop' }}</span>
             <span style="font-weight:700;">{{ number_format($payment->amount / 100, 2, ',', '.') }} &euro;</span>
         </div>
-        <div style="font-size:12.5px;color:var(--ink-muted,#7a95aa);">Venduto da {{ $payment->company->name }}</div>
+        <div style="font-size:12.5px;color:var(--ink-muted);">Venduto da {{ $payment->company->name }}</div>
     </div>
 
     @if($payment->status === \App\Models\MarketplaceOrderPayment::STATUS_PAID)
@@ -53,7 +54,7 @@
         @php $bankCreds = $payment->paymentGateway?->credentials ?? []; @endphp
         <div class="card" style="padding:24px;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
-                <div style="width:44px;height:44px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏦</div>
+                <div style="width:44px;height:44px;border-radius:12px;background:var(--warning-soft);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏦</div>
                 <div>
                     <div style="font-size:16px;font-weight:800;color:var(--ink);">Istruzioni per il bonifico</div>
                     <div style="font-size:12.5px;color:var(--ink-soft);">Il venditore confermerà la ricezione appena visibile sul suo conto.</div>
@@ -72,20 +73,20 @@
             <div style="margin-bottom:18px;">
                 @foreach($bankFields as $label => $value)
                     @continue(! $value)
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;">
-                        <span style="font-size:13px;color:var(--ink-muted,#7a95aa);min-width:110px;">{{ $label }}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);">
+                        <span style="font-size:13px;color:var(--ink-muted);min-width:110px;">{{ $label }}</span>
                         <span style="font-size:13.5px;font-weight:700;font-family:{{ in_array($label, ['IBAN','Causale']) ? 'monospace' : 'inherit' }};">{{ $value }}</span>
                     </div>
                 @endforeach
             </div>
 
             @if($bankCreds['note'] ?? null)
-                <div style="background:var(--surface-soft,#f8fafc);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:var(--ink-soft);">
+                <div style="background:var(--surface-soft);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:var(--ink-soft);">
                     Nota del venditore: {{ $bankCreds['note'] }}
                 </div>
             @endif
 
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">
+            <div style="background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--warning);">
                 ⏳ In attesa di conferma da parte del venditore.
             </div>
 

@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 @php
     // Calcolati UNA VOLTA per pagina, non per card: qui dentro ci sono due
     // relazioni, e chiederle quindici volte sarebbe stato un N+1 travestito
@@ -25,6 +26,9 @@
         // mutazione l'ha dimostrato: toglierlo non faceva cadere niente.
         // Il controllo vero, quello che conta, e' in CartService.
     };
+
+    $sonoIlProprietario = fn ($listing) => auth()->user()->company_id === $listing->company_id
+        || auth()->user()->is_super_admin;
 @endphp
 {{-- Niente banner qui: li stampa gia' il layout (layouts/portal.blade.php).
      Ristamparli voleva dire leggere DUE VOLTE lo stesso avviso dopo ogni
@@ -38,7 +42,7 @@
         @if($selectedCompany)
             <input type="hidden" name="company" value="{{ $selectedCompany->id }}">
         @endif
-        <div class="shop-toolbar-field" style="flex:1;min-width:220px;">
+        <div class="shop-toolbar-field shop-toolbar-field--grow">
             <label>Cerca</label>
             <div class="shop-search-input">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -129,51 +133,24 @@
     </div>
     <div class="featured-strip">
         @foreach($featuredListings as $listing)
-        <article class="featured-card">
-            <a href="{{ route('portal.shop.show', $listing) }}" class="product-media">
-                @if($listing->card_image_url)
-                    <img src="{{ $listing->card_image_url }}" alt="{{ $listing->title }}" loading="lazy">
-                @else
-                    <div class="product-media-placeholder"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                @endif
-                @if($listing->is_on_offer)
-                    <span class="product-badge product-badge--offer">-{{ $listing->offer_discount_percent }}%</span>
-                @endif
-                @if($listing->effective_ky_percentage === 100)
-                    <span class="product-badge product-badge--full-ky">100% KY</span>
-                @endif
-                <span class="product-badge product-badge--featured">★</span>
-                @if(! $listing->isInStock())
-                    <span class="product-media-overlay">Esaurito</span>
-                @endif
-            </a>
-            <div class="product-body">
-                <h3 class="product-title" title="{{ $listing->title }}">
-                    <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
-                </h3>
-                <div class="entity-meta">
-                    <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
-                </div>
-                <div class="product-price-row">
-                    <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
-                    @if($listing->is_on_offer)
-                        <span style="text-decoration:line-through;color:var(--ink-muted);font-size:12px;">{{ ky_format($listing->price_ky) }} KY</span>
-                    @endif
-                    @if($listing->effective_ky_percentage !== 100)
-                        <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
-                    @endif
-                </div>
+        <x-shop.product-card
+            :listing="$listing"
+            as="featured"
+            :href="route('portal.shop.show', $listing)"
+            :overlay="$listing->isInStock() ? null : 'Esaurito'"
+            :show-star="true">
+            <x-slot:actions>
                 @if($siPuoAggiungere($listing))
-                <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello>
+                <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello style="width:100%;">
                     @csrf
                     <input type="hidden" name="quantity" value="1">
-                    <button type="submit" class="cta" style="width:100%;">Aggiungi al carrello</button>
+                    <button type="submit" class="cta buy" style="width:100%;">Aggiungi al carrello</button>
                 </form>
                 @else
                 <a class="cta" style="width:100%;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
                 @endif
-            </div>
-        </article>
+            </x-slot:actions>
+        </x-shop.product-card>
         @endforeach
     </div>
 </section>
@@ -185,112 +162,64 @@
          il proprietario/admin (vedi ListingController::index, query con orWhere
          company_id) — al pubblico restano invisibili grazie allo scope active()
          applicato comunque come condizione base. Overlay + azioni sotto rendono
-         chiaro che non sono visibili nello shop pubblico (2026-07-30). --}}
-    <article class="catalog-card{{ $listing->status !== 'active' ? ' catalog-card--inactive' : '' }}">
-        {{-- Il prodotto sospeso non ha una pagina dettaglio raggiungibile (show()
-             la blocca per chiunque, proprietario incluso): niente link su foto/
-             titolo in quel caso, per non portare a un redirect "non disponibile"
-             quando basta il pulsante "Riattiva" qui sotto per gestirlo. --}}
-        @if($listing->status === 'active')
-        <a href="{{ route('portal.shop.show', $listing) }}" class="product-media">
-        @else
-        <div class="product-media">
-        @endif
-            @if($listing->card_image_url)
-                <img src="{{ $listing->card_image_url }}" alt="{{ $listing->title }}" loading="lazy">
-            @else
-                <div class="product-media-placeholder">
-                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-            @endif
-            @if($listing->is_on_offer)
-                <span class="product-badge product-badge--offer">-{{ $listing->offer_discount_percent }}%</span>
-            @endif
-            @if($listing->effective_ky_percentage === 100)
-                <span class="product-badge product-badge--full-ky">100% KY</span>
-            @endif
-            @if($listing->featured)<span class="product-badge product-badge--featured">★</span>@endif
-            @if($listing->status !== 'active')
-                <span class="product-media-overlay">{{ \App\Models\Listing::statusLabel($listing->status) }}</span>
-            @elseif(! $listing->isInStock())
-                <span class="product-media-overlay">Esaurito</span>
-            @endif
-        @if($listing->status === 'active')
-        </a>
-        @else
-        </div>
-        @endif
-        <div class="product-body">
-            <h3 class="product-title" title="{{ $listing->title }}">
-                @if($listing->status === 'active')
-                    <a href="{{ route('portal.shop.show', $listing) }}">{{ $listing->title }}</a>
-                @else
-                    <span>{{ $listing->title }}</span>
-                @endif
-            </h3>
-            <div class="entity-meta">
-                <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
-            </div>
-            <div class="product-price-row">
-                <span class="product-price">{{ ky_format($listing->effective_price_ky) }} <small>KY</small></span>
-                @if($listing->is_on_offer)
-                    <span style="text-decoration:line-through;color:var(--ink-muted);font-size:12px;">{{ ky_format($listing->price_ky) }} KY</span>
-                @endif
-                @if($listing->effective_ky_percentage !== 100)
-                    <span class="mix-badge" style="{{ $listing->effective_ky_badge_color }}">{{ $listing->effective_ky_badge_label }}</span>
-                @endif
-            </div>
-            <div class="page-actions" style="margin-top:2px;">
-                @if($listing->status === 'active')
-                    @if($siPuoAggiungere($listing))
-                        {{-- Un form vero, non un bottone finto: senza
-                             JavaScript aggiunge lo stesso, ricaricando la
-                             pagina come prima. Con il JavaScript parte in
-                             background e risponde il mini-carrello. --}}
-                        <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello style="flex:1;">
-                            @csrf
-                            <input type="hidden" name="quantity" value="1">
-                            <button type="submit" class="cta" style="width:100%;">Aggiungi al carrello</button>
-                        </form>
-                        <a class="cta secondary" href="{{ route('portal.shop.show', $listing) }}">Vedi</a>
-                    @else
-                        <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
-                    @endif
-                @else
-                    <span class="listing-hidden-note">Non visibile al pubblico</span>
-                @endif
-                @if(auth()->user()->company_id === $listing->company_id || auth()->user()->is_super_admin)
-                    <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary">Modifica</a>
-                    {{-- Sospendi/Riattiva (2026-07-30): azienda proprietaria E admin possono
-                         nascondere temporaneamente il prodotto dal pubblico e riattivarlo
-                         quando serve, senza doverlo eliminare. Solo toggle active<->suspended:
-                         'draft'/'expired' restano stati gestiti solo da admin/sistema. --}}
-                    <form method="POST" action="{{ route('portal.shop.status', $listing) }}" style="display:inline;">
+         chiaro che non sono visibili nello shop pubblico (2026-07-30).
+
+         Il prodotto sospeso non ha una pagina dettaglio raggiungibile (show()
+         la blocca per chiunque, proprietario incluso): niente link su foto e
+         titolo in quel caso, per non portare a un redirect "non disponibile"
+         quando basta il pulsante "Riattiva" qui sotto per gestirlo. --}}
+    @php $attivo = $listing->status === 'active'; @endphp
+    <x-shop.product-card
+        :listing="$listing"
+        :href="$attivo ? route('portal.shop.show', $listing) : null"
+        :inactive="! $attivo"
+        :overlay="! $attivo
+            ? \App\Models\Listing::statusLabel($listing->status)
+            : (! $listing->isInStock() ? 'Esaurito' : null)">
+        <x-slot:actions>
+            @if($attivo)
+                @if($siPuoAggiungere($listing))
+                    {{-- Un form vero, non un bottone finto: senza JavaScript
+                         aggiunge lo stesso, ricaricando la pagina come prima.
+                         Con il JavaScript parte in background e risponde il
+                         mini-carrello. --}}
+                    <form method="POST" action="{{ route('portal.cart.add', $listing) }}" data-carrello style="flex:1;">
                         @csrf
-                        <input type="hidden" name="status" value="{{ $listing->status === 'active' ? 'suspended' : 'active' }}">
-                        <button type="submit" class="cta secondary">{{ $listing->status === 'active' ? 'Sospendi' : 'Riattiva' }}</button>
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit" class="cta buy" style="width:100%;">Aggiungi al carrello</button>
                     </form>
+                    <a class="cta secondary" href="{{ route('portal.shop.show', $listing) }}">Vedi</a>
+                @else
+                    <a class="cta" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $listing) }}">Vedi il prodotto</a>
                 @endif
-            </div>
-        </div>
-    </article>
-    @empty
-    <div class="shop-empty">
-        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <p class="subtle">
-            @if($selectedCompany)
-                {{ $selectedCompany->name }} non ha prodotti in vendita al momento.
             @else
-                Nessun prodotto trovato nel catalogo.
+                <span class="listing-hidden-note">Non visibile al pubblico</span>
             @endif
-        </p>
+            @if($sonoIlProprietario($listing))
+                <a href="{{ route('portal.shop.edit', $listing) }}" class="cta secondary">Modifica</a>
+                {{-- Sospendi/Riattiva (2026-07-30): azienda proprietaria E admin possono
+                     nascondere temporaneamente il prodotto dal pubblico e riattivarlo
+                     quando serve, senza doverlo eliminare. Solo toggle active<->suspended:
+                     'draft'/'expired' restano stati gestiti solo da admin/sistema. --}}
+                <form method="POST" action="{{ route('portal.shop.status', $listing) }}" style="display:inline;">
+                    @csrf
+                    <input type="hidden" name="status" value="{{ $attivo ? 'suspended' : 'active' }}">
+                    <button type="submit" class="cta secondary">{{ $attivo ? 'Sospendi' : 'Riattiva' }}</button>
+                </form>
+            @endif
+        </x-slot:actions>
+    </x-shop.product-card>
+    @empty
+    <x-shop.empty :message="$selectedCompany
+        ? $selectedCompany->name . ' non ha prodotti in vendita al momento.'
+        : 'Nessun prodotto trovato nel catalogo.'">
         @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
             <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Rimuovi filtri</a>
         @endif
         @if($selectedCompany)
             <a href="{{ route('portal.shop') }}" class="cta secondary" style="margin-top:6px;display:inline-block;">Vedi tutto lo shop</a>
         @endif
-    </div>
+    </x-shop.empty>
     @endforelse
 </div>
 
@@ -299,206 +228,5 @@
     {{ $listings->appends(request()->query())->links() }}
 </div>
 @endif
-
-<style>
-    .shop-seller-banner {
-        margin-top: 18px; display: flex; align-items: center; justify-content: space-between;
-        gap: 12px; flex-wrap: wrap;
-    }
-    .shop-seller-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-    /* ── Toolbar shop: ricerca con icona + select coerenti col design system ── */
-    .shop-toolbar-card { padding: 18px 22px; }
-    /* UNA RIGA SOLA FINCHE' CI STA, POI A CAPO (27/08/2026 — audit 26/08,
-       blocco 5).
-
-       Fino a ieri era `flex-wrap: nowrap` con `overflow-x: auto`: la scelta
-       del 29/07, presa per non far scendere i campi su una seconda riga. Il
-       guaio e' che i quattro campi hanno min-width per 790px, e dopo di loro
-       vengono "Filtra", "Reset" e i collegamenti a destra: sotto il metro
-       abbondante di colonna la barra scorreva in orizzontale SENZA sembrare
-       scorrevole — niente ombra, e su Mac e Windows recenti nemmeno la
-       barretta finche' non ci passi sopra — e "Filtra" finiva semplicemente
-       fuori dal bordo. Su un tablet in orizzontale, o su un portatile
-       stretto con la sidebar aperta, il filtro si poteva ancora compilare ma
-       non si poteva piu' inviare, se non premendo Invio: cosa che nessuno sa.
-
-       `wrap` fa esattamente quello che si voleva a luglio — riga unica
-       quando lo spazio basta — e quando non basta manda a capo invece di
-       nascondere. Chi ha lo schermo grande non vede alcuna differenza, chi
-       ce l'ha piccolo riguadagna il bottone. */
-    .shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-    /* Le azioni a destra: spinte in fondo quando dividono la riga con i
-       filtri, allineate a sinistra quando sono andate a capo per conto loro
-       (altrimenti restavano appiccicate al bordo destro con mezzo schermo
-       vuoto davanti). */
-    .shop-toolbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-    .shop-toolbar-field label {
-        display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
-        margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
-    }
-    .shop-search-input {
-        position: relative; display: flex; align-items: center;
-    }
-    .shop-search-input svg { position: absolute; left: 12px; color: var(--ink-muted); pointer-events: none; }
-    .shop-search-input input {
-        width: 100%; padding: 10px 14px 10px 36px;
-        border: 1.5px solid var(--line-strong); border-radius: 10px;
-        background: var(--surface); color: var(--ink); font-size: 14px;
-        transition: border-color .15s, box-shadow .15s;
-    }
-    .shop-search-input input:focus {
-        outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
-    }
-    .km-select {
-        appearance: none; -webkit-appearance: none; -moz-appearance: none;
-        width: 100%; padding: 10px 34px 10px 14px; font-size: 14px; font-family: inherit;
-        border: 1.5px solid var(--line-strong); border-radius: 10px;
-        background-color: var(--surface); color: var(--ink); cursor: pointer;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'><path d='M1 1l4.5 4.5L10 1' stroke='%234a637d' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-        background-repeat: no-repeat; background-position: right 12px center; background-size: 11px 7px;
-        outline: none; transition: border-color .15s, box-shadow .15s;
-    }
-    .km-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
-
-    /* ── Catalogo: griglia responsive stile ecommerce ──
-       Schede più corte (2026-07-30): foto meno alta (aspect-ratio) + meno
-       padding/gap nel corpo card, per ridurre lo spazio bianco inutile. */
-    /* Colonne del catalogo: vedi .catalog-grid in layouts/portal.blade.php
-       (scaletta 5 / 3 / 2, divisori dei 15 prodotti per pagina). Qui NON si
-       ridefiniscono, altrimenti questo <style> — che viene dopo — vince. */
-    .catalog-card {
-        padding: 0; overflow: hidden; display: flex; flex-direction: column;
-        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    }
-    .catalog-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-lg);
-        border-color: var(--line-strong);
-    }
-    /* Prodotto sospeso/non attivo, visibile solo al proprietario/admin (2026-07-30) */
-    .catalog-card--inactive { opacity: .72; }
-    .catalog-card--inactive:hover { opacity: 1; }
-    .listing-hidden-note {
-        flex: 1; font-size: 12px; font-weight: 600; color: var(--ink-muted);
-        display: flex; align-items: center; justify-content: center; text-align: center;
-    }
-    .product-media {
-        position: relative; display: block; aspect-ratio: 16 / 10;
-        background: linear-gradient(150deg, var(--surface-soft), var(--surface));
-        overflow: hidden; text-decoration: none;
-    }
-    .product-media img {
-        width: 100%; height: 100%; object-fit: cover; display: block;
-        transition: transform .4s ease;
-    }
-    .catalog-card:hover .product-media img,
-    .featured-card:hover .product-media img { transform: scale(1.07); }
-    .product-media-placeholder {
-        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-        color: var(--ink-muted);
-    }
-    .product-media-overlay {
-        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-        background: rgba(13,28,48,.55); color: #fff; font-weight: 800; font-size: 13px;
-        letter-spacing: .04em; text-transform: uppercase;
-    }
-    .product-badge {
-        position: absolute; top: 10px; font-size: 10.5px; font-weight: 700;
-        padding: 4px 10px; border-radius: 999px; letter-spacing: .02em;
-        background: rgba(255,255,255,.94); color: var(--ink-soft);
-        box-shadow: var(--shadow-xs);
-    }
-    .product-badge--featured { right: 10px; background: #fef3c7; color: #92400e; }
-    /* Ribbon "100% KY" (2026-07-29): sostituisce il vecchio badge piano/Ecommerce
-       — è la vera informazione utile per chi acquista, quindi va evidenziata
-       direttamente sulla foto invece che in un chip generico nel corpo card. */
-    .product-badge--full-ky {
-        left: 10px; background: #059669; color: #fff; font-weight: 800;
-        box-shadow: 0 2px 8px rgba(5,150,105,.35);
-    }
-    /* Badge sconto "-X%" (2026-08-13, offerta della settimana): stesso angolo
-       del badge "In evidenza" (right:10px) — se un prodotto è ENTRAMBI in
-       evidenza e in offerta, il selettore sotto sposta giù la stella per non
-       sovrapporsi (l'offerta, più urgente, resta in alto). L'ordine nel markup
-       (badge offerta renderizzato PRIMA di quello "In evidenza") è quello che
-       fa funzionare il combinatore ~ qui sotto. */
-    .product-badge--offer { right: 10px; background: #dc2626; color: #fff; font-weight: 800; box-shadow: 0 2px 8px rgba(220,38,38,.35); }
-    .product-badge--offer ~ .product-badge--featured { top: 40px; }
-    .product-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
-    /* Titolo bloccato a 2 righe (2026-08-26, richiesta Laura): l'altezza e' FISSA
-       anche quando il titolo sta su una riga sola, cosi' il bianco che avanza
-       si raccoglie tutto qui sotto e non fra venditore e prezzo.
-       min-height in EM e non in px: vale anche per la variante piu' piccola
-       delle card "in evidenza" (13px), senza una seconda regola.
-       `overflow:hidden` e' obbligatorio, senza quello line-clamp non taglia.
-       ATTENZIONE: questo blocco era gia' stato scritto una volta e cancellato
-       per sbaglio dal commit f46d731 (due sessioni sullo stesso file). */
-    .product-title {
-        margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25;
-        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-        overflow: hidden; min-height: 2.5em;
-    }
-    .product-title a { color: var(--ink); text-decoration: none; }
-    .product-title a:hover { color: var(--primary); }
-    /* Il blocco venditore + prezzo + bottone e' incollato in fondo alla card
-       (2026-08-26, richiesta Laura): l'unico `margin-top:auto` di tutto il
-       corpo card sta QUI, sulla riga del venditore, cosi' tutto lo spazio che
-       avanza finisce in un punto solo — sotto il titolo. ATTENZIONE: in
-       flexbox lo spazio libero si divide fra TUTTI i margini auto, quindi se
-       si rimette `margin-top:auto` anche su .product-price-row il bianco si
-       spacca in due e il venditore si stacca dal prezzo. */
-    .catalog-card .product-body .entity-meta,
-    .featured-card .product-body .entity-meta { margin-top: auto; }
-    .product-price-row {
-        margin-top: 0; padding-top: 2px;
-        display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-    }
-    .product-price {
-        font-size: 19px; font-weight: 800; color: var(--primary-strong); letter-spacing: -.02em;
-    }
-    .product-price small { font-size: 11px; font-weight: 700; margin-left: 2px; }
-    .mix-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
-    /* CTA più prominente in stile "Acquista ora" (Amazon-like) */
-    .catalog-card .page-actions .cta,
-    .featured-card .product-body .cta {
-        font-weight: 700; letter-spacing: .01em;
-    }
-    .catalog-card .page-actions { margin-top: 0 !important; }
-
-    /* ── Fascia "In evidenza": scroll orizzontale ── */
-    .featured-strip {
-        display: flex; gap: 16px; overflow-x: auto; padding-bottom: 4px; margin-top: 4px;
-        scroll-snap-type: x proximity;
-    }
-    .featured-card {
-        flex: 0 0 240px; scroll-snap-align: start;
-        border: 1px solid var(--line); border-radius: var(--radius-sm);
-        background: var(--surface); box-shadow: var(--shadow-xs);
-        overflow: hidden; display: flex; flex-direction: column;
-        transition: box-shadow .18s ease, border-color .18s ease;
-    }
-    .featured-card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
-    .featured-card .product-body { padding: 9px 11px 11px; gap: 5px; }
-    .featured-card .product-title { font-size: 13px; }
-
-    /* ── Stato vuoto ── */
-    .shop-empty {
-        grid-column: 1 / -1; text-align: center; padding: 56px 24px;
-        display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--ink-muted);
-    }
-
-    /* Sotto i 900px le azioni non stanno mai sulla riga dei filtri: lasciarle
-       spinte a destra vorrebbe dire una riga quasi vuota con i bottoni
-       ammucchiati in fondo. */
-    @media (max-width: 900px) {
-        .shop-toolbar-actions { margin-left: 0; width: 100%; }
-    }
-
-    @media (max-width: 640px) {
-        .shop-toolbar { flex-direction: column; align-items: stretch; }
-        .shop-toolbar > div { width: 100%; }
-    }
-</style>
 
 @endsection

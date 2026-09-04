@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 {{--
     La cassa (fase A del piano "esperienza d'acquisto", 26/08/2026).
 
@@ -41,44 +42,44 @@
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                     <div>
                         <span class="eyebrow">Passo 1</span>
-                        <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">Dove lo spediamo</h3>
+                        <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">Dove lo spediamo</h3>
                     </div>
                     <a href="{{ route('portal.shipping-addresses.index', ['redirect_to' => $ritornoIndirizzi]) }}"
-                       style="font-size:12.5px;font-weight:600;color:#0c4a86;text-decoration:none;">Gestisci la rubrica</a>
+                       style="font-size:12.5px;font-weight:600;color:var(--info);text-decoration:none;">Gestisci la rubrica</a>
                 </div>
 
                 <div style="margin-top:14px;">
                     @foreach($indirizzi as $indirizzo)
-                    <label style="display:flex;gap:11px;align-items:flex-start;padding:12px 14px;border:1px solid #e2e8f0;border-radius:11px;margin-bottom:9px;cursor:pointer;">
+                    <label style="display:flex;gap:11px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;cursor:pointer;">
                         <input type="radio" name="indirizzo_scelto" value="{{ $indirizzo->id }}"
                                style="margin-top:3px;width:16px;height:16px;flex:0 0 auto;cursor:pointer;"
                                {{ (string) old('indirizzo_scelto', $indirizzo->is_default ? $indirizzo->id : '') === (string) $indirizzo->id ? 'checked' : '' }}
                                onchange="document.getElementById('blocco-nuovo-indirizzo').style.display='none';">
                         <span style="min-width:0;">
                             @if($indirizzo->label)
-                                <strong style="color:#10263d;font-size:14px;">{{ $indirizzo->label }}</strong>
-                                @if($indirizzo->is_default)<span class="pill" style="background:#dcfce7;color:#166534;margin-left:6px;">Predefinito</span>@endif
+                                <strong style="color:var(--ink);font-size:14px;">{{ $indirizzo->label }}</strong>
+                                @if($indirizzo->is_default)<span class="pill" style="background:var(--success-soft);color:var(--success);margin-left:6px;">Predefinito</span>@endif
                                 <br>
                             @elseif($indirizzo->is_default)
-                                <span class="pill" style="background:#dcfce7;color:#166534;">Predefinito</span><br>
+                                <span class="pill" style="background:var(--success-soft);color:var(--success);">Predefinito</span><br>
                             @endif
-                            <span style="font-size:13.5px;color:#334155;line-height:1.6;">
+                            <span style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;">
                                 @foreach($indirizzo->righe as $riga){{ $riga }}@if(! $loop->last)<br>@endif @endforeach
                             </span>
                         </span>
                     </label>
                     @endforeach
 
-                    <label style="display:flex;gap:11px;align-items:center;padding:12px 14px;border:1px dashed #cbd5e1;border-radius:11px;cursor:pointer;">
+                    <label style="display:flex;gap:11px;align-items:center;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:11px;cursor:pointer;">
                         <input type="radio" name="indirizzo_scelto" value="nuovo"
                                style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"
                                {{ old('indirizzo_scelto') === 'nuovo' || $indirizzi->isEmpty() ? 'checked' : '' }}
                                onchange="document.getElementById('blocco-nuovo-indirizzo').style.display='block';">
-                        <span style="font-size:13.5px;color:#334155;font-weight:600;">Spedisci a un nuovo indirizzo</span>
+                        <span style="font-size:13.5px;color:var(--ink-soft);font-weight:600;">Spedisci a un nuovo indirizzo</span>
                     </label>
                 </div>
 
-                <div id="blocco-nuovo-indirizzo" style="display:{{ old('indirizzo_scelto') === 'nuovo' || $indirizzi->isEmpty() ? 'block' : 'none' }};margin-top:16px;padding-top:16px;border-top:1px solid #eef2f7;">
+                <div id="blocco-nuovo-indirizzo" style="display:{{ old('indirizzo_scelto') === 'nuovo' || $indirizzi->isEmpty() ? 'block' : 'none' }};margin-top:16px;padding-top:16px;border-top:1px solid var(--line);">
                     @include('portal.partials.shipping-address-fields', ['indirizzo' => null, 'prefissoId' => 'cassa'])
 
                     @if($indirizzi->count() < $tettoIndirizzi)
@@ -117,20 +118,20 @@
                          tornava da sola addosso a chi l'aveva appena
                          tolta. Adesso e' scritta come quella qui sotto —
                          `old()` e basta — e le due si comportano uguale. --}}
-                    <label style="display:flex;gap:9px;align-items:center;margin-top:13px;font-size:13px;color:#334155;cursor:pointer;">
+                    <label style="display:flex;gap:9px;align-items:center;margin-top:13px;font-size:13px;color:var(--ink-soft);cursor:pointer;">
                         <input type="checkbox" name="salva_indirizzo" value="1" style="width:16px;height:16px;cursor:pointer;"
                                {{ old('salva_indirizzo') ? 'checked' : '' }}>
                         Salvalo nella mia rubrica ({{ $indirizzi->count() }} di {{ $tettoIndirizzi }} usati)
                     </label>
                     @if($indirizzi->isNotEmpty())
-                    <label style="display:flex;gap:9px;align-items:center;margin-top:8px;font-size:13px;color:#334155;cursor:pointer;">
+                    <label style="display:flex;gap:9px;align-items:center;margin-top:8px;font-size:13px;color:var(--ink-soft);cursor:pointer;">
                         <input type="checkbox" name="rendi_predefinito" value="1" style="width:16px;height:16px;cursor:pointer;"
                                {{ old('rendi_predefinito') ? 'checked' : '' }}>
                         E usalo come predefinito d'ora in poi
                     </label>
                     @endif
                     @else
-                    <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;margin:13px 0 0;">
+                    <p style="font-size:12.5px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:9px 12px;margin:13px 0 0;">
                         Hai già {{ $tettoIndirizzi }} indirizzi in rubrica: questo vale solo per l'ordine di adesso.
                         Per salvarlo, eliminane prima uno dalla rubrica.
                     </p>
@@ -142,23 +143,23 @@
             {{-- ── 2. Che cosa stai comprando, e come ti arriva ────────────── --}}
             <section class="card light-card">
                 <span class="eyebrow">Passo {{ $serveIndirizzo ? 2 : 1 }}</span>
-                <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+                <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">
                     Il tuo ordine
                     @if($gruppi->count() > 1)
                         <span class="subtle" style="font-weight:500;font-size:14px;">— {{ $gruppi->count() }} venditori, {{ $gruppi->count() }} pacchi</span>
                     @endif
                 </h3>
                 @foreach($gruppi as $gruppo)
-                <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+                <div style="border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
-                        <strong style="color:#10263d;font-size:15px;">{{ $gruppo['company']->name }}</strong>
-                        <span style="font-weight:700;color:#10263d;font-size:15px;">
+                        <strong style="color:var(--ink);font-size:15px;">{{ $gruppo['company']->name }}</strong>
+                        <span style="font-weight:700;color:var(--ink);font-size:15px;">
                             {{ ky_format($gruppo['ky']) }} KY{{ $gruppo['eur'] > 0 ? ' + € ' . number_format($gruppo['eur'] / 100, 2, ',', '.') : '' }}
                         </span>
                     </div>
 
                     @foreach($gruppo['righe'] as $riga)
-                    <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:13.5px;color:#475569;border-top:1px solid #f1f5f9;">
+                    <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:13.5px;color:var(--ink-soft);border-top:1px solid var(--line);">
                         <span style="min-width:0;">
                             {{ $riga->quantity }} × {{ $riga->listing->title }}
                             @if($riga->etichettaVariante())
@@ -169,12 +170,12 @@
                                 {{ $riga->listing->delivery_type_label }}
                             </span>
                         </span>
-                        <span style="white-space:nowrap;color:#10263d;font-weight:600;">{{ ky_format($riga->totaleKy()) }} KY</span>
+                        <span style="white-space:nowrap;color:var(--ink);font-weight:600;">{{ ky_format($riga->totaleKy()) }} KY</span>
                     </div>
                     @endforeach
 
                     @if($gruppo['spedizione_ky'] > 0 || $gruppo['spedizione_eur'] > 0)
-                    <div style="display:flex;justify-content:space-between;padding:7px 0 0;border-top:1px solid #f1f5f9;font-size:13px;color:#475569;">
+                    <div style="display:flex;justify-content:space-between;padding:7px 0 0;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);">
                         <span>Spedizione <span class="subtle">(una sola per venditore)</span></span>
                         <span>{{ ky_format($gruppo['spedizione_ky']) }} KY{{ $gruppo['spedizione_eur'] > 0 ? ' + € ' . number_format($gruppo['spedizione_eur'] / 100, 2, ',', '.') : '' }}</span>
                     </div>
@@ -198,9 +199,9 @@
             {{-- ── 3. Il consenso ──────────────────────────────────────────── --}}
             <section class="card light-card">
                 <span class="eyebrow">Passo {{ $serveIndirizzo ? 3 : 2 }}</span>
-                <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 12px;">Conferma</h3>
+                <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 12px;">Conferma</h3>
 
-                <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13.5px;color:#334155;line-height:1.55;">
+                <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13.5px;color:var(--ink-soft);line-height:1.55;">
                     <input type="checkbox" name="accetto_condizioni" value="1" required
                            style="margin-top:3px;width:17px;height:17px;flex:0 0 auto;cursor:pointer;"
                            {{ old('accetto_condizioni') ? 'checked' : '' }}>

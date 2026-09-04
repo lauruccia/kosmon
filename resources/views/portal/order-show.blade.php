@@ -1,6 +1,7 @@
 @extends('layouts.portal')
 
 @section('content')
+<x-shop.styles />
 {{--
     Il dettaglio dell'ordine — fase B, 27/08/2026.
 
@@ -41,7 +42,7 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                 <div>
                     <span class="eyebrow">Ordine {{ $order->numero }}</span>
-                    <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0;">
+                    <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0;">
                         {{ $eVenditore ? 'Che cosa devi preparare' : 'Che cosa hai comprato' }}
                     </h3>
                 </div>
@@ -51,14 +52,14 @@
             <div style="margin-top:14px;">
                 @foreach($order->items as $riga)
                 <div style="display:flex;justify-content:space-between;gap:12px;padding:11px 0;
-                            border-bottom:1px solid #f1f5f9;font-size:14px;">
+                            border-bottom:1px solid var(--line);font-size:14px;">
                     <div style="min-width:0;">
                         {{ $riga->quantity }} × {{ $riga->title }}
                         @if($riga->variant_label)
                             <span class="subtle">— {{ $riga->variant_label }}</span>
                         @endif
                     </div>
-                    <span style="white-space:nowrap;color:#10263d;font-weight:600;">
+                    <span style="white-space:nowrap;color:var(--ink);font-weight:600;">
                         {{ ky_format($riga->line_ky_amount) }} KY
                     </span>
                 </div>
@@ -66,8 +67,8 @@
             </div>
 
             @if($order->buyer_note)
-            <div style="margin-top:14px;font-size:13px;color:#0c4a86;background:#eff6ff;
-                        border:1px solid #bfdbfe;border-radius:9px;padding:11px 13px;">
+            <div style="margin-top:14px;font-size:13px;color:var(--info);background:var(--info-soft);
+                        border:1px solid var(--info-line);border-radius:9px;padding:11px 13px;">
                 <strong>Nota {{ $eVenditore ? 'del cliente' : 'che hai lasciato' }}:</strong>
                 {{ $order->buyer_note }}
             </div>
@@ -78,10 +79,10 @@
         @if($order->richiedeSpedizione())
         <section class="card light-card">
             <span class="eyebrow">Spedizione</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 12px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 12px;">
                 {{ $eVenditore ? 'Dove spedire' : 'Dove arriva' }}
             </h3>
-            <div style="font-size:14px;line-height:1.6;color:#10263d;">
+            <div style="font-size:14px;line-height:1.6;color:var(--ink);">
                 {{ $order->shipping_recipient_name }}<br>
                 {{ $order->shipping_address }}<br>
                 {{ $order->shipping_postal_code }} {{ $order->shipping_city }}
@@ -102,7 +103,7 @@
         @if($eVenditore && ! empty($passaggi))
         <section class="card light-card">
             <span class="eyebrow">{{ $eAdmin ? 'Correggi' : 'Aggiorna' }}</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">
                 {{ $eAdmin ? 'Stato dell\'ordine' : 'A che punto sei' }}
             </h3>
             <p class="subtle" style="font-size:12.5px;margin:0 0 14px;">
@@ -146,7 +147,7 @@
         </section>
         @elseif($eVenditore && $order->isInAttesaDiEuro())
         <section class="card light-card">
-            <p style="font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;
+            <p style="font-size:13px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--warning-line);
                       border-radius:9px;padding:11px 13px;margin:0;">
                 Questo ordine aspetta ancora la quota in euro. Quando il pagamento risulterà incassato
                 potrai segnarlo come preparato e spedito.
@@ -156,9 +157,9 @@
 
         {{-- ── La richiesta di reso da rispondere: solo chi vende ────────── --}}
         @if($eVenditore && $resoAperto)
-        <section class="card light-card" style="border-color:#fbbf24;">
+        <section class="card light-card" style="border-color:var(--warning-line);">
             <span class="eyebrow">Da rispondere</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">
                 Il cliente ha chiesto un reso
             </h3>
             <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
@@ -167,7 +168,7 @@
                 nel tuo magazzino. Se rifiuti, il motivo che scrivi lo legge lui.
             </p>
 
-            <blockquote style="font-size:13.5px;color:#334155;background:#f8fafc;border-left:3px solid #cbd5e1;
+            <blockquote style="font-size:13.5px;color:var(--ink-soft);background:var(--surface-soft);border-left:3px solid var(--line-strong);
                                border-radius:0 8px 8px 0;padding:10px 13px;margin:0 0 14px;">
                 {{ $resoAperto->reason }}
             </blockquote>
@@ -179,7 +180,7 @@
                 </label>
                 <textarea class="field-input" id="nota" name="nota" rows="3" maxlength="500"
                           placeholder="Es. Puoi rispedire a…, oppure: il prodotto risulta usato">{{ old('nota') }}</textarea>
-                @error('nota')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+                @error('nota')<p style="color:var(--danger);font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
 
                 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                     <button type="submit" name="esito" value="accepted" class="cta">Accetta il reso e rimborsa</button>
@@ -193,7 +194,7 @@
         @if($siPuoAnnullare)
         <section class="card light-card">
             <span class="eyebrow">Annulla</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">
                 Annullare questo ordine
             </h3>
             <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
@@ -216,9 +217,9 @@
                 <label class="field-label" for="motivo">Motivo <span class="subtle">(lo legge il cliente)</span></label>
                 <input class="field-input" type="text" id="motivo" name="motivo" maxlength="300" required
                        value="{{ old('motivo') }}" placeholder="Es. prodotto non più disponibile">
-                @error('motivo')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+                @error('motivo')<p style="color:var(--danger);font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
 
-                <button type="submit" class="cta-outline" style="margin-top:14px;border-color:#dc2626;color:#dc2626;">
+                <button type="submit" class="cta-outline" style="margin-top:14px;border-color:var(--danger);color:var(--danger);">
                     Annulla l'ordine e rimborsa
                 </button>
             </form>
@@ -229,7 +230,7 @@
         @if(! $eVenditore && $order->puoChiedereReso())
         <section class="card light-card">
             <span class="eyebrow">Reso</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 4px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 4px;">
                 Vuoi restituire questo ordine?
             </h3>
             <p class="subtle" style="font-size:12.5px;margin:0 0 12px;">
@@ -243,7 +244,7 @@
                 <label class="field-label" for="motivo">Perché vuoi restituirlo</label>
                 <textarea class="field-input" id="motivo" name="motivo" rows="3" maxlength="500" required
                           placeholder="Descrivi il problema: taglia sbagliata, prodotto difettoso, non conforme…">{{ old('motivo') }}</textarea>
-                @error('motivo')<p style="color:#b91c1c;font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
+                @error('motivo')<p style="color:var(--danger);font-size:12.5px;margin:6px 0 0;">{{ $message }}</p>@enderror
 
                 <button type="submit" class="cta-outline" style="margin-top:14px;">Invia la richiesta di reso</button>
             </form>
@@ -254,20 +255,20 @@
         @if($storiaResi->isNotEmpty())
         <section class="card light-card">
             <span class="eyebrow">Resi</span>
-            <h3 style="font-size:17px;font-weight:700;color:#10263d;margin:4px 0 12px;">
+            <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin:4px 0 12px;">
                 {{ $storiaResi->count() === 1 ? 'La richiesta di reso' : 'Le richieste di reso' }}
             </h3>
 
             @foreach($storiaResi as $pratica)
-            <div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;
+            <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;
                         margin-bottom:{{ $loop->last ? '0' : '10px' }};">
                 <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;">
-                    <strong style="font-size:13.5px;color:#10263d;">{{ $pratica->status_label }}</strong>
+                    <strong style="font-size:13.5px;color:var(--ink);">{{ $pratica->status_label }}</strong>
                     <span class="subtle" style="font-size:12px;">{{ $pratica->created_at?->format('d/m/Y') }}</span>
                 </div>
-                <p style="font-size:13px;color:#475569;margin:8px 0 0;">{{ $pratica->reason }}</p>
+                <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">{{ $pratica->reason }}</p>
                 @if(filled($pratica->decision_note))
-                    <p style="font-size:13px;color:#334155;margin:8px 0 0;padding-top:8px;border-top:1px dashed #e2e8f0;">
+                    <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--line);">
                         <strong>Risposta del venditore:</strong> {{ $pratica->decision_note }}
                     </p>
                 @endif
@@ -303,7 +304,7 @@
              d'uscita: senza, l'ordine resta fermo e non si capisce perche'. --}}
         @if(! $eVenditore && $order->isInAttesaDiEuro() && $order->payment)
         <section class="card light-card">
-            <p style="font-size:13px;margin:0 0 12px;color:#92400e;">
+            <p style="font-size:13px;margin:0 0 12px;color:var(--warning);">
                 Il venditore aspetta la quota in euro per poter spedire.
             </p>
             <a href="{{ route('portal.shop.orders.pay', $order->payment) }}" class="cta"
@@ -315,7 +316,7 @@
 
         <section class="card light-card">
             <span class="eyebrow">Cronologia</span>
-            <div style="margin-top:12px;font-size:13px;line-height:1.9;color:#10263d;">
+            <div style="margin-top:12px;font-size:13px;line-height:1.9;color:var(--ink);">
                 <div>Ordinato · <strong>{{ $order->placed_at?->format('d/m/Y H:i') }}</strong></div>
                 @if($order->shipped_at)
                     <div>Spedito · <strong>{{ $order->shipped_at->format('d/m/Y H:i') }}</strong></div>
@@ -329,21 +330,21 @@
             </div>
 
             @if($order->tracking_code)
-            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f1f5f9;">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);">
                     Tracciamento
                 </div>
-                <div style="font-size:14px;font-weight:600;color:#10263d;margin-top:4px;word-break:break-all;">
+                <div style="font-size:14px;font-weight:600;color:var(--ink);margin-top:4px;word-break:break-all;">
                     {{ $order->carrier ? $order->carrier . ' · ' : '' }}{{ $order->tracking_code }}
                 </div>
             </div>
             @endif
 
-            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f1f5f9;">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);">
                     {{ $eVenditore ? 'Cliente' : 'Venditore' }}
                 </div>
-                <div style="font-size:14px;font-weight:600;color:#10263d;margin-top:4px;">
+                <div style="font-size:14px;font-weight:600;color:var(--ink);margin-top:4px;">
                     @if($eVenditore)
                         {{ $order->shipping_recipient_name ?: ($order->buyerUser?->name ?? 'Cliente del circuito') }}
                     @else
