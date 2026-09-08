@@ -252,3 +252,39 @@ Le previsioni del capitolo 8 erano esatte al pixel. Provato anche: lo stato sopr
 **Suite: 1833 verdi, 0 rossi** (erano 1826 verdi + 5 rossi).
 
 **Cosa manca del blocco A:** ordinamento (prezzo, novita', piu' venduti), filtri per attributo e fascia di prezzo, etichette Novita'/Saldo, barra scorte, seconda immagine al passaggio, "carica altri". La colonna dei filtri adesso e' il posto dove metterli — oggi contiene i tre filtri che c'erano gia'.
+
+---
+
+## 10. Secondo giro dell'08/09 — i filtri tornano nella striscia
+
+**La colonna e' durata mezza giornata, ed e' giusto cosi': l'ha bocciata la prova dal vivo.**
+Con i filtri a sinistra, la striscia in alto restava mezza vuota con dentro un bottone solo —
+brutta da vedere e uno spreco della riga piu' visibile della pagina. E due barre laterali, anche
+alternate, erano una di troppo.
+
+**Cosa resta e cosa cambia:**
+
+- **Resta il menu a icone.** Serve comunque: una colonna in meno e' una card in piu' per riga,
+  e non c'entra con i filtri. A 1440 con il menu a icone il catalogo tiene **sei colonne**.
+- **I filtri tornano nella striscia, ma non come prima.** Due fasce nella stessa scheda: sopra i
+  filtri, sotto le azioni, divise da un filo.
+- **Via la colonna, il pannello mobile, il bottone "Filtri" e la regola dell'una alla volta.**
+  Niente codice morto: quello che non si usa piu' non resta a fare ombra.
+
+**Perche' adesso la riga non va a capo e non lascia bianco.** Un solo elemento e' elastico — la
+ricerca, `flex: 1 1 240px` — e gli altri hanno misura fissa (`min-width: 178px` sulle select).
+Cosi' e' la ricerca a mangiarsi lo spazio che avanza. Misurato a 1440 con il menu a icone: i
+quattro elementi appoggiati sulla **stessa base**, l'ultimo che finisce **esattamente sul bordo
+destro**, zero pixel bianchi. Regge anche con la sotto-categoria in piu' (quattro campi) e a
+1280.
+
+**Le azioni sono scese su una fascia loro.** Sono navigazione, non filtri: mescolate ai campi
+facevano nove elementi in fila, e bastava un portatile stretto perche' la riga si spezzasse a
+meta' lasciando "Filtra" spaiato in fondo.
+
+**Cosa vuol dire per il blocco A.** Quando arriveranno fascia di prezzo, attributi e ordinamento,
+la striscia non li reggera' tutti su una riga: la risposta non sara' la colonna fissa di
+stamattina ma un pannello **a scomparsa** dietro un bottone, che si apre solo quando serve — la
+soluzione della demo WoodMart indicata da Laura, che infatti in pagina la barra non ce l'ha.
+
+**Suite: 1832 verdi, 0 rossi.**

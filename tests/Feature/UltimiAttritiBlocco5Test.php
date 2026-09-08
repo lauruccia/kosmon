@@ -95,7 +95,11 @@ class UltimiAttritiBlocco5Test extends TestCase
         $this->assertStringContainsString('<button type="submit" class="cta">Filtra</button>', $html);
         $this->assertStringContainsString('<div class="shop-toolbar-actions">', $html,
             'Le azioni a destra hanno una classe vera: gli stili in linea non si possono mandare a capo.');
-        $this->assertStringContainsString('.shop-toolbar-actions { margin-left: auto;', $css);
+        // La regola e' su piu' righe dall'08/09 (le azioni sono scese su una
+        // fascia loro, sotto un filo): si cerca il blocco, non la riga.
+        $blocco = substr($css, strpos($css, '.shop-toolbar-actions {'), 400);
+        $this->assertStringContainsString('margin-left: auto;', $blocco);
+        $this->assertStringContainsString('justify-content: flex-end;', $blocco);
 
         // E quando vanno a capo per conto loro, tornano a sinistra: spinte a
         // destra su una riga tutta loro sarebbero bottoni ammucchiati in

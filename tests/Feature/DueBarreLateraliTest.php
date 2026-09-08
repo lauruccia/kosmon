@@ -11,82 +11,102 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * DUE BARRE LATERALI, UNA ALLA VOLTA — 08/09/2026
+ * IL MENU A ICONE E LA STRISCIA DEI FILTRI — 08/09/2026
  *
- * Il negozio ha due colonne laterali: il menu del portale (272px) e i filtri
- * del catalogo (264px). Se stanno larghe tutte e due, su una finestra da 1440
- * si prendono 536px — il 39% — e il catalogo scende da cinque colonne a
- * quattro. La regola e' che una delle due stia stretta: il menu si riduce a
- * icone, i filtri si aprono e si chiudono.
+ * Storia in due tempi, e vale la pena tenerla scritta perche' il secondo tempo
+ * ha smentito il primo.
  *
- * Questi test sorvegliano le quattro cose che si rompono per prime:
- *  1. i filtri devono restare RAGGIUNGIBILI anche senza JavaScript;
- *  2. lo stato delle due barre deve essere applicato PRIMA del primo paint,
+ * Al mattino i filtri erano diventati una colonna a sinistra, e il menu del
+ * portale imparava a stringersi a icone perche' due barre larghe insieme si
+ * prendevano il 39% di una finestra da 1440. Provata dal vivo, la colonna non
+ * ha retto: lasciava la striscia in alto mezza vuota con dentro un bottone
+ * solo, e la seconda barra laterale era una di troppo.
+ *
+ * Cosa e' rimasto: il **menu a icone**, che serve comunque (una colonna in
+ * meno e' una card in piu' per riga), e i **filtri nella striscia**, ma
+ * rifatti — una fascia per i filtri e una per le azioni, con la ricerca che
+ * si allarga a riempire lo spazio invece di lasciarlo bianco.
+ *
+ * Questi test sorvegliano le cose che si rompono per prime:
+ *  1. i filtri devono restare RAGGIUNGIBILI e funzionanti senza JavaScript;
+ *  2. lo stato del menu deve essere applicato PRIMA del primo paint,
  *     altrimenti ogni pagina si apre larga e si stringe di scatto;
  *  3. la larghezza del menu deve stare in UNA variabile (era cablata in tre
  *     punti, e tre numeri da cambiare insieme sono tre occasioni di sbagliare);
  *  4. il menu a icone NON deve applicarsi sotto i 769px, dove il menu e' gia'
  *     un pannello fuori schermo con l'hamburger.
  *
- * Vedi SHOP_COME_WOODMART_2026-09-08.md, capitolo 8.
+ * Vedi SHOP_COME_WOODMART_2026-09-08.md, capitoli 8 e 9.
  */
 class DueBarreLateraliTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── I filtri sono una colonna ───────────────────────────────────────────
+    // ── I filtri stanno nella striscia ─────────────────────────────────────
 
-    public function test_i_filtri_stanno_in_una_colonna_e_non_piu_nella_striscia(): void
+    public function test_i_filtri_stanno_nella_striscia_e_non_in_una_colonna(): void
     {
         $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('id="shop-filters"', $html, 'Manca la colonna dei filtri.');
-        $this->assertStringContainsString('class="shop-layout"', $html, 'Manca il contenitore a due colonne.');
-
-        $colonna = $this->ritaglia($html, '<aside class="shop-filters"', '</aside>');
+        $striscia = $this->ritaglia($html, '<form method="GET"', '</form>');
 
         foreach (['name="q"', 'name="category"', 'name="ky_filter"'] as $campo) {
-            $this->assertStringContainsString(
-                $campo,
-                $colonna,
-                "Il filtro {$campo} e' rimasto fuori dalla colonna: se torna nella striscia orizzontale, "
-                .'con attributi e prezzo in arrivo diventa un muro di controlli sopra il primo prodotto.'
-            );
+            $this->assertStringContainsString($campo, $striscia, "Il filtro {$campo} non e' nella striscia.");
         }
+
+        // La colonna di stamattina non deve tornare per sbaglio: due barre
+        // laterali erano una di troppo, e mezza striscia restava bianca.
+        $this->assertStringNotContainsString('id="shop-filters"', $html);
+        $this->assertStringNotContainsString('shop-layout', $html);
+        $this->assertStringNotContainsString('toggleShopFilters', $html);
+    }
+
+    public function test_le_azioni_non_stanno_sulla_riga_dei_filtri(): void
+    {
+        $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
+        $css  = file_get_contents(public_path('assets/css/shop.css'));
+
+        // Nove elementi in fila andavano a capo a meta' su un portatile
+        // stretto, lasciando "Filtra" spaiato in fondo. Le azioni sono
+        // navigazione: stanno fuori dal form e su una riga loro.
+        $striscia = $this->ritaglia($html, '<form method="GET"', '</form>');
+        $this->assertStringNotContainsString('shop-toolbar-actions', $striscia,
+            'Le azioni sono tornate dentro il form dei filtri.');
+
+        $this->assertStringContainsString('border-top: 1px solid var(--line);', $css);
+        $this->assertStringContainsString('justify-content: flex-end;', $css);
+    }
+
+    public function test_la_ricerca_si_allarga_e_i_campi_no(): void
+    {
+        $css = file_get_contents(public_path('assets/css/shop.css'));
+
+        // UN SOLO elemento elastico, gli altri a misura fissa: e' cosi' che la
+        // riga resta piena senza spazio bianco in mezzo e senza andare a capo.
+        $this->assertStringContainsString('.shop-toolbar-field--grow { flex: 1 1 240px; min-width: 200px; }', $css);
+        $this->assertStringContainsString('.shop-toolbar-field .km-select { min-width: 178px; }', $css);
+        $this->assertStringContainsString('.shop-toolbar > .cta { min-height: 42px;', $css,
+            'Il bottone "Filtra" deve appoggiarsi sulla stessa riga di terra dei campi.');
     }
 
     public function test_i_filtri_funzionano_anche_a_javascript_spento(): void
     {
-        $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
-
-        // La colonna si chiude con una classe su <html> messa dal JavaScript.
-        // Nell'HTML servito non deve esserci: a JavaScript spento i filtri
-        // devono essere li', aperti, come il mini-carrello.
-        $this->assertStringNotContainsString('<html class="shop-filters-closed"', $html);
-        $this->assertMatchesRegularExpression(
-            '/<form[^>]+method="GET"[^>]*>/i',
-            $this->ritaglia($html, '<aside class="shop-filters"', '</aside>'),
-            'I filtri devono essere un form GET vero, non un pannello che vive di JavaScript.'
-        );
-
-        // E il filtro deve filtrare davvero, senza una riga di JavaScript.
         [$azienda] = $this->venditoreConAzienda();
         $this->makeListing($azienda, 'Sedia impagliata');
         $this->makeListing($azienda, 'Miele di castagno');
+
+        $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression(
+            '/<form[^>]+method="GET"[^>]*class="shop-toolbar"/i',
+            $html,
+            'I filtri devono essere un form GET vero, non un pannello che vive di JavaScript.'
+        );
 
         $risultato = $this->actingAs($this->venditore())
             ->get(route('portal.shop', ['q' => 'castagno']))->assertOk()->getContent();
 
         $this->assertStringContainsString('Miele di castagno', $risultato);
         $this->assertStringNotContainsString('Sedia impagliata', $risultato);
-    }
-
-    public function test_il_bottone_apre_la_colonna_e_ne_dichiara_il_bersaglio(): void
-    {
-        $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
-
-        $this->assertStringContainsString('toggleShopFilters(true)', $html, 'Manca il bottone che riapre i filtri.');
-        $this->assertStringContainsString('aria-controls="shop-filters"', $html, "Il bottone non dice cosa apre.");
     }
 
     // ── Il menu a icone ─────────────────────────────────────────────────────
@@ -101,14 +121,14 @@ class DueBarreLateraliTest extends TestCase
         $this->assertStringContainsString('aria-expanded', $html);
     }
 
-    public function test_lo_stato_delle_due_barre_arriva_prima_del_primo_paint(): void
+    public function test_lo_stato_del_menu_arriva_prima_del_primo_paint(): void
     {
         $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
 
         $fineTesta = strpos($html, '</head>');
         $this->assertNotFalse($fineTesta);
 
-        foreach (["'km-nav'", "'km-shop-filters'"] as $chiave) {
+        foreach (["'km-nav'"] as $chiave) {
             $posizione = strpos($html, $chiave);
             $this->assertNotFalse($posizione, "Lo stato {$chiave} non viene letto affatto.");
             $this->assertLessThan(
@@ -184,16 +204,6 @@ class DueBarreLateraliTest extends TestCase
         $this->assertStringContainsString('html.nav-rail .sidebar { padding: 20px 8px; overflow-x: hidden; }', $layout);
     }
 
-    public function test_la_scelta_dell_utente_sul_menu_vince_sull_automatismo(): void
-    {
-        $layout = file_get_contents(resource_path('views/layouts/portal.blade.php'));
-
-        $this->assertStringContainsString('window.__navRailByUser = true;', $layout);
-        $this->assertStringContainsString('!window.__navRailByUser', $layout,
-            'La regola dell\'una alla volta deve fermarsi davanti a una scelta esplicita: '
-            .'un menu che si richiude dopo che l\'utente l\'ha aperto e\' un menu rotto.');
-    }
-
     // ── Il catalogo ─────────────────────────────────────────────────────────
 
     public function test_il_catalogo_conta_le_colonne_sullo_spazio_e_non_sulla_finestra(): void
@@ -229,17 +239,6 @@ class DueBarreLateraliTest extends TestCase
             .'nei casi che capitano su desktop.'
         );
         $this->assertStringContainsString('page=2', $html, 'Il ventunesimo prodotto deve finire in seconda pagina.');
-    }
-
-    // ── Il foglio di stile ──────────────────────────────────────────────────
-
-    public function test_la_larghezza_dei_filtri_e_un_token_e_non_un_numero_sparso(): void
-    {
-        $css = file_get_contents(public_path('assets/css/shop.css'));
-
-        $this->assertStringContainsString('--shop-filter-w: 264px;', $css);
-        $this->assertStringContainsString('width: var(--shop-filter-w)', $css);
-        $this->assertStringContainsString('html.shop-filters-closed .shop-filters { display: none; }', $css);
     }
 
     // ── Aiuti ───────────────────────────────────────────────────────────────

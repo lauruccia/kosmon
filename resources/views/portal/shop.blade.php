@@ -34,114 +34,95 @@
      Ristamparli voleva dire leggere DUE VOLTE lo stesso avviso dopo ogni
      aggiunta al carrello — audit 26/08, blocco 5. --}}
 
-{{-- DUE BARRE LATERALI, UNA ALLA VOLTA (08/09/2026).
-     I filtri sono usciti dalla striscia orizzontale e sono diventati una
-     colonna: con attributi, prezzo e venditore in arrivo (blocco A) la
-     striscia sarebbe diventata un muro di controlli sopra il primo prodotto.
-     La colonna pero' non puo' stare aperta insieme al menu disteso: le due
-     barre si prendono il 39% di una finestra da 1440. Da qui il bottone
-     "Filtri" e la regola dell'una alla volta (toggleShopFilters in
-     layouts/portal.blade.php). --}}
-<div class="shop-layout">
-    <button type="button" class="shop-filters-backdrop" aria-label="Chiudi i filtri"
-            onclick="toggleShopFilters(false)" tabindex="-1"></button>
-
-    <aside class="shop-filters" id="shop-filters" aria-label="Filtri del catalogo">
-        <form method="GET" action="{{ route('portal.shop') }}">
-            {{-- Filtro venditore: chi arriva dal pulsante "SHOP" della directory
-                 aziende deve restare dentro il negozio di quell'azienda anche
-                 dopo aver cercato o cambiato categoria (2026-08-25). --}}
-            @if($selectedCompany)
-                <input type="hidden" name="company" value="{{ $selectedCompany->id }}">
-            @endif
-
-            <div class="shop-filters-head">
-                <h2>Filtri</h2>
-                <button type="button" class="shop-filters-close" onclick="toggleShopFilters(false)"
-                        aria-controls="shop-filters" aria-label="Chiudi i filtri" title="Chiudi i filtri">&times;</button>
-            </div>
-
-            <div class="shop-filter-field">
-                <label for="shop-q">Cerca</label>
-                <div class="shop-search-input">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="shop-q" name="q" value="{{ $searchQuery }}" placeholder="Prodotto, azienda...">
-                </div>
-            </div>
-
-            <div class="shop-filter-field">
-                <label for="shop-category-select">Categoria</label>
-                <select name="category" id="shop-category-select" class="km-select" data-no-search onchange="this.form.submit()">
-                    <option value="">Tutte le categorie</option>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->slug }}" @selected($selectedCategory === $cat->slug)>{{ $cat->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            @if($selectedCategory !== '')
-            <div class="shop-filter-field">
-                <label for="shop-subcategory-select">Sotto-categoria</label>
-                <select name="subcategory" id="shop-subcategory-select" class="km-select" data-no-search>
-                    <option value="">Tutte</option>
-                    @foreach(($subcategoriesBySlug[$selectedCategory] ?? []) as $sub)
-                        <option value="{{ $sub['slug'] }}" @selected($selectedSubcategory === $sub['slug'])>{{ $sub['name'] }}</option>
-                    @endforeach
-                </select>
-            </div>
-            @endif
-
-            {{-- Filtro % Kmoney: un'unica select (esatta o "da", non due campi separati). --}}
-            <div class="shop-filter-field">
-                <label for="shop-ky-filter">Filtro Kmoney</label>
-                <select name="ky_filter" id="shop-ky-filter" class="km-select" data-no-search>
-                    <option value="">Qualsiasi</option>
-                    <optgroup label="Esatta">
-                        @foreach($kyPercentages as $pct)
-                            <option value="exact:{{ $pct }}" @selected($kyFilter === "exact:{$pct}")>{{ $pct }}%</option>
-                        @endforeach
-                    </optgroup>
-                    <optgroup label="Da">
-                        @foreach(array_filter($kyPercentages) as $pct)
-                            <option value="min:{{ $pct }}" @selected($kyFilter === "min:{$pct}")>Da {{ $pct }}%</option>
-                        @endforeach
-                    </optgroup>
-                </select>
-            </div>
-
-            <button type="submit" class="cta">Filtra</button>
-            @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
-                <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary shop-filters-reset">&#10005; Azzera i filtri</a>
-            @endif
-        </form>
-    </aside>
-
-    <div class="shop-main">
+{{-- I FILTRI STANNO NELLA STRISCIA (08/09/2026, secondo giro).
+     Al mattino erano diventati una colonna a sinistra; provata dal vivo, la
+     colonna lasciava la striscia mezza vuota con un bottone solo dentro, e
+     due barre laterali erano una di troppo. Sono tornati qui, ma non come
+     prima: la ricerca si allarga a prendere tutto lo spazio che avanza, i
+     tre campi hanno una misura fissa e la riga non va a capo finche' c'e'
+     posto. Le azioni (offerte, pubblica, i miei prodotti) stanno su una
+     riga loro sotto un filo di separazione: sono navigazione, non filtri,
+     e mescolarle era il motivo per cui la barra si spezzava. --}}
 <section class="card light-card shop-toolbar-card">
-    <div class="shop-toolbar">
-        {{-- Compare solo quando la colonna dei filtri e' chiusa (o e' un
-             pannello, sotto i 1100): due modi di aprire la stessa cosa
-             visibili insieme sarebbero due comandi per l'utente. --}}
-        <button type="button" class="cta secondary shop-filters-open-btn" onclick="toggleShopFilters(true)"
-                aria-controls="shop-filters" style="white-space:nowrap;">&#9776; Filtri</button>
-        <div class="shop-toolbar-actions">
-            {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
-                 stessa visibilità del link nella sidebar (layouts/portal.blade.php). --}}
-            <a class="cta secondary" href="{{ route('portal.shop.offers') }}" style="white-space:nowrap;">🔥 Offerte della settimana</a>
-            @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
-                <a class="cta" href="{{ route('portal.shop.create') }}" style="white-space:nowrap;">Pubblica un prodotto</a>
-            @endif
-            {{-- "I miei prodotti" (2026-08-12): chi pubblica prodotti non aveva modo
-                 di ritrovare/verificare i propri, mescolati nello shop pubblico tra
-                 quelli di tutte le altre aziende — link diretto alla vista dedicata. --}}
-            @if(auth()->user()->company_id)
-                <a class="cta secondary" href="{{ route('portal.shop.mine') }}" style="white-space:nowrap;">I miei prodotti</a>
-            @endif
-            @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
-                <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}" style="white-space:nowrap;">Metodi di pagamento EUR</a>
-            @endif
-            <a class="cta secondary" href="{{ route('portal.announcements') }}" style="white-space:nowrap;">Vai agli annunci</a>
+    <form method="GET" action="{{ route('portal.shop') }}" class="shop-toolbar">
+        {{-- Filtro venditore: chi arriva dal pulsante "SHOP" della directory
+             aziende deve restare dentro il negozio di quell'azienda anche
+             dopo aver cercato o cambiato categoria (2026-08-25). --}}
+        @if($selectedCompany)
+            <input type="hidden" name="company" value="{{ $selectedCompany->id }}">
+        @endif
+
+        <div class="shop-toolbar-field shop-toolbar-field--grow">
+            <label for="shop-q">Cerca</label>
+            <div class="shop-search-input">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="shop-q" name="q" value="{{ $searchQuery }}" placeholder="Prodotto, azienda...">
+            </div>
         </div>
+
+        <div class="shop-toolbar-field">
+            <label for="shop-category-select">Categoria</label>
+            <select name="category" id="shop-category-select" class="km-select" data-no-search onchange="this.form.submit()">
+                <option value="">Tutte le categorie</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->slug }}" @selected($selectedCategory === $cat->slug)>{{ $cat->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        @if($selectedCategory !== '')
+        <div class="shop-toolbar-field">
+            <label for="shop-subcategory-select">Sotto-categoria</label>
+            <select name="subcategory" id="shop-subcategory-select" class="km-select" data-no-search>
+                <option value="">Tutte</option>
+                @foreach(($subcategoriesBySlug[$selectedCategory] ?? []) as $sub)
+                    <option value="{{ $sub['slug'] }}" @selected($selectedSubcategory === $sub['slug'])>{{ $sub['name'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
+
+        {{-- Filtro % Kmoney: un'unica select (esatta o "da", non due campi separati). --}}
+        <div class="shop-toolbar-field">
+            <label for="shop-ky-filter">Filtro Kmoney</label>
+            <select name="ky_filter" id="shop-ky-filter" class="km-select" data-no-search>
+                <option value="">Qualsiasi</option>
+                <optgroup label="Esatta">
+                    @foreach($kyPercentages as $pct)
+                        <option value="exact:{{ $pct }}" @selected($kyFilter === "exact:{$pct}")>{{ $pct }}%</option>
+                    @endforeach
+                </optgroup>
+                <optgroup label="Da">
+                    @foreach(array_filter($kyPercentages) as $pct)
+                        <option value="min:{{ $pct }}" @selected($kyFilter === "min:{$pct}")>Da {{ $pct }}%</option>
+                    @endforeach
+                </optgroup>
+            </select>
+        </div>
+
+        <button type="submit" class="cta">Filtra</button>
+        @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
+            <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary">&#10005; Reset</a>
+        @endif
+    </form>
+
+    <div class="shop-toolbar-actions">
+        {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
+             stessa visibilità del link nella sidebar (layouts/portal.blade.php). --}}
+        <a class="cta secondary" href="{{ route('portal.shop.offers') }}">🔥 Offerte della settimana</a>
+        @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
+            <a class="cta" href="{{ route('portal.shop.create') }}">Pubblica un prodotto</a>
+        @endif
+        {{-- "I miei prodotti" (2026-08-12): chi pubblica prodotti non aveva modo
+             di ritrovare/verificare i propri, mescolati nello shop pubblico tra
+             quelli di tutte le altre aziende — link diretto alla vista dedicata. --}}
+        @if(auth()->user()->company_id)
+            <a class="cta secondary" href="{{ route('portal.shop.mine') }}">I miei prodotti</a>
+        @endif
+        @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
+            <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}">Metodi di pagamento EUR</a>
+        @endif
+        <a class="cta secondary" href="{{ route('portal.announcements') }}">Vai agli annunci</a>
     </div>
 </section>
 
@@ -263,7 +244,5 @@
 </div>
 @endif
 
-    </div>{{-- .shop-main --}}
-</div>{{-- .shop-layout --}}
 
 @endsection

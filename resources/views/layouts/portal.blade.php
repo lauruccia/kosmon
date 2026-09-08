@@ -29,13 +29,6 @@
                se lo stato arrivasse a fine pagina, ogni caricamento mostrerebbe
                il menu largo che si stringe di scatto. */
             if (localStorage.getItem('km-nav') === 'rail') document.documentElement.classList.add('nav-rail');
-            /* Barra dei filtri dello shop: stessa ragione del menu. Sotto i
-               1100px nasce chiusa a prescindere da come l'utente l'aveva
-               lasciata: li' e' un pannello sopra il catalogo, e una pagina che
-               si apre con un pannello davanti e' una pagina rotta. */
-            if (localStorage.getItem('km-shop-filters') === 'closed' || window.innerWidth < 1100) {
-                document.documentElement.classList.add('shop-filters-closed');
-            }
         })();
     </script>
     <style>
@@ -2443,10 +2436,6 @@
         function toggleNavRail(force) {
             var root = document.documentElement;
             var on = (typeof force === 'boolean') ? force : !root.classList.contains('nav-rail');
-            /* Chiamata senza argomento = l'ha premuto una persona. Da quel
-               momento la regola dell'una alla volta non tocca piu' il menu:
-               l'automatismo suggerisce, non comanda. */
-            if (typeof force !== 'boolean') window.__navRailByUser = true;
             if (on === root.classList.contains('nav-rail')) return on;
             root.classList.toggle('nav-rail', on);
             try { localStorage.setItem('km-nav', on ? 'rail' : 'wide'); } catch (e) {}
@@ -2471,47 +2460,6 @@
             }
             labelNavIcons(on);
         })();
-
-        /* ── BARRA DEI FILTRI DELLO SHOP ────────────────────────────
-           Vive qui e non nella vista dello shop perche' la classe sta su
-           <html> (la mette lo script in testa, prima del primo paint) e
-           perche' la regola dell'una alla volta deve poter parlare col menu. */
-        function toggleShopFilters(force) {
-            var root = document.documentElement;
-            var closed = (typeof force === 'boolean')
-                ? !force
-                : !root.classList.contains('shop-filters-closed');
-            root.classList.toggle('shop-filters-closed', closed);
-            try { localStorage.setItem('km-shop-filters', closed ? 'closed' : 'open'); } catch (e) {}
-
-            /* UNA ALLA VOLTA: sotto i 1500px il menu disteso piu' i filtri
-               aperti lasciano al catalogo meno di 900px e una colonna si
-               perde. Il menu si ritira da solo — ma solo se l'utente non ha
-               gia' deciso lui come vuole il menu. */
-            if (!closed && window.innerWidth < 1500 && !window.__navRailByUser
-                && typeof toggleNavRail === 'function') {
-                toggleNavRail(true);
-            }
-            return !closed;
-        }
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Escape') return;
-            if (window.innerWidth >= 1100) return;           /* in colonna non e' un pannello: non si chiude con Esc */
-            if (document.documentElement.classList.contains('shop-filters-closed')) return;
-            if (!document.getElementById('shop-filters')) return;
-            toggleShopFilters(false);
-        });
-
-        /* Restringendo la finestra il pannello non deve restare aperto sopra
-           il catalogo. Allargandola NON si riapre da sola: deciderlo per
-           l'utente sarebbe peggio del non farlo. */
-        window.addEventListener('resize', function () {
-            if (window.innerWidth < 1100 && document.getElementById('shop-filters')
-                && !document.documentElement.classList.contains('shop-filters-closed')) {
-                document.documentElement.classList.add('shop-filters-closed');
-            }
-        });
 
         function toggleSidebar() {
             var sidebar = document.querySelector('.sidebar');
