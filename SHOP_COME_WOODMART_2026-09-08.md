@@ -288,3 +288,20 @@ stamattina ma un pannello **a scomparsa** dietro un bottone, che si apre solo qu
 soluzione della demo WoodMart indicata da Laura, che infatti in pagina la barra non ce l'ha.
 
 **Suite: 1832 verdi, 0 rossi.**
+
+### Terzo giro: una riga sola
+
+Le due fasce (filtri sopra, azioni sotto) sono durate un'ora: con due o tre bottoni in croce
+lasciavano mezza scheda bianca. Adesso **la scheda e' una riga sola**: filtri a sinistra, azioni
+spinte a destra da `margin-left: auto`, tutto appoggiato sulla stessa base.
+
+- la ricerca ha preso un **tetto** (`flex: 1 1 200px; max-width: 420px`): senza, si mangiava
+  mezza riga e spingeva le azioni a capo;
+- i bottoni delle azioni sono un filo piu' magri (12,5px): sono cinque per un'azienda, e a
+  misura piena occupavano 866px, piu' della meta' della riga.
+
+Misurato: per un **privato** (due azioni) la riga e' una sola **da 1280 in su** — il caso di
+Laura. Per un'**azienda** (cinque azioni) tutto in fila entra da 1920; sotto, le azioni scendono
+per conto loro invece di spezzare i filtri, che e' l'ordine giusto in cui cedere.
+
+Scheda alta **96px** invece di 146.

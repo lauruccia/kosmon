@@ -61,20 +61,27 @@ class DueBarreLateraliTest extends TestCase
         $this->assertStringNotContainsString('toggleShopFilters', $html);
     }
 
-    public function test_le_azioni_non_stanno_sulla_riga_dei_filtri(): void
+    public function test_le_azioni_stanno_sulla_stessa_riga_ma_fuori_dal_form(): void
     {
         $html = $this->actingAs($this->venditore())->get(route('portal.shop'))->assertOk()->getContent();
         $css  = file_get_contents(public_path('assets/css/shop.css'));
 
-        // Nove elementi in fila andavano a capo a meta' su un portatile
-        // stretto, lasciando "Filtra" spaiato in fondo. Le azioni sono
-        // navigazione: stanno fuori dal form e su una riga loro.
+        // Fuori dal form: sono link di navigazione, non campi da inviare.
         $striscia = $this->ritaglia($html, '<form method="GET"', '</form>');
         $this->assertStringNotContainsString('shop-toolbar-actions', $striscia,
-            'Le azioni sono tornate dentro il form dei filtri.');
+            'Le azioni sono finite dentro il form dei filtri.');
 
-        $this->assertStringContainsString('border-top: 1px solid var(--line);', $css);
-        $this->assertStringContainsString('justify-content: flex-end;', $css);
+        // Ma sulla stessa riga: la scheda e' una fila sola, con le azioni
+        // spinte a destra. Due fasce sovrapposte lasciavano mezza scheda
+        // bianca (08/09/2026, terzo giro).
+        $scheda = substr($css, strpos($css, '.shop-toolbar-card {'), 220);
+        $this->assertStringContainsString('display: flex;', $scheda);
+        $this->assertStringContainsString('align-items: flex-end;', $scheda);
+
+        $azioni = substr($css, strpos($css, '.shop-toolbar-actions {'), 260);
+        $this->assertStringContainsString('margin-left: auto;', $azioni);
+        $this->assertStringNotContainsString('border-top', $azioni,
+            'Il filo fra filtri e azioni voleva dire due righe: adesso la riga e\' una.');
     }
 
     public function test_la_ricerca_si_allarga_e_i_campi_no(): void
@@ -83,7 +90,8 @@ class DueBarreLateraliTest extends TestCase
 
         // UN SOLO elemento elastico, gli altri a misura fissa: e' cosi' che la
         // riga resta piena senza spazio bianco in mezzo e senza andare a capo.
-        $this->assertStringContainsString('.shop-toolbar-field--grow { flex: 1 1 240px; min-width: 200px; }', $css);
+        $this->assertStringContainsString('.shop-toolbar-field--grow { flex: 1 1 200px; min-width: 180px; max-width: 420px; }', $css,
+            'Senza il tetto la ricerca si mangia mezza riga e spinge le azioni a capo.');
         $this->assertStringContainsString('.shop-toolbar-field .km-select { min-width: 178px; }', $css);
         $this->assertStringContainsString('.shop-toolbar > .cta { min-height: 42px;', $css,
             'Il bottone "Filtra" deve appoggiarsi sulla stessa riga di terra dei campi.');

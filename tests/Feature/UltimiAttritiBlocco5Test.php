@@ -64,19 +64,20 @@ class UltimiAttritiBlocco5Test extends TestCase
         //  1. dal 04/09 (fase 0 del tema) le regole dello shop non sono piu'
         //     dentro la pagina ma in public/assets/css/shop.css — cercarle
         //     nell'HTML voleva dire cercarle dove non sono piu';
-        //  2. dall'08/09 i filtri sono usciti dalla striscia orizzontale e
-        //     sono diventati una colonna. Nella striscia restano le azioni, e
-        //     sono loro che adesso devono andare a capo invece di sparire.
+        //  2. dall'08/09 la striscia e' una riga sola: filtri a sinistra,
+        //     azioni spinte a destra. Il form e' diventato un blocco elastico
+        //     (`flex: 1 1 560px`), ma dentro deve restare `wrap`: e' quello
+        //     che manda a capo invece di far uscire i bottoni dal bordo.
         $css = file_get_contents(public_path('assets/css/shop.css'));
 
         $this->assertStringContainsString(
-            '.shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }',
+            '.shop-toolbar { flex: 1 1 560px; display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }',
             $css,
-            'Senza `wrap` le azioni tornano a uscire dal bordo su schermi stretti.'
+            'Senza `wrap` i filtri tornano a uscire dal bordo su schermi stretti.'
         );
 
         $this->assertStringNotContainsString(
-            '.shop-toolbar { display: flex; gap: 14px; flex-wrap: nowrap;',
+            'flex-wrap: nowrap;',
             $css,
             'Era questa la riga che nascondeva i bottoni.'
         );

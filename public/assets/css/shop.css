@@ -39,14 +39,19 @@
    elementi e' elastico — la ricerca (`flex: 1 1 240px`) — e gli altri hanno
    una misura fissa: e' la ricerca che si mangia lo spazio che avanza, invece
    di lasciarlo bianco in mezzo. */
-.shop-toolbar-card { padding: 16px 20px; display: grid; gap: 0; }
+.shop-toolbar-card {
+    padding: 16px 20px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+}
 
 /* UNA RIGA SOLA FINCHE' CI STA, POI A CAPO (27/08/2026 — audit 26/08, blocco 5).
    Prima era `nowrap` con `overflow-x:auto`: i quattro campi hanno min-width per
    790px e sotto il metro di colonna la barra scorreva in orizzontale senza
    sembrare scorrevole, mandando "Filtra" fuori dal bordo. Su un portatile
    stretto il filtro si compilava ma non si poteva piu' inviare. */
-.shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+/* Il form e' un blocco elastico dentro la scheda: prende quello che avanza
+   dopo le azioni, e quando non basta va a capo tutto insieme. */
+.shop-toolbar { flex: 1 1 560px; display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
 /* Allineati sulla base: i campi sono alti 42, il bottone deve appoggiarsi
    sulla stessa riga di terra, non fluttuare a mezz'aria. */
 .shop-toolbar > .cta { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
@@ -55,21 +60,27 @@
 
 /* Le azioni a destra: spinte in fondo quando dividono la riga con i filtri,
    allineate a sinistra quando sono andate a capo per conto loro. */
-/* Le azioni non sono filtri: sono navigazione. Su una riga loro, sotto un
-   filo, allineate a destra — mescolate ai filtri erano la ragione per cui la
-   barra si spezzava a meta'. */
+/* Le azioni stanno sulla STESSA riga dei filtri, spinte a destra da
+   `margin-left: auto`. Restano un gruppo a se' — sono navigazione, non
+   filtri — ma su una riga sola: due fasce sovrapposte, con due o tre bottoni
+   in croce, lasciavano mezza scheda bianca. Quando la finestra si stringe
+   vanno a capo per conto loro, ed e' li' che tornano a sinistra (@media 900). */
 .shop-toolbar-actions {
     margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    justify-content: flex-end; margin-top: 14px; padding-top: 14px;
-    border-top: 1px solid var(--line);
+    justify-content: flex-end;
 }
-.shop-toolbar-actions .cta { white-space: nowrap; }
+/* Un filo piu' magri dei bottoni normali: sono cinque per un'azienda, e a
+   misura piena occupavano 866px — piu' della meta' della riga, che finiva
+   per spezzarsi anche su schermi larghi. */
+.shop-toolbar-actions .cta { white-space: nowrap; padding: 9px 12px; font-size: 12.5px; }
 
 .shop-toolbar-field label {
     display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
     margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
 }
-.shop-toolbar-field--grow { flex: 1 1 240px; min-width: 200px; }
+/* La ricerca respira ma non dilaga: senza il tetto si mangiava mezza riga e
+   spingeva le azioni a capo (08/09/2026, terzo giro). */
+.shop-toolbar-field--grow { flex: 1 1 200px; min-width: 180px; max-width: 420px; }
 
 .shop-search-input { position: relative; display: flex; align-items: center; }
 .shop-search-input svg { position: absolute; left: 12px; color: var(--ink-muted); pointer-events: none; }
