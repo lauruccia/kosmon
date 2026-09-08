@@ -334,22 +334,19 @@
             </div>
             @if($listing->effective_ky_percentage < 100)
             <div style="background:var(--info-soft);border:1px solid var(--info-line);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--info);">
-                {{-- «Fuori dal circuito» diceva il vero sui SOLDI e il falso sul
-                     PERCORSO (04/09/2026). Quegli euro non sono KY, non toccano il
-                     libro mastro e non passano da KNM — il PaymentController lo dice
-                     a chiare lettere: «il denaro arriva SEMPRE sul conto proprio
-                     dell'azienda». Ma il compratore non deve accordarsi con nessuno:
-                     dopo la cassa trova un bottone e paga da dentro il portale, con i
-                     metodi che quel venditore ha configurato. Su una scheda prodotto,
-                     che si legge PRIMA di decidere, «direttamente col venditore»
-                     suonava come «poi te la vedi tu» e faceva rinunciare. --}}
+                {{-- QUANTO E QUANDO, non come funziona il circuito (08/09/2026,
+                     testo scritto da Laura: quello di prima era lungo tre righe
+                     e mezzo e spiegava la contabilita' del circuito — che quegli
+                     euro non siano KY e non li incassi KNM e' roba nostra, non
+                     del compratore. Resta scritto in checkout-thanks, dopo
+                     l'acquisto, dove serve davvero.
+
+                     euro_amount = price_ky - ky_amount: anche questo in
+                     centesimi, quindi ky_format() e non number_format(). --}}
                 <strong>Pagamento misto:</strong>
-                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->effective_ky_amount) }} KY nel circuito (per unità).
-                {{-- euro_amount = price_ky - ky_amount, quindi anche questo è in centesimi:
-                     number_format() diretto lo mostrava grezzo (senza /100), stesso bug ×100. --}}
-                Il restante {{ 100 - $listing->effective_ky_percentage }}% ({{ ky_format($listing->effective_euro_amount) }} &euro;) si paga
-                <strong>subito dopo, dalla pagina dell'ordine</strong>, con carta, PayPal o bonifico:
-                quei soldi non sono KY e vanno direttamente al venditore, il circuito non li incassa.
+                Paga {{ ky_format($listing->effective_ky_amount) }} KY ora e
+                {{ ky_format($listing->effective_euro_amount) }} &euro; subito dopo
+                con carta, PayPal o bonifico.
             </div>
             @endif
 
