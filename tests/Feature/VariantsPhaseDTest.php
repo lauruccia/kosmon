@@ -839,10 +839,14 @@ class VariantsPhaseDTest extends TestCase
             ->assertSee('Si aggiungono', false);
 
         // Anche il form di MODIFICA porta alle varianti: è il primo posto dove
-        // uno va a cercarle.
+        // uno va a cercarle. Dall'08/09/2026 non e' piu' un link ma un pulsante
+        // che SALVA e poi ci porta (vedi ModificaProdottoTest): chi cambiava il
+        // titolo e poi usciva col link se lo perdeva. Qui si difende che la
+        // strada esista ancora — dove porta lo dice il test dedicato.
         $this->actingAs($sellerUser)->get(route('portal.shop.edit', $listing))
             ->assertOk()
-            ->assertSee(route('portal.shop.variants', $listing));
+            ->assertSee('Salva e aggiungi varianti')
+            ->assertSee('name="dopo_salvataggio"', false);
     }
 
     public function test_il_venditore_genera_le_combinazioni_dai_valori_spuntati(): void

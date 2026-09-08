@@ -29,6 +29,34 @@
 
         <div class="field-grid" style="grid-template-columns:1fr;gap:18px;">
 
+            {{-- ── Azienda proprietaria ─────────────────────────────────────
+                 08/09/2026, segnalato dai colleghi di Laura: un prodotto
+                 caricato sotto l'azienda sbagliata non si poteva spostare,
+                 andava cancellato e rifatto (foto comprese). Il selettore
+                 arriva solo a chi ha accesso al backoffice — $companies e'
+                 null per tutti gli altri, vedi ListingController::edit() — e
+                 solo in modifica: in creazione il prodotto nasce sotto
+                 l'azienda di chi pubblica, e per conto di un'altra c'e'
+                 "Nuovo prodotto per conto azienda". --}}
+            @if($editingListing && $companies)
+            <div>
+                <label class="field-label">Azienda proprietaria *</label>
+                <select name="company_id" id="listing-company-select" required class="field-input"
+                        onchange="applyPortalKyRules()">
+                    @foreach($companies as $company)
+                        <option value="{{ $company->id }}"
+                            @selected((int) old('company_id', $editingListing->company_id) === (int) $company->id)>{{ $company->name }}</option>
+                    @endforeach
+                </select>
+                <small style="color:var(--ink-muted);font-size:12px;display:block;margin-top:5px;line-height:1.45;">
+                    Cambiandola, il prodotto passa a quell'azienda: da quel momento comparira' nel suo
+                    negozio e gli ordini futuri arriveranno sul suo conto. Gli ordini gia' fatti restano
+                    dove sono. Se l'azienda scelta ha il saldo negativo, il mix pagamento qui sotto si
+                    blocca al 100% KY.
+                </small>
+            </div>
+            @endif
+
             <div>
                 <label class="field-label">Titolo prodotto / servizio *</label>
                 <input type="text" name="title" value="{{ old('title', $editingListing?->title) }}"
@@ -116,6 +144,10 @@
                                 </label>
                             @endforeach
                         </div>
+                        {{-- Riempito dal JS quando l'azienda scelta col selettore qui
+                             sopra e' in debito (companyKyRules), stesso meccanismo di
+                             admin/listing-create.blade.php. --}}
+                        <div id="portal-ky-pct-forced-msg" style="display:none;margin-top:8px;background:var(--warning-soft);border:1px solid var(--warning-line);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--warning);"></div>
                         <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">
                             La quota in euro l'acquirente la paga dalla pagina dell'ordine, con i metodi che hai
                             configurato (carta, PayPal o bonifico): quei soldi arrivano sul tuo conto, il circuito
@@ -258,11 +290,28 @@
                         @else
                             Vendi questo prodotto in più versioni? Puoi creare le combinazioni e dare a ognuna prezzo e giacenza.
                         @endif
+                        <br>Le modifiche fatte qui sopra vengono salvate prima di aprire le varianti.
                     </div>
                 </div>
-                <a href="{{ route('portal.shop.variants', $editingListing) }}" class="btn-outline" style="white-space:nowrap;">
-                    {{ $editingListing->has_variants ? 'Gestisci varianti' : 'Aggiungi varianti' }}
-                </a>
+                {{-- 08/09/2026, segnalato dai colleghi di Laura: qui c'era un
+                     <a href>, e chi aveva appena cambiato il titolo lo perdeva
+                     uscendo dal form — tornava a un prodotto con le varianti
+                     nuove e il titolo vecchio. Ora questo pulsante manda QUESTO
+                     form: ListingController::update() salva tutto e poi rimanda
+                     alle varianti (campo `dopo_salvataggio`).
+
+                     type="button" e non type="submit" DI PROPOSITO: l'invio da
+                     tastiera (Enter dentro un campo di testo) sceglie il primo
+                     pulsante di submit del form, che qui sarebbe questo — chi
+                     preme Enter sul titolo si ritroverebbe nelle varianti senza
+                     averlo chiesto. Cosi' invece Enter continua a fare "Salva
+                     modifiche", e la validazione del browser resta in mezzo
+                     grazie a requestSubmit(). --}}
+                <input type="hidden" name="dopo_salvataggio" id="dopo-salvataggio" value="">
+                <button type="button" class="btn-outline" style="white-space:nowrap;"
+                        onclick="vaiAlleVarianti(this)">
+                    {{ $editingListing->has_variants ? 'Salva e gestisci varianti' : 'Salva e aggiungi varianti' }}
+                </button>
             </div>
             @else
             <p class="subtle" style="font-size:12.5px;line-height:1.55;margin:14px 0 0;">
@@ -387,6 +436,65 @@ function deleteListingImage(path) {
         });
     });
 })();
+
+// "Salva e gestisci varianti": marca la destinazione e manda il form di
+// modifica.
+//
+// La validita' si controlla PRIMA di marcare la destinazione: se un campo
+// obbligatorio e' vuoto il browser lo segnala e il campo nascosto resta vuoto,
+// altrimenti chi corregge e poi preme "Salva modifiche" si ritroverebbe nelle
+// varianti per una destinazione decisa un minuto prima.
+function vaiAlleVarianti(bottone) {
+    var form = bottone.form || bottone.closest('form');
+    if (!form) return;
+
+    if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+        return;
+    }
+
+    document.getElementById('dopo-salvataggio').value = 'varianti';
+
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.submit();
+    }
+}
+
+// Regole KY dell'azienda scelta nel selettore (solo modifica lato backoffice,
+// vedi ListingController::edit()): un'azienda col saldo negativo puo' vendere
+// solo al 100% KY, e va detto PRIMA dell'invio invece di far scoprire dopo
+// "Il valore selezionato per ky percentage non e' valido.". Stesso meccanismo
+// di admin/listing-create.blade.php.
+var portalCompanyKyRules = @json($companyKyRules ?? []);
+
+function applyPortalKyRules() {
+    var select = document.getElementById('listing-company-select');
+    var msgBox = document.getElementById('portal-ky-pct-forced-msg');
+    if (!select || !msgBox) return;
+
+    var rules = select.value ? portalCompanyKyRules[select.value] : null;
+    var forced = !!(rules && rules.required);
+
+    document.querySelectorAll('.ky-pct-radio').forEach(function(radio) {
+        var btn = radio.nextElementSibling;
+        radio.disabled = forced && radio.value !== '100';
+        if (forced) {
+            radio.checked = radio.value === '100';
+        }
+        var attivo = radio.checked;
+        btn.style.background = attivo ? 'var(--primary)' : 'var(--surface)';
+        btn.style.color = attivo ? '#fff' : 'var(--ink)';
+        btn.style.borderColor = attivo ? 'var(--primary)' : 'var(--line-strong)';
+        btn.style.opacity = radio.disabled ? '.45' : '1';
+        btn.style.cursor = radio.disabled ? 'not-allowed' : 'pointer';
+    });
+
+    msgBox.textContent = forced ? rules.message : '';
+    msgBox.style.display = forced ? 'block' : 'none';
+}
+
+applyPortalKyRules();
 
 // Toggle radio button stile pill per il selettore KY/EUR
 document.querySelectorAll('.ky-pct-radio').forEach(function(radio) {

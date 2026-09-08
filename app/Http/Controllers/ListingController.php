@@ -352,6 +352,12 @@ class ListingController extends Controller
             'editingListing'       => null,
             'allowedKyPercentages' => $currentAccount->allowedKyPercentages(),
             'requiredKyPercentage' => $currentAccount->requiredKyPercentage(),
+            // In creazione l'azienda non si sceglie: il prodotto nasce sotto
+            // quella di chi lo pubblica (per conto di un'altra azienda esiste
+            // adminCreate()). Il selettore compare solo in modifica, e solo al
+            // backoffice — vedi edit().
+            'companies'            => null,
+            'companyKyRules'       => null,
             'activeNav'            => 'shop',
         ]);
     }
@@ -424,6 +430,22 @@ class ListingController extends Controller
 
         [$editCategories, $editSubcategoriesBySlug] = $this->categoryFormOptions($listing);
 
+        // RIASSEGNARE IL PRODOTTO A UN'ALTRA AZIENDA (08/09/2026, segnalato
+        // dai colleghi di Laura). Il selettore azienda esisteva solo in
+        // "Nuovo prodotto per conto azienda" (adminCreate): una volta salvato,
+        // il prodotto restava sotto quell'azienda per sempre, e uno caricato
+        // sotto l'azienda sbagliata si poteva solo cancellare e rifare — con
+        // le foto da ricaricare.
+        //
+        // Lo vede SOLO chi ha accesso al backoffice: il prodotto e' la strada
+        // per cui i soldi di un ordine arrivano su un conto, e un venditore
+        // che potesse spostare i propri prodotti sposterebbe gli incassi su
+        // un'azienda non sua.
+        $puoRiassegnare = $user->canAccessBackoffice();
+        [$companies, $companyKyRules] = $puoRiassegnare
+            ? $this->companiesWithKyRules()
+            : [null, null];
+
         return view('portal.shop-create', [
             'pageTitle'            => 'Modifica prodotto',
             'currentAccount'       => $currentAccount,
@@ -431,8 +453,18 @@ class ListingController extends Controller
             'categories'           => $editCategories,
             'subcategoriesBySlug'  => $editSubcategoriesBySlug,
             'editingListing'       => $listing,
-            'allowedKyPercentages' => $currentAccount?->allowedKyPercentages() ?? Listing::KY_PERCENTAGES,
-            'requiredKyPercentage' => $currentAccount?->requiredKyPercentage(),
+            // Col selettore in pagina le percentuali ammesse dipendono
+            // dall'azienda SCELTA, non da quella attuale: si stampano tutte e
+            // le blocca il JS sul 100% quando l'azienda scelta e' in debito
+            // (companyKyRules), come in admin/listing-create.blade.php. Il
+            // server ricontrolla comunque col conto dell'azienda di
+            // destinazione, vedi update().
+            'allowedKyPercentages' => $puoRiassegnare
+                ? Listing::KY_PERCENTAGES
+                : ($currentAccount?->allowedKyPercentages() ?? Listing::KY_PERCENTAGES),
+            'requiredKyPercentage' => $puoRiassegnare ? null : $currentAccount?->requiredKyPercentage(),
+            'companies'            => $companies,
+            'companyKyRules'       => $companyKyRules,
             'activeNav'            => 'shop',
         ]);
     }
@@ -444,14 +476,44 @@ class ListingController extends Controller
         $user = $request->user();
         abort_unless($user->canAccessBackoffice() || $listing->company_id === $user->company_id, 403);
 
+        // L'AZIENDA DI DESTINAZIONE (08/09/2026). Il form di modifica mostra il
+        // selettore azienda solo al backoffice (vedi edit()): qui si accetta
+        // company_id solo da chi lo vede davvero, altrimenti un venditore
+        // potrebbe spostarsi un prodotto — e i suoi incassi — su un'altra
+        // azienda con una richiesta scritta a mano.
+        $nuovaAzienda = null;
+
+        if ($user->canAccessBackoffice() && $request->filled('company_id')) {
+            $request->validate([
+                'company_id' => ['required', 'integer', 'exists:companies,id'],
+            ]);
+
+            $scelta = Company::findOrFail((int) $request->input('company_id'));
+
+            if ((int) $scelta->id !== (int) $listing->company_id) {
+                // Senza conto business principale l'azienda non puo' incassare:
+                // stesso controllo di adminStore(), qui e' anche piu' grave
+                // perche' il prodotto e' gia' in vetrina e comprabile.
+                if (! $scelta->primaryBusinessAccount()) {
+                    return back()->withInput()->with('portal_error', 'Questa azienda non ha un conto business principale: impossibile assegnarle il prodotto.');
+                }
+
+                $nuovaAzienda = $scelta;
+            }
+        }
+
         // Un admin/backoffice che modifica il prodotto di un'altra azienda non
         // ha un conto proprio da usare per calcolare le percentuali KY
         // consentite (spesso non ha nemmeno un'azienda associata): usiamo
         // quello dell'azienda proprietaria del prodotto, stesso conto usato in
-        // adminStore().
-        $currentAccount = ($user->canAccessBackoffice() && $listing->company_id !== $user->company_id)
-            ? $listing->company->primaryBusinessAccount()
-            : $this->resolveAccount($user);
+        // adminStore(). Se il prodotto sta cambiando padrone, le regole sono
+        // quelle dell'azienda che se lo prende: il mix KY/EUR lo deve reggere
+        // il conto che incassera'.
+        $currentAccount = $nuovaAzienda
+            ? $nuovaAzienda->primaryBusinessAccount()
+            : (($user->canAccessBackoffice() && $listing->company_id !== $user->company_id)
+                ? $listing->company->primaryBusinessAccount()
+                : $this->resolveAccount($user));
         $validated = $this->validateListing($request, $currentAccount, $listing);
 
         // Carica nuove immagini e le aggiunge a quelle esistenti
@@ -459,9 +521,40 @@ class ListingController extends Controller
         $existing   = $listing->images ?? [];
         $merged     = array_values(array_unique(array_merge($existing, $newPaths)));
 
-        $listing->update(array_merge($validated, ['images' => $merged]));
+        $daSalvare = array_merge($validated, ['images' => $merged]);
 
-        return redirect()->route('portal.shop.show', $listing)->with('portal_success', 'Prodotto aggiornato correttamente.');
+        if ($nuovaAzienda) {
+            $daSalvare['company_id'] = $nuovaAzienda->id;
+        }
+
+        $listing->update($daSalvare);
+
+        $messaggio = $nuovaAzienda
+            ? 'Prodotto aggiornato e assegnato a ' . $nuovaAzienda->name . '.'
+            : 'Prodotto aggiornato correttamente.';
+
+        // "SALVA E GESTISCI VARIANTI" (08/09/2026, segnalato dai colleghi di
+        // Laura). Il pulsante varianti nel form di modifica era un semplice
+        // link: chi aveva appena cambiato il titolo se lo perdeva per strada,
+        // e tornava a un prodotto con le combinazioni nuove e il titolo
+        // vecchio. Adesso e' un submit di QUESTO form — si salva prima, si va
+        // alle varianti dopo — e `ritorno=modifica` fa si' che il link in cima
+        // alla pagina varianti riporti al form invece che alla scheda.
+        if ($request->input('dopo_salvataggio') === 'varianti') {
+            return redirect()->route('portal.shop.variants', [$listing, 'ritorno' => 'modifica'])
+                ->with('portal_success', $messaggio);
+        }
+
+        // La scheda prodotto rimbalza alla home dello shop quando il prodotto
+        // non e' 'active' (vedi show()): chi salva le modifiche di un prodotto
+        // sospeso si ritrovava fuori, con un "Questo prodotto non e' piu'
+        // disponibile" al posto della conferma. In quel caso si resta sul
+        // form, che e' anche il posto da cui si riattiva.
+        if ($listing->status !== 'active') {
+            return redirect()->route('portal.shop.edit', $listing)->with('portal_success', $messaggio);
+        }
+
+        return redirect()->route('portal.shop.show', $listing)->with('portal_success', $messaggio);
     }
 
     // ── Portale: elimina prodotto ─────────────────────────────────────────────
@@ -566,38 +659,7 @@ class ListingController extends Controller
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
 
-        // Conto business principale di ciascuna azienda, eager-loaded per
-        // evitare N+1 nel calcolo di companyKyRules() qui sotto — stesso
-        // filtro di Company::primaryBusinessAccount().
-        $companies = Company::query()
-            ->orderBy('name')
-            ->with(['accounts' => function ($query) {
-                $query->where('is_system_account', false)
-                    ->where('owner_type', 'company')
-                    ->whereNull('parent_account_id');
-            }])
-            ->get(['id', 'name']);
-
-        // 12/08/2026: l'admin poteva selezionare una % KY/EUR che il
-        // salvataggio rifiutava comunque (l'azienda scelta è in debito →
-        // solo 100% KY consentito, vedi Account::requiredKyPercentage()),
-        // mostrando l'errore "Il valore selezionato per ky percentage non è
-        // valido." solo dopo l'invio. Passiamo qui le stesse regole per
-        // azienda usate da validateListing(), cosi' il JS in
-        // admin/listing-create.blade.php puo' forzare/disabilitare la
-        // scelta appena l'azienda viene selezionata, invece di farlo
-        // scoprire con un errore. Richiesta di Laura.
-        $companyKyRules = $companies->mapWithKeys(function (Company $company) {
-            $account = $company->accounts->first();
-            $required = $account?->requiredKyPercentage();
-
-            return [$company->id => [
-                'required' => $required !== null,
-                'message'  => $required !== null
-                    ? '100% KY obbligatorio — il saldo di questa azienda è ' . ky_format($account->available_balance) . ' KY (negativo). Deve incassare KY per recuperare il saldo prima di poter offrire un mix EUR.'
-                    : null,
-            ]];
-        });
+        [$companies, $companyKyRules] = $this->companiesWithKyRules();
 
         return view('admin.listing-create', [
             'pageTitle'      => 'Nuovo prodotto per conto azienda',
@@ -771,6 +833,52 @@ class ListingController extends Controller
         }
 
         return [$categories, $subcategoriesBySlug];
+    }
+
+    /**
+     * Le aziende selezionabili in un form prodotto, con le regole KY di
+     * ciascuna.
+     *
+     * Nato dentro adminCreate() il 12/08/2026 ed estratto qui l'08/09/2026,
+     * quando il selettore azienda e' comparso anche nel form di modifica del
+     * portale (edit()): due copie della stessa query si sarebbero divise alla
+     * prima modifica.
+     *
+     * Il conto business principale di ciascuna azienda arriva eager-loaded
+     * (stesso filtro di Company::primaryBusinessAccount()) per non fare una
+     * query a testa nel calcolo delle regole.
+     *
+     * Le regole servono a non far scegliere una % KY/EUR che il salvataggio
+     * rifiuterebbe comunque — azienda in debito → solo 100% KY, vedi
+     * Account::requiredKyPercentage() — mostrandolo PRIMA dell'invio invece
+     * che con "Il valore selezionato per ky percentage non è valido."
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: \Illuminate\Support\Collection}
+     */
+    private function companiesWithKyRules(): array
+    {
+        $companies = Company::query()
+            ->orderBy('name')
+            ->with(['accounts' => function ($query) {
+                $query->where('is_system_account', false)
+                    ->where('owner_type', 'company')
+                    ->whereNull('parent_account_id');
+            }])
+            ->get(['id', 'name']);
+
+        $companyKyRules = $companies->mapWithKeys(function (Company $company) {
+            $account = $company->accounts->first();
+            $required = $account?->requiredKyPercentage();
+
+            return [$company->id => [
+                'required' => $required !== null,
+                'message'  => $required !== null
+                    ? '100% KY obbligatorio — il saldo di questa azienda è ' . ky_format($account->available_balance) . ' KY (negativo). Deve incassare KY per recuperare il saldo prima di poter offrire un mix EUR.'
+                    : null,
+            ]];
+        });
+
+        return [$companies, $companyKyRules];
     }
 
     private function validateListing(Request $request, ?\App\Models\Account $account = null, ?Listing $listing = null): array

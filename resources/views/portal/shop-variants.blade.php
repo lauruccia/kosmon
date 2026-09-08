@@ -3,10 +3,26 @@
 @section('content')
 <x-shop.styles />
 
+{{-- DOVE RIPORTA IL LINK IN CIMA (08/09/2026, segnalato dai colleghi di Laura).
+     Puntava sempre alla scheda pubblica, e chi era arrivato qui dal form di
+     modifica non ci tornava piu': le modifiche non salvate erano gia' perse, e
+     se il prodotto era sospeso la scheda rimbalzava pure alla home dello shop
+     (show() blocca tutto cio' che non e' 'active'). Adesso:
+       · `?ritorno=modifica` — ce lo mette update() dopo "Salva e gestisci
+         varianti" — riporta al form di modifica;
+       · un prodotto non attivo ci riporta comunque, perche' la sua scheda non
+         e' raggiungibile;
+       · in tutti gli altri casi (link da "I miei prodotti", dalla scheda,
+         dalla moderazione) resta la scheda prodotto, che e' da dove si veniva.
+     La query string sopravvive ai salvataggi di questa pagina: generate() e
+     update() rispondono con back(), cioe' su questo stesso URL. --}}
+@php
+    $tornaAllaModifica = request('ritorno') === 'modifica' || $listing->status !== 'active';
+@endphp
 <div style="margin-bottom:16px;">
-    <a href="{{ route('portal.shop.show', $listing) }}" class="var-back">
+    <a href="{{ $tornaAllaModifica ? route('portal.shop.edit', $listing) : route('portal.shop.show', $listing) }}" class="var-back">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        Torna al prodotto
+        {{ $tornaAllaModifica ? 'Torna alla modifica del prodotto' : 'Torna al prodotto' }}
     </a>
 </div>
 
