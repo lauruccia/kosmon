@@ -274,10 +274,34 @@ class ListingController extends Controller
                 // Le combinazioni acquistabili, coi loro valori (fase D).
                 'variantiAttive.values.attribute',
             ]),
+            // ALTRI PRODOTTI DELLO STESSO VENDITORE (08/09/2026, richiesta
+            // di Laura). Fino a ieri erano prodotti della stessa CATEGORIA
+            // presi da tutto il circuito: la fascia in fondo alla scheda
+            // mostrava al compratore tre concorrenti del venditore che lo
+            // aveva portato li'. Chi pubblica nello shop si trovava la
+            // vetrina dei rivali stampata sotto il proprio prodotto.
+            //
+            // Adesso la fascia resta dentro il negozio: `company_id` uguale,
+            // e la stessa categoria ordinata PRIMA (chi guarda un trapano
+            // vuole vedere gli altri utensili, non le magliette) — non
+            // filtrata, pero': un venditore con quattro categorie e un
+            // prodotto per categoria avrebbe la fascia vuota proprio quando
+            // avrebbe piu' da mostrare.
+            //
+            // Nessun ripiego sul catalogo generale quando il venditore e' solo
+            // con quel prodotto: la sezione sparisce e basta (la view la
+            // stampa solo se `$related` non e' vuota). Ripiegare sugli altri
+            // venditori rimetterebbe in pagina esattamente cio' che questa
+            // modifica toglie.
+            //
+            // `active()` resta: un prodotto sospeso non si mostra nemmeno tra
+            // i "suoi", perche' la sua pagina non e' raggiungibile (show() la
+            // blocca) e il link porterebbe a un redirect.
             'related'        => Listing::query()->with(['company.plan', 'activeOffer'])->active()
-                                    ->inCategory($listing->category)
+                                    ->where('company_id', $listing->company_id)
                                     ->whereKeyNot($listing->id)
-                                    ->latest()->take(3)->get(),
+                                    ->orderByRaw('CASE WHEN category = ? THEN 0 ELSE 1 END', [$listing->category])
+                                    ->latest()->take(4)->get(),
             'activeNav'      => 'shop',
         ]);
     }

@@ -68,7 +68,16 @@
             @if(isset($meta) && ! $meta->isEmpty())
                 {{ $meta }}
             @else
-                <span class="chip chip-ellipsis" title="{{ $listing->company->name }}">{{ $listing->company->name }}</span>
+                {{-- Il nome del venditore PORTA AL SUO NEGOZIO (08/09/2026,
+                     richiesta di Laura): /shop?company={id}, cioe' lo stesso
+                     filtro che i pulsanti "SHOP" della directory aziende usano
+                     gia' da agosto. Era un'etichetta muta: chi vedeva un
+                     prodotto che gli piaceva non aveva nessuna strada per
+                     chiedersi "cos'altro vende questo qui?" se non tornare
+                     indietro e cercare l'azienda a mano nella directory.
+                     Resta `chip-ellipsis` + `title` col nome intero: il
+                     troncamento e' del CSS, non del markup. --}}
+                <a class="chip chip-ellipsis chip-link" href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" title="Vedi tutti i prodotti di {{ $listing->company->name }}">{{ $listing->company->name }}</a>
             @endif
         </div>
 

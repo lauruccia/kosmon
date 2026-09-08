@@ -19,7 +19,13 @@
                     <span class="eyebrow">{{ $listing->category_label }}</span>
                     <h2 style="font-size:26px;font-weight:700;color:var(--ink);margin:6px 0 0;">{{ $listing->title }}</h2>
                     <div class="subtle" style="margin-top:6px;">
-                        Pubblicato da <strong>{{ $listing->company->name }}</strong>
+                        {{-- Anche qui il venditore e' una porta, non un'etichetta
+                             (08/09/2026): porta ai SUOI prodotti, non alla scheda
+                             azienda — chi legge il nome sotto un prodotto si sta
+                             chiedendo cos'altro vende, non che partita IVA ha.
+                             La scheda azienda resta a un clic, nella colonna a
+                             destra. --}}
+                        Pubblicato da <a href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" class="seller-link"><strong>{{ $listing->company->name }}</strong></a>
                         · {{ $listing->created_at->locale('it')->isoFormat('D MMM YYYY') }}
                         · {{ $listing->views_count }} visualizzazioni
                     </div>
@@ -118,23 +124,45 @@
             @endif
         </section>
 
+        {{-- ALTRI PRODOTTI DELLO STESSO VENDITORE (08/09/2026, richiesta di
+             Laura). Fino a ieri questa fascia pescava per CATEGORIA da tutto
+             il circuito: sotto un prodotto comparivano tre prodotti simili di
+             tre concorrenti, e la scheda finiva per mandare via il compratore
+             invece di trattenerlo. Il negozio che paga per stare qui dentro si
+             vedeva la vetrina dei rivali stampata in fondo alla propria
+             pagina.
+
+             Adesso e' il venditore a decidere la fascia: sono i suoi altri
+             prodotti, con quelli della stessa categoria per primi (vedi
+             ListingController::show). Se non ne ha altri la sezione non
+             compare: nessun ripiego sul catalogo generale, o si tornerebbe
+             esattamente al problema di prima. --}}
         @if($related->isNotEmpty())
         <section class="card light-card">
             <div class="section-head">
-                <div><span class="eyebrow">Stessa categoria</span><h3 class="section-title">Prodotti correlati</h3></div>
+                <div>
+                    <span class="eyebrow">Dallo stesso venditore</span>
+                    <h3 class="section-title">Altri prodotti di {{ $listing->company->name }}</h3>
+                </div>
+                <a href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" class="cta secondary" style="font-size:12px;padding:0 12px;min-height:32px;">Vedi tutto il negozio &rarr;</a>
             </div>
-            <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="catalog-grid" style="margin-top:14px;">
                 @foreach($related as $rel)
-                <article style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);">
-                    <div>
-                        <div style="font-weight:600;font-size:14px;color:var(--ink);">{{ $rel->title }}</div>
-                        <div class="subtle">{{ $rel->company->name }}</div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <strong style="color:var(--info);">{{ ky_format($rel->effective_price_ky) }} KY</strong>
-                        <a href="{{ route('portal.shop.show', $rel) }}" class="cta secondary" style="padding:6px 14px;font-size:13px;">Vedi</a>
-                    </div>
-                </article>
+                <x-shop.product-card
+                    :listing="$rel"
+                    :href="route('portal.shop.show', $rel)"
+                    :overlay="$rel->isInStock() ? null : 'Esaurito'">
+                    {{-- Il chip col nome del venditore qui non serve: e' lo
+                         stesso venditore della pagina, lo dice il titolo della
+                         sezione. Al suo posto la categoria, che invece cambia
+                         da prodotto a prodotto. --}}
+                    <x-slot:meta>
+                        <span class="chip">{{ $rel->category_label }}</span>
+                    </x-slot:meta>
+                    <x-slot:actions>
+                        <a class="cta secondary" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $rel) }}">Vedi il prodotto</a>
+                    </x-slot:actions>
+                </x-shop.product-card>
                 @endforeach
             </div>
         </section>
@@ -322,10 +350,20 @@
             <div class="metric">
                 <div class="metric-label">Venditore</div>
                 <div class="metric-value" style="font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <a href="{{ route('portal.companies.show', $listing->company->slug) }}" style="color:inherit;text-decoration:none;">{{ $listing->company->name }}</a>
+                    <a href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" class="seller-link">{{ $listing->company->name }}</a>
                     @if($listing->company->plan)
                         <span style="font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;color:#fff;background:{{ $listing->company->plan->effective_badge_color }};">{{ strtoupper($listing->company->plan->name) }}</span>
                     @endif
+                </div>
+                {{-- Il nome adesso porta al negozio, quindi il profilo azienda —
+                     che fino a ieri stava proprio su quel nome — avrebbe perso
+                     l'unica strada che aveva da questa pagina. Qui sotto, in
+                     piccolo: chi cerca partita IVA, settore e contatti la trova
+                     dov'era, chi cerca gli altri prodotti non ci finisce dentro
+                     per sbaglio. --}}
+                <div style="margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;">
+                    <a href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" style="color:var(--info);font-weight:600;text-decoration:none;">Tutti i suoi prodotti &rarr;</a>
+                    <a href="{{ route('portal.companies.show', $listing->company->slug) }}" style="color:var(--ink-muted);text-decoration:none;">Scheda azienda</a>
                 </div>
             </div>
             @if($listing->contact_info)

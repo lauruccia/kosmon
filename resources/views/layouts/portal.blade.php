@@ -702,6 +702,27 @@
             line-height: 24px;
         }
 
+        /* Chip che e' un link — oggi il nome del venditore sulla scheda
+           prodotto (08/09/2026). Deve restare identico al chip muto finche'
+           nessuno ci passa sopra: se il nome del negozio si colorasse di blu
+           in mezzo alla griglia, ruberebbe l'occhio al titolo del prodotto,
+           che e' quello che si deve leggere per primo. Il segnale che sia
+           cliccabile arriva col puntatore, non prima. */
+        a.chip { text-decoration: none; }
+        a.chip-link:hover, a.chip-link:focus-visible {
+            color: var(--primary-strong);
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        /* Il nome del venditore dentro la scheda prodotto: eredita il colore
+           del testo che lo circonda (in testata e' grigio, nella colonna
+           destra e' nero) e si scopre link solo al passaggio del mouse. Stesso
+           ragionamento del chip qui sopra: il nome del negozio non deve
+           gridare piu' forte del titolo del prodotto. */
+        .seller-link { color: inherit; text-decoration: none; }
+        .seller-link:hover, .seller-link:focus-visible { color: var(--primary); text-decoration: underline; }
+
         /* ── NOTICES ────────────────────────────────────────────────── */
         .notice {
             margin-bottom: 14px; padding: 11px 14px;

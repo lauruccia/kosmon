@@ -155,10 +155,35 @@ class ShopSellerFilterTest extends TestCase
         $html = $this->actingAs($buyer)->get(route('portal.shop'))->assertOk()->getContent();
 
         $this->assertStringContainsString(
-            '<span class="chip chip-ellipsis" title="' . e($venditore->name) . '">',
+            'class="chip chip-ellipsis chip-link"',
             $html,
-            'Il nome del negozio va troncato dal CSS e conservato per intero nel title.'
+            'Il nome del negozio va troncato dal CSS (chip-ellipsis) anche ora che e\' un link.'
         );
+        $this->assertStringContainsString(
+            'title="Vedi tutti i prodotti di ' . e($venditore->name) . '"',
+            $html,
+            'L\'ellissi nasconde: il nome per esteso deve restare nel title.'
+        );
+    }
+
+    /**
+     * Il nome del venditore sotto un prodotto della griglia PORTA AL SUO
+     * NEGOZIO (08/09/2026, richiesta di Laura): era un'etichetta muta, e chi
+     * vedeva un prodotto che gli piaceva non aveva nessuna strada per chiedersi
+     * "cos'altro vende questo qui?" se non tornare indietro e cercare l'azienda
+     * a mano nella directory. La destinazione e' il filtro venditore che questa
+     * stessa classe difende: /shop?company={id}.
+     */
+    public function test_nella_griglia_il_nome_del_venditore_porta_al_suo_negozio(): void
+    {
+        $buyer = $this->makeBuyer();
+        [$venditore] = $this->makeSeller('Fioravanti Fiori');
+        $this->makeListing($venditore, 'Mazzo di rose');
+
+        $this->actingAs($buyer)
+            ->get(route('portal.shop'))
+            ->assertOk()
+            ->assertSee('href="'.e(route('portal.shop', ['company' => $venditore->id])).'"', false);
     }
 
     /**
