@@ -390,6 +390,30 @@ Route::middleware(['auth', 'verified', 'twofactor'])->prefix('contratto')->name(
     Route::get('/scarica',       [ContractController::class, 'downloadSigned'])->name('download');
 });
 
+// ── Cambio email — fuori da TUTTI i cancelli, di proposito ──────────────────
+// Stava dentro il gruppo del portale (auth, verified, twofactor, onboarding,
+// agent.contract, contract). Il risultato: chi sbagliava a digitare la propria
+// email in registrazione non poteva piu' correggerla, perche' per arrivare alla
+// pagina che la corregge doveva prima verificare la mail che non gli arriva, o
+// firmare un contratto il cui OTP va a quell'indirizzo. Un cerchio chiuso, con
+// dentro la persona.
+//
+// Via anche `verified`, ed e' il punto: il caso da sbloccare e' proprio quello
+// dell'indirizzo mai verificato perche' sbagliato. Resta `twofactor`: chi ha
+// acceso il secondo fattore lo passa anche qui.
+//
+// Non e' una porta aperta. EmailChangeController::request() chiede la PASSWORD
+// ATTUALE, manda un codice di 8 caratteri alla nuova casella (che va digitato:
+// dal 28/08 viene confrontato davvero), avvisa la vecchia con un link di revoca
+// valido 30 minuti, e dopo 5 codici sbagliati annulla la richiesta da sola.
+Route::middleware(['auth', 'twofactor'])->group(function () {
+    Route::get('/profilo/email', [EmailChangeController::class, 'show'])->name('portal.email-change');
+    Route::post('/profilo/email', [EmailChangeController::class, 'request'])->name('portal.email-change.request')->middleware('throttle:5,1');
+    Route::get('/profilo/email/verifica', [EmailChangeController::class, 'verifyForm'])->name('portal.email-change.verify-form');
+    Route::post('/profilo/email/verifica', [EmailChangeController::class, 'verify'])->name('portal.email-change.verify')->middleware('throttle:10,1');
+    Route::delete('/profilo/email', [EmailChangeController::class, 'cancel'])->name('portal.email-change.cancel');
+});
+
 // ── "Accedi con KMoney" — schermata di consenso OAuth2 ──────────────────────
 // Sta dietro alla stessa catena del portale, con in più `not.suspended`: se
 // l'azienda è sospesa, l'email non è verificata, il 2FA non è passato o il
@@ -1033,6 +1057,9 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/admin/users/{user}', [UserController::class, 'showUser'])->name('admin.users.show')->middleware('backoffice');
     Route::post('/admin/users/{user}', [UserController::class, 'updateUser'])->name('admin.users.update')->middleware('backoffice');
     Route::post('/admin/users/{user}/verifica-email', [UserController::class, 'verifyUserEmail'])->name('admin.users.verify-email')->middleware('backoffice');
+    // Soccorso per chi resta fermo alla firma del contratto (08/09/2026).
+    Route::post('/admin/users/{user}/contratto/reinvia-otp', [UserController::class, 'resendContractOtp'])->name('admin.users.contract-otp')->middleware('backoffice');
+    Route::post('/admin/users/{user}/contratto/firma-assistita', [UserController::class, 'signContractAssisted'])->name('admin.users.contract-assisted')->middleware('backoffice');
     Route::post('/admin/users/{user}/password', [UserController::class, 'changePasswordUser'])->name('admin.users.password')->middleware('backoffice');
     Route::delete('/admin/users/{user}/sessioni/{sessionId}', [UserController::class, 'terminateUserSession'])->name('admin.users.sessions.terminate')->middleware('backoffice');
     Route::delete('/admin/users/{user}/sessioni', [UserController::class, 'terminateAllUserSessions'])->name('admin.users.sessions.terminate-all')->middleware('backoffice');
@@ -1299,11 +1326,8 @@ Route::get('/admin/contratto/firme/{signature}/pdf', [AdminContractController::c
     Route::patch('/notifiche/preferenze', [NotificationPreferencesController::class, 'update'])->name('portal.notification-preferences.update');
 
     // ── Cambio email ─────────────────────────────────────────────────────────
-    Route::get('/profilo/email', [EmailChangeController::class, 'show'])->name('portal.email-change');
-    Route::post('/profilo/email', [EmailChangeController::class, 'request'])->name('portal.email-change.request')->middleware('throttle:5,1');
-    Route::get('/profilo/email/verifica', [EmailChangeController::class, 'verifyForm'])->name('portal.email-change.verify-form');
-    Route::post('/profilo/email/verifica', [EmailChangeController::class, 'verify'])->name('portal.email-change.verify')->middleware('throttle:10,1');
-    Route::delete('/profilo/email', [EmailChangeController::class, 'cancel'])->name('portal.email-change.cancel');
+    // Spostato fuori da questo gruppo l'08/09/2026: sta ora accanto alle rotte
+    // del contratto, senza i cancelli. Vedi il commento la' sopra.
 
 
     // -- Card NFC del cliente -----------------------------------------------

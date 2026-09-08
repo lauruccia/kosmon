@@ -300,11 +300,22 @@
             </div>
             @if($listing->effective_ky_percentage < 100)
             <div style="background:var(--info-soft);border:1px solid var(--info-line);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--info);">
+                {{-- «Fuori dal circuito» diceva il vero sui SOLDI e il falso sul
+                     PERCORSO (04/09/2026). Quegli euro non sono KY, non toccano il
+                     libro mastro e non passano da KNM — il PaymentController lo dice
+                     a chiare lettere: «il denaro arriva SEMPRE sul conto proprio
+                     dell'azienda». Ma il compratore non deve accordarsi con nessuno:
+                     dopo la cassa trova un bottone e paga da dentro il portale, con i
+                     metodi che quel venditore ha configurato. Su una scheda prodotto,
+                     che si legge PRIMA di decidere, «direttamente col venditore»
+                     suonava come «poi te la vedi tu» e faceva rinunciare. --}}
                 <strong>Pagamento misto:</strong>
-                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->effective_ky_amount) }} KY nel circuito
+                Al momento dell'acquisto vengono addebitati solo {{ ky_format($listing->effective_ky_amount) }} KY nel circuito (per unità).
                 {{-- euro_amount = price_ky - ky_amount, quindi anche questo è in centesimi:
                      number_format() diretto lo mostrava grezzo (senza /100), stesso bug ×100. --}}
-                (per unità); il restante {{ 100 - $listing->effective_ky_percentage }}% ({{ ky_format($listing->effective_euro_amount) }} KY equiv.) va saldato in EUR direttamente col venditore, fuori dal circuito.
+                Il restante {{ 100 - $listing->effective_ky_percentage }}% ({{ ky_format($listing->effective_euro_amount) }} &euro;) si paga
+                <strong>subito dopo, dalla pagina dell'ordine</strong>, con carta, PayPal o bonifico:
+                quei soldi non sono KY e vanno direttamente al venditore, il circuito non li incassa.
             </div>
             @endif
 

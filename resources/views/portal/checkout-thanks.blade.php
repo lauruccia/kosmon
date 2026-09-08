@@ -35,7 +35,8 @@
         {{ $daPagare->count() === 1 ? 'Resta una quota in euro da saldare' : 'Restano ' . $daPagare->count() . ' quote in euro da saldare' }}
     </h3>
     <p style="font-size:13px;color:var(--warning);margin:0 0 14px;">
-        La parte in KY è già pagata. La quota in euro si salda fuori dal circuito, con carta o bonifico.
+        La parte in KY è già pagata. Il resto si paga qui sotto in euro, con carta, PayPal o bonifico:
+        quei soldi non sono KY e vanno direttamente al venditore, il circuito non li incassa.
     </p>
     @foreach($daPagare as $ordine)
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--warning-line);">

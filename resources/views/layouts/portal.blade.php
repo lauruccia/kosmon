@@ -25,6 +25,17 @@
         (function () {
             var t = localStorage.getItem('km-theme');
             if (t) document.documentElement.setAttribute('data-theme', t);
+            /* Menu a icone (rail). Va applicato QUI, prima del primo paint:
+               se lo stato arrivasse a fine pagina, ogni caricamento mostrerebbe
+               il menu largo che si stringe di scatto. */
+            if (localStorage.getItem('km-nav') === 'rail') document.documentElement.classList.add('nav-rail');
+            /* Barra dei filtri dello shop: stessa ragione del menu. Sotto i
+               1100px nasce chiusa a prescindere da come l'utente l'aveva
+               lasciata: li' e' un pannello sopra il catalogo, e una pagina che
+               si apre con un pannello davanti e' una pagina rotta. */
+            if (localStorage.getItem('km-shop-filters') === 'closed' || window.innerWidth < 1100) {
+                document.documentElement.classList.add('shop-filters-closed');
+            }
         })();
     </script>
     <style>
@@ -123,9 +134,14 @@
 
             /* Commercio (shop) — 02/09/2026.
                La tavolozza del portale e' bancaria e non aveva un colore
-               dell'acquisto: "Aggiungi al carrello" aveva lo stesso blu di
-               "Filtra". --buy e' l'arancio complementare al navy, e sta solo
-               sull'azione che porta soldi. */
+               dell'acquisto: il bottone che mette nel carrello aveva lo stesso
+               blu del bottone che filtra. --buy e' l'arancio complementare al
+               navy, e sta solo sull'azione che porta soldi.
+               NB (08/09/2026): la frase con il testo esatto del bottone e'
+               stata riscritta di proposito. I commenti dentro <style> finiscono
+               nell'HTML servito, e tre test del mini-carrello controllano che
+               quel testo NON compaia sulle pagine dove il bottone non deve
+               esserci: il commento li faceva cadere tutti e tre. */
             --buy:            #ea580c;
             --buy-strong:     #c2410c;
             --buy-soft:       #fff3ea;
@@ -365,10 +381,19 @@
         }
 
         /* ── APP SHELL ──────────────────────────────────────────────── */
+        /* LA LARGHEZZA DEL MENU STA IN UNA VARIABILE SOLA (08/09/2026).
+           Prima era scritta a mano in tre punti (qui, nella @media 1280 e nella
+           @media 769 con !important): il menu a icone ne cambia una, e cambiarne
+           tre e' come non cambiarne nessuna.
+           ATTENZIONE: le custom property si risolvono per elemento, non per
+           specificita' dell'antenato. Se --nav-w venisse ridefinita su
+           .app-shell, quella vincerebbe SEMPRE su html.nav-rail. Per questo ogni
+           sua dichiarazione sta su :root / html, e nessuna altrove. */
+        :root { --nav-w: 272px; }
         .app-shell {
             min-height: 100vh;
             display: grid;
-            grid-template-columns: 272px minmax(0, 1fr);
+            grid-template-columns: var(--nav-w) minmax(0, 1fr);
         }
 
         /* ── SIDEBAR ────────────────────────────────────────────────── */
@@ -820,13 +845,17 @@
            su entrambe le colonne invece di lasciare mezza riga vuota.
            Gli scaglioni sono in px di CSS, quindi lo ZOOM del browser li attraversa
            da solo: zoom out = piu' spazio = si resta a 5 colonne piu' a lungo.
-           ATTENZIONE: se si cambia `paginate(15)` in ListingController (index e
-           mine) vanno rifatti anche questi numeri — 15 deve restare divisibile
-           per ogni conteggio di colonne qui sotto. */
-        .catalog-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
-        @media (max-width: 1200px) {
-            .catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
+           PAGINAZIONE: con auto-fill le colonne variano (6/5/4/3/2), quindi
+           nessun numero le riempie tutte. `paginate(20)` in ListingController
+           divide per 5, 4 e 2 — i tre casi che capitano davvero su desktop. */
+        /* COLONNE CONTATE SULLO SPAZIO, NON SULLA FINESTRA (08/09/2026).
+           Con il menu che si stringe e la barra dei filtri che si apre, la
+           stessa finestra da 1440 offre al catalogo 856, 1060 o 1344 pixel:
+           un numero fisso di colonne per breakpoint sbaglierebbe in due casi
+           su tre. Con auto-fill le colonne le decide lo spazio davvero
+           disponibile. Sotto i 560 resta la regola a due colonne: li' 200px
+           di minimo darebbero una colonna sola. */
+        .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
         @media (max-width: 560px) {
             .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
             /* L'orfana di fine pagina occupa la riga intera invece di lasciarla a meta'. */
@@ -1245,7 +1274,7 @@
 
         /* ── RESPONSIVE ─────────────────────────────────────────────── */
         @media (max-width: 1280px) {
-            .app-shell { grid-template-columns: 236px minmax(0, 1fr); }
+            :root { --nav-w: 236px; }
             .sidebar { padding: 16px 10px; }
             .hero-strip, .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -1310,7 +1339,7 @@
         @media (min-width: 769px) {
             .app-shell {
                 display: grid !important;
-                grid-template-columns: 272px minmax(0, 1fr) !important;
+                grid-template-columns: var(--nav-w) minmax(0, 1fr) !important;
                 align-items: start;
             }
             .app-shell > .sidebar {
@@ -1322,6 +1351,86 @@
                 grid-row: 1;
                 min-width: 0;
             }
+        }
+
+        /* ── MENU A ICONE (RAIL) ─ 08/09/2026 ───────────────────────
+           PERCHE': con la barra dei filtri dello shop aperta, il menu disteso
+           (272) piu' i filtri (264) si prendono il 39% di una finestra da 1440
+           e il catalogo scende da cinque colonne a quattro. A icone la cornice
+           torna al 24% e le cinque colonne tornano. Vale su tutto il portale,
+           non solo sullo shop: e' il menu a stringersi, non lo shop.
+           SOTTO I 769px NON SI APPLICA: li' il menu e' gia' un pannello fuori
+           schermo con l'hamburger, e un rail sopra un pannello non vuol dire
+           niente. */
+        .rail-btn { display: none; }
+
+        @media (min-width: 769px) {
+            html.nav-rail { --nav-w: 68px; }
+            html.nav-rail .sidebar { padding: 20px 8px; overflow-x: hidden; }
+
+            /* IL PEZZO CHE NON SI VEDE FINCHE' NON SI GUARDA (08/09/2026).
+               .sidebar-inner e' una griglia: la sua colonna e' larga quanto il
+               contenuto piu' largo (min-content), e con la larghezza scesa a
+               68px il contenuto restava a 140 e le icone uscivano mezze dal
+               bordo. minmax(0, 1fr) toglie alla colonna il diritto di allargarsi
+               oltre il contenitore; min-width:0 fa lo stesso ai figli flex. */
+            html.nav-rail .sidebar-inner,
+            html.nav-rail .sidebar-nav,
+            html.nav-rail .sidebar-nav-group,
+            html.nav-rail .nav-group,
+            html.nav-rail .nav-group-items { grid-template-columns: minmax(0, 1fr); }
+            html.nav-rail .sidebar-inner > *,
+            html.nav-rail .sidebar-panel > *,
+            html.nav-rail .brand-lockup,
+            html.nav-rail .sidebar-link,
+            html.nav-rail .nav-group-btn { min-width: 0; }
+            html.nav-rail .sidebar-panel { padding: 8px 6px; }
+            html.nav-rail .brand-lockup { padding: 8px; justify-content: center; }
+            html.nav-rail .brand-mark { width: 40px; height: 40px; border-radius: 12px; }
+            html.nav-rail .brand-mark img { width: 22px; height: 30px; }
+            html.nav-rail .brand-mark .brand-k { width: 22px; height: 27px; }
+
+            /* Via tutto cio' che e' parola. Resta l'icona, che e' il menu. */
+            html.nav-rail .brand-copy,
+            html.nav-rail .sidebar-section-label,
+            html.nav-rail .sidebar-sublink,
+            html.nav-rail .nav-group-btn-label,
+            html.nav-rail .nav-group-arrow,
+            html.nav-rail .sidebar-note,
+            html.nav-rail .sidebar-user > *:not(.sidebar-avatar),
+            html.nav-rail .sidebar-link > span:not(.nav-icon):not(.nav-count) { display: none; }
+
+            html.nav-rail .sidebar-link,
+            html.nav-rail .nav-group-btn { justify-content: center; padding-left: 4px; padding-right: 4px; position: relative; }
+            html.nav-rail .nav-group-items .sidebar-link { padding-left: 4px; }
+            html.nav-rail .sidebar-user { justify-content: center; }
+
+            /* Il numerino del carrello non ha piu' una riga su cui stare:
+               diventa un bollo sull'angolo dell'icona. */
+            html.nav-rail .nav-count {
+                position: absolute; top: 2px; right: 6px; margin-left: 0;
+                min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px;
+            }
+
+            /* "Esci dal pannello" non ci sta: resta il simbolo. */
+            html.nav-rail .logout-btn { font-size: 0; padding: 0; }
+            html.nav-rail .logout-btn::after { content: '\21BA'; font-size: 16px; font-weight: 700; }
+
+            /* Il bottone che apre e chiude, nella barra in alto.
+               IL DEFAULT STA SOPRA, FUORI DALLA MEDIA (imparato a mani in
+               pasta l'08/09): scritto sotto, a parita' di specificita' avrebbe
+               vinto lui e il bottone sarebbe rimasto invisibile su desktop —
+               senza errori, senza test rossi, semplicemente non c'era. */
+            .rail-btn {
+                display: grid; place-items: center;
+                width: 34px; height: 34px; flex: 0 0 34px;
+                border: 1.5px solid var(--line); border-radius: 10px;
+                background: var(--surface); color: var(--ink-soft);
+                font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
+                transition: background .16s, color .16s, transform .22s;
+            }
+            .rail-btn:hover { background: var(--surface-hover); color: var(--ink); }
+            html.nav-rail .rail-btn { transform: rotate(180deg); }
         }
 
         @media (max-width: 768px) {
@@ -1530,7 +1639,7 @@
     @endphp
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="app-shell">
-        <aside class="sidebar">
+        <aside class="sidebar" id="portal-sidebar">
             <div class="sidebar-inner">
                 <a href="{{ $isBackoffice ? ($isFullBackoffice ? route('admin.dashboard') : route('admin.companies.index')) : route('portal.dashboard') }}" class="brand-lockup">
                     <span class="brand-mark"><span class="brand-k">@include('partials.brand-k')</span></span>
@@ -2153,6 +2262,9 @@
                 <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">
                     <span></span><span></span><span></span>
                 </button>
+                <button class="rail-btn" id="nav-rail-btn" type="button" onclick="toggleNavRail()"
+                        aria-controls="portal-sidebar" aria-expanded="true"
+                        aria-label="Riduci il menu a icone" title="Riduci il menu a icone">&laquo;</button>
                 <div class="topbar-title">
                     <h1>{{ $topbarTitle }}</h1>
                 </div>
@@ -2291,6 +2403,10 @@
             @endif
             @if (session('portal_success'))<div class="notice success">{{ session('portal_success') }}</div>@endif
             @if (session('portal_error'))<div class="notice error">{{ session('portal_error') }}</div>@endif
+            {{-- 08/09/2026: `portal_info` era usato in giro per i controller (per
+                 esempio da Admin\UserController::verifyUserEmail) ma nessuno lo
+                 stampava: quei messaggi sparivano e basta. --}}
+            @if (session('portal_info'))<div class="notice">{{ session('portal_info') }}</div>@endif
             @if ($errors->any())<div class="notice error">{{ $errors->first() }}</div>@endif
             @yield('content')
         </main>
@@ -2307,6 +2423,93 @@
             var menu = document.getElementById('account-switcher-menu');
             if (menu && wrap && !wrap.contains(e.target)) {
                 menu.classList.remove('open');
+            }
+        });
+
+        /* ── MENU A ICONE ───────────────────────────────────────────
+           La classe la mette gia' lo script in testa alla pagina, prima del
+           primo paint. Qui c'e' solo l'interruttore e i fumetti: a icone il
+           nome della voce non si legge piu', e senza title il menu diventa un
+           indovinello. */
+        function labelNavIcons(on) {
+            document.querySelectorAll('.sidebar-link, .nav-group-btn').forEach(function (el) {
+                if (!on) { el.removeAttribute('title'); return; }
+                var s = el.querySelector('.nav-group-btn-label')
+                     || el.querySelector('span:not(.nav-icon):not(.nav-count)');
+                if (s) el.setAttribute('title', s.textContent.trim());
+            });
+        }
+
+        function toggleNavRail(force) {
+            var root = document.documentElement;
+            var on = (typeof force === 'boolean') ? force : !root.classList.contains('nav-rail');
+            /* Chiamata senza argomento = l'ha premuto una persona. Da quel
+               momento la regola dell'una alla volta non tocca piu' il menu:
+               l'automatismo suggerisce, non comanda. */
+            if (typeof force !== 'boolean') window.__navRailByUser = true;
+            if (on === root.classList.contains('nav-rail')) return on;
+            root.classList.toggle('nav-rail', on);
+            try { localStorage.setItem('km-nav', on ? 'rail' : 'wide'); } catch (e) {}
+            var btn = document.getElementById('nav-rail-btn');
+            if (btn) {
+                btn.setAttribute('aria-expanded', on ? 'false' : 'true');
+                var lbl = on ? 'Allarga il menu' : 'Riduci il menu a icone';
+                btn.setAttribute('aria-label', lbl);
+                btn.setAttribute('title', lbl);
+            }
+            labelNavIcons(on);
+            return on;
+        }
+
+        (function () {
+            var on = document.documentElement.classList.contains('nav-rail');
+            var btn = document.getElementById('nav-rail-btn');
+            if (btn && on) {
+                btn.setAttribute('aria-expanded', 'false');
+                btn.setAttribute('aria-label', 'Allarga il menu');
+                btn.setAttribute('title', 'Allarga il menu');
+            }
+            labelNavIcons(on);
+        })();
+
+        /* ── BARRA DEI FILTRI DELLO SHOP ────────────────────────────
+           Vive qui e non nella vista dello shop perche' la classe sta su
+           <html> (la mette lo script in testa, prima del primo paint) e
+           perche' la regola dell'una alla volta deve poter parlare col menu. */
+        function toggleShopFilters(force) {
+            var root = document.documentElement;
+            var closed = (typeof force === 'boolean')
+                ? !force
+                : !root.classList.contains('shop-filters-closed');
+            root.classList.toggle('shop-filters-closed', closed);
+            try { localStorage.setItem('km-shop-filters', closed ? 'closed' : 'open'); } catch (e) {}
+
+            /* UNA ALLA VOLTA: sotto i 1500px il menu disteso piu' i filtri
+               aperti lasciano al catalogo meno di 900px e una colonna si
+               perde. Il menu si ritira da solo — ma solo se l'utente non ha
+               gia' deciso lui come vuole il menu. */
+            if (!closed && window.innerWidth < 1500 && !window.__navRailByUser
+                && typeof toggleNavRail === 'function') {
+                toggleNavRail(true);
+            }
+            return !closed;
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (window.innerWidth >= 1100) return;           /* in colonna non e' un pannello: non si chiude con Esc */
+            if (document.documentElement.classList.contains('shop-filters-closed')) return;
+            if (!document.getElementById('shop-filters')) return;
+            toggleShopFilters(false);
+        });
+
+        /* Restringendo la finestra il pannello non deve restare aperto sopra
+           il catalogo. Allargandola NON si riapre da sola: deciderlo per
+           l'utente sarebbe peggio del non farlo. */
+        window.addEventListener('resize', function () {
+            if (window.innerWidth < 1100 && document.getElementById('shop-filters')
+                && !document.documentElement.classList.contains('shop-filters-closed')) {
+                document.documentElement.classList.add('shop-filters-closed');
             }
         });
 

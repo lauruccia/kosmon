@@ -80,16 +80,58 @@ class EmailChangeController extends Controller
         Cache::forget($this->attemptsKey($user));
     }
 
+    // ── Guscio della pagina ─────────────────────────────────────────────────
+
+    /**
+     * Quale layout usare, e dove rimandare indietro chi e' fermo a un cancello.
+     *
+     * Dall'08/09/2026 queste rotte stanno fuori da `verified`, `onboarding` e
+     * `contract`: ci arriva anche chi non e' ancora entrato nel portale — anzi,
+     * ci arriva soprattutto lui, perche' e' chi ha sbagliato a digitare la
+     * propria email il motivo per cui la pagina e' stata liberata. Per quella
+     * persona la barra laterale del portale sarebbe un elenco di link che
+     * rimbalzano tutti indietro: le diamo un guscio nudo con dentro solo
+     * questa cosa qui e l'uscita.
+     *
+     * Il link "torna indietro" punta sempre alla dashboard, e non a una pagina
+     * scelta a mano: e' la catena dei middleware a sapere qual e' il cancello
+     * in cui quella persona si trova, e a portarcela.
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private function guscio(\App\Models\User $user): array
+    {
+        if ($user->canAccessBackoffice()) {
+            return ['layouts.portal', null];
+        }
+
+        $bloccato = ! $user->hasVerifiedEmail()
+            || \App\Http\Middleware\EnsureContractSigned::bloccaUtente($user);
+
+        if (! $bloccato && $user->company_id) {
+            $company  = \App\Models\Company::find($user->company_id);
+            $bloccato = $company !== null && $company->kyc_status !== 'approved';
+        }
+
+        return $bloccato
+            ? ['layouts.gated', route('portal.dashboard')]
+            : ['layouts.portal', null];
+    }
+
     // ── Pagine ──────────────────────────────────────────────────────────────
 
     public function show(Request $request): View
     {
+        [$layout, $ritorno] = $this->guscio($request->user());
+
         return view('portal.email-change', [
-            'pageTitle'      => 'Cambia email',
-            'activeNav'      => 'settings',
-            'currentUser'    => $request->user(),
-            'currentAccount' => $this->resolveAccount($request->user()),
-            'hasPending'     => $request->user()->pending_email !== null,
+            'pageTitle'       => 'Cambia email',
+            'activeNav'       => 'settings',
+            'currentUser'     => $request->user(),
+            'currentAccount'  => $this->resolveAccount($request->user()),
+            'hasPending'      => $request->user()->pending_email !== null,
+            'shellLayout'     => $layout,
+            'gatedReturnUrl'  => $ritorno,
         ]);
     }
 
@@ -172,11 +214,15 @@ class EmailChangeController extends Controller
     {
         abort_unless($request->user()->pending_email !== null, 404);
 
+        [$layout, $ritorno] = $this->guscio($request->user());
+
         return view('portal.email-change-verify', [
-            'pageTitle'      => 'Verifica nuova email',
-            'activeNav'      => 'settings',
-            'currentUser'    => $request->user(),
-            'currentAccount' => $this->resolveAccount($request->user()),
+            'pageTitle'       => 'Verifica nuova email',
+            'activeNav'       => 'settings',
+            'currentUser'     => $request->user(),
+            'currentAccount'  => $this->resolveAccount($request->user()),
+            'shellLayout'     => $layout,
+            'gatedReturnUrl'  => $ritorno,
         ]);
     }
 

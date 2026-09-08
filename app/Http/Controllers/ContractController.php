@@ -7,10 +7,17 @@ use App\Models\SystemSetting;
 use App\Notifications\ContractOtpNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ContractController extends Controller
 {
+    /** Durata del codice di firma. Serve anche a ricavare l'ora di invio dalla scadenza. */
+    public const OTP_MINUTI = 15;
+
+    /** Secondi di attesa prima che il bottone "Invia di nuovo" torni cliccabile. */
+    public const OTP_REINVIO_SECONDI = 60;
+
     /**
      * Mostra la pagina di firma contratto.
      * Passa $canPostpone=false per i nuovi utenti o se l'admin ha forzato la firma.
@@ -33,6 +40,17 @@ class ContractController extends Controller
         $contractHtml = $settings->renderContractText($user->company, $user);
         $contractVer  = $settings->contract_version ?? 1;
 
+        // 2026-09-08: lo stato "codice gia' inviato" viene dalla banca dati,
+        // non piu' da session('otp_sent'). Quello era un flash: bastava un
+        // ricarica, un back o un submit fallito e il campo per digitare il
+        // codice spariva, pur essendoci in `contract_otp` un codice ancora
+        // valido per un quarto d'ora. L'unico modo di rivederlo era chiederne
+        // un altro, e al quarto tentativo in dieci minuti il throttle
+        // rispondeva 429: la pagina sembrava rotta a chi era gia' bloccato.
+        $otpPending = $user->contract_otp
+            && $user->contract_otp_expires_at
+            && now()->isBefore($user->contract_otp_expires_at);
+
         return view('portal.contract-sign', [
             'canPostpone'  => $canPostpone,
             'user'         => $user,
@@ -41,6 +59,14 @@ class ContractController extends Controller
             'contractVer'  => $contractVer,
             'isResign'     => $isResign,
             'signedVer'    => $isResign ? (int) ($user->contract_signed_version ?? 1) : null,
+            'otpPending'   => (bool) $otpPending,
+            'otpEmail'     => $user->email,
+            'otpExpiresAt' => $otpPending ? $user->contract_otp_expires_at : null,
+            // Quando e' partito il codice: non serve una colonna nuova, la
+            // scadenza e' sempre l'invio + self::OTP_MINUTI.
+            'otpSentAt'    => $otpPending
+                ? $user->contract_otp_expires_at->copy()->subMinutes(self::OTP_MINUTI)
+                : null,
         ]);
     }
 
@@ -60,7 +86,7 @@ class ContractController extends Controller
 
         // Throttle: max 3 richieste OTP ogni 10 minuti (via named rate limiter in RouteServiceProvider)
         $otp     = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expires = now()->addMinutes(15);
+        $expires = now()->addMinutes(self::OTP_MINUTI);
 
         $user->update([
             'contract_otp'             => $otp,
@@ -68,7 +94,25 @@ class ContractController extends Controller
         ]);
 
         $companyName = $user->company?->name ?? $user->name;
-        $user->notify(new ContractOtpNotification($otp, $companyName));
+
+        // 2026-09-08: l'invio e' sincrono (questa notifica non e' ShouldQueue,
+        // di proposito: il codice deve arrivare adesso). Prima di oggi un
+        // rifiuto dell'SMTP diventava un 500 su una pagina da cui l'utente non
+        // puo' uscire, e dell'errore non restava traccia da nessuna parte.
+        try {
+            $user->notify(new ContractOtpNotification($otp, $companyName));
+        } catch (\Throwable $e) {
+            Log::error('contract.otp_mail_failed', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return redirect()->route('portal.contract.sign')
+                ->withErrors(['general' => 'Non siamo riusciti a inviare il codice a ' . $user->email
+                    . '. Controlla che l\'indirizzo sia corretto (puoi cambiarlo da "Cambia email" qui sopra)'
+                    . ' oppure riprova tra qualche minuto.']);
+        }
 
         return redirect()->route('portal.contract.sign')
             ->with('otp_sent', true)

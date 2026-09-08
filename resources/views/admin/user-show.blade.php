@@ -173,6 +173,54 @@
                 </div>
             </div>
 
+            {{-- Contratto di adesione — soccorso per chi resta fermo alla firma.
+                 Chi non riceve l'OTP non entra nel portale e non ha, da dentro,
+                 nessuna strada per uscirne da solo oltre a correggersi l'email.
+                 Da qui l'assistenza puo' rimandargli il codice e, se proprio non
+                 c'e' altro modo, registrare la firma dichiarandolo. (08/09/2026) --}}
+            @php
+                $contrattoFirmato = $userRecord->contract_signed_at !== null;
+                $otpVivo = $userRecord->contract_otp
+                    && $userRecord->contract_otp_expires_at
+                    && $userRecord->contract_otp_expires_at->isFuture();
+            @endphp
+            <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line);">
+                <div class="eyebrow">Contratto di adesione</div>
+                @if ($contrattoFirmato)
+                    <strong>Firmato il {{ $userRecord->contract_signed_at->format('d/m/Y H:i') }}</strong>
+                    <span class="pill success" style="margin-left:.5rem;">v{{ $userRecord->contract_signed_version ?? 1 }}</span>
+                @else
+                    <strong>Non firmato</strong>
+                    <span class="pill warn" style="margin-left:.5rem;">conto bloccato alla firma</span>
+                    <div class="table-muted" style="font-size:12px;margin-top:6px;">
+                        @if ($otpVivo)
+                            Ha un codice valido fino alle {{ $userRecord->contract_otp_expires_at->format('H:i') }}.
+                        @else
+                            Nessun codice valido in questo momento.
+                        @endif
+                    </div>
+
+                    <form method="post" action="{{ route('admin.users.contract-otp', $userRecord) }}" style="margin-top:.6rem;">
+                        @csrf
+                        <button type="submit" class="cta secondary users-compact-cta">Rimanda il codice di firma</button>
+                    </form>
+
+                    <details style="margin-top:.8rem;">
+                        <summary style="cursor:pointer;font-size:12.5px;color:var(--ink-soft);">Firma assistita (ultima spiaggia)</summary>
+                        <form method="post" action="{{ route('admin.users.contract-assisted', $userRecord) }}" style="margin-top:.6rem;"
+                              onsubmit="return confirm('Registrare la firma del contratto al posto di questo utente? Resta scritto nel registro firme che l\'hai fatta tu.');">
+                            @csrf
+                            <label class="eyebrow" for="motivo-firma-assistita">Motivo (resta nel registro)</label>
+                            <textarea id="motivo-firma-assistita" name="motivo" rows="2" required minlength="10" maxlength="500"
+                                      style="width:100%;margin:.35rem 0 .5rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;"
+                                      placeholder="Es. firma raccolta per telefono il 08/09, la casella dell'utente rifiuta le nostre mail"></textarea>
+                            @error('motivo')<div style="color:var(--danger);font-size:12px;margin-bottom:.4rem;">{{ $message }}</div>@enderror
+                            <button type="submit" class="cta secondary users-compact-cta">Registra firma assistita</button>
+                        </form>
+                    </details>
+                @endif
+            </div>
+
             <div class="table-tags" style="margin-top:18px;">
                 @if ($userRecord->is_super_admin)
                     <span class="chip pink">superadmin</span>

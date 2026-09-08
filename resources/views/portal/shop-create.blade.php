@@ -117,7 +117,9 @@
                             @endforeach
                         </div>
                         <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">
-                            La quota EUR viene saldata direttamente tra acquirente e venditore fuori dal circuito.
+                            La quota in euro l'acquirente la paga dalla pagina dell'ordine, con i metodi che hai
+                            configurato (carta, PayPal o bonifico): quei soldi arrivano sul tuo conto, il circuito
+                            non li intermedia. In KY il circuito ti accredita solo la parte in KY.
                         </div>
                     @endif
                 </div>

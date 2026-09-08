@@ -60,22 +60,25 @@ class UltimiAttritiBlocco5Test extends TestCase
 
     public function test_la_barra_dei_filtri_va_a_capo_invece_di_nascondere(): void
     {
-        $html = $this->catalogo();
+        // AGGIORNATO L'08/09/2026, due volte per due ragioni diverse:
+        //  1. dal 04/09 (fase 0 del tema) le regole dello shop non sono piu'
+        //     dentro la pagina ma in public/assets/css/shop.css — cercarle
+        //     nell'HTML voleva dire cercarle dove non sono piu';
+        //  2. dall'08/09 i filtri sono usciti dalla striscia orizzontale e
+        //     sono diventati una colonna. Nella striscia restano le azioni, e
+        //     sono loro che adesso devono andare a capo invece di sparire.
+        $css = file_get_contents(public_path('assets/css/shop.css'));
 
-        // La REGOLA INTERA, non `flex-wrap: wrap` da solo: quella coppia di
-        // parole compare in mezza pagina (le azioni del banner venditore, la
-        // striscia in primo piano, la topbar del layout) e il test sarebbe
-        // verde anche con la barra tornata a `nowrap`.
         $this->assertStringContainsString(
             '.shop-toolbar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }',
-            $html,
-            'Senza `wrap` il bottone "Filtra" torna a uscire dal bordo su schermi stretti.'
+            $css,
+            'Senza `wrap` le azioni tornano a uscire dal bordo su schermi stretti.'
         );
 
         $this->assertStringNotContainsString(
             '.shop-toolbar { display: flex; gap: 14px; flex-wrap: nowrap;',
-            $html,
-            'Era questa la riga che nascondeva il bottone.'
+            $css,
+            'Era questa la riga che nascondeva i bottoni.'
         );
     }
 
@@ -84,16 +87,20 @@ class UltimiAttritiBlocco5Test extends TestCase
         // Regressione della regressione: sistemare l'andare a capo togliendo
         // roba dalla barra sarebbe stato barare.
         $html = $this->catalogo();
+        $css  = file_get_contents(public_path('assets/css/shop.css'));
 
+        // "Filtra" dall'08/09 sta in fondo alla colonna dei filtri, non piu'
+        // nella striscia: quello che conta e' che ci sia e che sia un submit
+        // vero, cosi' i filtri funzionano anche a JavaScript spento.
         $this->assertStringContainsString('<button type="submit" class="cta">Filtra</button>', $html);
         $this->assertStringContainsString('<div class="shop-toolbar-actions">', $html,
             'Le azioni a destra hanno una classe vera: gli stili in linea non si possono mandare a capo.');
-        $this->assertStringContainsString('.shop-toolbar-actions { margin-left: auto;', $html);
+        $this->assertStringContainsString('.shop-toolbar-actions { margin-left: auto;', $css);
 
         // E quando vanno a capo per conto loro, tornano a sinistra: spinte a
         // destra su una riga tutta loro sarebbero bottoni ammucchiati in
         // fondo a mezzo schermo vuoto.
-        $this->assertStringContainsString('.shop-toolbar-actions { margin-left: 0; width: 100%; }', $html);
+        $this->assertStringContainsString('.shop-toolbar-actions { margin-left: 0; width: 100%; }', $css);
     }
 
     public function test_i_filtri_funzionano_ancora(): void

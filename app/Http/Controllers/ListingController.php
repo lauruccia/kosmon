@@ -99,11 +99,13 @@ class ListingController extends Controller
             ->orderByDesc('featured')
             ->orderByDesc('created_at');
 
-        // 15 e non 12 (2026-08-12, richiesta di Laura): la griglia prodotti
-        // e' a 5 colonne, con 12/pagina l'ultima riga restava incompleta
-        // (2 prodotti "orfani"). 15 = multiplo di 5, riempie sempre l'intera
-        // griglia su ogni pagina piena.
-        $listings = $listingsQuery->paginate(15)->withQueryString();
+        // 20 e non piu' 15 (08/09/2026). Il 15 nacque il 12/08 perche' la
+        // griglia era a 5 colonne fisse. Da oggi le colonne le conta il
+        // catalogo sullo spazio che ha davvero (auto-fill), e con il menu che
+        // si stringe e i filtri che si aprono lo stesso schermo da 1440 offre
+        // 6, 5 o 4 colonne: 15 lascia la riga spaiata in due casi su tre.
+        // 20 si divide per 5, 4 e 2 — i casi che capitano su desktop.
+        $listings = $listingsQuery->paginate(20)->withQueryString();
         // Con il filtro venditore attivo la fascia "in primo piano" (che pesca
         // da TUTTO il circuito) contraddirebbe la pagina: si sta guardando un
         // solo negozio. Niente query inutile: collection vuota.

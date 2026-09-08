@@ -42,6 +42,15 @@
         <button type="submit" class="btn">Invia di nuovo il link</button>
     </form>
 
+    {{-- 2026-09-08: senza questa riga chi sbaglia a digitare la propria email
+         in registrazione non ha piu' nessuna strada. Il link non arriva e non
+         puo' arrivare, e la pagina che corregge l'indirizzo stava dietro alla
+         verifica dell'indirizzo stesso. Ora non ci sta piu'. --}}
+    <p style="margin:18px 0 0;font-size:13px;">
+        Indirizzo sbagliato?
+        <a href="{{ route('portal.email-change') }}" style="color:var(--primary,#0f52c4);font-weight:600;">Correggilo qui</a>
+    </p>
+
     <form method="POST" action="{{ route('logout') }}">
         @csrf
         <button type="submit" class="logout">Accedi con un altro account</button>

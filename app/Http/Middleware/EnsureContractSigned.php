@@ -62,11 +62,10 @@ class EnsureContractSigned
         // una revisione sostanziale.
         $deveRifirmare = $settings->resignRequiredFor($user);
 
-        if ($user->contract_signed_at && ! $deveRifirmare) {
+        if (! self::bloccaUtente($user)) {
             return $next($request);
         }
 
-        // Carica impostazioni admin
         $forceSign    = (bool) $settings->contract_force_sign;
         $requiredFrom = $settings->contract_required_from;
 
@@ -82,17 +81,49 @@ class EnsureContractSigned
                 ->with('contract_resign', $deveRifirmare);
         }
 
-        // Utente esistente: verifica se ha posticipato di recente (finestra 24h)
-        if (
-            $user->contract_postponed_at
-            && $user->contract_postponed_at->isAfter(now()->subHours(24))
-        ) {
-            return $next($request);
-        }
-
         // Prima visita o finestra 24h scaduta: mostra pagina firma (con opzione rimanda)
         return redirect()->route('portal.contract.sign')
             ->with('contract_reminder', true)
             ->with('contract_resign', $deveRifirmare);
+    }
+
+    /**
+     * "Questo utente, adesso, verrebbe rimbalzato sulla pagina di firma?"
+     *
+     * Estratto da handle() l'08/09/2026 perche' la risposta serve anche
+     * fuori di qui: la pagina di cambio email deve sapere se chi la apre e'
+     * dentro un cancello, per mostrarle il guscio giusto invece della barra
+     * laterale del portale (fatta di link che per quella persona rimbalzano
+     * tutti indietro). La domanda e' una sola: quindi una risposta sola, qui.
+     *
+     * Non tiene conto della rotta corrente — quello resta in handle(), che e'
+     * l'unico posto in cui conta evitare i loop di redirect.
+     */
+    public static function bloccaUtente(\App\Models\User $user): bool
+    {
+        if ($user->canAccessBackoffice() || ! $user->company_id) {
+            return false;
+        }
+
+        $settings = SystemSetting::contractSettings();
+
+        if ($user->contract_signed_at && ! $settings->resignRequiredFor($user)) {
+            return false;
+        }
+
+        $requiredFrom = $settings->contract_required_from;
+        $isNewUser    = $requiredFrom
+            && $user->created_at
+            && $user->created_at->toDateString() >= $requiredFrom;
+
+        if ($isNewUser || (bool) $settings->contract_force_sign) {
+            return true;
+        }
+
+        // Utente esistente che ha rimandato da meno di 24 ore: passa.
+        return ! (
+            $user->contract_postponed_at
+            && $user->contract_postponed_at->isAfter(now()->subHours(24))
+        );
     }
 }

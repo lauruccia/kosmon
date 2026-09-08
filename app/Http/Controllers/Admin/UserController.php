@@ -408,6 +408,125 @@ class UserController extends Controller
      * Verifica manualmente l'email di un utente (bypassa il link di verifica)
      * e ne garantisce l'attivazione. Utile quando l'email di verifica non arriva.
      */
+    /**
+     * Rimanda il codice di firma del contratto all'utente.
+     *
+     * Nato l'08/09/2026. Chi non riceve l'OTP non puo' firmare, e chi non
+     * firma non entra: fino a oggi l'assistenza non aveva un bottone, solo la
+     * strada di cambiargli l'email da qui e sperare. Questo manda il codice
+     * senza toccare l'indirizzo, che e' la cosa giusta da provare per prima
+     * quando la casella e' buona e la mail e' finita nello spam.
+     */
+    public function resendContractOtp(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'users.manage');
+
+        $settings = SystemSetting::contractSettings();
+
+        if ($user->contract_signed_at && ! $settings->resignRequiredFor($user)) {
+            return back()->with('portal_info', 'Questo utente ha gia\' firmato: non c\'e\' nessun codice da mandare.');
+        }
+
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $user->update([
+            'contract_otp'            => $otp,
+            'contract_otp_expires_at' => now()->addMinutes(\App\Http\Controllers\ContractController::OTP_MINUTI),
+        ]);
+
+        try {
+            $user->notify(new \App\Notifications\ContractOtpNotification(
+                $otp,
+                $user->company?->name ?? $user->name,
+            ));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('contract.otp_mail_failed', [
+                'user_id'  => $user->id,
+                'email'    => $user->email,
+                'error'    => $e->getMessage(),
+                'da_admin' => $request->user()->id,
+            ]);
+
+            return back()->with('portal_error', 'Invio fallito verso ' . $user->email
+                . '. L\'errore e\' nel log (contract.otp_mail_failed): quasi sempre e\' l\'indirizzo, o l\'SMTP.');
+        }
+
+        AuditLog::create([
+            'actor_user_id'  => $request->user()->id,
+            'event'          => 'admin.contract_otp_resent',
+            'auditable_type' => 'user',
+            'auditable_id'   => $user->id,
+            'context'        => ['target_user_email' => $user->email],
+            'ip_address'     => $request->ip(),
+        ]);
+
+        return back()->with('portal_success', "Codice di firma inviato di nuovo a {$user->email}.");
+    }
+
+    /**
+     * Registra la firma del contratto per conto dell'utente ("firma assistita").
+     *
+     * E' l'ultima spiaggia, e si vede: la riga in `contract_signatures` NON
+     * finge di essere una firma dell'utente. `user_agent` dice chi l'ha
+     * registrata e l'AuditLog conserva il motivo che l'operatore ha dovuto
+     * scrivere. Chi domani guarda il registro firme deve poter distinguere
+     * questa da una firma vera senza doverlo indovinare.
+     */
+    public function signContractAssisted(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizePermission($request->user(), 'users.manage');
+
+        $validated = $request->validate([
+            'motivo' => ['required', 'string', 'min:10', 'max:500'],
+        ], [
+            'motivo.required' => 'Scrivi perche\' stai firmando al posto dell\'utente.',
+            'motivo.min'      => 'Il motivo deve essere almeno di 10 caratteri: servira\' a chi legge il registro fra un anno.',
+        ]);
+
+        $settings = SystemSetting::contractSettings();
+
+        if ($user->contract_signed_at && ! $settings->resignRequiredFor($user)) {
+            return back()->with('portal_info', 'Questo utente ha gia\' firmato la versione in vigore.');
+        }
+
+        $admin   = $request->user();
+        $now     = now();
+        $version = $settings->contract_version ?? 1;
+
+        \App\Models\ContractSignature::create([
+            'user_id'                => $user->id,
+            'company_id'             => $user->company_id,
+            'contract_version'       => $version,
+            'contract_html_snapshot' => $settings->renderContractText($user->company, $user),
+            'signed_at'              => $now,
+            'ip_address'             => $request->ip(),
+            'user_agent'             => 'Firma assistita in back-office da ' . $admin->email . ' (utente #' . $admin->id . ')',
+        ]);
+
+        $user->update([
+            'contract_signed_at'      => $now,
+            'contract_signed_version' => $version,
+            'contract_postponed_at'   => null,
+            'contract_otp'            => null,
+            'contract_otp_expires_at' => null,
+        ]);
+
+        AuditLog::create([
+            'actor_user_id'  => $admin->id,
+            'event'          => 'admin.contract_signed_assisted',
+            'auditable_type' => 'user',
+            'auditable_id'   => $user->id,
+            'context'        => [
+                'target_user_email' => $user->email,
+                'contract_version'  => $version,
+                'motivo'            => $validated['motivo'],
+            ],
+            'ip_address'     => $request->ip(),
+        ]);
+
+        return back()->with('portal_success', "Firma assistita registrata per {$user->email} (versione {$version}).");
+    }
+
     public function verifyUserEmail(Request $request, User $user): RedirectResponse
     {
         $this->authorizePermission($request->user(), 'users.manage');

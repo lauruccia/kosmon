@@ -1,4 +1,4 @@
-@extends('layouts.portal')
+@extends($shellLayout ?? 'layouts.portal')
 
 @section('content')
 <div style="max-width:440px;margin:0 auto;padding:0 16px 48px;">

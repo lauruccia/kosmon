@@ -12,6 +12,11 @@
         .topbar { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
         .brand  { font-weight: 800; font-size: 1.15rem; color: #0f766e; text-decoration: none; }
         .topbar-user { font-size: 13px; color: #64748b; }
+        .topbar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: flex-end; }
+        .topbar-link { font-size: 13px; color: #0f766e; text-decoration: none; }
+        .topbar-link:hover { text-decoration: underline; }
+        .topbar-logout { background: none; border: none; padding: 0; font: inherit; font-size: 13px; color: #64748b; cursor: pointer; text-decoration: underline; }
+        .topbar-logout:hover { color: #b91c1c; }
 
         .page { max-width: 860px; margin: 32px auto; padding: 0 20px 80px; }
 
@@ -100,7 +105,19 @@
 
 <nav class="topbar">
     <a href="{{ route('home') }}" class="brand">KMoney</a>
-    <span class="topbar-user">{{ auth()->user()->name }}</span>
+    {{-- 2026-09-08: questa pagina e' un cancello — EnsureContractSigned ci
+         rimbalza sopra ogni rotta del portale. Senza queste due uscite chi
+         non riceve l'OTP resta chiuso qui dentro: non puo' correggere un
+         indirizzo sbagliato (era dietro lo stesso cancello) ne' uscire per
+         entrare con un altro account. --}}
+    <div class="topbar-actions">
+        <span class="topbar-user">{{ auth()->user()->name }}</span>
+        <a href="{{ route('portal.email-change') }}" class="topbar-link">Cambia email</a>
+        <form method="POST" action="{{ route('logout') }}" style="display:inline;">
+            @csrf
+            <button type="submit" class="topbar-logout">Esci</button>
+        </form>
+    </div>
 </nav>
 
 <div class="page">
@@ -139,7 +156,20 @@
     @if(session('otp_sent'))
         <div class="banner banner-otp-sent">
             <span class="banner-icon">✉️</span>
-            <div>Codice OTP inviato a <strong>{{ session('otp_email') }}</strong> — valido 15 minuti.</div>
+            <div>Codice OTP inviato a <strong>{{ session('otp_email') }}</strong> — valido {{ \App\Http\Controllers\ContractController::OTP_MINUTI }} minuti.</div>
+        </div>
+    @elseif($otpPending)
+        <div class="banner banner-info">
+            <span class="banner-icon">⏳</span>
+            <div>
+                Hai già un codice valido, inviato a <strong>{{ $otpEmail }}</strong>@if($otpExpiresAt) e valido fino alle
+                <strong>{{ $otpExpiresAt->format('H:i') }}</strong>@endif. Inseriscilo qui sotto.
+                <div style="margin-top:6px;font-size:13px;">
+                    Non è arrivato? Controlla la posta indesiderata, oppure
+                    <a href="{{ route('portal.email-change') }}" style="color:#0369a1;font-weight:600;">correggi l'indirizzo</a>
+                    se è sbagliato.
+                </div>
+            </div>
         </div>
     @endif
 
@@ -165,11 +195,11 @@
 
             {{-- Step progress --}}
             <div class="steps">
-                <div class="step {{ session('otp_sent') ? 'done' : 'active' }}">
-                    <div class="step-dot">{{ session('otp_sent') ? '✓' : '1' }}</div>
+                <div class="step {{ $otpPending ? 'done' : 'active' }}">
+                    <div class="step-dot">{{ $otpPending ? '✓' : '1' }}</div>
                     <span class="step-label">Leggi il<br>contratto</span>
                 </div>
-                <div class="step {{ session('otp_sent') ? 'active' : 'pending' }}">
+                <div class="step {{ $otpPending ? 'active' : 'pending' }}">
                     <div class="step-dot">2</div>
                     <span class="step-label">Ricevi<br>OTP email</span>
                 </div>
@@ -255,10 +285,15 @@
             <div class="sign-section">
                 <p class="sign-title">✍️ Firma digitale con OTP email</p>
 
-                @if(! session('otp_sent'))
+                @if(! $otpPending)
                     <p class="sign-subtitle">
                         Dichiaro di aver letto e accettato integralmente il Contratto di Adesione, comprese le clausole specificamente approvate.<br>
-                        Clicca il pulsante per ricevere un codice di conferma su <strong>{{ auth()->user()->email }}</strong>.
+                        Clicca il pulsante per ricevere un codice di conferma su <strong>{{ $otpEmail }}</strong>.
+                    </p>
+                    <p style="font-size:13px;color:#64748b;margin:-6px 0 16px;">
+                        Non è il tuo indirizzo o c'è un errore di battitura?
+                        <a href="{{ route('portal.email-change') }}" style="color:#0f766e;font-weight:600;">Cambia email</a>
+                        prima di chiedere il codice.
                     </p>
                     <form method="POST" action="{{ route('portal.contract.send-otp') }}">
                         @csrf
@@ -270,7 +305,7 @@
                     </form>
                 @else
                     <p class="sign-subtitle">
-                        Inserisci il codice a 6 cifre ricevuto su <strong>{{ session('otp_email') }}</strong>.
+                        Inserisci il codice a 6 cifre ricevuto su <strong>{{ $otpEmail }}</strong>.
                     </p>
                     <form method="POST" action="{{ route('portal.contract.sign') }}" id="signForm">
                         @csrf
@@ -298,14 +333,22 @@
                                     ✅ Conferma e firma il contratto
                                 </button>
                             </div>
-                            <div style="font-size:13px;color:#94a3b8;">
-                                Codice non ricevuto?
+                            <div style="font-size:13px;color:#94a3b8;line-height:1.7;">
+                                Codice non ricevuto? Guarda anche nella posta indesiderata.
                                 <form method="POST" action="{{ route('portal.contract.send-otp') }}" style="display:inline;">
                                     @csrf
-                                    <button type="submit" style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">
+                                    {{-- Il bottone resta spento per un minuto dall'invio: le
+                                         richieste sono limitate a 3 ogni 10 minuti e bruciarle
+                                         a vuoto porta a un 429 su una pagina senza uscita. --}}
+                                    <button type="submit" id="resendBtn"
+                                            data-wait="{{ $otpSentAt ? max(0, \App\Http\Controllers\ContractController::OTP_REINVIO_SECONDI - $otpSentAt->diffInSeconds(now())) : 0 }}"
+                                            style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">
                                         Invia di nuovo
                                     </button>
                                 </form>
+                                <br>
+                                L'indirizzo <strong>{{ $otpEmail }}</strong> è sbagliato?
+                                <a href="{{ route('portal.email-change') }}" style="color:#0f766e;">Cambialo qui</a>.
                             </div>
                         </div>
                     </form>
@@ -344,6 +387,29 @@ if (otpInput) {
         this.value = this.value.replace(/\D/g, '').slice(0, 6);
         if (signBtn) signBtn.disabled = this.value.length < 6;
     });
+}
+
+// Reinvio OTP: countdown prima di riabilitare il bottone
+const resendBtn = document.getElementById('resendBtn');
+if (resendBtn) {
+    let attesa = parseInt(resendBtn.dataset.wait || '0', 10);
+    const etichetta = resendBtn.textContent.trim();
+    const tick = () => {
+        if (attesa <= 0) {
+            resendBtn.disabled = false;
+            resendBtn.style.opacity = '1';
+            resendBtn.style.cursor = 'pointer';
+            resendBtn.textContent = etichetta;
+            return;
+        }
+        resendBtn.disabled = true;
+        resendBtn.style.opacity = '.5';
+        resendBtn.style.cursor = 'default';
+        resendBtn.textContent = etichetta + ' (' + attesa + 's)';
+        attesa -= 1;
+        setTimeout(tick, 1000);
+    };
+    tick();
 }
 
 // Espandi/comprimi contratto
