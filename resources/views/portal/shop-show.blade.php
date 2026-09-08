@@ -146,7 +146,12 @@
                 </div>
                 <a href="{{ route('portal.shop', ['company' => $listing->company_id]) }}" class="cta secondary" style="font-size:12px;padding:0 12px;min-height:32px;">Vedi tutto il negozio &rarr;</a>
             </div>
-            <div class="catalog-grid" style="margin-top:14px;">
+            {{-- `related-grid` e non `catalog-grid`: quattro colonne fisse,
+                 tutte su una riga. Il catalogo va ad `auto-fill` sullo spazio
+                 che ha, e qui — colonna sinistra della scheda prodotto, piu'
+                 stretta della pagina catalogo — ne entravano tre, col quarto
+                 prodotto solo su una seconda riga. Vedi shop.css, blocco 15. --}}
+            <div class="related-grid">
                 @foreach($related as $rel)
                 <x-shop.product-card
                     :listing="$rel"
@@ -155,13 +160,14 @@
                     {{-- Il chip col nome del venditore qui non serve: e' lo
                          stesso venditore della pagina, lo dice il titolo della
                          sezione. Al suo posto la categoria, che invece cambia
-                         da prodotto a prodotto. --}}
+                         da prodotto a prodotto.
+
+                         Niente slot `actions`: foto e titolo sono gia' il link
+                         alla scheda, e quattro bottoni "Vedi il prodotto" in
+                         fila pesavano piu' dei prodotti che dovevano mostrare. --}}
                     <x-slot:meta>
                         <span class="chip">{{ $rel->category_label }}</span>
                     </x-slot:meta>
-                    <x-slot:actions>
-                        <a class="cta secondary" style="flex:1;text-align:center;" href="{{ route('portal.shop.show', $rel) }}">Vedi il prodotto</a>
-                    </x-slot:actions>
                 </x-shop.product-card>
                 @endforeach
             </div>

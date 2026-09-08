@@ -139,6 +139,46 @@ class ShopCorrelatiVenditoreTest extends TestCase
             ->assertSee('Scheda azienda');
     }
 
+    /**
+     * QUATTRO SU UNA RIGA (08/09/2026, seconda passata: la prima versione usava
+     * `catalog-grid`, che va ad `auto-fill` sullo spazio disponibile — nella
+     * colonna sinistra della scheda prodotto ne entravano tre e il quarto
+     * restava solo su una seconda riga, con mezzo riquadro vuoto accanto).
+     *
+     * Il numero di colonne lo decide il CSS, e un test il CSS non lo vede
+     * renderizzato: quello che si puo' difendere — ed e' la parte che qualcuno
+     * riporta indietro senza accorgersene — e' che la fascia usi la sua griglia
+     * e che quella griglia sia dichiarata a quattro colonne fisse.
+     */
+    public function test_i_correlati_stanno_su_una_riga_sola(): void
+    {
+        $buyer = $this->makeBuyer();
+        [$venditore] = $this->makeSeller('Calabria Sapori');
+
+        $prodotto = $this->makeListing($venditore, 'Nduja');
+        foreach (['Olive verdi', 'Capicollo', 'Peperoncini ripieni', 'Peperoncini al tonno'] as $titolo) {
+            $this->makeListing($venditore, $titolo);
+        }
+
+        $response = $this->actingAs($buyer)->get(route('portal.shop.show', $prodotto))->assertOk();
+
+        $this->assertCount(4, $response->viewData('related'), 'La fascia si ferma a quattro: sono le colonne di una riga.');
+        $response->assertSee('class="related-grid"', false);
+        $response->assertDontSee('Vedi il prodotto');
+
+        $css = file_get_contents(public_path('assets/css/shop.css'));
+        $this->assertStringContainsString(
+            '.related-grid {',
+            $css,
+            'La fascia correlati ha la sua griglia, non quella del catalogo.'
+        );
+        $this->assertStringContainsString(
+            'grid-template-columns: repeat(4, minmax(0, 1fr));',
+            $css,
+            'Quattro colonne fisse: con auto-fill il quarto prodotto va a capo da solo.'
+        );
+    }
+
     // ── Helper (stessi di ShopSellerFilterTest) ───────────────────────────────
 
     private function makeBuyer(): User

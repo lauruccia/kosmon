@@ -661,3 +661,43 @@
 .link-btn { background:none; border:none; font-size:12px; font-weight:600; cursor:pointer; padding:4px 2px; }
 .badge-active   { background:var(--success-soft); color:var(--success); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
 .badge-inactive { background:var(--surface-soft); color:var(--ink-muted); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   15. "ALTRI PRODOTTI DI QUESTO VENDITORE" (fondo della scheda prodotto)
+   (08/09/2026, seconda passata dopo la segnalazione di Laura)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Quattro colonne FISSE, non `auto-fill`. La fascia vive nella colonna
+   sinistra della scheda prodotto, che e' larga meno del catalogo: con
+   `auto-fill, minmax(200px, ...)` ce ne entravano tre e il quarto prodotto
+   restava da solo su una seconda riga, con mezzo riquadro vuoto accanto —
+   che e' esattamente cio' che Laura ha visto e bocciato. Qui la riga e' una,
+   e sono le card a stringersi.
+
+   `minmax(0, 1fr)` e non `1fr`: la larghezza minima di una colonna griglia e'
+   `auto`, cioe' quella del suo contenuto, e un titolo lungo la farebbe
+   sfondare oltre il contenitore. */
+.related-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+/* La card e' la stessa del catalogo, in formato ridotto: le colonne sono
+   strette, e alla misura piena il titolo mangiava tre righe e il prezzo
+   toccava i bordi. Nessun bottone qui sotto — foto e titolo sono gia' il
+   link, e una fila di quattro "Vedi il prodotto" pesava piu' dei prodotti. */
+.related-grid .catalog-card .product-body { padding: 9px 10px 10px; gap: 4px; }
+.related-grid .catalog-card .product-title { font-size: 12.5px; }
+.related-grid .catalog-card .product-price { font-size: 16px; }
+.related-grid .catalog-card .product-price small { font-size: 10px; }
+.related-grid .catalog-card .chip { font-size: 9.5px; min-height: 22px; padding: 0 8px; }
+.related-grid .catalog-card .product-badge { font-size: 9.5px; padding: 3px 8px; }
+
+/* Sotto i 640 la colonna e' tutta la pagina ma il telefono e' stretto:
+   quattro card diventerebbero quattro francobolli. Due per riga, e restano
+   due righe pari — mai una card orfana. */
+@media (max-width: 640px) {
+    .related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
