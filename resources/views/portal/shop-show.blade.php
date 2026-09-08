@@ -52,47 +52,51 @@
                 $medi    = $listing->medium_image_urls;
                 $piccole = $listing->card_image_urls;
             @endphp
-            @if(count($urls) > 0)
-            <div style="margin-top:20px;">
-                {{-- Immagine principale --}}
-                <div style="position:relative;border-radius:12px;overflow:hidden;background:var(--surface-soft);cursor:zoom-in;" onclick="openLightbox(0)">
-                    <img id="gallery-main"
-                         src="{{ $medi[0] ?? $urls[0] }}"
-                         alt="{{ $listing->title }}"
-                         style="width:100%;max-height:420px;object-fit:cover;display:block;">
+            {{-- LA FOTO NON E' PIU' UNO STRISCIONE (08/09/2026, scelta di Laura
+                 dopo il confronto a due colonne). Era larga quanto la colonna,
+                 alta 420px e RITAGLIATA per riempirla: allo spremiagrumi
+                 spariva la parte alta, e la prima schermata se ne andava tutta
+                 in una foto, con la descrizione sotto la piega.
+                 Adesso: riquadro quadrato con la foto intera, miniature a
+                 fianco, e la larghezza che avanza la prende la descrizione. Le
+                 regole stanno in shop.css (blocco 11), qui resta solo la
+                 struttura. --}}
+            <div class="scheda-media">
+                @if(count($urls) > 0)
+                <div class="scheda-galleria">
                     @if(count($urls) > 1)
-                    <div style="position:absolute;bottom:10px;right:14px;background:rgba(0,0,0,.5);color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;">
-                        1 / {{ count($urls) }}
+                    <div class="scheda-thumbs">
+                        @foreach($urls as $i => $url)
+                        <img src="{{ $piccole[$i] ?? $url }}"
+                             alt="Foto {{ $i + 1 }}"
+                             onclick="selectThumb({{ $i }})"
+                             id="thumb-{{ $i }}"
+                             class="thumb-strip-img{{ $i === 0 ? ' is-active' : '' }}">
+                        @endforeach
                     </div>
                     @endif
-                    @if(! $listing->isInStock())
-                    <div style="position:absolute;top:12px;left:12px;background:rgba(159,18,57,.92);color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 12px;border-radius:999px;">
-                        Esaurito
+                    <div class="scheda-foto" onclick="openLightbox(0)">
+                        <img id="gallery-main"
+                             src="{{ $medi[0] ?? $urls[0] }}"
+                             alt="{{ $listing->title }}">
+                        @if(count($urls) > 1)
+                        <span class="scheda-contatore" id="gallery-counter">1 / {{ count($urls) }}</span>
+                        @endif
+                        @if(! $listing->isInStock())
+                        <span class="scheda-esaurito">Esaurito</span>
+                        @endif
                     </div>
-                    @endif
                 </div>
-                {{-- Thumbnail strip --}}
-                @if(count($urls) > 1)
-                <div style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">
-                    @foreach($urls as $i => $url)
-                    <img src="{{ $piccole[$i] ?? $url }}"
-                         alt="Foto {{ $i + 1 }}"
-                         onclick="selectThumb({{ $i }})"
-                         id="thumb-{{ $i }}"
-                         class="thumb-strip-img{{ $i === 0 ? ' is-active' : '' }}">
-                    @endforeach
+                @else
+                <div class="scheda-foto scheda-foto--vuota">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
                 @endif
+
+                <div class="scheda-descrizione">{{ $listing->description }}</div>
             </div>
-            @else
-            <div style="margin-top:20px;border-radius:12px;background:linear-gradient(150deg,var(--surface-soft),var(--surface));border:1px solid var(--line);display:flex;align-items:center;justify-content:center;height:220px;color:var(--ink-muted);">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M3 9h18M8 13a4 4 0 008 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-            @endif
 
             <hr style="border:none;border-top:1px solid var(--line);margin:20px 0;">
-
-            <div style="font-size:15px;line-height:1.8;color:var(--ink-soft);white-space:pre-line;">{{ $listing->description }}</div>
 
             <div style="margin-top:20px;background:var(--info-soft);border-left:3px solid var(--info);border-radius:8px;padding:12px 16px;font-size:14px;color:var(--ink);">
                 🚚 <strong>{{ $listing->delivery_type_label }}</strong>
@@ -574,7 +578,9 @@
     window.selectThumb = function (idx) {
         current = idx;
         document.getElementById('gallery-main').src = medi[idx] ?? urls[idx];
-        const counter = document.querySelector('#gallery-main + div');
+        // Un id suo (08/09/2026): prima si cercava "il div subito dopo la foto",
+        // e la galleria nuova gliene mette accanto un altro.
+        const counter = document.getElementById('gallery-counter');
         if (counter) counter.textContent = `${idx + 1} / ${urls.length}`;
         document.querySelectorAll('[id^="thumb-"]').forEach((el, i) => {
             el.classList.toggle('is-active', i === idx);

@@ -30,11 +30,13 @@
 <{{ $tag }} @if($href) href="{{ $href }}" @endif class="{{ $class }}">
     @if($urlCard)
         {{-- width/height dichiarati: senza, il browser non sa quanto spazio
-             riservare e la griglia salta mentre le foto arrivano. --}}
+             riservare e la griglia salta mentre le foto arrivano. Quadrati
+             dall'08/09/2026, come la cornice: dichiararne di sbagliati e' come
+             non dichiararli, la pagina salta lo stesso. --}}
         <img src="{{ $urlCard }}"
              @if($srcset) srcset="{{ $srcset }}" sizes="{{ $sizes }}" @endif
              alt="{{ $alt ?? $listing->title }}"
-             width="600" height="375"
+             width="600" height="600"
              loading="{{ $eager ? 'eager' : 'lazy' }}"
              decoding="{{ $eager ? 'sync' : 'async' }}">
     @else

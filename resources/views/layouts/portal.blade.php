@@ -146,6 +146,17 @@
             --in-stock-on:    #ffffff;
             --sale-on:        #ffffff;
             --media-veil:     rgba(13,28,48,.55);
+            /* Il fondo della cornice foto (08/09/2026). Dal ritaglio si e'
+               passati alla foto INTERA dentro un riquadro quadrato, e quello
+               che avanza e' questo colore.
+               BIANCO, non grigio: le foto di catalogo hanno gia' il fondo
+               bianco loro, e un grigio anche appena accennato disegnava il
+               contorno del file dentro la cornice — un rettangolo bianco
+               stampato in mezzo alla card. Col bianco il prodotto sembra
+               posato sulla card, che e' come lo mostrano tutti i negozi.
+               In tema scuro resta un blu-notte: li' il bordo della card
+               separa gia' abbastanza. */
+            --media-frame:    #ffffff;
 
             /* Bordi e "informativo" degli avvisi (02/09/2026).
                Servivano allo shop: le sue viste disegnavano i riquadri di
@@ -239,6 +250,7 @@
             --in-stock-on:    #04231a;
             --sale-on:        #2a0d0d;
             --media-veil:     rgba(3,7,14,.72);
+            --media-frame:    #101b2c;
 
             /* Bordi e "informativo" degli avvisi (02/09/2026) */
             --success-line:   rgba(52,211,153,.30);

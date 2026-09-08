@@ -171,7 +171,7 @@ class TemaShopFase0Test extends TestCase
                   '--in-stock', '--in-stock-soft', '--in-stock-on',
                   '--success-line', '--warning-line', '--danger-line', '--danger-on',
                   '--info', '--info-soft', '--info-line', '--accent-line',
-                  '--media-veil'] as $token) {
+                  '--media-veil', '--media-frame'] as $token) {
             $this->assertSame(
                 2,
                 substr_count($layout, $token.':'),

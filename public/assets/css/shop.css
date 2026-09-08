@@ -148,13 +148,23 @@
    3. LA FOTO DEL PRODOTTO (e cio' che ci sta sopra)
    ───────────────────────────────────────────────────────────────────────────── */
 
+/* LA CORNICE E' QUADRATA E LA FOTO CI STA DENTRO TUTTA (08/09/2026).
+   Prima era 16:10 con `cover`, cioe' la foto veniva TAGLIATA per riempire un
+   riquadro orizzontale: a un elettrodomestico fotografato in verticale spariva
+   la parte alta, di un logo tondo restava una fascia, di un barattolo si vedeva
+   il centro. Chi vende nel circuito fotografa col telefono, e le foto del
+   telefono sono quadrate o verticali — cioe' proprio quelle che ci rimettevano
+   di piu'.
+   Il prezzo di questa scelta si vede sulle foto ORIZZONTALI, che ora mostrano
+   due bande di --media-frame sopra e sotto. E' il baratto giusto: una banda si
+   guarda, un prodotto tagliato no. */
 .product-media {
-    position: relative; display: block; aspect-ratio: 16 / 10;
-    background: linear-gradient(150deg, var(--surface-soft), var(--surface));
-    overflow: hidden; text-decoration: none;
+    position: relative; display: block; aspect-ratio: 1 / 1;
+    background: var(--media-frame);
+    overflow: hidden; text-decoration: none; padding: 10px;
 }
 .product-media img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
+    width: 100%; height: 100%; object-fit: contain; display: block;
     transition: transform .4s ease;
 }
 .catalog-card:hover .product-media img,
@@ -407,10 +417,50 @@
 .stock-pill--out { background: var(--danger-soft);  color: var(--danger); }
 
 .thumb-strip-img {
-    width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer;
+    width: 72px; height: 72px; object-fit: contain; border-radius: 8px; cursor: pointer;
+    background: var(--media-frame); padding: 4px;
     border: 2.5px solid var(--line); flex-shrink: 0; transition: border-color .15s;
 }
 .thumb-strip-img.is-active { border-color: var(--primary); }
+
+/* ── LA GALLERIA DELLA SCHEDA PRODOTTO (08/09/2026) ───────────────────────────
+   Era uno striscione: foto larga quanto la colonna, alta 420px e ritagliata per
+   riempirla — si mangiava tutta la prima schermata e la descrizione cominciava
+   sotto la piega. Adesso e' un riquadro quadrato con le miniature a fianco, e
+   la larghezza che avanza la prende la descrizione: chi apre il prodotto vede
+   subito che cos'e' senza scorrere.
+   Sotto i 900px le due colonne si impilano e le miniature tornano una striscia
+   orizzontale sotto la foto — su un telefono, a fianco, non ci starebbero. */
+.scheda-media { display: flex; gap: 20px; align-items: flex-start; margin-top: 20px; }
+.scheda-galleria { display: flex; gap: 10px; flex: 0 0 auto; }
+.scheda-thumbs { display: flex; flex-direction: column; gap: 8px; }
+.scheda-foto {
+    position: relative; width: 390px; max-width: 100%; aspect-ratio: 1 / 1; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; padding: 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--media-frame);
+    cursor: zoom-in; overflow: hidden;
+}
+.scheda-foto img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.scheda-foto--vuota { cursor: default; color: var(--ink-muted); }
+.scheda-descrizione {
+    flex: 1; min-width: 0; font-size: 15px; line-height: 1.8;
+    color: var(--ink-soft); white-space: pre-line;
+}
+.scheda-contatore {
+    position: absolute; bottom: 10px; right: 12px; background: var(--media-veil);
+    color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+}
+.scheda-esaurito {
+    position: absolute; top: 12px; left: 12px; background: var(--danger); color: var(--danger-on);
+    font-size: 11.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 999px;
+}
+@media (max-width: 900px) {
+    .scheda-media { flex-direction: column; gap: 16px; }
+    .scheda-galleria { flex-direction: column-reverse; width: 100%; }
+    .scheda-thumbs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+    .scheda-foto { width: 100%; }
+}
 
 /* Riquadri dentro il pannello d'acquisto, che resta SCURO in entrambi i temi:
    qui i token normali non vanno usati (vedi la nota su --on-dark nel layout). */
