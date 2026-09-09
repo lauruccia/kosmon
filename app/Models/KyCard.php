@@ -109,18 +109,41 @@ class KyCard extends Model
         return $this->ky_total - (int) $this->ky_base_amount;
     }
 
-    /** Etichetta bonus leggibile, es. "+25 KY" o "+25%" */
+    /**
+     * Etichetta bonus leggibile, es. "+30,00 KY" o "+25%".
+     *
+     * 09/09/2026: il ramo "fixed" faceva number_format($this->ky_bonus, 0) su
+     * un valore che e' in CENTESIMI di KY, come tutti gli importi del
+     * circuito: un bonus di 30,00 KY finiva sull'etichetta come "+3.000 KY".
+     * Latente finche' tutte le card sono a percentuale, ma appena se ne crea
+     * una a bonus fisso dal backoffice il cliente legge un numero cento volte
+     * piu' grande di quello che riceve. Adesso passa da ky_format(), come
+     * ovunque nel resto del portale.
+     */
     public function getBonusLabelAttribute(): string
     {
         if ($this->bonus_type === 'percentage') {
             return '+' . rtrim(rtrim(number_format((float)$this->bonus_value, 2), '0'), '.') . '%';
         }
-        return '+' . number_format($this->ky_bonus, 0, ',', '.') . ' KY';
+        return '+' . ky_format($this->ky_bonus) . ' KY';
     }
 
-    /** Scope card attive ordinate */
+    /**
+     * Scope card attive, ordinate DAL TAGLIO PIU' PICCOLO AL PIU' GRANDE.
+     *
+     * 09/09/2026: prima l'ordine era `sort_order` e poi il prezzo. Con tutte
+     * le card a sort_order 0 tranne KyCard50 — aggiunta dopo, e finita con un
+     * sort_order piu' alto — il taglio da 50 € compariva ULTIMO, dopo quello
+     * da 7.200 €: un listino che parte dal prezzo piu' alto e finisce col piu'
+     * basso. In un catalogo di ricariche l'ordine per importo e' l'unico che
+     * il cliente si aspetta, quindi qui comanda il prezzo.
+     *
+     * NB: `sort_order` resta e continua a governare l'elenco del backoffice
+     * (AdminKyCardController). Se un giorno serve un ordine scelto a mano
+     * anche lato cliente, si rimette `orderBy('sort_order')` davanti.
+     */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true)->orderBy('sort_order')->orderBy('price_eur_cents');
+        return $query->where('is_active', true)->orderBy('price_eur_cents');
     }
 }

@@ -909,6 +909,12 @@ class PortalController extends Controller
             'portal_installment', 'portal_netting', 'portal_refund',
             'portal_credit_note', 'portal_qr_payment',
             'portal_cashback', 'portal_fee', 'portal_marketplace_order',
+            // 09/09/2026: le ricariche KYCard sono movimenti a tutti gli
+            // effetti (kind `kycard_topup`, emesse dalla Cassa Circuito) ma
+            // mancavano da questo elenco, quindi dal filtro «Tipo» dei
+            // movimenti: chi voleva rivedere le proprie ricariche doveva
+            // scorrere tutto a mano.
+            'kycard_topup',
         ];
         $validDirections = ['in', 'out'];
         $validStatuses   = ['booked', 'pending', 'cancelled'];
