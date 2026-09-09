@@ -135,15 +135,18 @@
             </div>
 
             <div style="padding:14px 18px;background:var(--card-bg);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:{{ $card->ky_bonus > 0 ? '10px' : '0' }};">
-                    <div>
-                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:2px;">Paghi</div>
-                        <div style="font-size:22px;font-weight:800;color:var(--ink);">{{ number_format($card->price_eur, 2, ',', '.') }} <span style="font-size:13px;">€</span></div>
+                {{-- 09/09/2026: erano affiancati con la freccia in mezzo e in
+                     questa colonna stretta il simbolo € finiva a capo da solo
+                     sui tagli grossi (7.200,00). Incolonnati non succede piu',
+                     e le cifre restano allineate fra loro. --}}
+                <div style="display:grid;gap:6px;margin-bottom:{{ $card->ky_bonus > 0 ? '10px' : '0' }};">
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">
+                        <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);">Paghi</span>
+                        <span style="font-size:19px;font-weight:800;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums;">{{ number_format($card->price_eur, 2, ',', '.') }}<span style="font-size:12px;font-weight:700;color:var(--ink-soft);"> €</span></span>
                     </div>
-                    <span style="font-size:18px;color:var(--ink-muted);">→</span>
-                    <div style="text-align:right;">
-                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:2px;">Ricevi</div>
-                        <div style="font-size:22px;font-weight:800;color:#1d4ed8;">{{ ky_format($card->ky_total) }} <span style="font-size:13px;">KY</span></div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:6px;">
+                        <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);">Ricevi</span>
+                        <span style="font-size:22px;font-weight:800;color:var(--primary);white-space:nowrap;font-variant-numeric:tabular-nums;">{{ ky_format($card->ky_total) }}<span style="font-size:12px;font-weight:700;"> KY</span></span>
                     </div>
                 </div>
                 @if($card->ky_bonus > 0)

@@ -109,6 +109,17 @@
             --line:          #dde6f0;
             --line-strong:   #c4d2e4;
 
+            /* ALIAS STORICI (09/09/2026). Trentuno viste — ricarica, storico,
+               checkout, shop, aziende… — scrivono `var(--card-bg)` e
+               `var(--border)`, che non sono MAI stati definiti qui. Una var()
+               inesistente rende invalida l'INTERA dichiarazione: quelle pagine
+               restavano senza sfondo (trasparente sul grigio della pagina) e
+               senza bordo (border-style torna a `none`), senza che nessun test
+               se ne accorgesse. Definirli come alias ripara tutte e trentuno in
+               un punto solo, e segue in automatico il tema. */
+            --card-bg:       var(--surface);
+            --border:        var(--line);
+
             /* Shadows */
             --shadow-xs: 0 1px 2px rgba(10,30,60,.04);
             --shadow:    0 2px 16px rgba(10,30,60,.08), 0 1px 4px rgba(10,30,60,.04);
