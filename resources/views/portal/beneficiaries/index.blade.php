@@ -146,7 +146,7 @@
 
                         <td style="padding:12px 16px;text-align:right;white-space:nowrap;">
                             {{-- Paga subito --}}
-                            <a href="{{ route('portal.pay.form') }}?to={{ $b->beneficiary_account_id }}"
+                            <a href="{{ route('portal.invia') }}?to={{ $b->beneficiary_account_id }}"
                                class="cta" style="font-size:12px;padding:5px 10px;min-height:28px;">
                                 💸 Paga
                             </a>

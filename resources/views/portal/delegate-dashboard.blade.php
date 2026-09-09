@@ -9,7 +9,7 @@
 </div>
         <div class="page-actions">
             @if ($currentAccount->status === 'active')
-                <a class="cta" href="{{ route('portal.pay.form') }}">Paga</a>
+                <a class="cta" href="{{ route('portal.invia') }}">Paga</a>
                 <a class="cta secondary" href="{{ route('portal.receive.form') }}">Incassa</a>
             @endif
             <a class="cta secondary" href="{{ route('portal.movements') }}">Movimenti</a>

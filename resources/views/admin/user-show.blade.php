@@ -690,7 +690,7 @@
                                 <td>
                                     <strong>{{ $transfer->reference }}</strong>
                                     <div class="table-muted">{{ match ($transfer->kind) { 'portal_payment' => 'Pagamento da portale', 'portal_collection' => 'Incasso da portale', 'trade_payment' => 'Pagamento commerciale', 'admin_refund' => 'Storno amministrativo', default => $transfer->kind ? ucfirst(str_replace('_', ' ', $transfer->kind)) : 'Movimento', } }}</div>
-                                    <div class="table-muted">{{ match ($transfer->status) { 'booked' => 'Contabilizzato', 'pending' => 'In elaborazione', 'rejected' => 'Respinto', default => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')), } }}</div>
+                                    <div class="table-muted">{{ match ($transfer->status) { 'booked' => 'Contabilizzato', 'pending' => 'In elaborazione', 'rejected' => 'Respinto', 'expired' => 'Scaduta', default => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')), } }}</div>
                                 </td>
                                 <td>
                                     <strong>{{ $transfer->fromAccount?->display_name ?? 'N/D' }}</strong>

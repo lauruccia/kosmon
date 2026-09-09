@@ -1847,7 +1847,7 @@
                             </button>
                             <div class="nav-group-items {{ $grpPaga ? 'open' : '' }}">
                                 @if($mv('paga'))
-                                <a class="sidebar-link {{ $an === 'paga' ? 'active' : '' }}" href="{{ route('portal.pay.form') }}">
+                                <a class="sidebar-link {{ $an === 'paga' ? 'active' : '' }}" href="{{ route('portal.invia') }}">
                                     <span class="nav-icon">💸</span><span>Invia KY</span>
                                 </a>
                                 @endif

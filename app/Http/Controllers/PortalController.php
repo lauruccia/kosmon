@@ -25,7 +25,9 @@ use App\Models\TextPaymentRequest;
 use App\Notifications\PaymentRequestedNotification;
 use App\Services\GeocodingService;
 use App\Services\OrderService;
+use App\Models\AuditLog;
 use App\Services\TransferBookingService;
+use App\Support\PaymentPin;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Database\Eloquent\Collection;
@@ -991,49 +993,38 @@ class PortalController extends Controller
         ]);
     }
 
-    public function payForm(Request $request): View|RedirectResponse
+    /**
+     * 09/09/2026 — UNA SOLA PORTA PER INVIARE KY.
+     *
+     * Fino a ieri il circuito aveva due flussi di invio completi che vivevano
+     * uno accanto all'altro: questo (/paga, tre passi, form → riepilogo →
+     * esegui) e /invia (una pagina sola, mobile-first). Non erano due strade
+     * per due scopi: erano la stessa strada scritta due volte, con DUE
+     * SICUREZZE DIVERSE. /paga chiedeva lo step-up TOTP sopra soglia e non
+     * chiedeva mai il PIN; /invia chiedeva il PIN e non chiedeva mai il TOTP.
+     * Chi voleva evitare l'uno usava l'altra: una serratura si scavalca
+     * passando dalla porta accanto.
+     *
+     * Resta /invia, che e' quella che il portale mette sotto il pollice nella
+     * dashboard, e da oggi applica ENTRAMBE le soglie. Questa rotta non
+     * scompare — e' nei segnalibri, nelle email, nei link vecchi — ma non
+     * disegna piu' niente: porta li', portandosi dietro il destinatario.
+     *
+     * NB: paySubmit/payConfirmShow/payExecute qui sotto restano vivi e NON
+     * sono codice morto. Sono il POST del pagamento da card NFC statica
+     * (/paga/{numeroConto}) e da QR statico (/paga/qr/{numeroConto}), che
+     * hanno una loro pagina di partenza e passano da qui per il riepilogo.
+     * Anche loro, da oggi, chiedono il PIN sopra soglia.
+     */
+    public function payForm(Request $request): RedirectResponse
     {
         if ($redirect = $this->redirectBackofficeUser($request->user())) {
             return $redirect;
         }
 
-        [$currentAccount, $currentUser] = $this->resolveCurrentContext($request->user(), $this->requestedCompanyId($request));
-        abort_unless($this->canSendPayments($request->user(), $currentAccount), 403);
+        $to = (int) $request->query('to', 0);
 
-        // Destinatari pre-selezionato via query string (dalla hub)
-        $preselectedToId = (int) $request->query('to', 0);
-
-        // Ultimi 6 destinatari per i chip rapidi
-        $recentRecipients = Transfer::where('from_account_id', $currentAccount->id)
-            ->where('status', 'booked')
-            ->with('toAccount')
-            ->orderByDesc('booked_at')
-            ->get()
-            ->pluck('toAccount')
-            ->filter(fn($a) => $a && !$a->is_system_account && $a->id !== $currentAccount->id)
-            ->unique('id')
-            ->take(6)
-            ->values();
-
-        $effectiveLimits    = $currentUser->effectiveTransferLimits();
-        $payLimitDaily      = $effectiveLimits['daily_transaction_limit'] ?? null;
-        $payLimitSingleTx   = $effectiveLimits['per_movement_limit'] ?? null;
-        $paySpentToday      = $currentAccount->spentToday();
-        $payRemainingToday  = $payLimitDaily !== null ? max(0, $payLimitDaily - $paySpentToday) : null;
-
-        return view('portal.pay', [
-            'pageTitle'        => 'Effettua un pagamento',
-            'currentAccount'   => $currentAccount,
-            'currentUser'      => $currentUser,
-            'counterpartyAccounts' => $this->counterpartyAccounts($currentAccount),
-            'recentRecipients' => $recentRecipients,
-            'preselectedToId'  => $preselectedToId,
-            'activeNav'        => 'conto',
-            'payLimitDaily'     => $payLimitDaily,
-            'payLimitSingleTx'  => $payLimitSingleTx,
-            'paySpentToday'     => $paySpentToday,
-            'payRemainingToday' => $payRemainingToday,
-        ]);
+        return redirect()->route('portal.invia', $to > 0 ? ['to' => $to] : []);
     }
 
     public function receiveForm(Request $request): View|RedirectResponse
@@ -1135,6 +1126,13 @@ class PortalController extends Controller
             $needsStepUp = ! \App\Http\Middleware\RequireStepUp::isVerified($request);
         }
 
+        // Il PIN sopra soglia, come su /invia (09/09/2026): questa pagina resta
+        // il riepilogo dei pagamenti da card NFC statica e da QR statico, e
+        // finche' era l'unica a non chiederlo bastava passare di li'.
+        $pinThreshold = $settings->payment_pin_threshold;
+        $needsPin     = $pinThreshold !== null && $preview['amount_cents'] >= (int) $pinThreshold;
+        $hasPin       = $currentUser->payment_pin_hash !== null;
+
         return view('portal.pay-confirm', [
             'pageTitle'      => 'Conferma pagamento',
             'currentAccount' => $currentAccount,
@@ -1142,6 +1140,8 @@ class PortalController extends Controller
             'toAccount'      => $toAccount,
             'preview'        => $preview,
             'needsStepUp'    => $needsStepUp,
+            'needsPin'       => $needsPin,
+            'hasPin'         => $hasPin,
             'activeNav'      => 'conto',
         ]);
     }
@@ -1171,6 +1171,69 @@ class PortalController extends Controller
                 $request->session()->put('step_up_return_url', route('portal.pay.confirm'));
                 return redirect()->route('portal.step-up.show')
                     ->with('step_up_reason', 'Per importi elevati devi confermare la tua identità prima di procedere.');
+            }
+        }
+
+        // ── PIN di pagamento (09/09/2026) ────────────────────────────────────
+        // Stessa soglia e stesse regole di /invia: sopra soglia senza PIN
+        // impostato non si paga, sopra soglia con PIN si digita. I rifiuti si
+        // registrano come gli altri: PIN sbagliato = sicurezza (concorre al
+        // blocco del conto), PIN mancante o mai impostato = contabile.
+        $pinThreshold = $settings->payment_pin_threshold;
+
+        if ($pinThreshold !== null && $preview['amount_cents'] >= (int) $pinThreshold) {
+            $pin = (string) $request->input('pin', '');
+
+            if ($currentUser->payment_pin_hash === null) {
+                AuditLog::create([
+                    'actor_user_id'  => $currentUser->id,
+                    'event'          => 'transfer.rejected',
+                    'auditable_type' => Transfer::class,
+                    'auditable_id'   => null,
+                    'ip_address'     => $request->ip(),
+                    'context'        => [
+                        'reason'          => 'pin_not_set',
+                        'reason_class'    => TransferBookingService::RIFIUTO_CONTABILE,
+                        'from_account_id' => $currentAccount->id,
+                        'to_account_id'   => $preview['to_account_id'],
+                        'amount'          => $preview['amount_cents'],
+                    ],
+                ]);
+
+                return redirect()->route('portal.pay.confirm')->with(
+                    'portal_warning',
+                    'Per pagare importi superiori a ' . ky_format((int) $pinThreshold) . ' KY devi prima impostare un PIN di pagamento. '
+                    . 'Vai in <a href="' . route('portal.personal-profile.edit') . '" class="underline">Profilo → Sicurezza</a> per configurarlo.'
+                );
+            }
+
+            [$pinOk, $pinError] = PaymentPin::verify($currentUser, $pin);
+
+            if (! $pinOk) {
+                AuditLog::create([
+                    'actor_user_id'  => $currentUser->id,
+                    'event'          => 'transfer.rejected',
+                    'auditable_type' => Transfer::class,
+                    'auditable_id'   => null,
+                    'ip_address'     => $request->ip(),
+                    'context'        => [
+                        'reason'          => $pin === '' ? 'pin_missing' : 'pin_wrong',
+                        // Campo vuoto: distrazione, contabile. PIN sbagliato:
+                        // segnale di sicurezza, e concorre al blocco del conto
+                        // (scelta di Laura, 09/09/2026 — vedi il commento in
+                        // SendPaymentController::execute()).
+                        'reason_class'    => $pin === ''
+                            ? TransferBookingService::RIFIUTO_CONTABILE
+                            : TransferBookingService::RIFIUTO_SICUREZZA,
+                        'from_account_id' => $currentAccount->id,
+                        'to_account_id'   => $preview['to_account_id'],
+                        'amount'          => $preview['amount_cents'],
+                    ],
+                ]);
+
+                return redirect()->route('portal.pay.confirm')->with('portal_error', $pin === ''
+                    ? 'Inserisci il PIN di pagamento per confermare questa transazione.'
+                    : $pinError);
             }
         }
 

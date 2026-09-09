@@ -171,7 +171,7 @@
 <div class="recent-list">
     @foreach($recentRecipients as $rec)
     <a class="recent-chip"
-       href="{{ route('portal.pay.form') }}?to={{ $rec->id }}"
+       href="{{ route('portal.invia') }}?to={{ $rec->id }}"
        title="{{ $rec->display_name }}">
         <span class="recent-chip__avatar">{{ mb_strtoupper(mb_substr($rec->display_name, 0, 1)) }}</span>
         {{ Str::limit($rec->display_name, 22) }}
@@ -184,7 +184,7 @@
 <p class="hub-section-title">Invia KMoney</p>
 <div class="hub-grid">
 
-    <a href="{{ route('portal.pay.form') }}" class="hub-card hub-card--primary" data-method="diretto">
+    <a href="{{ route('portal.invia') }}" class="hub-card hub-card--primary" data-method="diretto">
         <div class="hub-card__icon">➡️</div>
         <div class="hub-card__title">Pagamento diretto</div>
         <div class="hub-card__desc">Scegli l'azienda dalla rubrica e inserisci l'importo. Conferma in 2 step.</div>

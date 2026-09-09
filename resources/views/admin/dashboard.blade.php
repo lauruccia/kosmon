@@ -616,6 +616,7 @@
                                         'booked' => 'Contabilizzato',
                                         'pending' => 'In lavorazione',
                                         'rejected' => 'Respinto',
+                                        'expired'  => 'Scaduta',
                                         'cancelled' => 'Annullato',
                                         default => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')),
                                     };

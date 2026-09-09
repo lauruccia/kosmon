@@ -154,3 +154,25 @@ Schedule::command('quote:solleciti-iscrizione')
     ->name('registration-fee-reminders')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/quote-iscrizione.log'));
+
+// Ricariche KYCard: chiude i tentativi con carta/PayPal aperti e mai pagati
+// (09/09/2026). Alle 04:45, subito dopo il gemello delle quote e per lo stesso
+// motivo: di notte non c'e' nessuno a meta' di un checkout. Due finestre
+// diverse: 24 ore per carta e PayPal, 60 giorni per i bonifici mai arrivati —
+// il perche' sta nel blocco di commento del comando.
+Schedule::command('ricarica:scadi-tentativi')
+    ->dailyAt('04:45')
+    ->name('kycard-expire-attempts')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/ricarica-tentativi.log'));
+
+// Richieste di incasso senza risposta: scadono dopo 15 giorni (09/09/2026).
+// Il QR dinamico scade in 10 minuti; la stessa domanda fatta per iscritto non
+// scadeva mai, e un «Conferma» vecchio di mesi poteva addebitare a sorpresa.
+// Non muove saldi: una richiesta in attesa non ha ancora nessuna scrittura
+// contabile. La finestra si cambia con --giorni, qui.
+Schedule::command('incassi:scadi-richieste --giorni=15')
+    ->dailyAt('05:00')
+    ->name('collection-requests-expire')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/incassi-richieste.log'));

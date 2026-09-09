@@ -80,7 +80,10 @@ class SendPaymentController extends PortalController
             'recentRecipients'   => $recentRecipients,
             'pinThreshold'       => $pinThreshold,
             'hasPin'             => $hasPin,
-            'activeNav'          => 'conto',
+            // 'paga' e non 'conto' (09/09/2026): da quando /paga porta qui,
+            // questa E' la voce «Invia KY» del menu, e deve accendersi lei —
+            // prima si accendeva «Dashboard» nella barra del telefono.
+            'activeNav'          => 'paga',
             // Identifica QUESTO caricamento della pagina. Finisce in un campo
             // nascosto del form e da' la chiave di idempotenza dell'invio: due
             // reinvii dello stesso form portano lo stesso token, un nuovo
@@ -185,7 +188,13 @@ class SendPaymentController extends PortalController
                             ->orWhere('email', $q)       // match esatto
                             ->orWhere('phone', $q);      // match esatto
                       })
-                      ->orWhere('uuid', $q);  // match esatto sul numero conto (account_number è un accessor su uuid, non una colonna)
+                      // Match esatto sul numero di conto, in qualunque forma
+                      // sia scritto e digitato maiuscolo o minuscolo:
+                      // Account::scopeWhereAccountNumber() copre anche i conti
+                      // il cui numero non e' sulla colonna uuid ma calcolato
+                      // dall'id (09/09/2026 — prima quei numeri, che sono
+                      // quelli stampati sulla tessera, non trovavano niente).
+                      ->orWhere(fn ($n) => $n->whereAccountNumber($q));
             })
             ->limit(10)
             ->get()
@@ -248,6 +257,9 @@ class SendPaymentController extends PortalController
                 'ip_address'     => $request->ip(),
                 'context'        => [
                     'reason'          => 'pin_not_set',
+                    // Chi non ha ancora impostato il PIN non sta forzando
+                    // niente: non concorre al blocco del conto.
+                    'reason_class'    => TransferBookingService::RIFIUTO_CONTABILE,
                     'from_account_id' => $currentAccount->id,
                     'to_account_id'   => (int) $validated['to_account_id'],
                     'amount'          => $amountCents,
@@ -270,6 +282,8 @@ class SendPaymentController extends PortalController
                     'ip_address'     => $request->ip(),
                     'context'        => [
                         'reason'          => 'pin_missing',
+                        // Campo lasciato vuoto: distrazione, non attacco.
+                        'reason_class'    => TransferBookingService::RIFIUTO_CONTABILE,
                         'from_account_id' => $currentAccount->id,
                         'to_account_id'   => (int) $validated['to_account_id'],
                         'amount'          => $amountCents,
@@ -288,6 +302,17 @@ class SendPaymentController extends PortalController
                     'ip_address'     => $request->ip(),
                     'context'        => [
                         'reason'          => 'pin_wrong',
+                        // SICUREZZA, per scelta di Laura (09/09/2026). Un PIN
+                        // sbagliato dice qualcosa su CHI sta operando, quindi
+                        // concorre al blocco del conto: tre in cinque minuti e
+                        // il conto si ferma per mezz'ora. Conseguenza voluta:
+                        // il limite piu' morbido di PaymentPin::verify() (5
+                        // tentativi, 15 minuti, e ferma il PIN non il conto)
+                        // di fatto non si raggiunge quasi mai — arriva prima
+                        // questo. Le altre due voci qui sopra restano
+                        // contabili: «non ho il PIN» e «ho lasciato il campo
+                        // vuoto» non sono tentativi di indovinare niente.
+                        'reason_class'    => TransferBookingService::RIFIUTO_SICUREZZA,
                         'from_account_id' => $currentAccount->id,
                         'to_account_id'   => (int) $validated['to_account_id'],
                         'amount'          => $amountCents,
@@ -295,6 +320,32 @@ class SendPaymentController extends PortalController
                 ]);
                 return back()->with('portal_error', $pinError);
             }
+        }
+
+        // ── Step-up per importi elevati (09/09/2026) ─────────────────────────
+        // La seconda soglia del circuito (payment_confirm_totp_threshold)
+        // viveva solo sul flusso /paga: chi passava di qui — cioe' dal pulsante
+        // grande della dashboard, che e' la strada che fanno quasi tutti — non
+        // se la vedeva chiedere mai. Due porte sulla stessa stanza con due
+        // serrature diverse: bastava usare l'altra.
+        //
+        // Al ritorno dalla verifica si rientra su /invia con destinatario,
+        // importo e causale gia' compilati (la pagina li rilegge dalla query
+        // string), cosi' la sicurezza non si paga ribattendo tutto.
+        $totpThreshold = $settings->payment_confirm_totp_threshold;
+
+        if ($totpThreshold !== null
+            && $amountCents >= (int) $totpThreshold
+            && ! \App\Http\Middleware\RequireStepUp::isVerified($request)) {
+
+            $request->session()->put('step_up_return_url', route('portal.invia', array_filter([
+                'to'     => (int) $validated['to_account_id'],
+                'amount' => ky_input($amountCents),
+                'desc'   => $validated['description'] ?? null,
+            ])));
+
+            return redirect()->route('portal.step-up.show')
+                ->with('step_up_reason', 'Per importi elevati devi confermare la tua identità prima di procedere.');
         }
 
         // ── Esegui il trasferimento ───────────────────────────────────────────

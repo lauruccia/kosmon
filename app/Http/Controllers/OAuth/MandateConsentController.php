@@ -69,7 +69,7 @@ class MandateConsentController extends Controller
         // nella lista solo adesso, con l'utente che sta guardando la schermata.
         $seller        = (string) $request->query('seller', '');
         $sellerAccount = $seller !== ''
-            ? Account::where('uuid', $seller)->where('owner_type', 'company')->with('company')->first()
+            ? Account::query()->whereAccountNumber($seller)->where('owner_type', 'company')->with('company')->first()
             : null;
 
         $request->session()->put(self::SESSION_KEY, [

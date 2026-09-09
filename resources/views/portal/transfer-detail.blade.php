@@ -16,12 +16,14 @@
         'pending'  => 'In attesa',
         'booked'   => 'Contabilizzato',
         'rejected' => 'Rifiutato',
+        'expired'  => 'Scaduta',
         default    => ucfirst($transfer->status ?? 'N/D'),
     };
     $statusColor = match($transfer->status) {
         'booked'   => '#059669',
         'pending'  => '#d97706',
         'rejected' => '#dc2626',
+        'expired'  => '#6b7280',
         default    => 'var(--ink-muted)',
     };
 

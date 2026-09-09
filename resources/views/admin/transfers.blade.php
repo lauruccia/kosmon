@@ -178,6 +178,7 @@
                         'booked'   => 'Contabilizzato',
                         'pending'  => 'In elaborazione',
                         'rejected' => 'Respinto',
+                        'expired'  => 'Scaduta',
                         default    => ucfirst(str_replace('_', ' ', $transfer->status ?? 'N/D')),
                     };
                     $statoChip = match ($transfer->status) {

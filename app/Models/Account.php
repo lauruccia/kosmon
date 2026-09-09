@@ -226,6 +226,49 @@ class Account extends Model
             && preg_match('/^(KY[BP][A-Z0-9]{13}|KY[A-Z0-9]{14})$/', $value) === 1;
     }
 
+    /**
+     * Ritrova un conto dal numero COSI' COME LO SI LEGGE: sulla tessera, sul
+     * QR, nel kit merchant, sulla pagina del conto.
+     *
+     * Perche' non basta `where('uuid', $numero)` (09/09/2026). Il numero di
+     * conto non e' sempre una colonna: `getAccountNumberAttribute()` restituisce
+     * l'uuid quando quello e' gia' in formato KY..., ma per i conti nati prima
+     * di quel formato se lo CALCOLA dall'id ('KY' + id su 14 cifre). Quel
+     * numero e' stampato ovunque — tessera, QR statico, kit merchant, ricerca
+     * destinatario — e non corrisponde a nessuna riga della colonna uuid:
+     * cercandolo non si trovava niente, e il QR di quei conti portava a un 404.
+     *
+     * Il ramo sull'id vale solo per chi un numero vero non ce l'ha (`uuid` che
+     * non comincia per KY): sui conti con numero regolare quella stessa forma
+     * sarebbe una collisione, e restituirebbe un conto diverso da quello
+     * cercato.
+     */
+    public function scopeWhereAccountNumber($query, ?string $numero)
+    {
+        $numero = mb_strtoupper(trim((string) $numero));
+
+        return $query->where(function ($q) use ($numero) {
+            $q->where('uuid', $numero);
+
+            if (preg_match('/^KY(\d{14})$/', $numero, $m) === 1) {
+                $q->orWhere(function ($legacy) use ($m) {
+                    $legacy->whereKey((int) $m[1])
+                           ->where('uuid', 'not like', 'KY%');
+                });
+            }
+        });
+    }
+
+    /** Il conto con questo numero, o null. Vedi scopeWhereAccountNumber(). */
+    public static function findByAccountNumber(?string $numero): ?self
+    {
+        if ($numero === null || trim($numero) === '') {
+            return null;
+        }
+
+        return static::query()->whereAccountNumber($numero)->first();
+    }
+
     public static function generateKyAccountNumber(string $ownerType = 'company'): string
     {
         // KYB = Business (azienda), KYP = Personal (privato), KY = altri (sistema)

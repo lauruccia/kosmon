@@ -56,7 +56,10 @@ class CardController extends Controller
 
         $toAccount = Account::query()
             ->with(['company', 'ownerUser'])
-            ->where('uuid', $accountNumber)
+            // Vedi Account::scopeWhereAccountNumber(): il QR di questa pagina
+            // e' costruito con $account->account_number, che sui conti vecchi
+            // non e' l'uuid — cercandolo per uuid il proprio QR dava 404.
+            ->whereAccountNumber($accountNumber)
             ->where('status', 'active')
             ->firstOrFail();
 

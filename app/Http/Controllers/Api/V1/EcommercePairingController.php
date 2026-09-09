@@ -45,7 +45,10 @@ class EcommercePairingController extends Controller
         }
 
         $account = Account::query()
-            ->where('uuid', $accountNumber)
+            // whereAccountNumber(): il commerciante incolla nel plugin il
+            // numero che legge nel portale, che sui conti vecchi e' calcolato
+            // dall'id e non sta sulla colonna uuid (09/09/2026).
+            ->whereAccountNumber($accountNumber)
             ->where('is_system_account', false)
             ->whereNotNull('company_id')
             ->first();

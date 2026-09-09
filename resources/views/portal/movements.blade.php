@@ -271,7 +271,7 @@
 
             {{-- CTA Paga + Incassa --}}
             <div style="display:flex;gap:8px;flex-shrink:0;padding-left:16px;border-left:1px solid rgba(255,255,255,.15);">
-                <a href="{{ route('portal.pay.form') }}"
+                <a href="{{ route('portal.invia') }}"
                    style="display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:.02em;background:#fff;color:var(--primary);border:none;text-decoration:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:transform .12s,box-shadow .12s;"
                    onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.28)'"
                    onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,0,0,.18)'">
@@ -461,6 +461,7 @@
                     $isCashback = $transfer->kind === 'portal_cashback';
                     $flowLabel = match (true) {
                         $isCashback                                     => 'Cashback',
+                        $transfer->status === 'expired'                 => 'Scaduta',
                         $transfer->status === 'pending' && $isOutgoing  => 'Da confermare',
                         $transfer->status === 'pending' && !$isOutgoing => 'In attesa',
                         $isOutgoing                                     => 'Addebito',
@@ -470,6 +471,7 @@
                         'pending'  => 'In attesa',
                         'booked'   => 'Contabilizzato',
                         'rejected' => 'Rifiutato',
+                        'expired'  => 'Scaduta',
                         default    => ucfirst($transfer->status ?? 'N/D'),
                     };
                     $statusClass = $transfer->status === 'booked' ? 'success' : 'pink';
@@ -534,6 +536,7 @@
                         $isCashback = $transfer->kind === 'portal_cashback';
                         $flowLabel = match (true) {
                             $isCashback                                     => 'Cashback',
+                            $transfer->status === 'expired'                 => 'Scaduta',
                             $transfer->status === 'pending' && $isOutgoing  => 'Da confermare',
                             $transfer->status === 'pending' && !$isOutgoing => 'In attesa',
                             $isOutgoing                                     => 'Addebito',
@@ -543,6 +546,7 @@
                             'pending'  => 'In attesa',
                             'booked'   => 'Contabilizzato',
                             'rejected' => 'Rifiutato',
+                            'expired'  => 'Scaduta',
                             default    => ucfirst($transfer->status ?? 'N/D'),
                         };
                         $statusClass = $transfer->status === 'booked' ? 'success' : 'pink';

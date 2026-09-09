@@ -73,6 +73,30 @@
                     @else
                         <form method="post" action="{{ route('portal.pay.execute') }}">
                             @csrf
+
+                            {{-- PIN di pagamento sopra soglia (09/09/2026): la
+                                 stessa richiesta che fa /invia. Questa pagina
+                                 e' il riepilogo dei pagamenti da card NFC e da
+                                 QR statico, e finche' era l'unica a non
+                                 chiederlo bastava passare di li' per non
+                                 vederselo chiedere mai. --}}
+                            @if (!empty($needsPin))
+                                @if (empty($hasPin))
+                                    <div class="input-static" style="margin-bottom:12px;font-size:13px;">
+                                        Per questo importo serve il PIN di pagamento.
+                                        <a href="{{ route('portal.personal-profile.edit') }}" style="text-decoration:underline;">Impostalo nel profilo</a>.
+                                    </div>
+                                @else
+                                    <div class="field" style="margin-bottom:12px;">
+                                        <label for="pin">PIN di pagamento</label>
+                                        <input type="password" id="pin" name="pin" inputmode="numeric"
+                                               autocomplete="off" pattern="\d{6}" maxlength="6" required
+                                               placeholder="······"
+                                               style="letter-spacing:.4em;text-align:center;font-size:18px;">
+                                    </div>
+                                @endif
+                            @endif
+
                             <button type="submit" class="cta">
                                 Conferma pagamento
                             </button>

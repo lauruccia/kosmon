@@ -30,9 +30,12 @@ class StaticNfcController extends Controller
      */
     public function pay(Request $request, string $kyAccountNumber): View|RedirectResponse
     {
-        // Cerca l'account per numero KY (es. KYB1234567890ABC)
+        // Cerca l'account per numero KY (es. KYB1234567890ABC).
+        // whereAccountNumber() e non where('uuid'): il numero stampato sulla
+        // card di un conto vecchio e' calcolato dall'id, non e' l'uuid, e
+        // quella card portava a un 404 (09/09/2026).
         $toAccount = Account::with(['company', 'ownerUser'])
-            ->where('uuid', $kyAccountNumber)
+            ->whereAccountNumber($kyAccountNumber)
             ->where('status', 'active')
             ->firstOrFail();
 

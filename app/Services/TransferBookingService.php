@@ -11,6 +11,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use App\Exceptions\Financial\CircuitCapacityExceededException;
+use App\Exceptions\Financial\FinancialException;
 use App\Exceptions\Financial\CreditExposureExceededException;
 use App\Exceptions\Financial\DailyLimitExceededException;
 use App\Exceptions\Financial\MonthlyLimitExceededException;
@@ -25,6 +26,31 @@ class TransferBookingService
      * la closure in caso di deadlock MySQL (errore 1213).
      */
     private const TRANSACTION_ATTEMPTS = 3;
+
+    /**
+     * Le due nature di un rifiuto — e perche' una sola delle due fa scattare
+     * il blocco temporaneo del conto (vedi assertNotAnomalousActivity()).
+     *
+     * CONTABILE: il circuito ha risposto "non ci sono i soldi" o "hai finito
+     * il plafond". Saldo oltre il fido, limite giornaliero, mensile, per
+     * movimento, capienza. Chi li incontra non sta forzando niente: sta
+     * scoprendo un numero che non conosceva. Fino al 09/09/2026 tre di questi
+     * in cinque minuti — cioe' tre tentativi di pagare qualcosa che non ci si
+     * puo' permettere, che e' un comportamento normalissimo — bloccavano il
+     * conto per mezz'ora.
+     *
+     * SICUREZZA: il rifiuto dice qualcosa su CHI sta operando, non su quanto
+     * ha in cassa. Non autorizzato su questo conto, conto o azienda non
+     * attivi, valute incoerenti, mittente uguale a destinatario. Ripetuti in
+     * pochi minuti sono l'unica sagoma che assomiglia davvero a qualcuno che
+     * prova le porte, ed e' questa che il blocco deve fermare.
+     *
+     * Entrambe restano registrate in AuditLog come `transfer.rejected`: si
+     * separa cosa fa scattare l'allarme, non cosa si scrive nel registro.
+     */
+    public const RIFIUTO_CONTABILE = 'contabile';
+
+    public const RIFIUTO_SICUREZZA = 'sicurezza';
 
 
     public function book(array $attributes): Transfer
@@ -77,7 +103,17 @@ class TransferBookingService
             // Logga ogni tentativo di trasferimento fallito (saldo insufficiente,
             // limiti superati, account sospeso, ecc.) in AuditLog, FUORI dalla
             // transazione fallita così il log viene sempre persistito.
-            $this->recordRejectedAttempt($attributes, $e->getMessage());
+            //
+            // La classificazione: tutte e sole le eccezioni finanziarie
+            // (FinancialException e le sue sei figlie) sono rifiuti contabili.
+            // Tutto il resto — non autorizzato, conto sospeso, azienda non
+            // attiva, valute diverse — parla di chi sta operando, ed e' cio'
+            // che il blocco anti-frode deve contare.
+            $this->recordRejectedAttempt(
+                $attributes,
+                $e->getMessage(),
+                $e instanceof FinancialException ? self::RIFIUTO_CONTABILE : self::RIFIUTO_SICUREZZA,
+            );
             throw $e;
         }
     }
@@ -565,9 +601,14 @@ class TransferBookingService
             );
         }
 
-        // 2. Conta i tentativi falliti recenti
+        // 2. Conta i tentativi falliti recenti — SOLO quelli di sicurezza.
+        // I rifiuti contabili (saldo, fido, limiti) restano nel registro ma
+        // non concorrono al blocco: vedi RIFIUTO_CONTABILE qui sopra. Le righe
+        // scritte prima del 09/09/2026 non hanno `reason_class` e quindi non
+        // contano piu': e' voluto, erano in larghissima parte contabili.
         $recentFailures = AuditLog::where('actor_user_id', $initiatedBy)
             ->where('event', 'transfer.rejected')
+            ->where('context->reason_class', self::RIFIUTO_SICUREZZA)
             ->where('created_at', '>=', now()->subMinutes(5))
             ->count();
 
@@ -598,7 +639,7 @@ class TransferBookingService
         }
     }
 
-    public function recordRejectedAttempt(array $attributes, string $reason): void
+    public function recordRejectedAttempt(array $attributes, string $reason, string $reasonClass = self::RIFIUTO_SICUREZZA): void
     {
         AuditLog::create([
             'actor_user_id' => $attributes['initiated_by'] ?? null,
@@ -608,6 +649,9 @@ class TransferBookingService
             'ip_address' => $attributes['ip_address'] ?? null,
             'context' => [
                 'reason' => $reason,
+                // Contabile o di sicurezza: e' questa riga a decidere se il
+                // tentativo concorre al blocco temporaneo del conto.
+                'reason_class' => $reasonClass,
                 'from_account_id' => $attributes['from_account_id'] ?? null,
                 'to_account_id' => $attributes['to_account_id'] ?? null,
                 'amount' => $attributes['amount'] ?? null,

@@ -334,7 +334,7 @@
             <div style="font-size:13px;color:var(--ink-soft);">Usa i KY del tuo portafoglio per acquistare direttamente i prodotti o invia una richiesta di pagamento.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a href="{{ route('portal.pay.form') }}?to={{ $account->account_number ?? '' }}" class="cta">Invia pagamento</a>
+            <a href="{{ route('portal.invia') }}?to={{ $account->id }}" class="cta">Invia pagamento</a>
             <a href="{{ route('portal.shop') }}?company={{ $company->id }}" class="cta secondary">Vai allo shop</a>
         </div>
     </div>

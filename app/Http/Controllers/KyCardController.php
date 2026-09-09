@@ -239,18 +239,42 @@ class KyCardController extends PortalController
         try {
             $accessToken = $this->getPaypalAccessToken();
 
-            $response = \Illuminate\Support\Facades\Http::withToken($accessToken)
+            \Illuminate\Support\Facades\Http::withToken($accessToken)
                 ->post($this->paypalApiBase() . '/v2/checkout/orders/' . $purchase->paypal_order_id . '/capture');
 
-            $capture = $response->json();
+            // 09/09/2026 — LA PROVA NON E' PIU' LA RISPOSTA DELLA CAPTURE.
+            //
+            // Prima qui bastava un `status === 'COMPLETED'` letto sulla
+            // risposta, e si accreditava: nessun controllo sull'importo, e
+            // nessuno che l'ordine fosse davvero QUESTO acquisto. Su Stripe
+            // quel controllo c'e' da sempre (StripeCheckoutVerifier), e le tre
+            // quote del circuito hanno la versione PayPal dal 02/09: si chiama
+            // PayPalOrderVerifier e chiede a PayPal l'ordine, poi pretende
+            // incassato, in euro, dell'importo esatto e con `custom_id` uguale
+            // all'uuid di questo acquisto — cio' che chiude il riuso di un
+            // ordine gia' pagato per farsi accreditare una seconda ricarica.
+            //
+            // Si rilegge l'ordine invece di guardare la risposta appena
+            // ricevuta perche' e' la stessa identica domanda che fara' la
+            // pagina di successo se l'utente torna piu' tardi: una sola strada,
+            // un solo formato di risposta, un solo punto da correggere.
+            $pagata = app(\App\Services\PayPalOrderVerifier::class)->isCompletedFor(
+                $purchase->paypal_order_id,
+                (int) $purchase->price_eur_cents,
+                $purchase->uuid,
+                'kycard-paypal:' . $purchase->uuid,
+            );
 
-            if ($capture['status'] === 'COMPLETED') {
+            if ($pagata) {
                 $this->creditKy($purchase);
             } else {
                 $purchase->update(['status' => 'failed']);
             }
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable e non \Exception: una libreria mancante solleva un
+            // \Error, che un catch(\Exception) lascerebbe passare fino alla
+            // pagina bianca (difetto visto in produzione l'01/09 con Stripe).
             Log::error('PayPal capture error', ['error' => $e->getMessage(), 'purchase' => $purchase->uuid]);
             $purchase->update(['status' => 'failed']);
         }
@@ -328,6 +352,34 @@ class KyCardController extends PortalController
                 (int) $purchase->price_eur_cents,
                 $purchase->uuid,
                 'kycard:' . $purchase->uuid,
+            );
+
+            if ($pagata) {
+                $this->creditKy($purchase);
+            }
+
+            $purchase->refresh();
+        }
+
+        // PAYPAL, DAL 09/09/2026. Prima questa pagina aveva un solo ramo,
+        // Stripe: per PayPal l'unica strada che accreditava era la `capture`
+        // sincrona al ritorno, e non esiste nessun webhook PayPal a fare da
+        // rete (ne' qui ne' altrove nel circuito). Chi pagava e chiudeva la
+        // scheda un istante prima del ritorno, o incappava in una scrittura
+        // fallita, restava senza KY e senza nessun processo che lo
+        // recuperasse: i soldi a PayPal, il conto vuoto.
+        //
+        // E' anche cio' che rende innocua la guardia di paypalCapture(), che
+        // sulle righe non piu' `pending` se ne torna indietro senza catturare:
+        // un ordine gia' catturato non si cattura due volte, ma lo si puo'
+        // CHIEDERE — ed e' quello che si fa qui. Stessa cura, stesso codice e
+        // stesso commento della quota di iscrizione (02/09/2026).
+        if (! $purchase->isCompleted() && ! $purchase->isRefunded() && $purchase->payment_method === 'paypal') {
+            $pagata = app(\App\Services\PayPalOrderVerifier::class)->isCompletedFor(
+                $purchase->paypal_order_id,
+                (int) $purchase->price_eur_cents,
+                $purchase->uuid,
+                'kycard-paypal-recupero:' . $purchase->uuid,
             );
 
             if ($pagata) {
@@ -552,6 +604,47 @@ class KyCardController extends PortalController
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
         abort_unless($purchase->isFailed(), 422, 'Solo gli ordini falliti possono essere riprocessati.');
+
+        // 09/09/2026 — «RIPROVA» NON E' PIU' UNA SCORCIATOIA PER CREARE MONETA.
+        //
+        // Questo pulsante chiamava creditKy() e basta: sui bonifici e' giusto
+        // (la prova e' l'estratto conto che l'admin ha davanti, ed e' la stessa
+        // prova che regge «Conferma bonifico»), ma su carta e PayPal
+        // accreditava KY senza chiedere a nessuno se quei soldi fossero mai
+        // arrivati. Da oggi le righe `failed` di carta/PayPal si accreditano
+        // solo se il gestore di pagamento conferma l'incasso — esattamente
+        // come fanno da sole la pagina di successo e il webhook.
+        //
+        // Conta adesso piu' di prima: da oggi `ricarica:scadi-tentativi` marca
+        // `failed` i checkout aperti e mai pagati, quindi in questo elenco le
+        // righe fallite MAI PAGATE sono la maggioranza.
+        if ($purchase->payment_method === 'stripe') {
+            $pagata = app(\App\Services\StripeCheckoutVerifier::class)->isPaidFor(
+                $purchase->stripe_checkout_session_id,
+                (int) $purchase->price_eur_cents,
+                $purchase->uuid,
+                'kycard-retry:' . $purchase->uuid,
+            );
+
+            if (! $pagata) {
+                return redirect()->route('admin.ky-cards.orders')
+                    ->with('error', 'Stripe non conferma l\'incasso di questo ordine: nessun KY accreditato. Se il cliente ha pagato davvero, la ricevuta Stripe lo dimostra e l\'accredito si fa a mano.');
+            }
+        }
+
+        if ($purchase->payment_method === 'paypal') {
+            $pagata = app(\App\Services\PayPalOrderVerifier::class)->isCompletedFor(
+                $purchase->paypal_order_id,
+                (int) $purchase->price_eur_cents,
+                $purchase->uuid,
+                'kycard-retry:' . $purchase->uuid,
+            );
+
+            if (! $pagata) {
+                return redirect()->route('admin.ky-cards.orders')
+                    ->with('error', 'PayPal non conferma l\'incasso di questo ordine: nessun KY accreditato.');
+            }
+        }
 
         // Rimetti in pending_bank_transfer per i bonifici, pending per gli altri
         $purchase->update(['status' => $purchase->payment_method === 'bank_transfer' ? 'pending_bank_transfer' : 'pending']);

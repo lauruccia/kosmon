@@ -228,6 +228,17 @@
                     <div style="font-size:10px;font-weight:700;color:#1d4ed8;">KY</div>
                 @else
                     <div style="font-size:13px;color:var(--ink-muted);">—</div>
+                    {{-- 09/09/2026: la via di ritorno per chi ha pagato e non ha
+                         visto l'accredito. La pagina di successo richiede al
+                         gestore di pagamento se l'incasso c'e' stato davvero e,
+                         se c'e', accredita — vale per carta e da oggi anche per
+                         PayPal, che senza questo link e senza webhook non aveva
+                         nessuna seconda occasione. Solo sui propri acquisti:
+                         quella pagina e' intestata a chi ha pagato. --}}
+                    @if(in_array($p->payment_method, ['stripe', 'paypal'], true) && $p->user_id === $currentUser->id)
+                        <a href="{{ route('portal.ky-cards.success', $p->uuid) }}"
+                           style="font-size:10.5px;color:var(--ink-soft);text-decoration:underline;">Verifica pagamento</a>
+                    @endif
                 @endif
             </div>
 

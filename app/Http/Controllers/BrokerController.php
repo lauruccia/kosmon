@@ -9,7 +9,6 @@ use App\Models\Transfer;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class BrokerController extends Controller
@@ -197,15 +196,14 @@ class BrokerController extends Controller
                 'ip_address'      => $request->ip(),
             ]);
         } catch (\RuntimeException $e) {
-            $bookingService->recordRejectedAttempt([
-                'initiated_by'    => $user->id,
-                'from_account_id' => $fromAccount->id,
-                'to_account_id'   => (int) $validated['to_account_id'],
-                'amount'          => $amountCents,
-                'idempotency_key' => (string) Str::uuid(),
-                'ip_address'      => $request->ip(),
-            ], $e->getMessage());
-
+            // Nessun log qui: book() ha GIA' registrato il tentativo rifiutato
+            // (nella sua catch, fuori dalla transazione fallita, e qui non c'e'
+            // nessuna transazione esterna che possa portarselo via). Fino al
+            // 09/09/2026 questa riga ne scriveva un secondo identico: ogni
+            // pagamento broker fallito contava DUE volte nel blocco anti-frode,
+            // che quindi scattava al secondo tentativo invece che al terzo. E
+            // ci arrivava senza classificazione, quindi anche per un semplice
+            // saldo insufficiente.
             return back()->withInput()->with('portal_error', $e->getMessage());
         }
 
