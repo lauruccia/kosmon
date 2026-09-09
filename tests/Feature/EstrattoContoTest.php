@@ -103,6 +103,17 @@ class EstrattoContoTest extends TestCase
         $response->assertSee('value="prima-nota"', false);
     }
 
+    public function test_la_pagina_dice_le_date_esatte_del_periodo_scelto(): void
+    {
+        // «Mese scorso» da solo non dice se il mese in corso sia dentro o
+        // fuori: le due date devono essere scritte, non dedotte.
+        $this->actingAs($this->utente)
+            ->get(route('portal.statement', ['periodo' => 'mese', 'mese' => '2026-03']))
+            ->assertOk()
+            ->assertSee('Marzo 2026')
+            ->assertSee('dal 01/03/2026 al 31/03/2026');
+    }
+
     public function test_la_pagina_dei_movimenti_porta_all_estratto_conto(): void
     {
         // Prima del 09/09/2026 /estratto-conto non era linkata da nessuna

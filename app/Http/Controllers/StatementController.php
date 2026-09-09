@@ -68,7 +68,7 @@ class StatementController extends Controller
             'account'       => $account,
             'accounts'      => $accounts,
             'period'        => StatementPeriod::fromRequest($request),
-            'quickPresets'  => StatementPeriod::quickPresets(),
+            'quickPresets'  => $this->quickPresetsConDate(),
             'months'        => $this->availableMonths($account),
             'quarters'      => $this->availableQuarters($account),
             'years'         => $this->availableYears($account),
@@ -343,6 +343,29 @@ class StatementController extends Controller
         return $first ? CarbonImmutable::parse($first) : null;
     }
 
+    /**
+     * Le scelte rapide con le date che rappresentano, cosi' la pagina puo'
+     * dire "dal ... al ..." accanto al pulsante selezionato. In una banca il
+     * periodo esatto che si sta per scaricare si legge sempre: "mese scorso"
+     * da solo lascia il dubbio se comprenda o no il mese in corso.
+     */
+    private function quickPresetsConDate(): array
+    {
+        $out = [];
+
+        foreach (StatementPeriod::quickPresets() as $chiave => $etichetta) {
+            $periodo = StatementPeriod::make($chiave);
+
+            $out[$chiave] = [
+                'label' => $etichetta,
+                'dal'   => $periodo->start->format('d/m/Y'),
+                'al'    => $periodo->end->format('d/m/Y'),
+            ];
+        }
+
+        return $out;
+    }
+
     private function availableMonths(Account $account): array
     {
         $first = $this->firstMovementDate($account);
@@ -364,6 +387,8 @@ class StatementController extends Controller
             $out[] = [
                 'value' => $cursor->format('Y-m'),
                 'label' => $mesi[(int) $cursor->format('n')] . ' ' . $cursor->format('Y'),
+                'dal'   => $cursor->format('d/m/Y'),
+                'al'    => $cursor->endOfMonth()->format('d/m/Y'),
             ];
             $cursor = $cursor->addMonth();
         }
@@ -388,6 +413,8 @@ class StatementController extends Controller
             $out[] = [
                 'value' => $cursor->format('Y') . '-T' . $q,
                 'label' => $q . '° trimestre ' . $cursor->format('Y'),
+                'dal'   => $cursor->format('d/m/Y'),
+                'al'    => $cursor->endOfQuarter()->format('d/m/Y'),
             ];
             $cursor = $cursor->addQuarter();
         }
@@ -406,7 +433,12 @@ class StatementController extends Controller
         $out = [];
 
         for ($anno = (int) CarbonImmutable::now()->format('Y'); $anno >= (int) $first->format('Y'); $anno--) {
-            $out[] = ['value' => (string) $anno, 'label' => 'Anno ' . $anno];
+            $out[] = [
+                'value' => (string) $anno,
+                'label' => 'Anno ' . $anno,
+                'dal'   => '01/01/' . $anno,
+                'al'    => '31/12/' . $anno,
+            ];
         }
 
         return $out;
