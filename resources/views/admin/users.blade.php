@@ -65,7 +65,17 @@
         .users-compact-cta { min-height: 30px; padding: 0 10px; font-size: 11.5px; }
 
         /* ── Table ───────────────────────────────────────────────────────────── */
+        /* LA TABELLA DEVE RIEMPIRE LA CARD SU *TUTTE* LE PAGINE (09/09/2026, segnalazione Laura).
+           `.admin-table` in layouts/portal.blade.php e' `display:block; overflow-x:auto`
+           (serve a non far sporgere le tabelle larghe oltre .content-shell). Effetto
+           collaterale: la tabella vera che nasce dentro quel blocco e' "shrink-to-fit",
+           cioe' larga quanto il CONTENUTO della pagina corrente. Pagina 1 ha nomi lunghi
+           ('Pastificio Casoni Di Ilari Alberto E Foresi Stefania S.N.C.') e riempiva la
+           card per caso; dalla pagina 2 in poi i nomi sono piu' corti e restava una
+           striscia bianca a destra. Qui si applica la stessa cura di `.table-scroll`:
+           lo scorrimento resta al contenitore e la tabella torna sempre al 100%. */
         .users-table-wrap { overflow-x: auto; }
+        .users-table-wrap > .admin-table { display: table; width: 100%; overflow: visible; }
         .users-table-wrap .admin-table th { padding: 7px 10px; white-space: nowrap; }
         .users-table-wrap .admin-table td { padding: 5px 10px; vertical-align: middle; }
         .user-cell { display: flex; align-items: center; gap: 8px; min-width: 160px; }
