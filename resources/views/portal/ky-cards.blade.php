@@ -286,6 +286,12 @@
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);">I tuoi ultimi acquisti</div>
         <a href="{{ route('portal.ky-cards.storico') }}" style="font-size:12.5px;font-weight:600;color:var(--primary);text-decoration:none;">Vedi tutto lo storico →</a>
     </div>
+    @php
+        // Stessa regola dello storico: il nome di chi ha ricaricato compare
+        // solo se sul conto ha ricaricato piu' di una persona.
+        $mostraChiHaRicaricato = $recentPurchases->pluck('user_id')->unique()->count() > 1
+            || $recentPurchases->contains(fn ($p) => $p->user_id !== $currentUser->id);
+    @endphp
     <div class="card" style="padding:0;overflow:hidden;">
         @foreach($recentPurchases as $p)
         <div class="kyc-hist-row">
@@ -300,6 +306,9 @@
                         @if($p->payment_method === 'stripe') 💳 Carta
                         @elseif($p->payment_method === 'paypal') 🅿 PayPal
                         @else 🏦 Bonifico
+                        @endif
+                        @if($mostraChiHaRicaricato)
+                            &middot; {{ $p->user->name ?? 'Utente rimosso' }}
                         @endif
                     </div>
                 </div>

@@ -27,7 +27,7 @@ class KyCardController extends PortalController
         $cards = KyCard::active()->get();
 
         $recentPurchases = KyCardPurchase::where('account_id', $currentAccount->id)
-            ->with('kyCard')
+            ->with(['kyCard', 'user'])
             ->latest()
             ->take(5)
             ->get();
@@ -59,7 +59,10 @@ class KyCardController extends PortalController
         $filters = compact('dal', 'al', 'stato', 'metodo', 'cardId');
 
         // Query filtrata
-        $query = KyCardPurchase::where('account_id', $currentAccount->id)->with('kyCard')->latest();
+        // 09/09/2026: si carica anche `user` — sul conto di un'azienda a
+        // ricaricare possono essere in piu' d'uno (titolare, gestori dei
+        // sottoconti), e chi guarda lo storico ha diritto di sapere chi.
+        $query = KyCardPurchase::where('account_id', $currentAccount->id)->with(['kyCard', 'user'])->latest();
 
         if ($dal)    { $query->whereDate('created_at', '>=', $dal); }
         if ($al)     { $query->whereDate('created_at', '<=', $al); }

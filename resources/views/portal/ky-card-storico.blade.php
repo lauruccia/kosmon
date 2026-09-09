@@ -155,6 +155,14 @@
         </div>
     </div>
 @else
+    @php
+        // Chi ha ricaricato si mostra solo quando serve davvero: sul conto di
+        // un privato le righe sono tutte sue e ripetere il suo nome ad ogni
+        // riga e' rumore. Su un conto aziendale, dove ricaricano titolare e
+        // gestori dei sottoconti, sapere chi ha fatto cosa e' il punto.
+        $mostraChiHaRicaricato = $purchases->pluck('user_id')->unique()->count() > 1
+            || $purchases->contains(fn ($p) => $p->user_id !== $currentUser->id);
+    @endphp
     <div style="overflow-x:auto;">
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px;min-width:560px;">
 
@@ -183,13 +191,16 @@
                             display:flex;align-items:center;justify-content:center;font-size:13px;">
                     {{ $p->isCompleted() ? '✅' : ($p->isPendingBankTransfer() ? '⏳' : '❌') }}
                 </div>
-                <div>
+                <div style="min-width:0;">
                     <div style="font-size:13px;font-weight:600;color:var(--ink);">{{ $p->kyCard->name ?? '—' }}</div>
                     <div style="font-size:11px;color:var(--ink-muted);">
                         @if($p->isCompleted()) Completato
                         @elseif($p->isPendingBankTransfer()) Attesa bonifico
                         @elseif($p->isFailed()) Fallito
                         @else In elaborazione
+                        @endif
+                        @if($mostraChiHaRicaricato)
+                            &middot; <span style="color:var(--ink-soft);">{{ $p->user->name ?? 'Utente rimosso' }}</span>
                         @endif
                     </div>
                 </div>
