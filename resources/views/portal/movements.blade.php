@@ -101,11 +101,49 @@
     border-color: var(--primary-soft, #bfdbfe);
 }
 .mv-act:hover { filter: brightness(.97); }
+/* ── OGNI CAMPO HA LA SUA LARGHEZZA (09/09/2026) ───────────────────
+   I campi non avevano una larghezza propria: si dimensionavano sul
+   contenuto e, quando la riga non ci stava, il flex li STRINGEVA invece
+   di mandarli a capo. Risultato visto in produzione: le tendine
+   Direzione/Stato/Tipo ridotte a francobolli — freccia sparita, testo
+   tagliato — con l'etichetta piu' larga del campo che le stava sotto.
+   Qui ogni campo ha una larghezza fissa (mai piu' stretta della sua
+   etichetta ne' della voce piu' lunga che deve mostrare) e
+   flex-shrink:0: se la riga non basta, i campi VANNO A CAPO interi.
+   La sola "Cerca" e' elastica e si prende lo spazio che avanza. */
+.mv-f { flex: 0 0 auto; }
+.mv-f > input,
+.mv-f > select { width: 100%; box-sizing: border-box; }
+.mv-f--cerca      { flex: 1 1 146px; min-width: 140px; max-width: 300px; }
+.mv-f--periodo    { width: 158px; }   /* "— Personalizzato —" per intero */
+.mv-f--data       { width: 128px; }   /* gg/mm/aaaa + icona calendario */
+.mv-f--direzione  { width: 100px; }
+.mv-f--stato      { width: 130px; }   /* "Contabilizzato" per intero */
+.mv-f--tipo       { width: 136px; }   /* "Compensazione" per intero */
+.mv-f--sottoconto { width: 170px; }
+
 /* Le etichette dei filtri hanno lo stile in linea: senza !important
    qui non cambia niente. */
 #filters-form label { margin-bottom: 2px !important; line-height: 1.2 !important; }
 #filters-form input,
 #filters-form select { padding-top: 6px !important; padding-bottom: 6px !important; }
+
+/* Fra 769 e 1439px i sette campi su una riga non ci stanno (o ci stanno
+   per una manciata di pixel, che una barra di scorrimento si mangia), e a
+   mandarne a capo UNO SOLO si ottiene l'orfano: campo solitario sotto una
+   riga piena. Sotto quella soglia la barra diventa una griglia a 4
+   colonne: 4 + 3, senza orfani e coi campi tutti allineati. */
+@media (min-width: 769px) and (max-width: 1439px) {
+    #filters-form > div {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .mv-f {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+}
 
 @media (max-width: 768px) {
     .account-hero {
@@ -130,10 +168,12 @@
     #filters-form > div > div,
     #filters-form select,
     #filters-form input,
-    #filters-form a {
+    #filters-form a,
+    .mv-f {
         width: 100% !important;
         min-width: 0 !important;
         max-width: none !important;
+        flex: 1 1 auto !important;
     }
     .mv-head {
         flex-direction: column;
@@ -286,19 +326,19 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;column-gap:8px;row-gap:8px;">
 
                 {{-- Ricerca per nome controparte / causale / riferimento --}}
-                <div>
+                <div class="mv-f mv-f--cerca">
                     <label for="filter-search" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Cerca</label>
                     <input type="text" id="filter-search" name="search" value="{{ $filters['search'] }}"
                         placeholder="Nome, causale, riferimento..." maxlength="100"
-                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:200px;"
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;"
                         onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('filters-form').submit();}">
                 </div>
 
                 {{-- Periodo preimpostato (stile bancario) --}}
-                <div>
+                <div class="mv-f mv-f--periodo">
                     <label for="period-preset" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Periodo</label>
                     <select id="period-preset"
-                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;min-width:170px;">
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
                         <option value="">— Personalizzato —</option>
                         <optgroup label="Giorni">
                             <option value="last7">Ultimi 7 giorni</option>
@@ -321,21 +361,21 @@
                     </select>
                 </div>
 
-                <div>
+                <div class="mv-f mv-f--data">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Da</label>
                     <input type="date" id="filter-from" name="from" value="{{ $filters['from'] }}"
                         max="{{ date('Y-m-d') }}"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;"
                         onchange="document.getElementById('period-preset').value='';document.getElementById('filters-form').submit()">
                 </div>
-                <div>
+                <div class="mv-f mv-f--data">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">A</label>
                     <input type="date" id="filter-to" name="to" value="{{ $filters['to'] }}"
                         max="{{ date('Y-m-d') }}"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;"
                         onchange="document.getElementById('period-preset').value='';document.getElementById('filters-form').submit()">
                 </div>
-                <div>
+                <div class="mv-f mv-f--direzione">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Direzione</label>
                     <select name="direction" onchange="document.getElementById('filters-form').submit()"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
@@ -344,7 +384,7 @@
                         <option value="out" {{ $filters['direction'] === 'out' ? 'selected' : '' }}>Uscite</option>
                     </select>
                 </div>
-                <div>
+                <div class="mv-f mv-f--stato">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Stato</label>
                     <select name="status" onchange="document.getElementById('filters-form').submit()"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
@@ -354,7 +394,7 @@
                         <option value="cancelled" {{ $filters['status'] === 'cancelled' ? 'selected' : '' }}>Annullato</option>
                     </select>
                 </div>
-                <div>
+                <div class="mv-f mv-f--tipo">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Tipo</label>
                     <select name="kind" onchange="document.getElementById('filters-form').submit()"
                         style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
@@ -374,10 +414,10 @@
                 </div>
                 {{-- Filtro sottoconto (solo per titolari con sottoconti) --}}
                 @if(isset($childAccounts) && $childAccounts->isNotEmpty())
-                <div>
+                <div class="mv-f mv-f--sottoconto">
                     <label style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Sottoconto</label>
                     <select name="sub_account_id" onchange="document.getElementById('filters-form').submit()"
-                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;max-width:200px;">
+                        style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface-soft);color:var(--ink);outline:none;">
                         <option value="">Tutti i conti</option>
                         <option value="{{ $currentAccount->id }}" {{ ($filters['sub_account_id'] ?? 0) == $currentAccount->id ? 'selected' : '' }}>
                             {{ $currentAccount->account_name ?? $currentAccount->display_name }} (principale)
