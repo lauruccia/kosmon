@@ -312,9 +312,15 @@
                 <a href="{{ route('admin.kyc.show', $company) }}" class="cta secondary" style="font-size:12px;min-height:32px;">KYC</a>
                 @if($account)
                     <a href="{{ route('admin.accounts.show', $account) }}" class="cta secondary" style="font-size:12px;min-height:32px;">Conto</a>
-                    <a href="{{ route('admin.accounts.statement', $account) }}" class="cta secondary" style="font-size:12px;min-height:32px;">Estratto conto PDF</a>
                 @endif
             </div>
+
+            @if($account)
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-muted);font-weight:700;">Estratto conto</div>
+                    @include('partials.statement-download', ['azione' => route('admin.accounts.statement', $account)])
+                </div>
+            @endif
         </section>
 
         {{-- Indirizzo per la mappa directory --}}

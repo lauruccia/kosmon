@@ -317,6 +317,13 @@
 
                 {{-- Export — stessa riga, spinto a destra --}}
                 <div style="margin-left:auto;display:flex;gap:8px;align-self:flex-end;">
+                    {{-- La pagina dell'estratto conto non era raggiungibile da nessun link
+                         del portale: esisteva solo digitando l'indirizzo a mano. --}}
+                    <a href="{{ route('portal.statement') }}"
+                       style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);text-decoration:none;white-space:nowrap;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Estratto conto
+                    </a>
                     <a id="csv-export-btn"
                        href="{{ route('portal.movements.export-csv', array_filter($filters)) }}"
                        style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;background:var(--surface-soft);color:var(--ink-muted);border:1px solid var(--line);text-decoration:none;white-space:nowrap;">

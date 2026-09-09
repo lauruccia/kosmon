@@ -200,6 +200,54 @@ class Transfer extends Model
         return $this->scopeExcludeTechnicalCorrections($query);
     }
 
+    /**
+     * Le etichette leggibili dei tipi di movimento.
+     *
+     * VIVEVANO DENTRO UNA BLADE (09/09/2026). La mappa stava in
+     * `portal/transfer-detail.blade.php`, unico posto che ne aveva bisogno.
+     * Dall'estratto conto in poi serve anche fuori da una vista — nel CSV e
+     * nella prima nota, che una Blade non la eseguono affatto — quindi sta qui,
+     * in un posto solo: un tipo nuovo aggiunto al circuito si etichetta una
+     * volta e compare ovunque, invece di restare "portal qualcosa" nei file
+     * consegnati al commercialista.
+     *
+     * @return array<string,string>
+     */
+    public static function kindLabels(): array
+    {
+        return [
+            'trade_payment'             => 'Pagamento circuito',
+            'portal_payment'            => 'Pagamento portale',
+            'portal_payment_request'    => 'Richiesta pagamento',
+            'portal_collection_request' => 'Richiesta incasso',
+            'portal_refund'             => 'Rimborso',
+            'portal_credit_note'        => 'Nota di credito',
+            'portal_fee'                => 'Commissione',
+            'portal_cashback'           => 'Cashback',
+            'portal_installment'        => 'Rata piano rateale',
+            'portal_netting'            => 'Compensazione (netting)',
+            'portal_marketplace_order'  => 'Acquisto shop',
+            'portal_scheduled'          => 'Pagamento programmato',
+            'code'                      => 'Pagamento via codice',
+            'nfc_card'                  => 'Pagamento NFC',
+            'ky_emission'               => 'Emissione KY',
+            'mlm_wallet_credit'         => 'Accredito cassetto kmoney',
+            'mlm_wallet_withdrawal'     => 'Movimento cassetto kmoney (liquidazione)',
+        ];
+    }
+
+    /** Etichetta leggibile di un tipo; i tipi non mappati si leggono comunque. */
+    public static function kindLabel(?string $kind): string
+    {
+        $kind = trim((string) $kind);
+
+        if ($kind === '') {
+            return 'Movimento';
+        }
+
+        return self::kindLabels()[$kind] ?? ucfirst(str_replace('_', ' ', $kind));
+    }
+
     /** True se questo movimento e' una scrittura tecnica nascosta dalle liste. */
     public function isTechnicalCorrection(): bool
     {

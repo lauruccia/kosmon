@@ -893,6 +893,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::get('/broker/clienti/{company}', [BrokerController::class, 'showClient'])->name('broker.clients.show');
     Route::get('/broker/clienti/{company}/paga', [BrokerController::class, 'payForm'])->name('broker.pay.form');
     Route::post('/broker/clienti/{company}/paga', [BrokerController::class, 'paySubmit'])->name('broker.pay.submit')->middleware('throttle:payments');
+    Route::get('/broker/clienti/{company}/estratto-conto', [StatementController::class, 'brokerDownload'])->name('broker.clients.statement');
 
 
     // KYCard — ricarica KMoney (Carta, PayPal, Bonifico)

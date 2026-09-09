@@ -10,24 +10,7 @@
     $mesiIt = ['','Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
     $eventDate = $transfer->booked_at ?? $transfer->created_at;
 
-    $kindLabels = [
-        'trade_payment'              => 'Pagamento circuito',
-        'portal_payment'             => 'Pagamento portale',
-        'portal_payment_request'     => 'Richiesta pagamento',
-        'portal_collection_request'  => 'Richiesta incasso',
-        'portal_refund'              => 'Rimborso',
-        'portal_credit_note'         => 'Nota di credito',
-        'portal_fee'                 => 'Commissione',
-        'portal_cashback'            => 'Cashback',
-        'portal_installment'         => 'Rata piano rateale',
-        'portal_netting'             => 'Compensazione (netting)',
-        'code'                       => 'Pagamento via codice',
-        'nfc_card'                   => 'Pagamento NFC',
-        'portal_scheduled'           => 'Pagamento programmato',
-        'mlm_wallet_credit'          => 'Accredito cassetto kmoney',
-        'mlm_wallet_withdrawal'      => 'Movimento cassetto kmoney (liquidazione)',
-    ];
-    $kindLabel = $kindLabels[$transfer->kind] ?? ucfirst(str_replace('_', ' ', $transfer->kind ?? ''));
+    $kindLabel = \App\Models\Transfer::kindLabel($transfer->kind);
 
     $statusLabel = match($transfer->status) {
         'pending'  => 'In attesa',
