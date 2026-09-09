@@ -84,6 +84,30 @@ class KyCardPurchase extends Model
     public function user(): BelongsTo     { return $this->belongsTo(User::class); }
     public function transfer(): BelongsTo { return $this->belongsTo(Transfer::class); }
 
+    // ── Scope ──────────────────────────────────────────────────────────────
+
+    /**
+     * I bonifici che aspettano una risposta dell'admin.
+     *
+     * UNA sola definizione, usata sia dalla pagina «Bonifici in attesa» sia
+     * dal contatore rosso sul pulsante che ci porta: il 09/09/2026 il
+     * pulsante diceva 8 e la pagina «Nessun bonifico in attesa», perche' il
+     * contatore faceva whereIn('status', ['pending','pending_bank_transfer'])
+     * — quindi contava anche i checkout con carta aperti e mai pagati — e la
+     * pagina filtrava solo `pending_bank_transfer`. Due query diverse per la
+     * stessa domanda: prima o poi divergono.
+     *
+     * Comprende anche i bonifici rimasti in `pending`: righe vecchie, nate
+     * prima che esistesse `pending_bank_transfer`. Non comparivano in nessun
+     * elenco e sulla riga non c'era nessun pulsante — un cliente che aveva
+     * bonificato restava senza KY e senza che l'admin potesse farci niente.
+     */
+    public function scopeAwaitingBankTransfer($query)
+    {
+        return $query->where('payment_method', 'bank_transfer')
+                     ->whereIn('status', ['pending_bank_transfer', 'pending']);
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────
 
     public function isPending(): bool            { return $this->status === 'pending'; }
@@ -92,6 +116,13 @@ class KyCardPurchase extends Model
     public function isFailed(): bool             { return $this->status === 'failed'; }
     /** Gia' rimborsata: non si riaccredita, qualunque cosa dica Stripe. */
     public function isRefunded(): bool           { return $this->status === 'refunded'; }
+
+    /** Bonifico che aspetta una decisione dell'admin (vedi scopeAwaitingBankTransfer). */
+    public function isAwaitingBankTransfer(): bool
+    {
+        return $this->payment_method === 'bank_transfer'
+            && in_array($this->status, ['pending_bank_transfer', 'pending'], true);
+    }
     public function isAwaitingPayment(): bool    { return in_array($this->status, ['pending', 'pending_bank_transfer']); }
 
     /** Causale univoca per il bonifico */

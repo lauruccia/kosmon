@@ -11,8 +11,8 @@
         <div style="display:flex;gap:10px;">
             <a href="{{ route('admin.ky-cards.pending-transfers') }}" class="btn btn-secondary" style="font-size:13px;">
                 &#127968; Bonifici in attesa
-                @if(($stats['pending'] ?? 0) > 0)
-                    <span style="background:#dc2626;color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:2px;">{{ $stats['pending'] }}</span>
+                @if(($stats['bonifici'] ?? 0) > 0)
+                    <span style="background:#dc2626;color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:2px;">{{ $stats['bonifici'] }}</span>
                 @endif
             </a>
             <a href="{{ route('admin.ky-cards.index') }}" class="btn btn-secondary" style="font-size:13px;">Gestione card</a>
@@ -118,7 +118,10 @@
                 <td style="padding:12px 16px;text-align:center;">
                     @if($order->isCompleted())
                         <span style="font-size:12px;background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-weight:700;">&#10003; Completato</span>
-                    @elseif($order->isPendingBankTransfer())
+                    @elseif($order->isAwaitingBankTransfer())
+                        {{-- Comprende i bonifici rimasti in `pending`: prima
+                             dicevano «In elaborazione» e non comparivano in
+                             nessun elenco, quindi non li gestiva nessuno. --}}
                         <span style="font-size:12px;background:#fffbeb;color:#92400e;padding:3px 10px;border-radius:20px;font-weight:700;">&#9203; Attende bonifico</span>
                     @elseif($order->isPending())
                         <span style="font-size:12px;background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-weight:700;">&#8987; In elaborazione</span>
@@ -137,7 +140,7 @@
                                 Riprova
                             </button>
                         </form>
-                    @elseif($order->isPendingBankTransfer())
+                    @elseif($order->isAwaitingBankTransfer())
                         <a href="{{ route('admin.ky-cards.pending-transfers') }}" class="btn btn-sm btn-secondary">Gestisci</a>
                     @elseif($order->isCompleted() && $order->transfer_id)
                         <a href="{{ route('portal.movements') }}" class="btn btn-sm btn-secondary" style="font-size:11px;">Movm.</a>

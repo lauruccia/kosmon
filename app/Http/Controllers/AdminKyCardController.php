@@ -104,7 +104,9 @@ class AdminKyCardController extends Controller
 
     public function pendingTransfers(): \Illuminate\View\View
     {
-        $pending = \App\Models\KyCardPurchase::where('status', 'pending_bank_transfer')
+        // Stessa domanda, stessa query del contatore sul pulsante: lo scope
+        // e' l'unico posto dove e' scritta (vedi KyCardPurchase).
+        $pending = \App\Models\KyCardPurchase::awaitingBankTransfer()
             ->with(['kyCard', 'user', 'account'])
             ->latest()
             ->get();

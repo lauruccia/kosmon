@@ -296,8 +296,8 @@
         @foreach($recentPurchases as $p)
         <div class="kyc-hist-row">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                <div class="kyc-hist-icon" style="background:{{ $p->isCompleted() ? 'var(--primary-light)' : ($p->isPendingBankTransfer() ? 'var(--warning-soft)' : 'var(--danger-soft)') }};">
-                    {{ $p->isCompleted() ? '✅' : ($p->isPendingBankTransfer() ? '⏳' : '❌') }}
+                <div class="kyc-hist-icon" style="background:{{ $p->isCompleted() ? 'var(--primary-light)' : ($p->isAwaitingBankTransfer() ? 'var(--warning-soft)' : 'var(--danger-soft)') }};">
+                    {{ $p->isCompleted() ? '✅' : ($p->isAwaitingBankTransfer() ? '⏳' : '❌') }}
                 </div>
                 <div style="min-width:0;">
                     <div style="font-size:13px;font-weight:600;color:var(--ink);">{{ $p->kyCard->name ?? '—' }}</div>
@@ -316,7 +316,7 @@
             <div style="text-align:right;flex-shrink:0;">
                 @if($p->isCompleted())
                     <div style="font-size:14px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;white-space:nowrap;">+{{ ky_format($p->ky_amount) }} KY</div>
-                @elseif($p->isPendingBankTransfer())
+                @elseif($p->isAwaitingBankTransfer())
                     <div style="font-size:12.5px;font-weight:700;color:var(--warning);">In attesa bonifico</div>
                 @elseif($p->isFailed())
                     <div style="font-size:12.5px;font-weight:700;color:var(--danger);">Fallito</div>

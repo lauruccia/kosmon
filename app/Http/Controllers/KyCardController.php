@@ -468,7 +468,10 @@ class KyCardController extends PortalController
     public function adminConfirmBankTransfer(Request $request, KyCardPurchase $purchase): RedirectResponse
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
-        abort_unless($purchase->isPendingBankTransfer(), 422, 'Acquisto non in attesa di bonifico.');
+        // Non solo `pending_bank_transfer`: anche i bonifici rimasti in
+        // `pending` (righe vecchie) devono poter essere confermati, altrimenti
+        // chi ha bonificato resta senza KY per sempre.
+        abort_unless($purchase->isAwaitingBankTransfer(), 422, 'Acquisto non in attesa di bonifico.');
 
         $request->validate(['admin_notes' => 'nullable|string|max:500']);
 
@@ -488,7 +491,7 @@ class KyCardController extends PortalController
     public function adminRejectBankTransfer(Request $request, KyCardPurchase $purchase): RedirectResponse
     {
         abort_unless($request->user()->canAccessBackoffice(), 403);
-        abort_unless($purchase->isPendingBankTransfer(), 422);
+        abort_unless($purchase->isAwaitingBankTransfer(), 422);
 
         $request->validate(['admin_notes' => 'nullable|string|max:500']);
 
@@ -527,7 +530,13 @@ class KyCardController extends PortalController
 
         $stats = [
             'total'    => \App\Models\KyCardPurchase::count(),
+            // «In lavorazione»: tutto cio' che non e' ne' chiuso ne' fallito.
             'pending'  => \App\Models\KyCardPurchase::whereIn('status', ['pending','pending_bank_transfer'])->count(),
+            // Il contatore del pulsante «Bonifici in attesa»: SOLO i bonifici
+            // che quella pagina elenca davvero (stesso scope), altrimenti si
+            // torna al 09/09/2026, con il pulsante che diceva 8 e la pagina
+            // «Nessun bonifico in attesa».
+            'bonifici' => \App\Models\KyCardPurchase::awaitingBankTransfer()->count(),
             'completed'=> \App\Models\KyCardPurchase::where('status','completed')->count(),
             'failed'   => \App\Models\KyCardPurchase::where('status','failed')->count(),
             'ky_total' => \App\Models\KyCardPurchase::where('status','completed')->sum('ky_amount'),

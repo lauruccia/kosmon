@@ -187,15 +187,15 @@
 
             <div style="display:flex;align-items:center;gap:10px;">
                 <div style="width:28px;height:28px;border-radius:7px;flex-shrink:0;
-                            background:{{ $p->isCompleted() ? '#eff6ff' : ($p->isPendingBankTransfer() ? '#fffbeb' : '#fef2f2') }};
+                            background:{{ $p->isCompleted() ? '#eff6ff' : ($p->isAwaitingBankTransfer() ? '#fffbeb' : '#fef2f2') }};
                             display:flex;align-items:center;justify-content:center;font-size:13px;">
-                    {{ $p->isCompleted() ? '✅' : ($p->isPendingBankTransfer() ? '⏳' : '❌') }}
+                    {{ $p->isCompleted() ? '✅' : ($p->isAwaitingBankTransfer() ? '⏳' : '❌') }}
                 </div>
                 <div style="min-width:0;">
                     <div style="font-size:13px;font-weight:600;color:var(--ink);">{{ $p->kyCard->name ?? '—' }}</div>
                     <div style="font-size:11px;color:var(--ink-muted);">
                         @if($p->isCompleted()) Completato
-                        @elseif($p->isPendingBankTransfer()) Attesa bonifico
+                        @elseif($p->isAwaitingBankTransfer()) Attesa bonifico
                         @elseif($p->isFailed()) Fallito
                         @else In elaborazione
                         @endif
