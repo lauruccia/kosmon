@@ -52,6 +52,61 @@
     font-size: 11.5px;
     color: var(--ink-muted);
 }
+/* ── TESTATA E FILTRI COMPATTI (09/09/2026) ────────────────────────
+   La barra bianca sopra la tabella superava i 200px di altezza: il
+   titolo staccato 12px dal tag, i tre pulsanti di export a capo su una
+   riga tutta loro, 16px di stacco prima delle etichette e 4px sotto
+   ciascuna. Qui si tolgono SOLO gli spazi vuoti: corpo dei testi,
+   contrasti e altezza dei campi (>=30px, comodi da cliccare) restano
+   esattamente quelli di prima. */
+.mv-head {
+    align-items: center;
+    padding-bottom: 8px;
+}
+.mv-head__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+/* Nella testata tutti i pulsanti hanno la stessa altezza: il .cta di
+   serie e' 36px, gli export 32px, e affiancati si vedeva. */
+.mv-head__actions .cta { min-height: 32px; }
+.mv-act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    background: var(--surface-soft);
+    color: var(--ink-muted);
+    border: 1px solid var(--line);
+}
+.mv-act--accent {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+}
+.mv-act--primary {
+    background: var(--primary-soft, #eff6ff);
+    color: var(--primary);
+    border-color: var(--primary-soft, #bfdbfe);
+}
+.mv-act:hover { filter: brightness(.97); }
+/* Le etichette dei filtri hanno lo stile in linea: senza !important
+   qui non cambia niente. */
+#filters-form label { margin-bottom: 2px !important; line-height: 1.2 !important; }
+#filters-form input,
+#filters-form select { padding-top: 6px !important; padding-bottom: 6px !important; }
+
 @media (max-width: 768px) {
     .account-hero {
         display: none !important;
@@ -80,11 +135,21 @@
         min-width: 0 !important;
         max-width: none !important;
     }
-    #filters-form > div > div[style*="margin-left:auto"] {
-        grid-column: 1 / -1;
-        margin-left: 0 !important;
-        display: grid !important;
+    .mv-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .mv-head__actions {
+        display: grid;
         grid-template-columns: 1fr 1fr;
+        justify-content: stretch;
+    }
+    .mv-head__actions .mv-act,
+    .mv-head .cta {
+        width: 100% !important;
+        max-width: none !important;
+        min-height: 40px;
     }
     .movements-feed {
         display: grid;
@@ -113,9 +178,6 @@
 }
 @media (max-width: 480px) {
     #filters-form > div {
-        grid-template-columns: 1fr;
-    }
-    #filters-form > div > div[style*="margin-left:auto"] {
         grid-template-columns: 1fr;
     }
     .movement-card__top {
@@ -189,18 +251,39 @@
 
     {{-- ===== TIMELINE MOVIMENTI 100% ===== --}}
     <section class="card light-card">
-        <div class="section-head">
+        <div class="section-head mv-head">
             <div>
                 <div class="k-tag">Timeline</div>
-                <h2 class="card-title" style="margin-top:12px;">Tutti i movimenti</h2>
+                <h2 class="card-title" style="margin-top:6px;">Tutti i movimenti</h2>
             </div>
-            <a class="cta secondary" href="{{ route('portal.accounts.structure') }}">Sottoconti</a>
+            {{-- I tre export stanno QUI e non sotto ai filtri: sotto ai filtri
+                 andavano a capo su una riga tutta loro, che costava ~40px di
+                 bianco. Qui riempiono lo spazio vuoto della testata. --}}
+            <div class="mv-head__actions">
+                {{-- La pagina dell'estratto conto non era raggiungibile da nessun link
+                     del portale: esisteva solo digitando l'indirizzo a mano. --}}
+                <a class="mv-act mv-act--accent" href="{{ route('portal.statement') }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Estratto conto
+                </a>
+                <a class="mv-act" id="csv-export-btn"
+                   href="{{ route('portal.movements.export-csv', array_filter($filters)) }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Scarica CSV
+                </a>
+                <a class="mv-act mv-act--primary"
+                   href="{{ route('portal.prima-nota.export', array_filter(array_intersect_key($filters, array_flip(['from','to'])))) }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Prima nota
+                </a>
+                <a class="cta secondary" href="{{ route('portal.accounts.structure') }}">Sottoconti</a>
+            </div>
         </div>
 
         {{-- Barra filtri --}}
-        <form method="GET" action="{{ route('portal.movements') }}" id="filters-form" style="margin:16px 0 4px;">
+        <form method="GET" action="{{ route('portal.movements') }}" id="filters-form" style="margin:10px 0 0;">
 
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;column-gap:8px;row-gap:8px;">
 
                 {{-- Ricerca per nome controparte / causale / riferimento --}}
                 <div>
@@ -315,27 +398,6 @@
                     </a>
                 @endif
 
-                {{-- Export — stessa riga, spinto a destra --}}
-                <div style="margin-left:auto;display:flex;gap:8px;align-self:flex-end;">
-                    {{-- La pagina dell'estratto conto non era raggiungibile da nessun link
-                         del portale: esisteva solo digitando l'indirizzo a mano. --}}
-                    <a href="{{ route('portal.statement') }}"
-                       style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);text-decoration:none;white-space:nowrap;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                        Estratto conto
-                    </a>
-                    <a id="csv-export-btn"
-                       href="{{ route('portal.movements.export-csv', array_filter($filters)) }}"
-                       style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;background:var(--surface-soft);color:var(--ink-muted);border:1px solid var(--line);text-decoration:none;white-space:nowrap;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Scarica CSV
-                    </a>
-                    <a href="{{ route('portal.prima-nota.export', array_filter(array_intersect_key($filters, array_flip(['from','to'])))) }}"
-                       style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;background:var(--primary-soft, #eff6ff);color:var(--primary);border:1px solid var(--primary-soft, #bfdbfe);text-decoration:none;white-space:nowrap;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        Prima nota
-                    </a>
-                </div>
             </div>
         </form>
 
