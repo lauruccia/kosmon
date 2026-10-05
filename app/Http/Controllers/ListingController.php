@@ -14,6 +14,7 @@ use App\Models\Transfer;
 use App\Services\TransferBookingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -96,8 +97,7 @@ class ListingController extends Controller
             }))
             ->when($exactKy !== null, fn ($query) => $query->where('ky_percentage', '=', $exactKy))
             ->when($minKy !== null, fn ($query) => $query->where('ky_percentage', '>=', $minKy))
-            ->orderByDesc('featured')
-            ->orderByDesc('created_at');
+            ->orderByDesc('featured');
 
         // 20 e non piu' 15 (08/09/2026). Il 15 nacque il 12/08 perche' la
         // griglia era a 5 colonne fisse. Da oggi le colonne le conta il
@@ -105,7 +105,33 @@ class ListingController extends Controller
         // si stringe e i filtri che si aprono lo stesso schermo da 1440 offre
         // 6, 5 o 4 colonne: 15 lascia la riga spaiata in due casi su tre.
         // 20 si divide per 5, 4 e 2 — i casi che capitano su desktop.
-        $listings = $listingsQuery->paginate(20)->withQueryString();
+        //
+        // ORDINE CASUALE (05/10/2026, richiesta di Laura): i prodotti "in
+        // primo piano" restano in cima, il resto si mescola a ogni apertura
+        // del catalogo (anche con /shop?company=ID). Il mescolamento si fa in
+        // PHP sui soli id perche' un ORDER BY casuale col seme non e'
+        // portabile fra SQLite (dev/test) e MySQL (prod). Il seme sta in
+        // sessione: pagina 1 lo rigenera, pagina 2+ lo riusa, cosi' sfogliando
+        // non si vedono doppioni ne' se ne perdono.
+        $perPage = 20;
+        $seed    = $this->shopRandomSeed($request);
+        $rows    = (clone $listingsQuery)->toBase()->reorder()->get(['id', 'featured']);
+        $ordered = $rows->sort(function ($a, $b) use ($seed) {
+            return [(int) $b->featured, crc32($seed.'-'.$a->id)]
+                <=> [(int) $a->featured, crc32($seed.'-'.$b->id)];
+        })->pluck('id')->values();
+
+        $page    = max(1, (int) $request->query('page', 1));
+        $pageIds = $ordered->slice(($page - 1) * $perPage, $perPage)->values();
+        $byId    = Listing::query()->with(['company.plan', 'activeOffer'])
+            ->whereIn('id', $pageIds)->get()->keyBy('id');
+        $listings = new LengthAwarePaginator(
+            $pageIds->map(fn ($id) => $byId->get($id))->filter()->values(),
+            $ordered->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
         // Con il filtro venditore attivo la fascia "in primo piano" (che pesca
         // da TUTTO il circuito) contraddirebbe la pagina: si sta guardando un
         // solo negozio. Niente query inutile: collection vuota.
@@ -129,6 +155,24 @@ class ListingController extends Controller
             'selectedCompany' => $selectedCompany,
             'activeNav'       => 'shop',
         ]);
+    }
+
+    /**
+     * Seme dell'ordine casuale del catalogo. Chi apre la pagina 1 (o non ha
+     * ancora un seme) ne riceve uno nuovo; chi sfoglia le pagine successive
+     * riusa quello in sessione, quindi l'ordine resta coerente fra le pagine.
+     */
+    private function shopRandomSeed(Request $request): int
+    {
+        $page = (int) $request->query('page', 1);
+        $seed = $request->session()->get('shop_random_seed');
+
+        if ($page <= 1 || ! is_int($seed)) {
+            $seed = random_int(1, 1_000_000);
+            $request->session()->put('shop_random_seed', $seed);
+        }
+
+        return $seed;
     }
 
     // ── Portale: "I miei prodotti" (solo la propria azienda, tutti gli stati) ──
