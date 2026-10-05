@@ -245,7 +245,19 @@ class UltimiAttritiBlocco5Test extends TestCase
     {
         [$buyer] = $this->makeBuyer(saldo: 100000);
         [$company] = $this->makeSeller();
-        $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+        $listing = $this->makeListing($company, prezzo: 2000, kyPercentage: 100);
+
+        // Dal 05/10/2026 le azioni a destra compaiono solo se ce n'e' almeno
+        // una: a un privato senza offerte in corso non resta nessun pulsante.
+        // Un'offerta viva e' il modo piu' semplice per averne una (il test
+        // verifica che le azioni, quando ci sono, abbiano una classe vera).
+        \App\Models\ListingOffer::create([
+            'listing_id'             => $listing->id,
+            'full_price_ky_snapshot' => 2000,
+            'offer_price_ky'         => 1500,
+            'offer_ky_percentage'    => 100,
+            'expires_at'             => now()->addDays(2),
+        ]);
 
         return $this->actingAs($buyer)->get(route('portal.shop'))->assertOk()->getContent();
     }
