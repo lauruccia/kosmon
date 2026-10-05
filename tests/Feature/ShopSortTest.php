@@ -120,6 +120,34 @@ class ShopSortTest extends TestCase
         $this->assertSame(['A05', 'A04', 'A03', 'A02', 'A01'], $p2);
     }
 
+    public function test_il_pulsante_offerte_non_si_vede_se_non_ci_sono_offerte_e_gli_annunci_non_ci_sono_piu(): void
+    {
+        [$v] = $this->makeSeller('Alfa');
+        $this->makeListing($v, 'Torta');
+
+        $html = $this->actingAs($this->makeBuyer())->get(route('portal.shop'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('🔥 Offerte della settimana', $html); // il pulsante in striscia (la voce del menu laterale e' un'altra cosa)
+        $this->assertStringNotContainsString('Vai agli annunci', $html);
+        // Un privato senza offerte non ha nessuna azione: niente contenitore vuoto.
+        $this->assertStringNotContainsString('shop-toolbar-actions', $html);
+    }
+
+    public function test_il_pulsante_offerte_compare_quando_c_e_un_offerta_viva(): void
+    {
+        [$v, $owner] = $this->makeSeller('Alfa');
+        $p = $this->makeListing($v, 'Torta', ['price_ky' => 5000]);
+        ListingOffer::create([
+            'listing_id' => $p->id, 'created_by_user_id' => $owner->id,
+            'full_price_ky_snapshot' => 5000, 'offer_price_ky' => 4000, 'offer_ky_percentage' => 100,
+            'expires_at' => now()->addDays(2),
+        ]);
+
+        $html = $this->actingAs($this->makeBuyer())->get(route('portal.shop'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('🔥 Offerte della settimana', $html);
+    }
+
     private function makeBuyer(): User
     {
         $user = User::create([

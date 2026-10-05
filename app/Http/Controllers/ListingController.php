@@ -169,6 +169,9 @@ class ListingController extends Controller
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
             'sort'            => $sort,
+            // Il pulsante "Offerte della settimana" compare solo se c'e' almeno
+            // un'offerta viva (stessa condizione della pagina /shop/offerte).
+            'hasOffers'       => Listing::query()->active()->onOffer()->exists(),
             'sortOptions'     => self::SORT_OPTIONS,
             'selectedCompany' => $selectedCompany,
             'activeNav'       => 'shop',

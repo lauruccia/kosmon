@@ -116,24 +116,36 @@
         @endif
     </form>
 
+    @php
+        $canPublish   = auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory();
+        $hasCompany   = (bool) auth()->user()->company_id;
+        $canGateways  = auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin);
+        $showActions  = $hasOffers || $canPublish || $hasCompany || $canGateways;
+    @endphp
+    {{-- Le azioni compaiono solo se ce n'e' almeno una (05/10/2026): per un
+         privato senza offerte in corso la striscia e' la sola riga dei filtri. --}}
+    @if($showActions)
     <div class="shop-toolbar-actions">
-        {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop,
-             stessa visibilità del link nella sidebar (layouts/portal.blade.php). --}}
-        <a class="cta secondary" href="{{ route('portal.shop.offers') }}">🔥 Offerte della settimana</a>
-        @if(auth()->user()->canAccessMarketplace() && auth()->user()->company?->isInDirectory())
+        {{-- "Offerte della settimana" (2026-08-13): link diretto dalla toolbar shop.
+             Nascosto quando non c'e' nessuna offerta viva (05/10/2026): un
+             pulsante che porta a una pagina vuota e' solo rumore. --}}
+        @if($hasOffers)
+            <a class="cta secondary" href="{{ route('portal.shop.offers') }}">🔥 Offerte della settimana</a>
+        @endif
+        @if($canPublish)
             <a class="cta" href="{{ route('portal.shop.create') }}">Pubblica un prodotto</a>
         @endif
         {{-- "I miei prodotti" (2026-08-12): chi pubblica prodotti non aveva modo
              di ritrovare/verificare i propri, mescolati nello shop pubblico tra
              quelli di tutte le altre aziende — link diretto alla vista dedicata. --}}
-        @if(auth()->user()->company_id)
+        @if($hasCompany)
             <a class="cta secondary" href="{{ route('portal.shop.mine') }}">I miei prodotti</a>
         @endif
-        @if(auth()->user()->company && (auth()->user()->canAccessMarketplace() || auth()->user()->is_super_admin))
+        @if($canGateways)
             <a class="cta secondary" href="{{ route('portal.payment-gateways.index') }}">Metodi di pagamento EUR</a>
         @endif
-        <a class="cta secondary" href="{{ route('portal.announcements') }}">Vai agli annunci</a>
     </div>
+    @endif
 </section>
 
 @if($selectedCompany)
