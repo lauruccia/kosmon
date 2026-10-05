@@ -100,8 +100,18 @@
             </select>
         </div>
 
+        {{-- Ordinamento (05/10/2026): il predefinito e' "Casuale". --}}
+        <div class="shop-toolbar-field">
+            <label for="shop-sort">Ordina per</label>
+            <select name="sort" id="shop-sort" class="km-select" data-no-search onchange="this.form.submit()">
+                @foreach($sortOptions as $key => $label)
+                    <option value="{{ $key }}" @selected($sort === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+
         <button type="submit" class="cta">Filtra</button>
-        @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '')
+        @if($searchQuery || $selectedCategory || $selectedSubcategory || $kyFilter !== '' || $sort !== 'casuale')
             <a href="{{ route('portal.shop', $selectedCompany ? ['company' => $selectedCompany->id] : []) }}" class="cta secondary">&#10005; Reset</a>
         @endif
     </form>

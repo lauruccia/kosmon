@@ -79,6 +79,13 @@ class ListingController extends Controller
         // invece di doverlo cercare in un'altra pagina (2026-07-30).
         $ownCompanyId = $user->company_id;
 
+        // Ordinamento scelto dall'utente (05/10/2026). Se manca o non e' fra
+        // quelli noti si torna al casuale, che e' il predefinito dello shop.
+        $sort = (string) $request->query('sort', self::SORT_DEFAULT);
+        if (! array_key_exists($sort, self::SORT_OPTIONS)) {
+            $sort = self::SORT_DEFAULT;
+        }
+
         $listingsQuery = Listing::query()
             ->with(['company.plan', 'activeOffer'])
             ->where(function ($query) use ($ownCompanyId) {
@@ -96,8 +103,7 @@ class ListingController extends Controller
                       ->orWhereHas('company', fn ($c) => $c->where('name', 'like', "%{$q}%"));
             }))
             ->when($exactKy !== null, fn ($query) => $query->where('ky_percentage', '=', $exactKy))
-            ->when($minKy !== null, fn ($query) => $query->where('ky_percentage', '>=', $minKy))
-            ->orderByDesc('featured');
+            ->when($minKy !== null, fn ($query) => $query->where('ky_percentage', '>=', $minKy));
 
         // 20 e non piu' 15 (08/09/2026). Il 15 nacque il 12/08 perche' la
         // griglia era a 5 colonne fisse. Da oggi le colonne le conta il
@@ -114,24 +120,34 @@ class ListingController extends Controller
         // sessione: pagina 1 lo rigenera, pagina 2+ lo riusa, cosi' sfogliando
         // non si vedono doppioni ne' se ne perdono.
         $perPage = 20;
-        $seed    = $this->shopRandomSeed($request);
-        $rows    = (clone $listingsQuery)->toBase()->reorder()->get(['id', 'featured']);
-        $ordered = $rows->sort(function ($a, $b) use ($seed) {
-            return [(int) $b->featured, crc32($seed.'-'.$a->id)]
-                <=> [(int) $a->featured, crc32($seed.'-'.$b->id)];
-        })->pluck('id')->values();
 
-        $page    = max(1, (int) $request->query('page', 1));
-        $pageIds = $ordered->slice(($page - 1) * $perPage, $perPage)->values();
-        $byId    = Listing::query()->with(['company.plan', 'activeOffer'])
-            ->whereIn('id', $pageIds)->get()->keyBy('id');
-        $listings = new LengthAwarePaginator(
-            $pageIds->map(fn ($id) => $byId->get($id))->filter()->values(),
-            $ordered->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
+        if ($sort !== self::SORT_DEFAULT) {
+            // Ordinamento esplicito: ha la precedenza su tutto, anche sui
+            // prodotti in primo piano (la fascia "in primo piano" resta
+            // comunque visibile sopra la griglia).
+            $this->applyShopSort($listingsQuery, $sort);
+            $listings = $listingsQuery->paginate($perPage)->withQueryString();
+        } else {
+            $seed    = $this->shopRandomSeed($request);
+            $rows    = (clone $listingsQuery)->toBase()->reorder()->get(['id', 'featured']);
+            $ordered = $rows->sort(function ($a, $b) use ($seed) {
+                return [(int) $b->featured, crc32($seed.'-'.$a->id)]
+                    <=> [(int) $a->featured, crc32($seed.'-'.$b->id)];
+            })->pluck('id')->values();
+
+            $page    = max(1, (int) $request->query('page', 1));
+            $pageIds = $ordered->slice(($page - 1) * $perPage, $perPage)->values();
+            $byId    = Listing::query()->with(['company.plan', 'activeOffer'])
+                ->whereIn('id', $pageIds)->get()->keyBy('id');
+            $listings = new LengthAwarePaginator(
+                $pageIds->map(fn ($id) => $byId->get($id))->filter()->values(),
+                $ordered->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
+
         // Con il filtro venditore attivo la fascia "in primo piano" (che pesca
         // da TUTTO il circuito) contraddirebbe la pagina: si sta guardando un
         // solo negozio. Niente query inutile: collection vuota.
@@ -152,9 +168,53 @@ class ListingController extends Controller
             'searchQuery'     => $q,
             'kyPercentages'   => Listing::KY_PERCENTAGES,
             'kyFilter'        => $kyFilter,
+            'sort'            => $sort,
+            'sortOptions'     => self::SORT_OPTIONS,
             'selectedCompany' => $selectedCompany,
             'activeNav'       => 'shop',
         ]);
+    }
+
+    private const SORT_DEFAULT = 'casuale';
+
+    /** Ordinamenti del catalogo shop: chiave in query string => etichetta. */
+    public const SORT_OPTIONS = [
+        'casuale'     => 'Casuale',
+        'recenti'     => 'Più recenti',
+        'vecchi'      => 'Meno recenti',
+        'prezzo_asc'  => 'Prezzo: dal più basso',
+        'prezzo_desc' => 'Prezzo: dal più alto',
+        'az'          => 'Nome: A → Z',
+        'za'          => 'Nome: Z → A',
+        'ky_desc'     => '% Kmoney: più alta',
+        'ky_asc'      => '% Kmoney: più bassa',
+        'sconto'      => 'Maggior sconto',
+    ];
+
+    /**
+     * Applica un ordinamento esplicito. Il prezzo e' quello EFFETTIVO (offerta
+     * viva se c'e', altrimenti listino), come lo vede l'utente nella card.
+     * A parita' di valore decide l'id, cosi' la paginazione e' stabile.
+     */
+    private function applyShopSort(\Illuminate\Database\Eloquent\Builder $query, string $sort): void
+    {
+        $effective = 'COALESCE((SELECT o.offer_price_ky FROM listing_offers o WHERE o.listing_id = listings.id'
+            .' AND o.cancelled_at IS NULL AND o.expires_at > ? LIMIT 1), listings.price_ky)';
+        $now = now()->toDateTimeString();
+
+        match ($sort) {
+            'recenti'     => $query->orderByDesc('created_at'),
+            'vecchi'      => $query->orderBy('created_at'),
+            'prezzo_asc'  => $query->orderByRaw($effective.' ASC', [$now]),
+            'prezzo_desc' => $query->orderByRaw($effective.' DESC', [$now]),
+            'az'          => $query->orderByRaw('LOWER(title) ASC'),
+            'za'          => $query->orderByRaw('LOWER(title) DESC'),
+            'ky_desc'     => $query->orderByDesc('ky_percentage'),
+            'ky_asc'      => $query->orderBy('ky_percentage'),
+            'sconto'      => $query->orderByRaw('(listings.price_ky - '.$effective.') DESC', [$now]),
+        };
+
+        $query->orderBy('id');
     }
 
     /**
