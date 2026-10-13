@@ -101,6 +101,45 @@ class ContentSecurityPolicyTest extends TestCase
         $this->assertStringNotContainsString('paypal.com', $header);
     }
 
+    // ─── "Accedi con KMoney": il ritorno all'applicazione non va bloccato ───
+
+    public function test_il_consenso_oauth_puo_tornare_all_applicazione_collegata(): void
+    {
+        config([
+            'oauth.clients.kshop.client_id'     => 'kshop-prova',
+            'oauth.clients.kshop.redirect_uris' => [
+                'https://www.xn--lamss-6ra.it/area/kmoney/ritorno',
+                'https://xn--lamss-6ra.it/area/kmoney/ritorno',
+            ],
+        ]);
+
+        $header = $this->get('/')->headers->get('Content-Security-Policy');
+        $form   = $this->direttiva($header, 'form-action');
+
+        // Il 302 dopo "Consenti e continua" porta fuori da 'self': senza
+        // l'origine del client il browser lo scarta in silenzio.
+        $this->assertStringContainsString('https://www.xn--lamss-6ra.it', $form);
+        $this->assertStringContainsString('https://xn--lamss-6ra.it', $form);
+        // Si apre l'origine, non il percorso, e 'self' resta.
+        $this->assertStringNotContainsString('/area/kmoney/ritorno', $form);
+        $this->assertStringContainsString("'self'", $form);
+        $this->assertStringContainsString('checkout.stripe.com', $form);
+    }
+
+    public function test_un_client_oauth_spento_non_apre_nessuna_destinazione(): void
+    {
+        // Senza client_id il client non esiste (e' l'interruttore): i suoi
+        // indirizzi di ritorno non devono finire nella policy.
+        config([
+            'oauth.clients.kshop.client_id'     => null,
+            'oauth.clients.kshop.redirect_uris' => ['https://app-spenta.example/ritorno'],
+        ]);
+
+        $header = $this->get('/')->headers->get('Content-Security-Policy');
+
+        $this->assertStringNotContainsString('app-spenta.example', $this->direttiva($header, 'form-action'));
+    }
+
     public function test_le_altre_difese_di_base_restano_in_piedi(): void
     {
         $header = $this->get('/')->headers->get('Content-Security-Policy');

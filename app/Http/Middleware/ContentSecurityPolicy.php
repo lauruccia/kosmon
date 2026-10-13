@@ -132,6 +132,35 @@ class ContentSecurityPolicy
             $scriptSrc .= $paypalScript;
         }
 
+        // ── Applicazioni collegate ("Accedi con KMoney") ────────────────────
+        //
+        // Stessa trappola della carta, stavolta sul consenso OAuth
+        // (13/10/2026): POST /oauth/authorize, il server emette il codice e
+        // risponde "302 torna all'applicazione", ma quell'applicazione sta su
+        // un altro dominio e `form-action 'self'` buttava il salto in
+        // silenzio. La pagina restava ferma, il secondo clic trovava la
+        // richiesta gia' consumata e rimandava alla dashboard. Le destinazioni
+        // ammesse sono SOLO le origini degli indirizzi di ritorno dei client
+        // configurati in config/oauth.php (lista chiusa, gli stessi che
+        // OAuthService::isRedirectUriAllowed confronta per stringa intera):
+        // un client senza client_id non esiste e non apre niente.
+        $oauthForm = collect((array) config('oauth.clients', []))
+            ->filter(fn ($client) => filled($client['client_id'] ?? null))
+            ->flatMap(fn ($client) => (array) ($client['redirect_uris'] ?? []))
+            ->map(function ($uri) {
+                $parti = parse_url((string) $uri);
+
+                if (! is_array($parti) || ! isset($parti['scheme'], $parti['host'])
+                    || ! in_array($parti['scheme'], ['http', 'https'], true)) {
+                    return null;
+                }
+
+                return $parti['scheme'] . '://' . $parti['host'] . (isset($parti['port']) ? ':' . $parti['port'] : '');
+            })
+            ->filter()
+            ->unique()
+            ->implode(' ');
+
         $directives = [
             "default-src 'self'",
             "script-src {$scriptSrc}",
@@ -154,7 +183,7 @@ class ContentSecurityPolicy
             // Stripe creata regolarmente, browser che non ci arrivava mai).
             // Qui vanno elencate le destinazioni verso cui un NOSTRO form
             // puo' portare l'utente, e sono solo quelle dell'incasso.
-            "form-action 'self' https://checkout.stripe.com https://*.stripe.com" . ($paypalAcceso ? $paypalForm : ''),
+            "form-action 'self' https://checkout.stripe.com https://*.stripe.com" . ($paypalAcceso ? $paypalForm : '') . ($oauthForm !== '' ? ' ' . $oauthForm : ''),
             "upgrade-insecure-requests",
         ];
 
