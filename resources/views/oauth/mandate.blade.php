@@ -61,7 +61,7 @@
             </div>
 
             <button type="submit" class="cta" style="width:100%;">
-                Autorizza fino a {{ old('max_per_transaction', number_format($defaultCap / 100, 2, ',', '.')) }} KY per acquisto
+                Autorizza i pagamenti in un clic
             </button>
         </form>
 

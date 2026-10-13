@@ -88,7 +88,11 @@ class PaymentMandateConsentTest extends TestCase
             ->assertOk()
             ->assertSee('Kosmoshop')
             ->assertSee('50.00', false)      // il valore precompilato nel campo
-            ->assertSee('non viene bloccato', false);
+            ->assertSee('non viene bloccato', false)
+            // Il pulsante non ripete la cifra: il testo e' scritto dal server
+            // e non seguirebbe il campo, mostrando 50 con 150 digitato.
+            ->assertDontSee('Autorizza fino a', false)
+            ->assertSee('Autorizza i pagamenti in un clic', false);
     }
 
     public function test_la_schermata_dice_quale_venditore_sta_per_essere_autorizzato(): void
