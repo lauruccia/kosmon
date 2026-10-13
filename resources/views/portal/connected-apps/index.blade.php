@@ -8,6 +8,9 @@
         <p style="font-size:14px;color:var(--text-muted);margin:0;">
             Le applicazioni del circuito a cui hai dato il permesso di addebitare KY sul tuo conto senza chiederti conferma ogni volta.
         </p>
+        <p style="font-size:13px;margin:8px 0 0;">
+            <a href="{{ route('portal.subscriptions.index') }}" style="font-weight:600;color:var(--ink);">Vedi i tuoi abbonamenti &#x2192;</a>
+        </p>
     </div>
 
     @if(session('status'))

@@ -336,6 +336,34 @@ GET  /profilo/app-collegate      pagina utente: tetto, storico, revoca in un cli
 - **Concedere chiede lo step-up, revocare no**: spegnere dev'essere sempre più
   facile che accendere.
 
+### Abbonamenti dei portali — copia e blocco
+
+Il portale (oggi Lamèss) resta padrone dell'abbonamento e ne manda a KMoney una
+**copia** a ogni cambiamento; KMoney ci aggiunge una cosa sola, il **blocco**
+dell'utente. Il mandato continua a non autorizzare nulla di ricorrente di per
+sé: ogni ciclo è un addebito normale, col suo tetto e le sue regole.
+
+```
+PUT  /api/v1/subscriptions/{external_id}   copia dell'abbonamento (scope `mandate`, idempotente)
+GET  /api/v1/subscriptions                 gli abbonamenti dell'utente per questa app
+POST /api/v1/mandates/{uuid}/charge        + campo opzionale `subscription_id` (l'external_id)
+GET  /profilo/abbonamenti                  pagina utente: elenco, importi, date, Blocca/Sblocca
+```
+
+- Motore: `app/Services/MandateSubscriptionService.php` (non muove denaro).
+  Tabella `mandate_subscriptions`; `payment_mandate_charges.mandate_subscription_id`
+  lega l'addebito all'abbonamento.
+- **Il blocco vale all'addebito**: se il `charge` dichiara un `subscription_id`
+  bloccato risponde **403** `subscription_blocked` (mai 402: una conferma al
+  checkout non deve poter riaprire ciò che l'utente ha fermato). Il controllo sta
+  DOPO l'idempotenza, così il retry di un addebito già riuscito riceve la stessa
+  risposta di prima.
+- **Il portale non può sbloccare**: `sync()` non tocca mai `blocked_at`.
+  **Bloccare è un clic, sbloccare chiede lo step-up** (stessa asimmetria di
+  "App collegate").
+- Limite noto: il blocco funziona solo se il portale dichiara l'abbonamento
+  nell'addebito. Lo strumento che ferma TUTTO resta la revoca del mandato.
+
 ---
 
 ## Jobs in coda

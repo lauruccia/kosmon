@@ -42,6 +42,8 @@ use RuntimeException;
  *  6. il mandato non dà mai accesso al saldo né la facoltà di pagare qualcuno
  *     fuori dal circuito: l'unico beneficiario possibile è un conto del circuito
  *  7. ogni addebito lascia un AuditLog e una notifica all'utente
+ *  8. un addebito che dichiara di appartenere a un abbonamento BLOCCATO
+ *     dall'utente viene rifiutato (403), senza chiedere conferma
  */
 class PaymentMandateService
 {
@@ -194,7 +196,7 @@ class PaymentMandateService
     /**
      * Esegue un addebito automatico.
      *
-     * @param array{seller_account_number: string, amount: int, external_order_uuid?: ?string, order_title?: ?string, quantity?: int, idempotency_key: string} $payload
+     * @param array{seller_account_number: string, amount: int, external_order_uuid?: ?string, order_title?: ?string, quantity?: int, idempotency_key: string, subscription_id?: ?string} $payload
      * @return array{charge: PaymentMandateCharge, transfer: Transfer, repeated: bool}
      *
      * @throws MandateException quando serve la conferma dell'utente o la
@@ -219,6 +221,21 @@ class PaymentMandateService
                 'transfer' => $existing->transfer,
                 'repeated' => true,
             ];
+        }
+
+        // ── 1b. L'abbonamento è stato bloccato dall'utente? ───────────────
+        // Dopo l'idempotenza (un retry di un addebito GIÀ riuscito riceve la
+        // stessa risposta di allora, anche se nel frattempo l'utente ha
+        // bloccato) e prima di tutto il resto: è una decisione dell'utente su
+        // questo abbonamento, e non c'è conferma al checkout che la cambi.
+        $subscription = app(MandateSubscriptionService::class)
+            ->findForMandate($mandate, $payload['subscription_id'] ?? null);
+
+        if ($subscription?->isBlocked()) {
+            throw MandateException::refused(
+                'subscription_blocked',
+                'L\'utente ha bloccato questo abbonamento su KMoney: l\'addebito non è stato eseguito.'
+            );
         }
 
         // ── 2. Il mandato è ancora vivo? ──────────────────────────────────
@@ -324,10 +341,11 @@ class PaymentMandateService
         }
 
         // ── 7. La traccia ─────────────────────────────────────────────────
-        $charge = DB::transaction(function () use ($mandate, $transfer, $amount, $sellerNumber, $payload, $quantity, $title, $idempotencyKey, $ip) {
+        $charge = DB::transaction(function () use ($mandate, $transfer, $amount, $sellerNumber, $payload, $quantity, $title, $idempotencyKey, $ip, $subscription) {
             $charge = PaymentMandateCharge::create([
                 'payment_mandate_id'    => $mandate->id,
                 'transfer_id'           => $transfer->id,
+                'mandate_subscription_id' => $subscription?->id,
                 'amount'                => $amount,
                 'seller_account_number' => $sellerNumber,
                 'external_order_uuid'   => $payload['external_order_uuid'] ?? null,
@@ -341,6 +359,8 @@ class PaymentMandateService
                 'charges_count' => $mandate->charges_count + 1,
                 'last_used_at'  => now(),
             ])->save();
+
+            $subscription?->forceFill(['last_charged_at' => now(), 'last_error' => null])->save();
 
             return $charge;
         });

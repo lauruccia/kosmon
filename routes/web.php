@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\OAuth\AuthorizationController as OAuthAuthorizationController;
 use App\Http\Controllers\OAuth\MandateConsentController;
 use App\Http\Controllers\ConnectedAppsController;
+use App\Http\Controllers\MandateSubscriptionsController;
 use App\Http\Controllers\ShippingAddressController;
 use App\Http\Controllers\WebAuthnController;
 use App\Http\Controllers\SubAccountInvitationController;
@@ -464,6 +465,15 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/profilo/app-collegate/{uuid}/riattiva', [ConnectedAppsController::class, 'reactivate'])
         ->middleware('step.up')
         ->name('portal.connected-apps.reactivate');
+
+    // ── Abbonamenti dei portali ────────────────────────────────────────────
+    // Stessa asimmetria di "App collegate": bloccare è un clic, sbloccare
+    // (ridare il permesso) chiede lo step-up.
+    Route::get('/profilo/abbonamenti', [MandateSubscriptionsController::class, 'index'])->name('portal.subscriptions.index');
+    Route::post('/profilo/abbonamenti/{uuid}/blocca', [MandateSubscriptionsController::class, 'block'])->name('portal.subscriptions.block');
+    Route::post('/profilo/abbonamenti/{uuid}/sblocca', [MandateSubscriptionsController::class, 'unblock'])
+        ->middleware('step.up')
+        ->name('portal.subscriptions.unblock');
     Route::get('/sessioni', [LoginLogController::class, 'index'])->name('portal.login-logs');
     Route::post('/sessioni/logout-all', [LoginLogController::class, 'logoutAll'])->name('portal.login-logs.logout-all');
     Route::delete('/sessioni/{sessionId}', [LoginLogController::class, 'logoutSession'])->name('portal.login-logs.logout-session');

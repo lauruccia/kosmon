@@ -47,6 +47,16 @@ class MandateException extends RuntimeException
     }
 
     /**
+     * Un no vero: l'utente ha deciso di fermare questo addebito (abbonamento
+     * bloccato) e una sua conferma al checkout non cambia niente. Per questo è
+     * un 403 e non il 402 "chiediglielo".
+     */
+    public static function refused(string $reason, string $message, array $extra = []): self
+    {
+        return new self($reason, $message, 403, $extra);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

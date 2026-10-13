@@ -303,6 +303,26 @@
         </div>
     </section>
 
+    {{-- Abbonamenti dei portali: tutto ciò che viene addebitato ogni mese sul
+         conto KMoney, con il pulsante per bloccarlo. --}}
+    <section class="card card-pad" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">
+                &#x1F501;
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:2px;">Abbonamenti</div>
+                <div style="font-size:13px;color:var(--ink-soft);">
+                    Gli addebiti ricorrenti sugli altri portali, con importi, date e il blocco in un clic
+                </div>
+            </div>
+            <a href="{{ route('portal.subscriptions.index') }}"
+               style="padding:8px 16px;background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap;">
+                Gestisci &#x2192;
+            </a>
+        </div>
+    </section>
+
     {{-- Suggerimento app --}}
     @if(!$enabled)
     <section class="card card-pad" style="background:var(--surface-soft);border:1px solid var(--line);">

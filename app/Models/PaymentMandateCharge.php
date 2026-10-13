@@ -22,6 +22,7 @@ class PaymentMandateCharge extends Model
         'uuid',
         'payment_mandate_id',
         'transfer_id',
+        'mandate_subscription_id',
         'amount',
         'seller_account_number',
         'external_order_uuid',
@@ -51,6 +52,15 @@ class PaymentMandateCharge extends Model
     public function transfer(): BelongsTo
     {
         return $this->belongsTo(Transfer::class);
+    }
+
+    /**
+     * L'abbonamento del portale a cui questo addebito appartiene, se il
+     * portale lo ha dichiarato. Null per gli acquisti singoli.
+     */
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(MandateSubscription::class, 'mandate_subscription_id');
     }
 
     /**

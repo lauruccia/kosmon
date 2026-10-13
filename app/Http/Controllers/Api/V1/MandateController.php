@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Log;
  *   200  fatto, ecco il movimento
  *   402  serve la conferma dell'utente (il `reason` dice perché)
  *   422  la richiesta non sta in piedi (venditore inesistente, importo assurdo)
+ *   403  l'utente ha deciso di no (abbonamento bloccato, quota del circuito
+ *        dovuta): una conferma al checkout non cambia niente
  *
  * In fase 2b il 402 portera' anche `payment_request_uuid` e l'URL su cui
  * mandare l'utente a confermare; il contratto qui non cambia.
@@ -67,6 +69,11 @@ class MandateController extends Controller
             'order_title'           => ['nullable', 'string', 'max:255'],
             'quantity'              => ['nullable', 'integer', 'min:1', 'max:999999'],
             'idempotency_key'       => ['required', 'string', 'max:100'],
+
+            // L'identificativo dell'abbonamento del portale (quello del PUT
+            // /subscriptions/{external_id}), se l'addebito è un ciclo di
+            // abbonamento. È ciò che permette all'utente di bloccarlo.
+            'subscription_id'       => ['nullable', 'string', 'max:64'],
 
             // Dove riportare l'utente su kshop se l'acquisto va confermato a
             // mano. Confrontato con l'elenco chiuso del client prima di essere

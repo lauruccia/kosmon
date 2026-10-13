@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\PaymentPlanController;
 use App\Http\Controllers\Api\V1\PaymentRequestController;
 use App\Http\Controllers\Api\V1\TransferController;
 use App\Http\Controllers\Api\V1\MandateController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\UserInfoController;
 use App\Http\Controllers\OAuth\TokenController as OAuthTokenController;
 use App\Http\Middleware\ApiTokenAuth;
@@ -53,6 +54,18 @@ Route::prefix('v1')->middleware(['oauth.token', 'throttle:60,1'])->group(functio
 Route::prefix('v1')->middleware(['oauth.token:mandate', 'throttle:30,1'])->group(function () {
     Route::get('/mandates', [MandateController::class, 'index'])->name('api.v1.mandates.index');
     Route::post('/mandates/{uuid}/charge', [MandateController::class, 'charge'])->name('api.v1.mandates.charge');
+});
+
+// Abbonamenti dei portali: la copia che il portale manda a KMoney a ogni
+// cambiamento, perché l'utente li veda e possa bloccarli da /profilo/abbonamenti.
+// Stesso scope del mandato — chi può addebitare può anche dichiarare per cosa —
+// ma un gruppo a parte, così un portale che sincronizza cento abbonamenti non
+// consuma il limite degli addebiti (che sono soldi).
+Route::prefix('v1')->middleware(['oauth.token:mandate', 'throttle:60,1'])->group(function () {
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('api.v1.subscriptions.index');
+    Route::put('/subscriptions/{externalId}', [SubscriptionController::class, 'upsert'])
+        ->where('externalId', '[A-Za-z0-9._:-]{1,64}')
+        ->name('api.v1.subscriptions.upsert');
 });
 
 Route::prefix('v1')->middleware([ApiTokenAuth::class, 'throttle:60,1'])->group(function () {
