@@ -1112,6 +1112,8 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/admin/companies/{company}/purge-test', [TestDataPurgeController::class, 'purgeCompany'])->name('admin.companies.purge-test.destroy')->middleware('backoffice');
     Route::post('/admin/payment-plans/{plan}/cancel', [CompanyController::class, 'cancelPaymentPlan'])->name('admin.payment-plans.cancel')->middleware('backoffice');
     Route::post('/admin/netting/{proposal}/cancel', [CompanyController::class, 'cancelNettingProposal'])->name('admin.netting.cancel')->middleware('backoffice');
+    // Abbonamenti dei portali (sola lettura) — vedi Admin\MandateSubscriptionAdminController.
+    Route::get('/admin/abbonamenti', [\App\Http\Controllers\Admin\MandateSubscriptionAdminController::class, 'index'])->name('admin.mandate-subscriptions.index')->middleware('backoffice');
     Route::get('/admin/webhooks/deliveries', [AdminWebhookController::class, 'webhookDeliveries'])->name('admin.webhook-deliveries')->middleware('backoffice');
     Route::post('/admin/webhooks/deliveries/{delivery}/retry', [AdminWebhookController::class, 'retryWebhook'])->name('admin.webhook-deliveries.retry')->middleware('backoffice');
     // Consegne verso le APPLICAZIONI del circuito (kshop), non verso le aziende.

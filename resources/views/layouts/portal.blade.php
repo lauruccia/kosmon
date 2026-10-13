@@ -1770,6 +1770,7 @@
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'circuito' ? 'active' : '' }}" href="{{ route('admin.circuito') }}"><span class="nav-icon">&#128280;</span><span>Circuito KY</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'branding' ? 'active' : '' }}" href="{{ route('admin.branding') }}"><span class="nav-icon">&#127912;</span><span>Brand</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-nfc-cards' ? 'active' : '' }}" href="{{ route('admin.nfc-cards.index') }}"><span class="nav-icon">&#128246;</span><span>Card NFC</span></a>
+                            <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-mandate-subscriptions' ? 'active' : '' }}" href="{{ route('admin.mandate-subscriptions.index') }}"><span class="nav-icon">AB</span><span>Abbonamenti portali</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'webhook-deliveries' ? 'active' : '' }}" href="{{ route('admin.webhook-deliveries') }}">WD Log Webhook</a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-sectors' ? 'active' : '' }}" href="{{ route('admin.sectors.index') }}"><span class="nav-icon">ST</span><span>Settori</span></a>
                             <a class="sidebar-link {{ ($activeNav ?? '') === 'admin-credit-requests' ? 'active' : '' }}" href="{{ route('admin.credit-requests.index') }}">

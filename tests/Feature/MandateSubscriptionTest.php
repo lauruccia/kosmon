@@ -507,6 +507,78 @@ class MandateSubscriptionTest extends TestCase
     /**
      * @param array<string, mixed> $overrides
      */
+    // =========================================================================
+    // 4. Il backoffice vede tutto
+    // =========================================================================
+
+    public function test_l_admin_vede_gli_abbonamenti_con_nome_del_portale_importo_e_stato(): void
+    {
+        [$user] = $this->buyer();
+        $this->subscription($user, [
+            'title' => '2 prodotti al mese', 'items' => ['2 × test'], 'amount' => 2500,
+            'next_charge_at' => now()->addDays(10), 'last_charged_at' => now()->subDays(20),
+        ]);
+        $this->subscription($user, ['external_id' => 'sub-2', 'title' => 'Abbonamento fermato'], blocked: true);
+
+        $this->actingAsWithSession($this->admin())
+            ->get(route('admin.mandate-subscriptions.index'))
+            ->assertOk()
+            ->assertSee('Kosmoshop')
+            ->assertSee($user->email)
+            ->assertSee('2 prodotti al mese')
+            ->assertSee('25,00 KY')
+            ->assertSee(now()->addDays(10)->format('d/m/Y'))
+            ->assertSee('Bloccato')
+            ->assertSee('Attivo');
+    }
+
+    public function test_l_admin_filtra_per_stato_e_per_portale(): void
+    {
+        [$user] = $this->buyer();
+        $this->subscription($user, ['title' => 'Quello attivo']);
+        $this->subscription($user, ['external_id' => 'sub-2', 'title' => 'Quello bloccato'], blocked: true);
+        $this->subscription($user, ['external_id' => 'sub-3', 'client_id' => 'altro-portale', 'title' => 'Quello di un altro portale']);
+
+        $admin = $this->admin();
+
+        $this->actingAsWithSession($admin)
+            ->get(route('admin.mandate-subscriptions.index', ['stato' => 'blocked']))
+            ->assertOk()
+            ->assertSee('Quello bloccato')
+            ->assertDontSee('Quello attivo');
+
+        $this->actingAsWithSession($admin)
+            ->get(route('admin.mandate-subscriptions.index', ['client_id' => 'altro-portale']))
+            ->assertOk()
+            ->assertSee('Quello di un altro portale')
+            ->assertDontSee('Quello attivo');
+    }
+
+    public function test_la_pagina_admin_non_e_per_gli_utenti_normali(): void
+    {
+        [$user] = $this->buyer();
+
+        $this->actingAsWithSession($user)
+            ->get(route('admin.mandate-subscriptions.index'))
+            ->assertForbidden();
+    }
+
+    private function admin(): User
+    {
+        $admin = User::create([
+            'name'                => 'Admin',
+            'email'               => 'admin-' . Str::random(10) . '@test.test',
+            'password'            => 'secret123',
+            'account_holder_type' => 'private',
+            'company_id'          => null,
+            'is_active'           => true,
+            'is_super_admin'      => true,
+        ]);
+        $admin->forceFill(['email_verified_at' => now()])->save();
+
+        return $admin;
+    }
+
     private function subscription(User $user, array $overrides = [], bool $blocked = false): MandateSubscription
     {
         return MandateSubscription::create(array_merge([
