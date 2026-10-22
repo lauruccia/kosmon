@@ -194,7 +194,34 @@ class AdminKyCardController extends Controller
             // MLM attivo: se assenti si mantengono i valori esistenti.
             'mlm_points'               => 'nullable|numeric|min:0|max:999999',
             'mlm_points_duration_days' => 'nullable|integer|min:0|max:36500',
+            // Pagamento rateale / ricorrente (22/10/2026).
+            'installments_enabled'  => 'nullable|boolean',
+            'installment_options'   => 'nullable|array',
+            'installment_options.*' => 'integer|min:2|max:36',
+            'recurring_enabled'     => 'nullable|boolean',
         ]);
+
+        $priceCents = (int) round($raw['price_eur'] * 100);
+        $kyBaseCents = (int) round($raw['ky_base_amount'] * 100);
+        $bonusForTotal = $raw['bonus_type'] === 'fixed'
+            ? (float) round($raw['bonus_value'] * 100)
+            : (float) $raw['bonus_value'];
+        $kyTotalCents = $raw['bonus_type'] === 'fixed'
+            ? (int) ($kyBaseCents + $bonusForTotal)
+            : (int) round($kyBaseCents * (1 + $bonusForTotal / 100));
+
+        // Solo i numeri di rate che dividono ESATTAMENTE prezzo e KY: Stripe
+        // addebita sempre lo stesso importo a ogni rata, non esistono resti.
+        $options = collect($raw['installment_options'] ?? [])
+            ->map(fn ($n) => (int) $n)
+            ->filter(fn (int $n) => $priceCents % $n === 0 && $kyTotalCents % $n === 0)
+            ->unique()->sort()->values()->all();
+
+        if (! empty($raw['installments_enabled']) && $options === []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'installment_options' => 'Scegli almeno un numero di rate che divida esattamente prezzo e KY di questa card.',
+            ]);
+        }
 
         // Il form lavora sempre in "KY umani" (come per price_eur -> price_eur_cents):
         // "Fisso" è KY extra nella stessa unità di ky_base_amount, quindi va convertito
@@ -213,6 +240,9 @@ class AdminKyCardController extends Controller
             'stripe_price_id' => $raw['stripe_price_id'] ?? null,
             'sort_order'      => (int) ($raw['sort_order'] ?? 0),
             'is_active'       => (bool) ($raw['is_active'] ?? true),
+            'installments_enabled' => (bool) ($raw['installments_enabled'] ?? false),
+            'installment_options'  => $options ?: null,
+            'recurring_enabled'    => (bool) ($raw['recurring_enabled'] ?? false),
             'mlm_points'      => isset($raw['mlm_points'])
                 ? round((float) $raw['mlm_points'], 2)
                 : (float) ($existing->mlm_points ?? 0),

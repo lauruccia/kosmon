@@ -164,6 +164,52 @@
                 </div>
             </div>
 
+            {{-- ── Pagamento a rate / ricorrente (22/10/2026) ──────────────────
+                 Decidi card per card se si puo' pagare a rate o con rinnovo
+                 mensile: entrambi SOLO con carta di credito (addebito
+                 automatico Stripe). --}}
+            @php
+                $optsSaved = (array) old('installment_options', $card->installment_options ?: [3, 6, 12]);
+            @endphp
+            <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">
+                    Pagamento con addebito automatico (solo carta)
+                </div>
+
+                <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:6px;">
+                    <input type="hidden" name="installments_enabled" value="0">
+                    <input type="checkbox" name="installments_enabled" value="1"
+                           {{ old('installments_enabled', $card->installments_enabled ?? false) ? 'checked' : '' }}
+                           style="width:15px;height:15px;">
+                    Pagamento rateale accettato
+                </label>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;margin:0 0 4px 22px;font-size:13px;">
+                    <span style="color:var(--ink-muted);">Numero di rate offerte:</span>
+                    @foreach([2, 3, 4, 6, 12, 24] as $n)
+                        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                            <input type="checkbox" name="installment_options[]" value="{{ $n }}"
+                                   {{ in_array($n, array_map('intval', $optsSaved), true) ? 'checked' : '' }}>
+                            {{ $n }}
+                        </label>
+                    @endforeach
+                </div>
+                <div style="font-size:11px;color:var(--ink-muted);margin:0 0 12px 22px;">
+                    Il cliente riceve TUTTI i KY con la prima rata e paga il prezzo della card in N rate mensili uguali, senza maggiorazioni.
+                    Vengono offerti solo i numeri di rate che dividono esattamente prezzo e KY.
+                </div>
+
+                <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;">
+                    <input type="hidden" name="recurring_enabled" value="0">
+                    <input type="checkbox" name="recurring_enabled" value="1"
+                           {{ old('recurring_enabled', $card->recurring_enabled ?? false) ? 'checked' : '' }}
+                           style="width:15px;height:15px;">
+                    Pagamento ricorrente accettato
+                </label>
+                <div style="font-size:11px;color:var(--ink-muted);margin:4px 0 0 22px;">
+                    Rinnovo automatico ogni mese: a ogni addebito il cliente riceve i KY della card. Disdicibile dal cliente quando vuole.
+                </div>
+            </div>
+
         </div>
 
         <div style="margin-top:12px;display:flex;gap:12px;">

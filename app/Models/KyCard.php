@@ -54,10 +54,15 @@ class KyCard extends Model
         'price_eur_cents', 'bonus_type', 'ky_base_amount', 'bonus_value',
         'mlm_points', 'mlm_points_duration_days',
         'is_active', 'stripe_price_id', 'sort_order',
+        'installments_enabled', 'installment_options', 'recurring_enabled',
     ];
 
     protected $casts = [
         'is_active'   => 'boolean',
+        // 22/10/2026: la card si puo' pagare a rate e/o a rinnovo mensile.
+        'installments_enabled' => 'boolean',
+        'installment_options'  => 'array',
+        'recurring_enabled'    => 'boolean',
         'bonus_value' => 'decimal:2',
         // Punti MLM maturati dall'agente diretto all'acquisto della card
         // (2026-07-22): i tagli di ricarica sono le card reali.
@@ -79,6 +84,40 @@ class KyCard extends Model
     public function purchases(): HasMany
     {
         return $this->hasMany(KyCardPurchase::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(KyCardSubscription::class);
+    }
+
+    /**
+     * Numeri di rate realmente offribili: quelli configurati che dividono
+     * ESATTAMENTE sia il prezzo sia i KY (Stripe addebita sempre lo stesso
+     * importo a ogni rata, quindi niente resti). Vuoto se le rate sono spente.
+     *
+     * @return list<int>
+     */
+    public function availableInstallmentOptions(): array
+    {
+        if (! $this->installments_enabled) {
+            return [];
+        }
+
+        $options = [];
+        foreach ((array) ($this->installment_options ?: [3, 6, 12]) as $n) {
+            $n = (int) $n;
+            if ($n >= 2 && $n <= 36
+                && $this->price_eur_cents % $n === 0
+                && $this->ky_total % $n === 0) {
+                $options[] = $n;
+            }
+        }
+
+        $options = array_values(array_unique($options));
+        sort($options);
+
+        return $options;
     }
 
     // ── Accessor calcolati ─────────────────────────────────────────────────

@@ -62,6 +62,7 @@ class KyCardPurchase extends Model
         'stripe_checkout_session_id', 'stripe_payment_intent_id',
         'paypal_order_id', 'admin_notes', 'confirmed_by',
         'transfer_id', 'completed_at',
+        'ky_card_subscription_id', 'installment_no', 'stripe_invoice_id',
     ];
 
     protected $casts = [
@@ -83,6 +84,7 @@ class KyCardPurchase extends Model
     public function account(): BelongsTo  { return $this->belongsTo(Account::class); }
     public function user(): BelongsTo     { return $this->belongsTo(User::class); }
     public function transfer(): BelongsTo { return $this->belongsTo(Transfer::class); }
+    public function subscription(): BelongsTo { return $this->belongsTo(KyCardSubscription::class, 'ky_card_subscription_id'); }
 
     // ── Scope ──────────────────────────────────────────────────────────────
 
