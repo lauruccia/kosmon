@@ -138,6 +138,9 @@
 .kyc-row--get .kyc-row__unit  { color: var(--primary); }
 
 .kyc-card__plan {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
     padding: 6px 10px;
     border: 1px solid #bfdbfe;
     border-radius: 8px;
@@ -264,12 +267,6 @@
                         <span>🅿 PayPal</span>
                     @endif
                     <span>🏦 Bonifico</span>
-                    @if(count($planOptions) > 0)
-                        <span>🗓 A rate</span>
-                    @endif
-                    @if($planRecurring)
-                        <span>🔁 Ogni mese</span>
-                    @endif
                 </span>
             </div>
 
@@ -291,19 +288,16 @@
                 </div>
                 @endif
 
-                @if(count($planOptions) > 0)
-                @php $maxN = max($planOptions); @endphp
+                {{-- Una sola riga, sempre alta uguale: le card restano allineate. --}}
+                @if(count($planOptions) > 0 || $planRecurring)
+                @php $maxN = count($planOptions) ? max($planOptions) : null; @endphp
                 <div class="kyc-card__plan">
-                    🗓 <strong>Anche a rate:</strong> fino a {{ $maxN }} rate da
-                    <strong>{{ number_format($card->price_eur / $maxN, 2, ',', '.') }} €</strong> al mese.
-                    I {{ ky_format($card->ky_total) }} KY arrivano subito.
-                </div>
-                @endif
-
-                @if($planRecurring)
-                <div class="kyc-card__plan">
-                    🔁 <strong>Anche con rinnovo mensile:</strong> {{ number_format($card->price_eur, 2, ',', '.') }} € al mese,
-                    {{ ky_format($card->ky_total) }} KY ogni mese. Disdici quando vuoi.
+                    @if($maxN)
+                        <span>🗓 Anche a rate · da <strong>{{ number_format($card->price_eur / $maxN, 2, ',', '.') }} €</strong>/mese</span>
+                    @endif
+                    @if($planRecurring)
+                        <span>🔁 Anche <strong>ogni mese</strong></span>
+                    @endif
                 </div>
                 @endif
 

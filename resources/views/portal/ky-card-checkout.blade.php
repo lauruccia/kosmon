@@ -65,74 +65,86 @@
 
         {{-- ── Pannello Stripe ─────────────────────────────────────────── --}}
         @if($hasCard)
+        @php
+            // Come si puo' pagare con carta: una volta / a rate / ogni mese.
+            // Un solo form, un solo pulsante: la scelta cambia azione, testi e riepilogo.
+            $modes = [];
+            if ($hasStripe)                    { $modes['once'] = true; }
+            if (count($installmentOptions) > 0) { $modes['installments'] = true; }
+            if ($recurringEnabled)             { $modes['recurring'] = true; }
+            $defaultMode = array_key_first($modes);
+            $fmt         = fn ($v) => number_format($v, 2, ',', '.');
+            $planOptions = array_map(fn ($n) => ['n' => $n, 'amount' => $fmt($card->price_eur / $n)], $installmentOptions);
+            $defaultN    = count($installmentOptions) ? (in_array(12, $installmentOptions, true) ? 12 : max($installmentOptions)) : null;
+            $minAmount   = count($installmentOptions) ? $fmt($card->price_eur / max($installmentOptions)) : null;
+        @endphp
         <div id="panel-stripe" class="pay-panel card" style="padding:22px;">
-            @if($hasStripe)
-            <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:5px;">Paga con carta</div>
-            <div style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">
-                Verrai reindirizzato su Stripe. I dati della tua carta non vengono mai condivisi con noi.
-            </div>
-            <div style="display:flex;gap:7px;margin-bottom:18px;flex-wrap:wrap;">
-                <span style="background:var(--surface-alt,#f1f5f9);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;color:var(--ink-soft);">🔒 SSL sicuro</span>
-                <span style="background:var(--surface-alt,#f1f5f9);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;color:var(--ink-soft);">Visa / MC / Amex</span>
-                <span style="background:var(--surface-alt,#f1f5f9);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;color:var(--ink-soft);">KY accreditati subito</span>
-            </div>
-            <form method="POST" action="{{ route('portal.ky-cards.stripe-checkout', $card) }}">
+            <form id="pay-form" method="POST" action="{{ $defaultMode === 'once' ? route('portal.ky-cards.stripe-checkout', $card) : route('portal.ky-cards.subscription-checkout', $card) }}">
                 @csrf
                 @if($redirectTo ?? null)
                 <input type="hidden" name="redirect_to" value="{{ $redirectTo }}">
                 @endif
-                <button type="submit" class="cta" style="width:100%;justify-content:center;font-size:14px;padding:13px 20px;border-radius:10px;">
-                    Paga {{ number_format($card->price_eur, 2, ',', '.') }} € con carta →
+                <input type="hidden" name="kind" id="pay-kind" value="{{ $defaultMode === 'once' ? '' : $defaultMode }}" @if($defaultMode === 'once') disabled @endif>
+                <input type="hidden" name="installments" id="pay-installments" value="{{ $defaultMode === 'installments' ? $defaultN : '' }}" @if($defaultMode !== 'installments') disabled @endif>
+
+                @if(count($modes) > 1)
+                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px;">Come vuoi pagare?</div>
+                <div class="pay-modes" role="radiogroup" aria-label="Modalità di pagamento con carta">
+                    @if(isset($modes['once']))
+                    <label class="pay-mode {{ $defaultMode === 'once' ? 'is-active' : '' }}" data-mode="once">
+                        <input type="radio" name="pay_mode" value="once" {{ $defaultMode === 'once' ? 'checked' : '' }}>
+                        <span class="pay-mode__title">Una volta</span>
+                        <span class="pay-mode__price">{{ $fmt($card->price_eur) }} €</span>
+                        <span class="pay-mode__hint">Pagamento unico</span>
+                    </label>
+                    @endif
+                    @if(isset($modes['installments']))
+                    <label class="pay-mode {{ $defaultMode === 'installments' ? 'is-active' : '' }}" data-mode="installments">
+                        <input type="radio" name="pay_mode" value="installments" {{ $defaultMode === 'installments' ? 'checked' : '' }}>
+                        <span class="pay-mode__title">A rate</span>
+                        <span class="pay-mode__price">da {{ $minAmount }} €<small>/mese</small></span>
+                        <span class="pay-mode__hint">KY subito, zero interessi</span>
+                    </label>
+                    @endif
+                    @if(isset($modes['recurring']))
+                    <label class="pay-mode {{ $defaultMode === 'recurring' ? 'is-active' : '' }}" data-mode="recurring">
+                        <input type="radio" name="pay_mode" value="recurring" {{ $defaultMode === 'recurring' ? 'checked' : '' }}>
+                        <span class="pay-mode__title">Ogni mese</span>
+                        <span class="pay-mode__price">{{ $fmt($card->price_eur) }} €<small>/mese</small></span>
+                        <span class="pay-mode__hint">Disdici quando vuoi</span>
+                    </label>
+                    @endif
+                </div>
+                @else
+                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:5px;">Paga con carta</div>
+                @endif
+
+                @if(isset($modes['installments']))
+                <div id="pay-n-wrap" style="{{ $defaultMode === 'installments' ? '' : 'display:none;' }}margin-top:16px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Numero di rate</div>
+                    <div class="pay-ns">
+                        @foreach($planOptions as $o)
+                        <button type="button" class="pay-n {{ $o['n'] === $defaultN ? 'is-active' : '' }}" data-n="{{ $o['n'] }}" data-amount="{{ $o['amount'] }}">
+                            <span class="pay-n__n"><strong>{{ $o['n'] }}</strong> rate</span>
+                            <span class="pay-n__amt">{{ $o['amount'] }} € / mese</span>
+                        </button>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <div id="pay-note" style="font-size:13px;color:var(--ink-soft);margin:16px 0 14px;line-height:1.5;"></div>
+
+                <button type="submit" id="pay-cta" class="cta" style="width:100%;justify-content:center;font-size:14px;padding:13px 20px;border-radius:10px;">
+                    Paga {{ $fmt($card->price_eur) }} € con carta →
                 </button>
             </form>
-            @endif
 
-            {{-- ── Rate / rinnovo mensile: addebito automatico sulla carta ── --}}
-            @if(count($installmentOptions) > 0 || $recurringEnabled)
-            <div @if($hasStripe) style="margin-top:22px;padding-top:20px;border-top:1px solid var(--border);" @endif>
-                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:5px;">
-                    {{ $hasStripe ? 'Oppure paga con addebito automatico' : 'Paga con addebito automatico sulla carta' }}
-                </div>
-
-                @if(count($installmentOptions) > 0)
-                <div style="font-size:13px;color:var(--ink-soft);margin-bottom:12px;">
-                    <strong style="color:var(--ink);">A rate, senza maggiorazioni.</strong>
-                    Ricevi subito tutti i {{ ky_format($card->ky_total) }} KY; il prezzo della card
-                    ({{ number_format($card->price_eur, 2, ',', '.') }} €) lo paghi in rate mensili uguali,
-                    addebitate in automatico sulla carta.
-                </div>
-                <div style="display:grid;gap:8px;margin-bottom:{{ $recurringEnabled ? '18px' : '0' }};">
-                    @foreach($installmentOptions as $n)
-                    <form method="POST" action="{{ route('portal.ky-cards.subscription-checkout', $card) }}">
-                        @csrf
-                        <input type="hidden" name="kind" value="installments">
-                        <input type="hidden" name="installments" value="{{ $n }}">
-                        <button type="submit" class="cta secondary" style="width:100%;justify-content:space-between;font-size:14px;padding:12px 18px;border-radius:10px;">
-                            <span>{{ $n }} rate mensili</span>
-                            <span>{{ number_format($card->price_eur / $n, 2, ',', '.') }} € al mese →</span>
-                        </button>
-                    </form>
-                    @endforeach
-                </div>
-                @endif
-
-                @if($recurringEnabled)
-                <div style="font-size:13px;color:var(--ink-soft);margin-bottom:12px;">
-                    <strong style="color:var(--ink);">Rinnovo mensile.</strong>
-                    Ogni mese vengono addebitati {{ number_format($card->price_eur, 2, ',', '.') }} € sulla carta
-                    e ricevi {{ ky_format($card->ky_total) }} KY. Puoi disdire quando vuoi.
-                </div>
-                <form method="POST" action="{{ route('portal.ky-cards.subscription-checkout', $card) }}">
-                    @csrf
-                    <input type="hidden" name="kind" value="recurring">
-                    <button type="submit" class="cta secondary" style="width:100%;justify-content:space-between;font-size:14px;padding:12px 18px;border-radius:10px;">
-                        <span>Rinnovo ogni mese</span>
-                        <span>{{ number_format($card->price_eur, 2, ',', '.') }} € al mese →</span>
-                    </button>
-                </form>
-                @endif
+            <div style="display:flex;gap:7px;margin-top:14px;flex-wrap:wrap;align-items:center;">
+                <span style="background:var(--surface-alt,#f1f5f9);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;color:var(--ink-soft);">🔒 SSL sicuro</span>
+                <span style="background:var(--surface-alt,#f1f5f9);border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;color:var(--ink-soft);">Visa / MC / Amex</span>
+                <span style="font-size:11.5px;color:var(--ink-muted);">Verrai reindirizzato su Stripe: i dati della carta non passano da noi.</span>
             </div>
-            @endif
         </div>
         @endif
 
@@ -229,12 +241,14 @@
             <div style="border-top:1px solid var(--border);margin:10px 0;"></div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:13.5px;font-weight:700;color:var(--ink);">Totale</span>
+                <span id="sum-label" style="font-size:13.5px;font-weight:700;color:var(--ink);">Totale</span>
                 <div style="text-align:right;">
-                    <div style="font-size:15px;font-weight:800;color:var(--ink);">{{ number_format($card->price_eur, 2, ',', '.') }} €</div>
-                    <div style="font-size:12.5px;font-weight:700;color:#1d4ed8;">= {{ ky_format($card->ky_total) }} KY</div>
+                    <div id="sum-today" style="font-size:15px;font-weight:800;color:var(--ink);">{{ number_format($card->price_eur, 2, ',', '.') }} €</div>
+                    <div id="sum-ky" style="font-size:12.5px;font-weight:700;color:#1d4ed8;">= {{ ky_format($card->ky_total) }} KY</div>
                 </div>
             </div>
+            <div id="sum-later" style="display:none;margin-top:10px;padding:8px 10px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;font-size:12px;line-height:1.45;color:#1e3a8a;"></div>
+        </div>
         </div>
 
         <div style="font-size:11.5px;color:var(--ink-muted);line-height:1.55;padding:0 2px;">
@@ -247,6 +261,25 @@
 @media (max-width: 720px) {
     #checkout-grid { grid-template-columns: 1fr !important; }
 }
+.pay-modes { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+.pay-mode { position:relative; display:flex !important; flex-direction:column; align-items:flex-start; gap:2px; margin:0; padding:13px 14px; border:2px solid var(--border); border-radius:12px; background:var(--card-bg); cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; }
+.pay-mode > span { display:block; }
+.pay-mode input { position:absolute; opacity:0; pointer-events:none; }
+.pay-mode:hover { border-color:#93c5fd; }
+.pay-mode.is-active { border-color:#2563eb; background:#eff6ff; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+.pay-mode__title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-muted); }
+.pay-mode.is-active .pay-mode__title { color:#1d4ed8; }
+.pay-mode__price { font-size:19px; font-weight:800; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.pay-mode__price small { font-size:12px; font-weight:700; color:var(--ink-soft); }
+.pay-mode__hint { font-size:11.5px; color:var(--ink-soft); }
+.pay-ns { display:flex; gap:8px; flex-wrap:wrap; }
+.pay-n { flex:1 1 110px; display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:10px 12px; border:2px solid var(--border); border-radius:10px; background:var(--card-bg); font-size:13px; color:var(--ink); cursor:pointer; transition:border-color .15s, background .15s; }
+.pay-n__n { font-size:13px; }
+.pay-n strong { font-size:18px; }
+.pay-n__amt { font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+.pay-n:hover { border-color:#93c5fd; }
+.pay-n.is-active { border-color:#2563eb; background:#eff6ff; }
+.pay-n.is-active .pay-n__amt { color:#1d4ed8; font-weight:700; }
 </style>
 
 @if($hasPaypal)
@@ -303,4 +336,75 @@ document.addEventListener('DOMContentLoaded', function() {
     switchTab(firstTab);
 });
 </script>
+
+@if(! empty($hasCard) && isset($modes) && count($modes) > 0)
+<script>
+(function () {
+    var cfg = {
+        price: @json($fmt($card->price_eur)),
+        ky: @json(ky_format($card->ky_total)),
+        onceAction: @json(route('portal.ky-cards.stripe-checkout', $card)),
+        subAction: @json(route('portal.ky-cards.subscription-checkout', $card)),
+        mode: @json($defaultMode),
+        n: @json($defaultN),
+        amounts: @json(collect($planOptions)->pluck('amount', 'n'))
+    };
+    var $ = function (id) { return document.getElementById(id); };
+    var form = $('pay-form');
+
+    function render() {
+        var once = cfg.mode === 'once', inst = cfg.mode === 'installments';
+        form.action = once ? cfg.onceAction : cfg.subAction;
+        $('pay-kind').disabled = once;
+        $('pay-kind').value = once ? '' : cfg.mode;
+        $('pay-installments').disabled = !inst;
+        $('pay-installments').value = inst ? cfg.n : '';
+
+        document.querySelectorAll('.pay-mode').forEach(function (el) {
+            el.classList.toggle('is-active', el.getAttribute('data-mode') === cfg.mode);
+        });
+        var wrap = $('pay-n-wrap');
+        if (wrap) wrap.style.display = inst ? '' : 'none';
+        document.querySelectorAll('.pay-n').forEach(function (el) {
+            el.classList.toggle('is-active', parseInt(el.getAttribute('data-n'), 10) === cfg.n);
+        });
+
+        var today = cfg.price, note, cta, later = '', label = 'Totale', ky = '= ' + cfg.ky + ' KY';
+        if (once) {
+            note = 'Pagamento unico. I KY vengono accreditati subito.';
+            cta = 'Paga ' + cfg.price + ' € con carta →';
+        } else if (inst) {
+            var a = cfg.amounts[cfg.n];
+            today = a; label = 'Paghi oggi';
+            ky = '= ' + cfg.ky + ' KY subito';
+            note = 'Ricevi <strong>subito tutti i ' + cfg.ky + ' KY</strong>. Paghi ' + cfg.n + ' rate mensili da <strong>' + a + ' €</strong>, uguali, senza interessi, addebitate in automatico sulla carta.';
+            later = 'Poi ' + (cfg.n - 1) + ' &times; ' + a + ' € ogni mese.<br>Totale ' + cfg.price + ' €, nessuna maggiorazione.';
+            cta = 'Paga la 1ª rata di ' + a + ' € →';
+        } else {
+            label = 'Paghi oggi';
+            ky = '= ' + cfg.ky + ' KY ogni mese';
+            note = 'Ogni mese vengono addebitati <strong>' + cfg.price + ' €</strong> sulla carta e ricevi <strong>' + cfg.ky + ' KY</strong>. Puoi disdire quando vuoi.';
+            later = 'Poi ' + cfg.price + ' € ogni mese, fino alla disdetta.';
+            cta = 'Attiva il rinnovo mensile · ' + cfg.price + ' € →';
+        }
+        $('pay-note').innerHTML = note;
+        $('pay-cta').innerHTML = cta;
+        $('sum-label').textContent = label;
+        $('sum-today').textContent = today + ' €';
+        $('sum-ky').textContent = ky;
+        var l = $('sum-later');
+        l.style.display = later ? '' : 'none';
+        l.innerHTML = later;
+    }
+
+    document.querySelectorAll('.pay-mode input').forEach(function (r) {
+        r.addEventListener('change', function () { cfg.mode = r.value; render(); });
+    });
+    document.querySelectorAll('.pay-n').forEach(function (b) {
+        b.addEventListener('click', function () { cfg.n = parseInt(b.getAttribute('data-n'), 10); render(); });
+    });
+    render();
+})();
+</script>
+@endif
 @endsection

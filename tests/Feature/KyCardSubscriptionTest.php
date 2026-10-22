@@ -717,8 +717,11 @@ class KyCardSubscriptionTest extends TestCase
         $this->stripeConfigured();
         [$buyer] = $this->makeBuyer();
 
+        // Come in produzione: le card hanno anche lo Stripe Price ID (pagamento una tantum).
         $big = $this->bigCard();
+        $big->update(['stripe_price_id' => 'price_big']);
         $monthly = $this->monthlyCard();
+        $monthly->update(['stripe_price_id' => 'price_monthly']);
         $plain = KyCard::create([
             'name' => 'KYCard Semplice', 'price_eur_cents' => 5000, 'ky_base_amount' => 5000,
             'bonus_type' => 'fixed', 'bonus_value' => 0, 'is_active' => true,
@@ -726,19 +729,20 @@ class KyCardSubscriptionTest extends TestCase
 
         $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $big))
             ->assertOk()
-            ->assertSee('3 rate mensili', false)
-            ->assertSee('400,00', false)
-            ->assertSee('12 rate mensili', false)
-            ->assertDontSee('Rinnovo ogni mese', false);
+            ->assertSee('data-mode="installments"', false)
+            ->assertSee('data-n="3" data-amount="400,00"', false)
+            ->assertSee('data-n="12" data-amount="100,00"', false)
+            ->assertDontSee('data-mode="recurring"', false);
 
         $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $monthly))
             ->assertOk()
-            ->assertSee('Rinnovo ogni mese', false)
-            ->assertDontSee('rate mensili', false);
+            ->assertSee('data-mode="recurring"', false)
+            ->assertDontSee('data-mode="installments"', false);
 
         $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $plain))
             ->assertOk()
-            ->assertDontSee('addebito automatico', false);
+            ->assertDontSee('data-mode="installments"', false)
+            ->assertDontSee('data-mode="recurring"', false);
     }
 
     public function test_checkout_page_hides_installments_when_stripe_is_not_configured(): void
@@ -748,7 +752,7 @@ class KyCardSubscriptionTest extends TestCase
 
         $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $this->bigCard()))
             ->assertOk()
-            ->assertDontSee('rate mensili', false);
+            ->assertDontSee('data-mode="installments"', false);
     }
 
     public function test_buying_in_installments_creates_the_plan_and_sends_the_customer_to_stripe(): void
@@ -855,14 +859,13 @@ class KyCardSubscriptionTest extends TestCase
         $html = $this->actingAs($buyer)->get(route('portal.ky-cards.index'))
             ->assertOk()
             ->assertSee('Anche a rate', false)
-            ->assertSee('fino a 12 rate da', false)
             ->assertSee('100,00', false)
-            ->assertSee('Anche con rinnovo mensile', false)
+            ->assertSee('Anche <strong>ogni mese</strong>', false)
             ->getContent();
 
         // una sola card a rate e una sola a rinnovo: la card semplice non ne porta
         $this->assertSame(1, substr_count($html, 'Anche a rate'));
-        $this->assertSame(1, substr_count($html, 'Anche con rinnovo mensile'));
+        $this->assertSame(1, substr_count($html, 'Anche <strong>ogni mese</strong>'));
     }
 
     public function test_ricarica_list_does_not_advertise_plans_without_stripe(): void
@@ -875,7 +878,7 @@ class KyCardSubscriptionTest extends TestCase
         $this->actingAs($buyer)->get(route('portal.ky-cards.index'))
             ->assertOk()
             ->assertDontSee('Anche a rate', false)
-            ->assertDontSee('Anche con rinnovo mensile', false);
+            ->assertDontSee('Anche <strong>ogni mese</strong>', false);
     }
 
     public function test_result_page_shows_the_plan_only_to_its_owner(): void
