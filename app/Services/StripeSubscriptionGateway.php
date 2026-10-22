@@ -27,6 +27,15 @@ class StripeSubscriptionGateway
         return $this->client()->checkout->sessions->create($params);
     }
 
+    /**
+     * SOLO PER PROVA: cliente agganciato a un Test clock di Stripe, per far
+     * avanzare il tempo e vedere le rate successive in pochi secondi.
+     */
+    public function createTestClockCustomer(string $email, string $clockId): object
+    {
+        return $this->client()->customers->create(['email' => $email, 'test_clock' => $clockId]);
+    }
+
     public function retrieveSubscription(string $id): object
     {
         return $this->client()->subscriptions->retrieve($id);

@@ -102,7 +102,7 @@ class KyCardSubscriptionService
             : $card->name . ' — rinnovo mensile';
 
         try {
-            $session = $this->stripe->createCheckoutSession([
+            $params = [
                 'mode'                 => 'subscription',
                 'payment_method_types' => ['card'],
                 'line_items'           => [[
@@ -110,7 +110,9 @@ class KyCardSubscriptionService
                     'price_data' => [
                         'currency'    => 'eur',
                         'unit_amount' => $amountCents,
-                        'recurring'   => ['interval' => 'month'],
+                        'recurring'   => ($fast = $this->fastCycleDays($user))
+                            ? ['interval' => 'day', 'interval_count' => $fast]
+                            : ['interval' => 'month'],
                         'product_data' => ['name' => $productName],
                     ],
                 ]],
@@ -121,7 +123,18 @@ class KyCardSubscriptionService
                 // __UUID__ = segnaposto: l'uuid esiste solo dopo il create().
                 'success_url'          => str_replace('__UUID__', $sub->uuid, $successUrl),
                 'cancel_url'           => str_replace('__UUID__', $sub->uuid, $cancelUrl),
-            ]);
+            ];
+
+            // SOLO PER PROVA (chiavi di test + STRIPE_TEST_CLOCK_ID): il cliente nasce dentro
+            // un Test clock, cosi' dalla dashboard Stripe si fa avanzare il tempo.
+            $clockId = (string) config('services.stripe.test_clock');
+            if ($clockId !== '' && preg_match('/^(sk|rk)_test_/', (string) config('services.stripe.secret'))) {
+                $customer = $this->stripe->createTestClockCustomer($user->email, $clockId);
+                unset($params['customer_email']);
+                $params['customer'] = $customer->id;
+            }
+
+            $session = $this->stripe->createCheckoutSession($params);
 
             $sub->update(['stripe_checkout_session_id' => $session->id]);
 
@@ -131,6 +144,18 @@ class KyCardSubscriptionService
             Log::error('KyCard subscription checkout error', ['sub' => $sub->uuid, 'error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    /**
+     * SOLO PER PROVA IN PRODUZIONE: se STRIPE_FAST_CYCLE_DAYS e' impostato
+     * (1-7) e a comprare e' un super admin, la "rata mensile" scatta ogni N
+     * giorni. I clienti veri pagano sempre al mese, qualunque cosa dica il .env.
+     */
+    private function fastCycleDays(User $user): int
+    {
+        $days = (int) config('services.stripe.fast_cycle_days');
+
+        return ($user->is_super_admin && $days >= 1 && $days <= 7) ? $days : 0;
     }
 
     // ── Webhook: checkout.session.completed ────────────────────────────────
@@ -288,10 +313,21 @@ class KyCardSubscriptionService
         } elseif ($isFirst && $sub->isInstallments()) {
             $periodStart = data_get($invoice, 'lines.data.0.period.start') ?? data_get($invoice, 'period_start');
             $start = is_numeric($periodStart) ? CarbonImmutable::createFromTimestamp((int) $periodStart) : CarbonImmutable::now();
-            $cancelAt = $start
-                ->addMonthsNoOverflow(max(0, (int) $sub->installments_total - 1))
-                ->addDays(self::CANCEL_AT_OFFSET_DAYS)
-                ->getTimestamp();
+            // Ciclo di prova (pochi giorni invece di un mese): lo si riconosce dalla
+            // lunghezza del periodo fatturato. Il tetto segue lo stesso passo.
+            $periodEnd0 = data_get($invoice, 'lines.data.0.period.end');
+            $cycle      = (is_numeric($periodStart) && is_numeric($periodEnd0)) ? (int) $periodEnd0 - (int) $periodStart : 0;
+
+            if ($cycle > 0 && $cycle < 20 * 86400) {
+                $cancelAt = $start->getTimestamp()
+                    + max(0, (int) $sub->installments_total - 1) * $cycle
+                    + intdiv($cycle, 2);
+            } else {
+                $cancelAt = $start
+                    ->addMonthsNoOverflow(max(0, (int) $sub->installments_total - 1))
+                    ->addDays(self::CANCEL_AT_OFFSET_DAYS)
+                    ->getTimestamp();
+            }
 
             $this->safely(fn () => $this->stripe->setCancelAt($stripeSubId, $cancelAt), 'cancel_at dopo prima rata', $sub);
         }

@@ -46,6 +46,10 @@ return [
         'key'             => env('STRIPE_KEY'),
         'secret'          => env('STRIPE_SECRET'),
         'webhook_secret'  => env('STRIPE_WEBHOOK_SECRET'),
+        // Solo per prova con chiavi test: id di un Test clock (clock_...). Vuoto in produzione.
+        'test_clock'      => env('STRIPE_TEST_CLOCK_ID'),
+        // Solo prova reale: rata ogni N giorni (1-7), vale solo per i super admin. Vuoto = normale.
+        'fast_cycle_days' => env('STRIPE_FAST_CYCLE_DAYS'),
     ],
 
     'health' => [

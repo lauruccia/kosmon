@@ -881,6 +881,68 @@ class KyCardSubscriptionTest extends TestCase
             ->assertDontSee('Anche <strong>ogni mese</strong>', false);
     }
 
+    public function test_with_test_keys_and_a_clock_id_the_customer_is_created_inside_the_test_clock(): void
+    {
+        config(['services.stripe.secret' => 'sk_test_x', 'services.stripe.key' => 'pk_test_x', 'services.stripe.test_clock' => 'clock_123']);
+        [$buyer, $account] = $this->makeBuyer();
+
+        $this->startInstallments($this->bigCard(), $buyer, $account, 3);
+
+        $this->assertSame([[$buyer->email, 'clock_123']], $this->stripe->clockCustomers);
+        $params = $this->stripe->sessions[0];
+        $this->assertSame('cus_clock_1', $params['customer']);
+        $this->assertArrayNotHasKey('customer_email', $params);
+    }
+
+    public function test_the_test_clock_is_never_used_with_live_keys(): void
+    {
+        config(['services.stripe.secret' => 'sk_live_x', 'services.stripe.key' => 'pk_live_x', 'services.stripe.test_clock' => 'clock_123']);
+        [$buyer, $account] = $this->makeBuyer();
+
+        $this->startInstallments($this->bigCard(), $buyer, $account, 3);
+
+        $this->assertSame([], $this->stripe->clockCustomers);
+        $this->assertSame($buyer->email, $this->stripe->sessions[0]['customer_email']);
+    }
+
+    public function test_fast_cycle_applies_only_to_super_admins_and_only_when_configured(): void
+    {
+        config(['services.stripe.fast_cycle_days' => 1]);
+        [$buyer, $account] = $this->makeBuyer();
+        $admin = $this->makeAdmin();
+        $card = $this->bigCard();
+
+        // cliente vero: sempre al mese
+        $this->startInstallments($card, $buyer, $account, 3);
+        $this->assertSame(['interval' => 'month'], $this->stripe->sessions[0]['line_items'][0]['price_data']['recurring']);
+
+        // super admin con la variabile: ogni giorno
+        $this->startInstallments($card, $admin, $account, 3);
+        $this->assertSame(['interval' => 'day', 'interval_count' => 1], $this->stripe->sessions[1]['line_items'][0]['price_data']['recurring']);
+
+        // super admin senza la variabile: normale
+        config(['services.stripe.fast_cycle_days' => null]);
+        $this->startInstallments($card, $admin, $account, 3);
+        $this->assertSame(['interval' => 'month'], $this->stripe->sessions[2]['line_items'][0]['price_data']['recurring']);
+    }
+
+    public function test_the_installment_cap_follows_a_fast_cycle(): void
+    {
+        $this->makeSystemAccount();
+        [$user, $account] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startInstallments($this->bigCard(), $user, $account, 3));
+
+        $start = 1_800_000_000;
+        $invoice = $this->invoice($sub, 'in_fast', null, [
+            'lines' => (object) ['data' => [(object) ['period' => (object) ['start' => $start, 'end' => $start + 86400]]]],
+        ]);
+        $this->service()->handleInvoicePaid($invoice);
+
+        // 3 rate da un giorno: ferma a inizio + 2 giorni + mezza giornata.
+        [, $ts] = $this->stripe->cancelAt[0];
+        $this->assertSame($start + 2 * 86400 + 43200, $ts);
+    }
+
     public function test_result_page_shows_the_plan_only_to_its_owner(): void
     {
         [$buyer, $account] = $this->makeBuyer();
@@ -911,6 +973,15 @@ class FakeStripeGateway extends StripeSubscriptionGateway
     public array $periodEndCancels = [];
     /** @var array<string,string> id abbonamento Stripe => uuid nostro */
     public array $subscriptionMetadata = [];
+
+    public array $clockCustomers = [];
+
+    public function createTestClockCustomer(string $email, string $clockId): object
+    {
+        $this->clockCustomers[] = [$email, $clockId];
+
+        return (object) ['id' => 'cus_clock_' . count($this->clockCustomers)];
+    }
 
     public function createCheckoutSession(array $params): object
     {
