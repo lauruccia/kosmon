@@ -704,6 +704,162 @@ class KyCardSubscriptionTest extends TestCase
         $this->assertTrue($purchase->fresh()->isCompleted());
         $this->assertSame(150000, (int) $account->fresh()->available_balance);
     }
+
+    // ── Fase 2: pagina d'acquisto e avvio checkout ─────────────────────────
+
+    private function stripeConfigured(): void
+    {
+        config(['services.stripe.secret' => 'sk_test_x', 'services.stripe.key' => 'pk_test_x']);
+    }
+
+    public function test_checkout_page_offers_installments_and_recurring_only_where_the_flags_say_so(): void
+    {
+        $this->stripeConfigured();
+        [$buyer] = $this->makeBuyer();
+
+        $big = $this->bigCard();
+        $monthly = $this->monthlyCard();
+        $plain = KyCard::create([
+            'name' => 'KYCard Semplice', 'price_eur_cents' => 5000, 'ky_base_amount' => 5000,
+            'bonus_type' => 'fixed', 'bonus_value' => 0, 'is_active' => true,
+        ]);
+
+        $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $big))
+            ->assertOk()
+            ->assertSee('3 rate mensili', false)
+            ->assertSee('400,00', false)
+            ->assertSee('12 rate mensili', false)
+            ->assertDontSee('Rinnovo ogni mese', false);
+
+        $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $monthly))
+            ->assertOk()
+            ->assertSee('Rinnovo ogni mese', false)
+            ->assertDontSee('rate mensili', false);
+
+        $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $plain))
+            ->assertOk()
+            ->assertDontSee('addebito automatico', false);
+    }
+
+    public function test_checkout_page_hides_installments_when_stripe_is_not_configured(): void
+    {
+        config(['services.stripe.secret' => null, 'services.stripe.key' => null]);
+        [$buyer] = $this->makeBuyer();
+
+        $this->actingAs($buyer)->get(route('portal.ky-cards.checkout', $this->bigCard()))
+            ->assertOk()
+            ->assertDontSee('rate mensili', false);
+    }
+
+    public function test_buying_in_installments_creates_the_plan_and_sends_the_customer_to_stripe(): void
+    {
+        $this->stripeConfigured();
+        [$buyer, $account] = $this->makeBuyer();
+        $card = $this->bigCard();
+
+        $response = $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $card), [
+            'kind' => 'installments', 'installments' => 6,
+        ]);
+
+        $response->assertRedirect('https://checkout.stripe.test/pay');
+
+        $sub = KyCardSubscription::firstOrFail();
+        $this->assertSame(6, $sub->installments_total);
+        $this->assertSame(20000, $sub->amount_cents);
+        $this->assertSame($account->id, $sub->account_id);
+        $this->assertSame(KyCardSubscription::PENDING, $sub->status);
+
+        // L'uuid della riga finisce nella pagina di ritorno, non il segnaposto.
+        $params = $this->stripe->sessions[0];
+        $this->assertStringContainsString($sub->uuid, $params['success_url']);
+        $this->assertStringNotContainsString('__UUID__', $params['success_url']);
+    }
+
+    public function test_buying_recurring_creates_a_monthly_plan(): void
+    {
+        $this->stripeConfigured();
+        [$buyer] = $this->makeBuyer();
+
+        $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $this->monthlyCard()), [
+            'kind' => 'recurring',
+        ])->assertRedirect('https://checkout.stripe.test/pay');
+
+        $sub = KyCardSubscription::firstOrFail();
+        $this->assertSame(KyCardSubscription::KIND_RECURRING, $sub->kind);
+        $this->assertSame(12000, $sub->amount_cents);
+    }
+
+    public function test_installments_not_allowed_on_the_card_are_refused_without_touching_stripe(): void
+    {
+        $this->stripeConfigured();
+        [$buyer] = $this->makeBuyer();
+        $card = $this->bigCard();
+
+        $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $card), [
+            'kind' => 'installments', 'installments' => 5,
+        ])->assertStatus(422);
+
+        $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $card), [
+            'kind' => 'recurring',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, KyCardSubscription::count());
+        $this->assertCount(0, $this->stripe->sessions);
+    }
+
+    public function test_subscription_checkout_requires_login_and_a_valid_kind(): void
+    {
+        $this->stripeConfigured();
+        $card = $this->bigCard();
+
+        $this->post(route('portal.ky-cards.subscription-checkout', $card), ['kind' => 'installments', 'installments' => 3])
+            ->assertRedirect(route('login'));
+
+        [$buyer] = $this->makeBuyer();
+        $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $card), ['kind' => 'boh'])
+            ->assertSessionHasErrors('kind');
+    }
+
+    public function test_a_stripe_failure_sends_the_customer_back_to_the_checkout_with_an_error(): void
+    {
+        $this->stripeConfigured();
+        [$buyer] = $this->makeBuyer();
+        $card = $this->bigCard();
+
+        $this->app->instance(StripeSubscriptionGateway::class, new class extends FakeStripeGateway {
+            public function createCheckoutSession(array $params): object
+            {
+                throw new \RuntimeException('Stripe giu');
+            }
+        });
+
+        $this->actingAs($buyer)->post(route('portal.ky-cards.subscription-checkout', $card), [
+            'kind' => 'installments', 'installments' => 3,
+        ])->assertRedirect(route('portal.ky-cards.checkout', $card))
+          ->assertSessionHas('error');
+
+        $this->assertSame(KyCardSubscription::CANCELLED, KyCardSubscription::firstOrFail()->status);
+    }
+
+    public function test_result_page_shows_the_plan_only_to_its_owner(): void
+    {
+        [$buyer, $account] = $this->makeBuyer();
+        $sub = $this->startInstallments($this->bigCard(), $buyer, $account, 3);
+
+        $this->actingAs($buyer)->get(route('portal.ky-subscriptions.esito', $sub->uuid))
+            ->assertOk()
+            ->assertSee('Pagamento in verifica', false);
+
+        $sub->forceFill(['status' => KyCardSubscription::ACTIVE, 'installments_paid' => 1])->save();
+        $this->actingAs($buyer)->get(route('portal.ky-subscriptions.esito', $sub->uuid))
+            ->assertOk()
+            ->assertSee('Pagamento a rate attivato', false)
+            ->assertSee('1 di 3 pagate', false);
+
+        [$other] = $this->makeBuyer();
+        $this->actingAs($other)->get(route('portal.ky-subscriptions.esito', $sub->uuid))
+            ->assertNotFound();
+    }
 }
 
 /** Gateway Stripe finto: registra le chiamate, non fa rete. */

@@ -29,10 +29,15 @@
             @php
                 $hasStripe = $card->stripe_price_id && config('services.stripe.key');
                 $hasPaypal = (bool) config('services.paypal.client_id');
-                $firstTab  = $hasStripe ? 'stripe' : ($hasPaypal ? 'paypal' : 'bank');
+                $installmentOptions = $installmentOptions ?? [];
+                $recurringEnabled   = $recurringEnabled ?? false;
+                // 22/10/2026: la scheda carta serve anche solo per rate / rinnovo
+                // (non hanno bisogno dello Stripe Price ID della card).
+                $hasCard   = $hasStripe || count($installmentOptions) > 0 || $recurringEnabled;
+                $firstTab  = $hasCard ? 'stripe' : ($hasPaypal ? 'paypal' : 'bank');
             @endphp
 
-            @if($hasStripe)
+            @if($hasCard)
             <button type="button" id="tab-stripe" onclick="switchTab('stripe')"
                     style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;outline:none;
                            border:2px solid #2563eb;background:#eff6ff;
@@ -59,8 +64,9 @@
         </div>
 
         {{-- ── Pannello Stripe ─────────────────────────────────────────── --}}
-        @if($hasStripe)
+        @if($hasCard)
         <div id="panel-stripe" class="pay-panel card" style="padding:22px;">
+            @if($hasStripe)
             <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:5px;">Paga con carta</div>
             <div style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">
                 Verrai reindirizzato su Stripe. I dati della tua carta non vengono mai condivisi con noi.
@@ -79,6 +85,54 @@
                     Paga {{ number_format($card->price_eur, 2, ',', '.') }} € con carta →
                 </button>
             </form>
+            @endif
+
+            {{-- ── Rate / rinnovo mensile: addebito automatico sulla carta ── --}}
+            @if(count($installmentOptions) > 0 || $recurringEnabled)
+            <div @if($hasStripe) style="margin-top:22px;padding-top:20px;border-top:1px solid var(--border);" @endif>
+                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:5px;">
+                    {{ $hasStripe ? 'Oppure paga con addebito automatico' : 'Paga con addebito automatico sulla carta' }}
+                </div>
+
+                @if(count($installmentOptions) > 0)
+                <div style="font-size:13px;color:var(--ink-soft);margin-bottom:12px;">
+                    <strong style="color:var(--ink);">A rate, senza maggiorazioni.</strong>
+                    Ricevi subito tutti i {{ ky_format($card->ky_total) }} KY; il prezzo della card
+                    ({{ number_format($card->price_eur, 2, ',', '.') }} €) lo paghi in rate mensili uguali,
+                    addebitate in automatico sulla carta.
+                </div>
+                <div style="display:grid;gap:8px;margin-bottom:{{ $recurringEnabled ? '18px' : '0' }};">
+                    @foreach($installmentOptions as $n)
+                    <form method="POST" action="{{ route('portal.ky-cards.subscription-checkout', $card) }}">
+                        @csrf
+                        <input type="hidden" name="kind" value="installments">
+                        <input type="hidden" name="installments" value="{{ $n }}">
+                        <button type="submit" class="cta secondary" style="width:100%;justify-content:space-between;font-size:14px;padding:12px 18px;border-radius:10px;">
+                            <span>{{ $n }} rate mensili</span>
+                            <span>{{ number_format($card->price_eur / $n, 2, ',', '.') }} € al mese →</span>
+                        </button>
+                    </form>
+                    @endforeach
+                </div>
+                @endif
+
+                @if($recurringEnabled)
+                <div style="font-size:13px;color:var(--ink-soft);margin-bottom:12px;">
+                    <strong style="color:var(--ink);">Rinnovo mensile.</strong>
+                    Ogni mese vengono addebitati {{ number_format($card->price_eur, 2, ',', '.') }} € sulla carta
+                    e ricevi {{ ky_format($card->ky_total) }} KY. Puoi disdire quando vuoi.
+                </div>
+                <form method="POST" action="{{ route('portal.ky-cards.subscription-checkout', $card) }}">
+                    @csrf
+                    <input type="hidden" name="kind" value="recurring">
+                    <button type="submit" class="cta secondary" style="width:100%;justify-content:space-between;font-size:14px;padding:12px 18px;border-radius:10px;">
+                        <span>Rinnovo ogni mese</span>
+                        <span>{{ number_format($card->price_eur, 2, ',', '.') }} € al mese →</span>
+                    </button>
+                </form>
+                @endif
+            </div>
+            @endif
         </div>
         @endif
 

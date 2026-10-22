@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\KyCard;
 use App\Models\KyCardPurchase;
+use App\Models\KyCardSubscription;
 use App\Models\User;
+use App\Services\KyCardSubscriptionService;
 use App\Services\TransferBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -97,7 +99,15 @@ class KyCardController extends PortalController
             $request->user(), $this->requestedCompanyId($request)
         );
 
+        // 22/10/2026: rate e rinnovo mensile, solo carta e solo se Stripe e'
+        // configurato. Le opzioni dipendono dai flag della card (admin).
+        $stripeReady        = (bool) config('services.stripe.secret') && (bool) config('services.stripe.key');
+        $installmentOptions = $stripeReady ? $kyCard->availableInstallmentOptions() : [];
+        $recurringEnabled   = $stripeReady && (bool) $kyCard->recurring_enabled;
+
         return view('portal.ky-card-checkout', compact('currentAccount', 'currentUser') + [
+            'installmentOptions' => $installmentOptions,
+            'recurringEnabled'   => $recurringEnabled,
             'card'       => $kyCard,
             'pageTitle'  => 'Acquista ' . $kyCard->name,
             'activeNav'  => 'ky-cards',
@@ -162,6 +172,64 @@ class KyCardController extends PortalController
             return redirect()->route('portal.ky-cards.index', $redirectTo ? ['redirect_to' => $redirectTo] : [])
                 ->with('error', 'Errore avvio pagamento Stripe. Riprova o scegli un altro metodo.');
         }
+    }
+
+    // -- STRIPE: rate o rinnovo mensile (POST /ricarica/{kyCard}/abbonamento) --
+
+    public function subscriptionCheckout(Request $request, KyCard $kyCard, KyCardSubscriptionService $subscriptions): RedirectResponse
+    {
+        abort_unless($kyCard->is_active, 404);
+        abort_unless(config('services.stripe.secret'), 503, 'Stripe non configurato.');
+
+        $data = $request->validate([
+            'kind'         => ['required', 'in:' . KyCardSubscription::KIND_INSTALLMENTS . ',' . KyCardSubscription::KIND_RECURRING],
+            'installments' => ['nullable', 'integer'],
+        ]);
+
+        [$currentAccount, $currentUser] = $this->resolveCurrentContext(
+            $request->user(), $this->requestedCompanyId($request)
+        );
+
+        $installments = $data['kind'] === KyCardSubscription::KIND_INSTALLMENTS
+            ? (int) ($data['installments'] ?? 0)
+            : null;
+
+        try {
+            [$sub, $url] = $subscriptions->startCheckout(
+                $kyCard,
+                $currentAccount,
+                $currentUser,
+                $data['kind'],
+                $installments,
+                route('portal.ky-subscriptions.esito', ['subscription' => '__UUID__']),
+                route('portal.ky-cards.checkout', $kyCard),
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e; // 404/422 volute: opzione non disponibile per questa card
+        } catch (\Throwable $e) {
+            return redirect()->route('portal.ky-cards.checkout', $kyCard)
+                ->with('error', 'Errore avvio pagamento. Riprova o scegli un altro metodo.');
+        }
+
+        return redirect($url);
+    }
+
+    // -- Esito rate / rinnovo (GET /ricarica/abbonamento/{subscription}/esito) --
+
+    public function subscriptionResult(Request $request, string $subscription): View
+    {
+        $sub = KyCardSubscription::where('uuid', $subscription)
+            ->where('user_id', $request->user()->id)
+            ->with('kyCard')
+            ->firstOrFail();
+
+        return view('portal.ky-subscription-success', [
+            'sub'            => $sub,
+            'pageTitle'      => 'Pagamento ricevuto',
+            'activeNav'      => 'ky-cards',
+            'currentAccount' => $sub->account,
+            'currentUser'    => $request->user(),
+        ]);
     }
 
     // ── PAYPAL: crea ordine (AJAX) ─────────────────────────────────────────

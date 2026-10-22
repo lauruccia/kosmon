@@ -118,8 +118,9 @@ class KyCardSubscriptionService
                 'metadata'             => ['ky_sub_uuid' => $sub->uuid],
                 'subscription_data'    => ['metadata' => ['ky_sub_uuid' => $sub->uuid]],
                 'customer_email'       => $user->email,
-                'success_url'          => $successUrl,
-                'cancel_url'           => $cancelUrl,
+                // __UUID__ = segnaposto: l'uuid esiste solo dopo il create().
+                'success_url'          => str_replace('__UUID__', $sub->uuid, $successUrl),
+                'cancel_url'           => str_replace('__UUID__', $sub->uuid, $cancelUrl),
             ]);
 
             $sub->update(['stripe_checkout_session_id' => $session->id]);
