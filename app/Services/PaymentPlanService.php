@@ -261,10 +261,10 @@ class PaymentPlanService
             $creditExposureLimit           = max(0, (int) ($creditLimit?->credit_limit ?? 0));
             $effectiveNegativeBalanceLimit = max(0, (int) ($plan->initiator?->effectiveTransferLimits()['negative_balance_limit'] ?? 0));
 
-            $exceedsAccountFido = $creditExposureLimit > 0 && $debitBalanceAfter < -$creditExposureLimit;
-            $exceedsUserFido    = $creditExposureLimit === 0 && $debitBalanceAfter < -$effectiveNegativeBalanceLimit;
+            // Tetto = il piu' alto fra fido di conto e limite intestatario (come massimale()).
+            $exceedsFido = $debitBalanceAfter < -max($creditExposureLimit, $effectiveNegativeBalanceLimit);
 
-            if ($exceedsAccountFido || $exceedsUserFido) {
+            if ($exceedsFido) {
                 $inst->forceFill([
                     'status'         => 'failed',
                     'processed_at'   => CarbonImmutable::now(),

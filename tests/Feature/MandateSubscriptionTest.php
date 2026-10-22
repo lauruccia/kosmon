@@ -56,7 +56,7 @@ class MandateSubscriptionTest extends TestCase
     {
         [$user] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['items' => ['1 × Box mensile'], 'amount' => 1000]))
+        $this->putSub($user, 'sub-1', $this->body(['items' => ['1 × Box mensile'], 'amount' => 1000]))
             ->assertCreated()
             ->assertJsonPath('external_id', 'sub-1')
             ->assertJsonPath('status', 'active')
@@ -74,8 +74,8 @@ class MandateSubscriptionTest extends TestCase
     {
         [$user] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertCreated();
-        $this->put($user, 'sub-1', $this->body(['status' => 'paused', 'next_charge_at' => null, 'last_error' => 'saldo insufficiente']))
+        $this->putSub($user, 'sub-1', $this->body(['next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertCreated();
+        $this->putSub($user, 'sub-1', $this->body(['status' => 'paused', 'next_charge_at' => null, 'last_error' => 'saldo insufficiente']))
             ->assertOk()
             ->assertJsonPath('status', 'paused');
 
@@ -89,14 +89,14 @@ class MandateSubscriptionTest extends TestCase
     public function test_il_portale_non_puo_sbloccare_un_abbonamento_bloccato(): void
     {
         [$user] = $this->buyer();
-        $this->put($user, 'sub-1', $this->body())->assertCreated();
+        $this->putSub($user, 'sub-1', $this->body())->assertCreated();
 
         $sub = MandateSubscription::query()->sole();
         $sub->forceFill(['blocked_at' => now()])->save();
 
         // Il portale rimanda l'abbonamento come attivo, magari ricalcolato
         // dopo un cambio di indirizzo: il blocco resta, e glielo si dice.
-        $this->put($user, 'sub-1', $this->body(['status' => 'active', 'next_charge_at' => '2026-12-13T10:00:00+01:00']))
+        $this->putSub($user, 'sub-1', $this->body(['status' => 'active', 'next_charge_at' => '2026-12-13T10:00:00+01:00']))
             ->assertOk()
             ->assertJsonPath('blocked', true);
 
@@ -107,8 +107,8 @@ class MandateSubscriptionTest extends TestCase
     {
         [$user] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertCreated();
-        $this->put($user, 'sub-1', $this->body(['status' => 'cancelled', 'next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertOk();
+        $this->putSub($user, 'sub-1', $this->body(['next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertCreated();
+        $this->putSub($user, 'sub-1', $this->body(['status' => 'cancelled', 'next_charge_at' => '2026-11-13T10:00:00+01:00']))->assertOk();
 
         $sub = MandateSubscription::query()->sole();
         $this->assertNull($sub->next_charge_at, 'Un abbonamento annullato non ha un prossimo addebito.');
@@ -120,9 +120,9 @@ class MandateSubscriptionTest extends TestCase
         [$user]  = $this->buyer();
         [$altro] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['title' => 'Il mio']))->assertCreated();
+        $this->putSub($user, 'sub-1', $this->body(['title' => 'Il mio']))->assertCreated();
 
-        $this->put($altro, 'sub-1', $this->body(['title' => 'Rubato']))
+        $this->putSub($altro, 'sub-1', $this->body(['title' => 'Rubato']))
             ->assertStatus(409)
             ->assertJsonPath('reason', 'subscription_owner_mismatch');
 
@@ -146,9 +146,9 @@ class MandateSubscriptionTest extends TestCase
     {
         [$user] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['status' => 'sospeso-per-ferie']))->assertStatus(422);
-        $this->put($user, 'sub-1', $this->body(['amount' => -5]))->assertStatus(422);
-        $this->put($user, 'sub-1', ['status' => 'active'])->assertStatus(422);
+        $this->putSub($user, 'sub-1', $this->body(['status' => 'sospeso-per-ferie']))->assertStatus(422);
+        $this->putSub($user, 'sub-1', $this->body(['amount' => -5]))->assertStatus(422);
+        $this->putSub($user, 'sub-1', ['status' => 'active'])->assertStatus(422);
 
         $this->assertSame(0, MandateSubscription::query()->count());
     }
@@ -158,8 +158,8 @@ class MandateSubscriptionTest extends TestCase
         [$user]  = $this->buyer();
         [$altro] = $this->buyer();
 
-        $this->put($user, 'sub-1', $this->body(['title' => 'Mio']))->assertCreated();
-        $this->put($altro, 'sub-2', $this->body(['title' => 'Di un altro']))->assertCreated();
+        $this->putSub($user, 'sub-1', $this->body(['title' => 'Mio']))->assertCreated();
+        $this->putSub($altro, 'sub-2', $this->body(['title' => 'Di un altro']))->assertCreated();
         MandateSubscription::create([
             'user_id' => $user->id, 'client_id' => 'altra-app', 'external_id' => 'x-1',
             'title' => 'Di un\'altra app', 'status' => 'active',
@@ -472,7 +472,7 @@ class MandateSubscriptionTest extends TestCase
         ], $overrides);
     }
 
-    private function put(User $user, string $externalId, array $body)
+    private function putSub(User $user, string $externalId, array $body)
     {
         return $this->withHeaders(['Authorization' => 'Bearer ' . $this->tokenFor($user)])
             ->putJson(route('api.v1.subscriptions.upsert', $externalId), $body);

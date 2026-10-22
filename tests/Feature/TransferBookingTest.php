@@ -74,6 +74,40 @@ class TransferBookingTest extends TestCase
         ]);
     }
 
+    public function test_ceiling_is_the_higher_of_account_credit_limit_and_owner_limit(): void
+    {
+        // Caso reale 22/10/2026: fido di conto vecchio da 50 KY, limite
+        // dell'intestatario 1.500 KY. Il massimale mostrato e' 1.500 e il
+        // motore deve rispettare lo stesso numero, non il 50.
+        [$buyerCompany, $sellerCompany, $buyerAccount, $sellerAccount, $initiator] = $this->makeAccountsAndInitiator();
+
+        CreditLimit::create(['account_id' => $buyerAccount->id, 'credit_limit' => 5000]);
+        $initiator->forceFill(['negative_balance_limit' => 150000])->save();
+
+        $transfer = $this->svc->book([
+            'initiated_by'    => $initiator->id,
+            'from_account_id' => $buyerAccount->id,
+            'to_account_id'   => $sellerAccount->id,
+            'amount'          => 100000, // 1.000 KY: sopra il fido da 50, sotto il limite da 1.500
+            'idempotency_key' => (string) Str::uuid(),
+            'ip_address'      => '127.0.0.1',
+        ]);
+
+        $this->assertSame('booked', $transfer->status);
+
+        // ...ma il tetto piu' alto resta un tetto: oltre 1.500 si ferma.
+        $this->expectException(\App\Exceptions\Financial\NegativeBalanceLimitExceededException::class);
+
+        $this->svc->book([
+            'initiated_by'    => $initiator->id,
+            'from_account_id' => $buyerAccount->id,
+            'to_account_id'   => $sellerAccount->id,
+            'amount'          => 60000, // saldo -1.000 - 600 = -1.600 < -1.500
+            'idempotency_key' => (string) Str::uuid(),
+            'ip_address'      => '127.0.0.1',
+        ]);
+    }
+
     public function test_it_is_idempotent_for_the_same_booking_request(): void
     {
         [$buyerCompany, $sellerCompany, $buyerAccount, $sellerAccount, $initiator] = $this->makeAccountsAndInitiator();

@@ -187,10 +187,10 @@ class NettingService
                 $creditExposureLimit           = max(0, (int) ($creditLimit?->credit_limit ?? 0));
                 $effectiveNegativeBalanceLimit = max(0, (int) ($netPayerAccount->ownerUser?->effectiveTransferLimits()['negative_balance_limit'] ?? 0));
 
-                $exceedsAccountFido = $creditExposureLimit > 0 && $debitBalanceAfter < -$creditExposureLimit;
-                $exceedsUserFido    = $creditExposureLimit === 0 && $debitBalanceAfter < -$effectiveNegativeBalanceLimit;
+                // Tetto = il piu' alto fra fido di conto e limite intestatario (come massimale()).
+                $exceedsFido = $debitBalanceAfter < -max($creditExposureLimit, $effectiveNegativeBalanceLimit);
 
-                if ($exceedsAccountFido || $exceedsUserFido) {
+                if ($exceedsFido) {
                     throw new RuntimeException(
                         'Saldo insufficiente per il pagamento netto di ' .
                         ky_format($proposal->net_amount) . ' KY.'

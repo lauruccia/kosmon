@@ -1030,12 +1030,19 @@ class TransferBookingService
             + max(0, (int) ($account->ownerUser?->agent_code_fee_ky_allowance_cents ?? 0))
             + max(0, (int) ($account->ownerUser?->company_account_fee_ky_allowance_cents ?? 0));
 
-        if ($creditExposureLimit > 0 && $projectedBalance < -($creditExposureLimit + $quotaIscrizione)) {
-            throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);
-        }
-
+        // 22/10/2026: il tetto sotto zero e' il PIU' ALTO fra il fido del conto
+        // e il limite dell'intestatario — la stessa regola di Account::massimale()
+        // e della scheda conto in backoffice ("vale il piu' alto"). Prima il fido
+        // del conto, se > 0, vinceva sempre: un fido vecchio da 50 KY bloccava un
+        // conto che in lista mostrava 1.500 KY di massimale.
         $effectiveNegativeBalanceLimit = max(0, (int) ($limits['negative_balance_limit'] ?? 0));
-        if ($creditExposureLimit === 0 && $projectedBalance < -($effectiveNegativeBalanceLimit + $quotaIscrizione)) {
+        $tettoSottoZero = max($creditExposureLimit, $effectiveNegativeBalanceLimit);
+
+        if ($projectedBalance < -($tettoSottoZero + $quotaIscrizione)) {
+            if ($creditExposureLimit > 0 && $creditExposureLimit >= $effectiveNegativeBalanceLimit) {
+                throw new CreditExposureExceededException($creditExposureLimit, $account->available_balance, $amount);
+            }
+
             throw new NegativeBalanceLimitExceededException($effectiveNegativeBalanceLimit, $account->available_balance, $amount);
         }
 
