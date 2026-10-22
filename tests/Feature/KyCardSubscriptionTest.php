@@ -841,6 +841,43 @@ class KyCardSubscriptionTest extends TestCase
         $this->assertSame(KyCardSubscription::CANCELLED, KyCardSubscription::firstOrFail()->status);
     }
 
+    public function test_ricarica_list_advertises_installments_and_monthly_renewal_only_where_enabled(): void
+    {
+        $this->stripeConfigured();
+        [$buyer] = $this->makeBuyer();
+        $this->bigCard();
+        $this->monthlyCard();
+        KyCard::create([
+            'name' => 'KYCard Semplice', 'price_eur_cents' => 5000, 'ky_base_amount' => 5000,
+            'bonus_type' => 'fixed', 'bonus_value' => 0, 'is_active' => true,
+        ]);
+
+        $html = $this->actingAs($buyer)->get(route('portal.ky-cards.index'))
+            ->assertOk()
+            ->assertSee('Anche a rate', false)
+            ->assertSee('fino a 12 rate da', false)
+            ->assertSee('100,00', false)
+            ->assertSee('Anche con rinnovo mensile', false)
+            ->getContent();
+
+        // una sola card a rate e una sola a rinnovo: la card semplice non ne porta
+        $this->assertSame(1, substr_count($html, 'Anche a rate'));
+        $this->assertSame(1, substr_count($html, 'Anche con rinnovo mensile'));
+    }
+
+    public function test_ricarica_list_does_not_advertise_plans_without_stripe(): void
+    {
+        config(['services.stripe.secret' => null, 'services.stripe.key' => null]);
+        [$buyer] = $this->makeBuyer();
+        $this->bigCard();
+        $this->monthlyCard();
+
+        $this->actingAs($buyer)->get(route('portal.ky-cards.index'))
+            ->assertOk()
+            ->assertDontSee('Anche a rate', false)
+            ->assertDontSee('Anche con rinnovo mensile', false);
+    }
+
     public function test_result_page_shows_the_plan_only_to_its_owner(): void
     {
         [$buyer, $account] = $this->makeBuyer();

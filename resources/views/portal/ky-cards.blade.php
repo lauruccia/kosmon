@@ -137,6 +137,15 @@
 .kyc-row--get .kyc-row__value { font-size: 24px; color: var(--primary); }
 .kyc-row--get .kyc-row__unit  { color: var(--primary); }
 
+.kyc-card__plan {
+    padding: 6px 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #eff6ff;
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: #1e3a8a;
+}
 .kyc-card__bonus {
     padding: 6px 10px;
     border: 1px solid #bbf7d0;
@@ -227,7 +236,13 @@
     </div>
 @else
     <div class="kyc-grid">
+        @php $stripeReady = (bool) config('services.stripe.secret') && (bool) config('services.stripe.key'); @endphp
         @foreach($cards as $card)
+        @php
+            // 22/10/2026: rate e rinnovo mensile, solo carta (vedi flag della card in admin).
+            $planOptions   = $stripeReady ? $card->availableInstallmentOptions() : [];
+            $planRecurring = $stripeReady && (bool) $card->recurring_enabled;
+        @endphp
         <a class="kyc-card {{ $card->ky_bonus > 0 ? 'is-bonus' : '' }}"
            href="{{ route('portal.ky-cards.checkout', $card) }}{{ ($redirectTo ?? null) ? '?redirect_to=' . urlencode($redirectTo) : '' }}"
            aria-label="Acquista {{ $card->name }}: paghi {{ number_format($card->price_eur, 2, ',', '.') }} euro e ricevi {{ ky_format($card->ky_total) }} KY">
@@ -249,6 +264,12 @@
                         <span>🅿 PayPal</span>
                     @endif
                     <span>🏦 Bonifico</span>
+                    @if(count($planOptions) > 0)
+                        <span>🗓 A rate</span>
+                    @endif
+                    @if($planRecurring)
+                        <span>🔁 Ogni mese</span>
+                    @endif
                 </span>
             </div>
 
@@ -267,6 +288,22 @@
                 @if($card->ky_bonus > 0)
                 <div class="kyc-card__bonus">
                     🎁 <strong>{{ ky_format($card->ky_base_amount) }} KY</strong> + <strong>{{ ky_format($card->ky_bonus) }} KY</strong> di cashback
+                </div>
+                @endif
+
+                @if(count($planOptions) > 0)
+                @php $maxN = max($planOptions); @endphp
+                <div class="kyc-card__plan">
+                    🗓 <strong>Anche a rate:</strong> fino a {{ $maxN }} rate da
+                    <strong>{{ number_format($card->price_eur / $maxN, 2, ',', '.') }} €</strong> al mese.
+                    I {{ ky_format($card->ky_total) }} KY arrivano subito.
+                </div>
+                @endif
+
+                @if($planRecurring)
+                <div class="kyc-card__plan">
+                    🔁 <strong>Anche con rinnovo mensile:</strong> {{ number_format($card->price_eur, 2, ',', '.') }} € al mese,
+                    {{ ky_format($card->ky_total) }} KY ogni mese. Disdici quando vuoi.
                 </div>
                 @endif
 
