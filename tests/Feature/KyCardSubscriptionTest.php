@@ -905,25 +905,30 @@ class KyCardSubscriptionTest extends TestCase
         $this->assertSame($buyer->email, $this->stripe->sessions[0]['customer_email']);
     }
 
-    public function test_fast_cycle_applies_only_to_super_admins_and_only_when_configured(): void
+    public function test_fast_cycle_applies_only_to_listed_emails_and_only_when_configured(): void
     {
-        config(['services.stripe.fast_cycle_days' => 1]);
         [$buyer, $account] = $this->makeBuyer();
-        $admin = $this->makeAdmin();
+        [$tester, $testerAccount] = $this->makeBuyer();
         $card = $this->bigCard();
+        config(['services.stripe.fast_cycle_days' => 1, 'services.stripe.fast_cycle_emails' => '  ' . strtoupper($tester->email) . ' , altro@x.it']);
 
-        // cliente vero: sempre al mese
+        // cliente non in elenco: sempre al mese
         $this->startInstallments($card, $buyer, $account, 3);
         $this->assertSame(['interval' => 'month'], $this->stripe->sessions[0]['line_items'][0]['price_data']['recurring']);
 
-        // super admin con la variabile: ogni giorno
-        $this->startInstallments($card, $admin, $account, 3);
+        // utente di prova in elenco: ogni giorno
+        $this->startInstallments($card, $tester, $testerAccount, 3);
         $this->assertSame(['interval' => 'day', 'interval_count' => 1], $this->stripe->sessions[1]['line_items'][0]['price_data']['recurring']);
 
-        // super admin senza la variabile: normale
+        // senza giorni: normale anche per lui
         config(['services.stripe.fast_cycle_days' => null]);
-        $this->startInstallments($card, $admin, $account, 3);
+        $this->startInstallments($card, $tester, $testerAccount, 3);
         $this->assertSame(['interval' => 'month'], $this->stripe->sessions[2]['line_items'][0]['price_data']['recurring']);
+
+        // elenco vuoto: normale per tutti
+        config(['services.stripe.fast_cycle_days' => 1, 'services.stripe.fast_cycle_emails' => '']);
+        $this->startInstallments($card, $tester, $testerAccount, 3);
+        $this->assertSame(['interval' => 'month'], $this->stripe->sessions[3]['line_items'][0]['price_data']['recurring']);
     }
 
     public function test_the_installment_cap_follows_a_fast_cycle(): void

@@ -148,14 +148,23 @@ class KyCardSubscriptionService
 
     /**
      * SOLO PER PROVA IN PRODUZIONE: se STRIPE_FAST_CYCLE_DAYS e' impostato
-     * (1-7) e a comprare e' un super admin, la "rata mensile" scatta ogni N
-     * giorni. I clienti veri pagano sempre al mese, qualunque cosa dica il .env.
+     * (1-7) E l'email di chi compra e' nell'elenco STRIPE_FAST_CYCLE_EMAILS
+     * (separate da virgola), la "rata mensile" scatta ogni N giorni. Tutti gli
+     * altri pagano sempre al mese, qualunque cosa dica il .env.
      */
     private function fastCycleDays(User $user): int
     {
         $days = (int) config('services.stripe.fast_cycle_days');
+        if ($days < 1 || $days > 7) {
+            return 0;
+        }
 
-        return ($user->is_super_admin && $days >= 1 && $days <= 7) ? $days : 0;
+        $emails = array_filter(array_map(
+            fn ($e) => mb_strtolower(trim($e)),
+            explode(',', (string) config('services.stripe.fast_cycle_emails'))
+        ));
+
+        return in_array(mb_strtolower((string) $user->email), $emails, true) ? $days : 0;
     }
 
     // ── Webhook: checkout.session.completed ────────────────────────────────
