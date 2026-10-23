@@ -85,11 +85,33 @@ class MandateConsentController extends Controller
             'clientName'    => $client['name'] ?? $client['client_id'],
             'account'       => $account,
             'sellerAccount' => $sellerAccount,
-            'defaultCap'    => (int) config('oauth.mandate.default_max_per_transaction', 5000),
+            'defaultCap'    => $this->proposedCap($request),
             'minCap'        => (int) config('oauth.mandate.min_max_per_transaction', 100),
-            'maxCap'        => (int) config('oauth.mandate.max_max_per_transaction', 100000),
+            'maxCap'        => (int) config('oauth.mandate.max_max_per_transaction', 150000),
             'months'        => (int) config('oauth.mandate.expires_months', 12),
         ]);
+    }
+
+    /**
+     * Il tetto che la schermata propone. L'applicazione può suggerirlo con
+     * `?limit=` (in KY, es. 1500): serve a far pagare in un clic anche un
+     * acquisto grosso, senza che l'utente debba indovinare la cifra. È solo
+     * una proposta: sta sempre dentro gli estremi consentiti e l'utente può
+     * cambiarla prima di confermare, perché l'autorizzazione resta sua.
+     */
+    private function proposedCap(Request $request): int
+    {
+        $default = (int) config('oauth.mandate.default_max_per_transaction', 5000);
+        $min     = (int) config('oauth.mandate.min_max_per_transaction', 100);
+        $max     = (int) config('oauth.mandate.max_max_per_transaction', 150000);
+
+        $limit = trim((string) $request->query('limit', ''));
+
+        if ($limit === '' || ! preg_match('/^\d{1,7}([.,]\d{1,2})?$/', $limit)) {
+            return $default;
+        }
+
+        return max($min, min($max, ky_to_cents($limit)));
     }
 
     /**
@@ -114,7 +136,7 @@ class MandateConsentController extends Controller
         $cap = ky_to_cents((string) $validated['max_per_transaction']);
 
         $min = (int) config('oauth.mandate.min_max_per_transaction', 100);
-        $max = (int) config('oauth.mandate.max_max_per_transaction', 100000);
+        $max = (int) config('oauth.mandate.max_max_per_transaction', 150000);
 
         if ($cap < $min || $cap > $max) {
             return back()->withErrors([

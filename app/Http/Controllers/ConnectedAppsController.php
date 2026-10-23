@@ -50,7 +50,7 @@ class ConnectedAppsController extends Controller
             'charges'   => $charges,
             'appNames'  => $this->appNames(),
             'minCap'    => (int) config('oauth.mandate.min_max_per_transaction', 100),
-            'maxCap'    => (int) config('oauth.mandate.max_max_per_transaction', 100000),
+            'maxCap'    => (int) config('oauth.mandate.max_max_per_transaction', 150000),
         ]);
     }
 
@@ -109,7 +109,7 @@ class ConnectedAppsController extends Controller
         $cap = ky_to_cents((string) $validated['max_per_transaction']);
 
         $min = (int) config('oauth.mandate.min_max_per_transaction', 100);
-        $max = (int) config('oauth.mandate.max_max_per_transaction', 100000);
+        $max = (int) config('oauth.mandate.max_max_per_transaction', 150000);
 
         if ($cap < $min || $cap > $max) {
             return back()->withErrors([

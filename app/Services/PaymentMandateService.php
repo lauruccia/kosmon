@@ -71,7 +71,7 @@ class PaymentMandateService
         ?string $ip = null,
     ): PaymentMandate {
         $min = (int) config('oauth.mandate.min_max_per_transaction', 100);
-        $max = (int) config('oauth.mandate.max_max_per_transaction', 100000);
+        $max = (int) config('oauth.mandate.max_max_per_transaction', 150000);
 
         if ($maxPerTransaction < $min || $maxPerTransaction > $max) {
             throw new RuntimeException('Il tetto per acquisto non è nei limiti consentiti.');
@@ -160,7 +160,7 @@ class PaymentMandateService
     public function updateLimit(PaymentMandate $mandate, int $maxPerTransaction, ?string $ip = null): void
     {
         $min = (int) config('oauth.mandate.min_max_per_transaction', 100);
-        $max = (int) config('oauth.mandate.max_max_per_transaction', 100000);
+        $max = (int) config('oauth.mandate.max_max_per_transaction', 150000);
 
         if ($maxPerTransaction < $min || $maxPerTransaction > $max) {
             throw new RuntimeException('Il tetto per acquisto non è nei limiti consentiti.');

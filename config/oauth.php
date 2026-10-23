@@ -104,7 +104,8 @@ return [
 
         // Estremi accettati per il tetto, sempre in centesimi.
         'min_max_per_transaction' => 100,      //     1,00 KY
-        'max_max_per_transaction' => 100000,   // 1.000,00 KY
+        // 150000 = 1.500,00 KY: serve perché una box Lamèss da 1.500 KY si paghi in un clic.
+        'max_max_per_transaction' => 150000,   // 1.500,00 KY
 
         // Scadenza di sicurezza del mandato.
         'expires_months' => 12,

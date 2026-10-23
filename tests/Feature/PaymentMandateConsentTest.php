@@ -106,6 +106,31 @@ class PaymentMandateConsentTest extends TestCase
             ->assertSee($company->name);
     }
 
+    public function test_il_tetto_suggerito_dall_applicazione_e_proposto_nella_schermata(): void
+    {
+        [$user] = $this->buyer();
+
+        $this->actingAs($user)->withSession($this->stepUp())
+            ->get($this->mandateUrl(['limit' => '1500']))
+            ->assertOk()
+            ->assertSee('value="1500.00"', false);
+    }
+
+    public function test_il_tetto_suggerito_resta_entro_gli_estremi_e_valori_strani_sono_ignorati(): void
+    {
+        [$user] = $this->buyer();
+
+        $this->actingAs($user)->withSession($this->stepUp())
+            ->get($this->mandateUrl(['limit' => '999999']))
+            ->assertOk()
+            ->assertSee('value="1500.00"', false);
+
+        $this->actingAs($user)->withSession($this->stepUp())
+            ->get($this->mandateUrl(['limit' => 'abc']))
+            ->assertOk()
+            ->assertSee('value="50.00"', false);
+    }
+
     public function test_aprire_la_schermata_non_autorizza_niente(): void
     {
         [$user] = $this->buyer();
