@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -37,13 +38,22 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'fiscal_code' => ['nullable', 'string', 'max:50'],
+            'fiscal_code' => array_filter([
+                'nullable', 'string', 'max:50',
+                // companies.fiscal_code e' UNIQUE a livello DB: senza questa
+                // regola il duplicato arrivava all'INSERT e finiva in un 500.
+                $holderType === 'company' ? 'unique:companies,fiscal_code' : null,
+            ]),
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'company_name' => [Rule::requiredIf($holderType === 'company'), 'nullable', 'string', 'max:160'],
             'vat_number' => ['nullable', 'string', 'max:50', 'unique:companies,vat_number'],
             'company_email' => ['nullable', 'email', 'max:120'],
             'ref' => ['nullable', 'string', 'max:12'],
             'become_agent' => ['nullable', 'boolean'],
+        ], [
+            'email.unique' => 'Questa email è già registrata. Accedi oppure recupera la password.',
+            'fiscal_code.unique' => 'Questo codice fiscale è già registrato. Se hai già un conto, accedi oppure recupera la password.',
+            'vat_number.unique' => 'Questa partita IVA è già registrata. Se la tua azienda ha già un conto, accedi oppure recupera la password.',
         ]);
 
         // MLM disattivato su questa installazione (config('kmoney.mlm_enabled'),
@@ -61,7 +71,11 @@ class AuthController extends Controller
             $referrer = \App\Models\User::where('referral_code', strtoupper(trim($validated['ref'])))->first();
         }
 
-        [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer, $becomeAgent, $mlmEnabled) {
+        // Rete di sicurezza: se due richieste identiche arrivano insieme, o un
+        // vincolo UNIQUE non e' coperto dalla validazione, l'utente vede un errore
+        // sul form invece di un 500.
+        try {
+            [$user, $account, $company] = DB::transaction(function () use ($validated, $holderType, $referrer, $becomeAgent, $mlmEnabled) {
             $company = null;
             $legacyRoleLabel = $holderType === 'company' ? 'registered-company' : 'registered-private';
 
@@ -141,6 +155,19 @@ class AuthController extends Controller
 
             return [$user, $account, $company];
         });
+        } catch (UniqueConstraintViolationException $e) {
+            $campo = str_contains($e->getMessage(), 'fiscal_code') ? 'fiscal_code'
+                : (str_contains($e->getMessage(), 'vat_number') ? 'vat_number' : 'email');
+            $messaggi = [
+                'fiscal_code' => 'Questo codice fiscale è già registrato. Se hai già un conto, accedi oppure recupera la password.',
+                'vat_number' => 'Questa partita IVA è già registrata. Se la tua azienda ha già un conto, accedi oppure recupera la password.',
+                'email' => 'Questi dati risultano già registrati. Se hai già un conto, accedi oppure recupera la password.',
+            ];
+
+            return back()
+                ->withInput($request->except('password', 'password_confirmation'))
+                ->withErrors([$campo => $messaggi[$campo]]);
+        }
 
         // Quota di iscrizione (31/08/2026): marca il debito sul nuovo privato,
         // se l'admin ha acceso l'interruttore. Fuori dalla transazione e non

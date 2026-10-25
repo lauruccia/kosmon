@@ -101,6 +101,67 @@ class AuthFlowTest extends TestCase
         $this->assertTrue($user->hasPermission('marketplace.buy'));
     }
 
+    public function test_registrazione_azienda_con_dati_gia_presenti_da_errore_sul_form_e_non_500(): void
+    {
+        // Caso reale del 22/10/2026: stesso codice fiscale, P.IVA/email/nome cambiati
+        // a ogni tentativo. companies.fiscal_code e' UNIQUE e la validazione non lo
+        // controllava: l'INSERT esplodeva con 1062 e l'utente vedeva "500 SERVER ERROR".
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $dati = [
+            'account_holder_type' => 'company',
+            'name' => 'Mario Rossi',
+            'email' => 'mario.rossi@example.test',
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+            'company_name' => 'Prima SRL',
+            'vat_number' => '02507740518',
+            'fiscal_code' => 'PPLSFN68D29C608Z',
+            'company_email' => 'info@prima.test',
+        ];
+        $this->post('/register', $dati)->assertRedirect('/dashboard');
+        auth()->logout();
+
+        // Stesso codice fiscale, tutto il resto diverso.
+        $this->post('/register', array_merge($dati, [
+            'email' => 'altra.mail@example.test',
+            'company_name' => 'Seconda SRL',
+            'vat_number' => '02607740518',
+        ]))->assertSessionHasErrors('fiscal_code');
+
+        // Stessa P.IVA.
+        $this->post('/register', array_merge($dati, [
+            'email' => 'terza.mail@example.test',
+            'fiscal_code' => 'RSSMRA80A01H501U',
+        ]))->assertSessionHasErrors('vat_number');
+
+        // Stessa email.
+        $this->post('/register', array_merge($dati, [
+            'vat_number' => '09999999999',
+            'fiscal_code' => 'RSSMRA80A01H501U',
+        ]))->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('companies', 1);
+    }
+
+    public function test_registrazione_privato_con_codice_fiscale_ripetuto_non_da_500(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $base = [
+            'account_holder_type' => 'private',
+            'name' => 'Anna Verdi',
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+            'fiscal_code' => 'VRDNNA80A41H501X',
+        ];
+        $this->post('/register', $base + ['email' => 'anna1@example.test'])->assertRedirect('/dashboard');
+        auth()->logout();
+
+        // users.fiscal_code non e' UNIQUE: il secondo privato non deve esplodere.
+        $this->post('/register', $base + ['email' => 'anna2@example.test'])->assertStatus(302);
+    }
+
     public function test_login_with_legacy_non_bcrypt_hash_shows_reset_message_instead_of_500(): void
     {
         // Simula un account importato dal vecchio kosmomoney: la colonna password
