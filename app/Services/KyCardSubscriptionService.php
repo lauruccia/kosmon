@@ -432,7 +432,13 @@ class KyCardSubscriptionService
 
         // Disdetta chiesta dal cliente: Stripe chiude l'abbonamento alla fine
         // del periodo gia' pagato. Non e' un insoluto, quindi nessun alert.
-        if ($sub->status === KyCardSubscription::CANCELLING) {
+        // Vale anche per la disdetta fatta a mano dalla dashboard Stripe: li'
+        // il nostro stato non e' passato da `cancelling`, ma Stripe scrive il
+        // motivo `cancellation_requested` (un insoluto scrive `payment_failed`).
+        $requestedOnStripe = $sub->isRecurring()
+            && data_get($stripeSubscription, 'cancellation_details.reason') === 'cancellation_requested';
+
+        if ($sub->status === KyCardSubscription::CANCELLING || $requestedOnStripe) {
             $sub->update(['status' => KyCardSubscription::CANCELLED, 'ended_at' => $sub->ended_at ?: now(), 'last_error' => null]);
 
             return;

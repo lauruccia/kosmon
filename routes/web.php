@@ -913,6 +913,7 @@ Route::middleware(['auth', 'verified', 'twofactor', 'onboarding', 'agent.contrac
     Route::post('/ricarica/{kyCard}/stripe', [KyCardController::class, 'stripeCheckout'])->name('portal.ky-cards.stripe-checkout')->middleware('throttle:10,1');
     Route::post('/ricarica/{kyCard}/abbonamento', [KyCardController::class, 'subscriptionCheckout'])->name('portal.ky-cards.subscription-checkout')->middleware('throttle:10,1');
     Route::get('/ricarica/abbonamento/{subscription}/esito', [KyCardController::class, 'subscriptionResult'])->name('portal.ky-subscriptions.esito');
+    Route::post('/ricarica/abbonamento/{subscription}/disdetta', [KyCardController::class, 'cancelSubscription'])->name('portal.ky-subscriptions.cancel')->middleware('throttle:10,1');
     Route::post('/ricarica/{kyCard}/paypal/create-order', [KyCardController::class, 'paypalCreateOrder'])->name('portal.ky-cards.paypal-create-order')->middleware('throttle:10,1');
     Route::get('/ricarica/paypal/capture/{purchase}', [KyCardController::class, 'paypalCapture'])->name('portal.ky-cards.paypal-capture');
     Route::post('/ricarica/{kyCard}/bonifico', [KyCardController::class, 'bankTransfer'])->name('portal.ky-cards.bank-transfer');

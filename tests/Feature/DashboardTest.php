@@ -91,9 +91,12 @@ class DashboardTest extends TestCase
         $this->seed();
         $user = User::where('email', 'operatore-panificio-canale@kmoney.test')->firstOrFail();
 
-        $response = $this->actingAs($user)->get('/paga');
+        // /paga ora rimanda alla pagina unica di invio (/invia).
+        $this->actingAs($user)->get('/paga')->assertRedirect(route('portal.invia'));
 
-        $response->assertOk()->assertSee('Effettua un pagamento', false);
+        $response = $this->actingAs($user)->get('/invia');
+
+        $response->assertOk();
     }
 
     public function test_viewer_cannot_open_payment_page(): void
@@ -101,7 +104,7 @@ class DashboardTest extends TestCase
         $this->seed();
         $viewer = User::where('email', 'viewer-panificio@kmoney.test')->firstOrFail();
 
-        $response = $this->actingAs($viewer)->get('/paga');
+        $response = $this->actingAs($viewer)->get('/invia');
 
         $response->assertForbidden();
     }

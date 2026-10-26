@@ -612,6 +612,87 @@ class KyCardSubscriptionTest extends TestCase
         Notification::assertNothingSent(); // una disdetta voluta non e' un insoluto
     }
 
+    public function test_a_renewal_cancelled_by_hand_on_stripe_closes_quietly_too(): void
+    {
+        $admin = $this->makeAdmin();
+        [$user, $account] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startRecurring($this->monthlyCard(), $user, $account));
+        Notification::fake();
+
+        // Disdetta dalla dashboard Stripe: il nostro stato resta `active`,
+        // ma Stripe scrive il motivo della chiusura.
+        $this->service()->handleSubscriptionDeleted((object) [
+            'id'                   => 'sub_' . $sub->uuid,
+            'cancellation_details' => (object) ['reason' => 'cancellation_requested'],
+        ]);
+
+        $this->assertSame('cancelled', $sub->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_a_renewal_closed_for_failed_payment_still_alerts_the_admin(): void
+    {
+        $admin = $this->makeAdmin();
+        [$user, $account] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startRecurring($this->monthlyCard(), $user, $account));
+        Notification::fake();
+
+        $this->service()->handleSubscriptionDeleted((object) [
+            'id'                   => 'sub_' . $sub->uuid,
+            'cancellation_details' => (object) ['reason' => 'payment_failed'],
+        ]);
+
+        Notification::assertSentTo($admin, \App\Notifications\KyCardSubscriptionAdminAlert::class);
+    }
+
+    public function test_the_customer_cancels_his_renewal_from_the_portal(): void
+    {
+        [$user, $account] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startRecurring($this->monthlyCard(), $user, $account));
+        $sub->update(['status' => 'active']);
+
+        $this->actingAs($user)->get(route('portal.ky-cards.storico'))
+            ->assertOk()->assertSee('Disdici rinnovo');
+
+        $this->actingAs($user)->post(route('portal.ky-subscriptions.cancel', $sub->uuid))
+            ->assertRedirect(route('portal.ky-cards.storico'))
+            ->assertSessionHas('portal_success');
+
+        $this->assertSame('cancelling', $sub->fresh()->status);
+        $this->assertSame(['sub_' . $sub->uuid], $this->stripe->periodEndCancels);
+
+        // Disdetto: il pulsante sparisce e un secondo invio non rifa' niente.
+        $this->actingAs($user)->get(route('portal.ky-cards.storico'))->assertDontSee('Disdici rinnovo');
+        $this->actingAs($user)->post(route('portal.ky-subscriptions.cancel', $sub->uuid))
+            ->assertSessionHas('portal_info');
+        $this->assertCount(1, $this->stripe->periodEndCancels);
+    }
+
+    public function test_nobody_else_can_cancel_my_renewal(): void
+    {
+        [$user, $account] = $this->makeBuyer();
+        [$other] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startRecurring($this->monthlyCard(), $user, $account));
+        $sub->update(['status' => 'active']);
+
+        $this->actingAs($other)->post(route('portal.ky-subscriptions.cancel', $sub->uuid))->assertNotFound();
+
+        $this->assertSame('active', $sub->fresh()->status);
+        $this->assertSame([], $this->stripe->periodEndCancels);
+    }
+
+    public function test_the_history_labels_each_installment_and_renewal(): void
+    {
+        $this->makeSystemAccount();
+        [$user, $account] = $this->makeBuyer();
+        $rate = $this->linkStripe($this->startInstallments($this->bigCard(), $user, $account, 3));
+        $this->service()->handleInvoicePaid($this->invoice($rate, 'in_h1'));
+        $this->service()->handleInvoicePaid($this->invoice($rate, 'in_h2'));
+
+        $page = $this->actingAs($user)->get(route('portal.ky-cards.storico'))->assertOk();
+        $page->assertSee('rata 1 di 3')->assertSee('rata 2 di 3')->assertSee('KY gia');
+    }
+
     // ── Contestazioni ──────────────────────────────────────────────────────
 
     public function test_a_dispute_alerts_the_admin_and_touches_no_balance(): void

@@ -9,6 +9,38 @@
     <span style="color:var(--ink);">Storico acquisti</span>
 </div>
 
+{{-- ── RINNOVI MENSILI ATTIVI: da qui si disdice ───────────────────────── --}}
+@if($renewals->isNotEmpty())
+<div class="card" style="padding:14px 18px;margin-bottom:22px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:10px;">Rinnovi mensili</div>
+    @foreach($renewals as $r)
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;{{ !$loop->last ? 'padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--border);' : '' }}">
+        <div>
+            <div style="font-size:13px;font-weight:600;color:var(--ink);">{{ $r->kyCard->name ?? '—' }}</div>
+            <div style="font-size:11.5px;color:var(--ink-muted);">
+                {{ number_format($r->amount_cents / 100, 2, ',', '.') }} € al mese &middot; {{ $r->status_label }}
+                @if($r->next_billing_at && $r->status !== 'cancelling')
+                    &middot; prossimo addebito {{ $r->next_billing_at->format('d/m/Y') }}
+                @elseif($r->next_billing_at)
+                    &middot; attivo fino al {{ $r->next_billing_at->format('d/m/Y') }}
+                @endif
+            </div>
+        </div>
+        @if($r->status !== 'cancelling' && $r->user_id === $currentUser->id)
+        <form method="POST" action="{{ route('portal.ky-subscriptions.cancel', $r->uuid) }}"
+              onsubmit="return confirm('Disdire il rinnovo mensile? Il mese gia\' pagato resta valido, poi non verra\' addebitato altro.');">
+            @csrf
+            <button type="submit"
+                    style="padding:7px 14px;border-radius:7px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;font-size:12.5px;font-weight:700;cursor:pointer;">
+                Disdici rinnovo
+            </button>
+        </form>
+        @endif
+    </div>
+    @endforeach
+</div>
+@endif
+
 {{-- ── KPI STRIP (lifetime, ignorano filtri) ────────────────────────────── --}}
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;">
 
@@ -199,6 +231,15 @@
                         @elseif($p->isFailed()) Fallito
                         @else In elaborazione
                         @endif
+                        @if($p->subscription && $p->installment_no)
+                            &middot; <span style="color:var(--ink-soft);">
+                                @if($p->subscription->isInstallments())
+                                    rata {{ $p->installment_no }} di {{ $p->subscription->installments_total }}
+                                @else
+                                    rinnovo n. {{ $p->installment_no }}
+                                @endif
+                            </span>
+                        @endif
                         @if($mostraChiHaRicaricato)
                             &middot; <span style="color:var(--ink-soft);">{{ $p->user->name ?? 'Utente rimosso' }}</span>
                         @endif
@@ -223,7 +264,11 @@
             </div>
 
             <div style="text-align:right;">
-                @if($p->isCompleted())
+                @if($p->isCompleted() && (int) $p->ky_amount === 0 && $p->subscription && $p->subscription->isInstallments())
+                    {{-- Rata successiva alla prima: i KY sono arrivati tutti con la prima rata. --}}
+                    <div style="font-size:13px;color:var(--ink-muted);">—</div>
+                    <div style="font-size:10px;color:var(--ink-muted);">KY gia' accreditati</div>
+                @elseif($p->isCompleted())
                     <div style="font-size:14px;font-weight:800;color:#1d4ed8;">+{{ ky_format($p->ky_amount) }}</div>
                     <div style="font-size:10px;font-weight:700;color:#1d4ed8;">KY</div>
                 @else

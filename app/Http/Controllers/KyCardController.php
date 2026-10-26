@@ -64,7 +64,7 @@ class KyCardController extends PortalController
         // 09/09/2026: si carica anche `user` — sul conto di un'azienda a
         // ricaricare possono essere in piu' d'uno (titolare, gestori dei
         // sottoconti), e chi guarda lo storico ha diritto di sapere chi.
-        $query = KyCardPurchase::where('account_id', $currentAccount->id)->with(['kyCard', 'user'])->latest();
+        $query = KyCardPurchase::where('account_id', $currentAccount->id)->with(['kyCard', 'user', 'subscription'])->latest();
 
         if ($dal)    { $query->whereDate('created_at', '>=', $dal); }
         if ($al)     { $query->whereDate('created_at', '<=', $al); }
@@ -83,7 +83,15 @@ class KyCardController extends PortalController
         // Lista card per il filtro
         $availableCards = KyCard::orderBy('sort_order')->get(['id', 'name']);
 
-        return view('portal.ky-card-storico', compact('currentAccount', 'currentUser', 'purchases', 'totals', 'filters', 'availableCards') + [
+        // Rinnovi mensili ancora in vita sul conto: da qui il cliente puo' disdire.
+        $renewals = KyCardSubscription::where('account_id', $currentAccount->id)
+            ->where('kind', KyCardSubscription::KIND_RECURRING)
+            ->whereIn('status', [KyCardSubscription::ACTIVE, KyCardSubscription::PAST_DUE, KyCardSubscription::CANCELLING])
+            ->with('kyCard')
+            ->latest()
+            ->get();
+
+        return view('portal.ky-card-storico', compact('currentAccount', 'currentUser', 'purchases', 'totals', 'filters', 'availableCards', 'renewals') + [
             'pageTitle' => 'Storico ricariche',
             'activeNav' => 'ky-cards',
         ]);
@@ -230,6 +238,38 @@ class KyCardController extends PortalController
             'currentAccount' => $sub->account,
             'currentUser'    => $request->user(),
         ]);
+    }
+
+    // -- Disdetta del rinnovo mensile (POST /ricarica/abbonamento/{subscription}/disdetta) --
+
+    /**
+     * Solo chi ha attivato il rinnovo lo puo' disdire. Vale a fine periodo: il
+     * mese gia' pagato resta, poi Stripe non addebita piu'.
+     */
+    public function cancelSubscription(Request $request, string $subscription, KyCardSubscriptionService $subscriptions): RedirectResponse
+    {
+        $sub = KyCardSubscription::where('uuid', $subscription)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        if ($sub->isClosed() || $sub->status === KyCardSubscription::CANCELLING) {
+            return redirect()->route('portal.ky-cards.storico')
+                ->with('portal_info', 'Questo rinnovo risulta gia\' disdetto.');
+        }
+
+        try {
+            $subscriptions->cancelByCustomer($sub);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('KyCard disdetta rinnovo fallita', ['sub' => $sub->uuid, 'error' => $e->getMessage()]);
+
+            return redirect()->route('portal.ky-cards.storico')
+                ->with('portal_error', 'Non sono riuscito a disdire il rinnovo. Riprova tra poco.');
+        }
+
+        return redirect()->route('portal.ky-cards.storico')
+            ->with('portal_success', 'Rinnovo disdetto: il periodo gia\' pagato resta valido, poi non verra\' addebitato altro.');
     }
 
     // ── PAYPAL: crea ordine (AJAX) ─────────────────────────────────────────

@@ -82,6 +82,9 @@ class TransferBookingTest extends TestCase
         [$buyerCompany, $sellerCompany, $buyerAccount, $sellerAccount, $initiator] = $this->makeAccountsAndInitiator();
 
         CreditLimit::create(['account_id' => $buyerAccount->id, 'credit_limit' => 5000]);
+        // Il conto nasce con il limite giornaliero di 500 KY (Account::creating):
+        // qui si prova il tetto sotto zero, non il giornaliero.
+        $buyerAccount->forceFill(['daily_outgoing_limit' => null])->save();
         $initiator->forceFill(['negative_balance_limit' => 150000])->save();
 
         $transfer = $this->svc->book([
