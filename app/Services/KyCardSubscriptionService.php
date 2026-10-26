@@ -430,6 +430,14 @@ class KyCardSubscriptionService
             return;
         }
 
+        // Disdetta chiesta dal cliente: Stripe chiude l'abbonamento alla fine
+        // del periodo gia' pagato. Non e' un insoluto, quindi nessun alert.
+        if ($sub->status === KyCardSubscription::CANCELLING) {
+            $sub->update(['status' => KyCardSubscription::CANCELLED, 'ended_at' => $sub->ended_at ?: now(), 'last_error' => null]);
+
+            return;
+        }
+
         $this->markUnpaid($sub, null);
     }
 
