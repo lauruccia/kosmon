@@ -596,6 +596,22 @@ class KyCardSubscriptionTest extends TestCase
         $this->assertSame('cancelled', $sub->fresh()->status);
     }
 
+    public function test_a_renewal_cancelled_by_the_customer_closes_quietly_when_stripe_ends_it(): void
+    {
+        $admin = $this->makeAdmin();
+        [$user, $account] = $this->makeBuyer();
+        $sub = $this->linkStripe($this->startRecurring($this->monthlyCard(), $user, $account));
+        $this->service()->cancelByCustomer($sub);
+        Notification::fake(); // conta solo cio' che succede alla chiusura
+
+        $this->service()->handleSubscriptionDeleted((object) ['id' => 'sub_' . $sub->uuid]);
+
+        $sub->refresh();
+        $this->assertSame('cancelled', $sub->status);
+        $this->assertNotNull($sub->ended_at);
+        Notification::assertNothingSent(); // una disdetta voluta non e' un insoluto
+    }
+
     // ── Contestazioni ──────────────────────────────────────────────────────
 
     public function test_a_dispute_alerts_the_admin_and_touches_no_balance(): void
